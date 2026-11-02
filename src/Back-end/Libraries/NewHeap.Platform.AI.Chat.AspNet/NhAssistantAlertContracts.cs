@@ -158,7 +158,22 @@ public sealed record NhAssistantAlertDto(
 
     /// <summary>Why the delivery was withheld, one of <see cref="NhAssistantAlertWithholdReasons"/>; <see langword="null"/> otherwise.</summary>
     public string? WithheldReason { get; init; }
+
+    /// <summary>
+    /// The caller may dismiss the alert with <c>muteSubjectForDays</c>, so the kind tells them nothing more
+    /// about the subject for a while (FB87-11): the kind is not required and lets them mute it.
+    /// </summary>
+    public bool MayMuteSubject { get; init; }
 }
+
+/// <summary>
+/// The optional body of <c>POST alerts/{id}/dismiss</c>.
+/// </summary>
+/// <param name="MuteSubjectForDays">Also tells the caller nothing more of the alert's kind about its
+/// subject for this many days, from 1 to <see cref="NhAssistantAlertLimits.MaxSubjectMuteDays"/>; other
+/// kinds about the subject still reach them. A mute that lasts longer stays. Omitted or
+/// <see langword="null"/> only dismisses.</param>
+public sealed record NhAssistantDismissAlertRequest(int? MuteSubjectForDays);
 
 /// <summary>
 /// The subject an alert's subject belongs to, as its resolver named it when the alert was last raised.
@@ -259,6 +274,7 @@ public sealed record NhAssistantAlertUrgencyCountsDto(int Info, int Warning, int
 [JsonSerializable(typeof(NhAssistantAlertDto))]
 [JsonSerializable(typeof(NhAssistantAlertListDto))]
 [JsonSerializable(typeof(NhAssistantAlertSummaryDto))]
+[JsonSerializable(typeof(NhAssistantDismissAlertRequest))]
 [JsonSerializable(typeof(NhAssistantAdminAlertKindsDto))]
 [JsonSerializable(typeof(NhAssistantAdminAlertKindDto))]
 [JsonSerializable(typeof(NhAssistantAdminAlertKindRequest))]

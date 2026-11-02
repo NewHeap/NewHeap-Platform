@@ -43,8 +43,10 @@ internal static class NhAssistantAlertEndpoints
         enabled.MapPost("alerts/{id:guid}/dismiss", DismissAsync)
             .WithName("NhAssistantDismissAlert")
             .WithSummary("Dismiss an alert")
-            .WithDescription("Dismisses the caller's own alert, also a resolved or expired one, and returns it as the list now shows it: it leaves the caller's list, and raising it again does not reach the caller until its key changes. The first dismissal is audited as AgentAlertDismissed, content-free and, in an impersonation session, with the user who impersonates; dismissing it again changes nothing. An alert of another person, one about a subject the caller may no longer read, and an unknown one answer 404 assistant-alert-not-found.")
+            .WithDescription("Dismisses the caller's own alert, also a resolved or expired one, and returns it as the list now shows it: it leaves the caller's list, and raising it again does not reach the caller until its key changes. The first dismissal is audited as AgentAlertDismissed, content-free and, in an impersonation session, with the user who impersonates; dismissing it again changes nothing. The optional body { muteSubjectForDays } (1 to 90) also tells the caller nothing more of the alert's kind about its subject for that many days: deliveries of that kind about that subject are withheld from the caller (withheldReason subject-muted), stay in the list and leave the badge, and other kinds about the subject still reach them; a mute that lasts longer stays, and GET notifications lists the mute (subjectMutes) so PUT notifications can lift it. A required kind, or one the caller may not mute (mayMuteSubject false), answers 400 assistant-alert-subject-mute-not-allowed and a number of days out of bounds 400 assistant-alert-subject-mute-days-invalid; neither dismisses. An alert of another person, one about a subject the caller may no longer read, and an unknown one answer 404 assistant-alert-not-found.")
+            .Accepts<NhAssistantDismissAlertRequest>(isOptional: true, "application/json")
             .Produces<NhAssistantAlertDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
     }
@@ -130,10 +132,22 @@ internal static class NhAssistantAlertEndpoints
             return ContextUnavailable();
         }
 
+        // The body is optional: without one the alert is only dismissed.
+        NhAssistantDismissAlertRequest? request = null;
+        if (httpContext.Request.HasJsonContentType() && httpContext.Request.ContentLength is not 0)
+        {
+            request = await ReadBodyAsync(httpContext, NhAssistantAlertJsonSerializerContext.Default.NhAssistantDismissAlertRequest);
+            if (request is null)
+            {
+                return Error(NhAssistantAdminErrorCodes.ValidationFailed);
+            }
+        }
+
         var dismissed = await alerts.DismissAsync(
             caller.Data!,
             id,
             NhAssistantImpersonation.OriginOf(httpContext.User),
+            request?.MuteSubjectForDays,
             httpContext.RequestAborted);
         return dismissed.Success
             ? TypedResults.Json(dismissed.Data!, NhAssistantAlertJsonSerializerContext.Default.NhAssistantAlertDto)

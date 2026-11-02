@@ -334,6 +334,14 @@ public sealed record NhAssistantNotificationSettingsDto(
     /// host without alert kinds.
     /// </summary>
     public IReadOnlyList<NhAssistantAlertKindPreferenceDto> AlertKinds { get; init; } = [];
+
+    /// <summary>
+    /// The caller's mutes of one alert kind about one subject that have not ended (FB87-11), set by
+    /// dismissing an alert with <c>muteSubjectForDays</c>, the most recent first, at most 200; only of
+    /// kinds that are on and that the caller may mute. <c>PUT notifications</c> lifts them with
+    /// <c>liftSubjectMutes</c>.
+    /// </summary>
+    public IReadOnlyList<NhAssistantAlertSubjectMuteDto> SubjectMutes { get; init; } = [];
 }
 
 /// <param name="PushEnabled">Turns push notifications on or off for every browser of the caller; omitted
@@ -346,6 +354,13 @@ public sealed record NhAssistantUpdateNotificationSettingsRequest(bool? PushEnab
     /// included. A value that repeats the kind's default is always accepted.
     /// </summary>
     public IReadOnlyList<NhAssistantAlertKindPreferenceUpdateDto>? AlertKinds { get; init; }
+
+    /// <summary>
+    /// The ids of the caller's mutes of an alert kind about a subject to lift (<c>subjectMutes</c> of
+    /// <c>GET notifications</c>), at most 200; an id that is not one of the caller's mutes, or of one that
+    /// ended, changes nothing. Omitted lifts none.
+    /// </summary>
+    public IReadOnlyList<Guid>? LiftSubjectMutes { get; init; }
 }
 
 /// <summary>
@@ -380,7 +395,66 @@ public sealed record NhAssistantAlertKindPreferenceDto(
     string? DigestTime,
     bool WorkdaysOnly,
     NhAssistantAlertChannelsDto Channels,
-    IReadOnlyList<string> AvailableChannels);
+    IReadOnlyList<string> AvailableChannels)
+{
+    /// <summary>
+    /// The kind's digest times as <c>HH:mm</c> in ascending order, at most four, the first of them
+    /// <see cref="DefaultDigestTime"/>; empty for a kind delivered immediately.
+    /// </summary>
+    public IReadOnlyList<string> DefaultDigestTimes { get; init; } = [];
+
+    /// <summary>
+    /// The digest times the caller chose as <c>HH:mm</c> in ascending order, the first of them
+    /// <see cref="DigestTime"/>; <see langword="null"/> for the kind's own.
+    /// </summary>
+    public IReadOnlyList<string>? DigestTimes { get; init; }
+
+    /// <summary>The caller may choose their own quiet hours for the kind.</summary>
+    public bool MayChangeQuietHours { get; init; }
+
+    /// <summary>The kind's quiet hours, its code's or an administrator's; <see langword="null"/> for none.</summary>
+    public NhAssistantQuietHoursDto? DefaultQuietHours { get; init; }
+
+    /// <summary>The quiet hours the caller chose; <see langword="null"/> for the kind's own.</summary>
+    public NhAssistantQuietHoursDto? QuietHours { get; init; }
+
+    /// <summary>An urgent alert of the kind is delivered in quiet hours as well.</summary>
+    public bool UrgentBreaksQuietHours { get; init; }
+}
+
+/// <summary>
+/// Quiet hours in the caller's time zone, in which nothing of a kind is delivered: from <see cref="Start"/>
+/// up to <see cref="End"/>, both <c>HH:mm</c>; an end before the start spans midnight.
+/// </summary>
+public sealed record NhAssistantQuietHoursDto(string Start, string End);
+
+/// <summary>
+/// One of the caller's mutes of an alert kind about a subject (FB87-11).
+/// </summary>
+/// <param name="Id">The mute, as <c>liftSubjectMutes</c> of <c>PUT notifications</c> names it.</param>
+/// <param name="KindId">The muted kind.</param>
+/// <param name="DisplayNameKey">The front-end translation key of the kind's name.</param>
+/// <param name="SubjectType">The subject's type.</param>
+/// <param name="SubjectId">The subject's id.</param>
+/// <param name="SubjectDisplayName">The subject's name as the dismissed alert showed it.</param>
+/// <param name="MutedAt">When the caller muted it.</param>
+/// <param name="Until">When the mute ends.</param>
+public sealed record NhAssistantAlertSubjectMuteDto(
+    Guid Id,
+    string KindId,
+    string DisplayNameKey,
+    string SubjectType,
+    string SubjectId,
+    string? SubjectDisplayName,
+    DateTimeOffset MutedAt,
+    DateTimeOffset Until)
+{
+    /// <summary>The name of the subject's type in the caller's language, when the application named it.</summary>
+    public string? SubjectTypeName { get; init; }
+
+    /// <summary>Where the application shows the subject; <see langword="null"/> without a link template.</summary>
+    public string? SubjectLink { get; init; }
+}
 
 /// <param name="Push">Web Push delivers the kind.</param>
 /// <param name="InApp">The in-app notifications deliver the kind.</param>
@@ -393,6 +467,8 @@ public sealed record NhAssistantAlertChannelsDto(bool Push, bool InApp);
 public sealed record NhAssistantAlertKindPreferenceUpdateDto
 {
     private readonly string? _digestTime;
+    private readonly IReadOnlyList<string?>? _digestTimes;
+    private readonly NhAssistantQuietHoursUpdateDto? _quietHours;
 
     /// <summary>The kind's id.</summary>
     public string? Id { get; init; }
@@ -418,6 +494,42 @@ public sealed record NhAssistantAlertKindPreferenceUpdateDto
     [JsonIgnore]
     public bool DigestTimeGiven { get; private init; }
 
+    /// <summary>
+    /// The times of the caller's digests of the kind as <c>HH:mm</c>, one to four a day, in their time
+    /// zone, in place of <see cref="DigestTime"/>; <see langword="null"/> resets them to the kind's own.
+    /// </summary>
+    public IReadOnlyList<string?>? DigestTimes
+    {
+        get => _digestTimes;
+        init
+        {
+            _digestTimes = value;
+            DigestTimesGiven = true;
+        }
+    }
+
+    /// <summary>Whether the request gave <see cref="DigestTimes"/>, also as <see langword="null"/>.</summary>
+    [JsonIgnore]
+    public bool DigestTimesGiven { get; private init; }
+
+    /// <summary>
+    /// The caller's own quiet hours for the kind, in their time zone; <see langword="null"/> resets them to
+    /// the kind's own.
+    /// </summary>
+    public NhAssistantQuietHoursUpdateDto? QuietHours
+    {
+        get => _quietHours;
+        init
+        {
+            _quietHours = value;
+            QuietHoursGiven = true;
+        }
+    }
+
+    /// <summary>Whether the request gave <see cref="QuietHours"/>, also as <see langword="null"/>.</summary>
+    [JsonIgnore]
+    public bool QuietHoursGiven { get; private init; }
+
     /// <summary>Turns Web Push or the in-app notifications on or off for the kind.</summary>
     public NhAssistantAlertChannelsUpdateDto? Channels { get; init; }
 }
@@ -425,6 +537,11 @@ public sealed record NhAssistantAlertKindPreferenceUpdateDto
 /// <param name="Push">Web Push for the kind; omitted stays as it is.</param>
 /// <param name="InApp">The in-app notifications for the kind; omitted stays as it is.</param>
 public sealed record NhAssistantAlertChannelsUpdateDto(bool? Push, bool? InApp);
+
+/// <param name="Start">The first minute of the quiet hours as <c>HH:mm</c>.</param>
+/// <param name="End">The first minute after them as <c>HH:mm</c>, not the same as <paramref name="Start"/>;
+/// an end before the start spans midnight.</param>
+public sealed record NhAssistantQuietHoursUpdateDto(string? Start, string? End);
 
 /// <summary>
 /// A browser push subscription as <c>PushSubscription.toJSON()</c> returns it, plus the language of
