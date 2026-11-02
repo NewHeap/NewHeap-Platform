@@ -36,7 +36,16 @@ and AU (API and UI) built on it in parallel. The verification found two things, 
 The choices each lane made are in the "Lane choices" table below (AK1–AK10, AB1–AB12, AU1–AU10), all for Lars to
 review.
 
-Phase 2 was decided by Lars on 2026-11-02, one by one, all as advised (FB87-8 to FB87-13 below). It is not built yet.
+Phase 2 was decided by Lars on 2026-11-02, one by one, all as advised (FB87-8 to FB87-13 below), and built the same
+day in train 35: lanes AD (administration) and AR (recipients and lifecycle) first, then AT (time and the person)
+and AM (the model tool), whose migration was regenerated on top of AT's. The verification added three things in the
+train:
+- the nh-common bell no longer reads the overview again after the poll that brought a change (the rest of FB87-13,
+  see AT9);
+- the bell's release note names `@newheap/platform-common`, which the release validator requires;
+- the sample's alerts lab shows an alert the model raised, so the "Raised by AI" label can be seen.
+
+The choices of the phase 2 lanes are AD1–AD9, AR1–AR5, AT1–AT11 and AM1–AM10, all for Lars to review.
 
 ## Decisions
 
