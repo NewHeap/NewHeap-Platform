@@ -62,4 +62,8 @@
   <data name="AlertProjectDueTodayText" xml:space="preserve"><value>Er staan nog {1} taken open; de deadline is vandaag, {0}.</value></data>
   <data name="DeadlineWatchWarned" xml:space="preserve"><value>Het project moet vandaag af en heeft {0} open taken; de eigenaar en de mensen die eraan werken zijn gewaarschuwd.</value></data>
   <data name="DeadlineWatchClear" xml:space="preserve"><value>Het project moet niet vandaag af met open taken; er is niets om voor te waarschuwen.</value></data>
+  <data name="AlertDeliverableDueTitle" xml:space="preserve"><value>{0} moet over {1} dagen af</value></data>
+  <data name="AlertDeliverableDueText" xml:space="preserve"><value>De deadline is {0}, en {1}.</value></data>
+  <data name="AlertDeliverableWorkNotStarted" xml:space="preserve"><value>het werk is nog niet begonnen</value></data>
+  <data name="AlertDeliverableWorkInProgress" xml:space="preserve"><value>het werk is bezig</value></data>
 </root>

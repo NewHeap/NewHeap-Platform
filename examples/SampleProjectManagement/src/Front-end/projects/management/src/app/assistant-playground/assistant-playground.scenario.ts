@@ -400,6 +400,21 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
   ],
   admin: {
     alertKinds: PLAYGROUND_ALERT_KINDS,
+    // SPM-392 (FB87-9): the kind the deadline reviewer's model may raise, as its Rollout lists it.
+    alertModel: {
+      'sample-deadline-reviewer': [
+        {
+          kindId: 'project-deliverable-due',
+          description: 'A deliverable of the project has its deadline within the next 14 days and its work is not done.',
+          parameters: [
+            { name: 'deliverable', type: 'text', description: "The deliverable's name as the project shows it, without a file extension.", choices: [], minimum: null, maximum: null, maxLength: 80, key: true },
+            { name: 'deadline', type: 'date', description: "The deliverable's deadline.", choices: [], minimum: null, maximum: null, maxLength: null, key: true },
+            { name: 'daysLeft', type: 'whole-number', description: 'The days left until the deadline.', choices: [], minimum: 0, maximum: 14, maxLength: null, key: false },
+            { name: 'work', type: 'choice', description: "How far the deliverable's work is.", choices: ['not-started', 'in-progress'], minimum: null, maximum: null, maxLength: null, key: false }
+          ]
+        }
+      ]
+    },
     context: [
       'Sample Project Management tracks projects for divisions.',
       '',
@@ -588,6 +603,21 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
           { skillId: 'task-follow-up', description: 'Follows up completed tasks by rule.' },
           { skillId: 'deadline-risk', description: 'Judges whether an active project will miss its deadline.' }
         ]
+      },
+      {
+        // SPM-392 (FB87-9): the deadline reviewer, whose language model may raise the kind of alert
+        // project-deliverable-due through its template once an administrator switches it on, first in
+        // shadow, on the agent's Rollout.
+        source: 'code',
+        id: 'sample-deadline-reviewer',
+        displayName: 'Deadline reviewer',
+        description: "Reviews a project's deliverables and warns the project's people about one that is due soon.",
+        instructions: 'Review the deliverables of the project and their deadlines.',
+        toolSelectors: ['projects.search'],
+        mcpServerIds: [],
+        requiredPolicy: 'app.project.view',
+        autonomy: 'observe',
+        worksOnSubjectTypes: ['project']
       },
       {
         // SPM-302 and SPM-303: the project follow-up created as data, which works on projects and on

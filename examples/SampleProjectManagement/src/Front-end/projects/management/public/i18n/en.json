@@ -659,6 +659,10 @@
       "sample-deadline-watch": {
         "name": "Deadline watch",
         "description": "Warns a project's owner and the people working on it when the project is due today with open tasks."
+      },
+      "sample-deadline-reviewer": {
+        "name": "Deadline reviewer",
+        "description": "Reviews a project's deliverables and, once an administrator allows it, warns the project's people about a deliverable that is due soon."
       }
     },
     "policies": {
@@ -669,6 +673,9 @@
     "alert-kinds": {
       "project-due-today": {
         "name": "Project due today"
+      },
+      "project-deliverable-due": {
+        "name": "Deliverable due soon"
       }
     }
   },
