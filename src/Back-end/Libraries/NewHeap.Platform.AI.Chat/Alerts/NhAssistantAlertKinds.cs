@@ -1,4 +1,5 @@
 using System.Globalization;
+using NewHeap.Platform.AI.Chat.Entities;
 
 namespace NewHeap.Platform.AI.Chat;
 
@@ -54,14 +55,56 @@ public enum NhAssistantAlertChoices
     /// <summary>The person may stop receiving the kind. Never for a kind that is <see cref="NhAssistantAlertKind.Required"/>.</summary>
     Mute = 1,
 
-    /// <summary>The person may choose the time of the daily digest that delivers the kind.</summary>
+    /// <summary>
+    /// The person may choose the times of the digests that deliver the kind, one to
+    /// <see cref="AssistantAlertKindSetting.MaxDigestTimes"/> a day, for a kind delivered in digests.
+    /// </summary>
     DigestTime = 2,
 
     /// <summary>The person may choose the channels that deliver the kind, such as Web Push or the in-app notifications.</summary>
     Channels = 4,
 
+    /// <summary>
+    /// The person may choose their own quiet hours for the kind, in place of the kind's: nothing of it is
+    /// delivered to them in those hours (<see cref="NhAssistantAlertDeliveryBuilder.QuietHours"/>).
+    /// </summary>
+    QuietHours = 8,
+
     /// <summary>Everything a person may change.</summary>
-    All = Mute | DigestTime | Channels
+    All = Mute | DigestTime | Channels | QuietHours
+}
+
+/// <summary>
+/// Quiet hours of a kind's delivery, in a person's time zone: from <see cref="Start"/> up to
+/// <see cref="End"/>, across midnight when the end comes before the start, such as 22:00 to 07:00. A
+/// delivery that would go out in them moves to the first digest time after they end, or to their end
+/// for a delivery that goes out immediately; an urgent alert of a kind that lets urgent alerts through
+/// (<see cref="NhAssistantAlertKindBuilder.UrgentBreaksQuietHours"/>) goes out all the same.
+/// </summary>
+/// <param name="Start">The first minute of the quiet hours.</param>
+/// <param name="End">The first minute after the quiet hours; never the same as <paramref name="Start"/>.</param>
+public sealed record NhAssistantAlertQuietHours(TimeOnly Start, TimeOnly End)
+{
+    /// <summary>Whether the clock showing <paramref name="time"/> is within the quiet hours.</summary>
+    public bool Contains(TimeOnly time)
+    {
+        return Start <= End
+            ? time >= Start && time < End
+            : time >= Start || time < End;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="start"/> and <paramref name="end"/> make quiet hours: whole minutes that differ.
+    /// </summary>
+    public static bool IsValid(TimeOnly start, TimeOnly end)
+    {
+        return start != end && IsWholeMinute(start) && IsWholeMinute(end);
+    }
+
+    internal static bool IsWholeMinute(TimeOnly time)
+    {
+        return time.Second == 0 && time.Millisecond == 0 && time.Microsecond == 0 && time.Nanosecond == 0;
+    }
 }
 
 /// <summary>
@@ -206,23 +249,39 @@ public sealed class NhAssistantAlertRecipients
 }
 
 /// <summary>
-/// When the alerts of a kind reach people unless a person chose otherwise: immediately, or in one
-/// daily digest at <see cref="DigestTime"/> in the person's time zone, on every day or on working days
-/// only, and immediately anyway from <see cref="ImmediatelyFrom"/>. The assistant's delivery reads it;
-/// the alert list shows every alert at once whatever its delivery.
+/// When the alerts of a kind reach people unless a person chose otherwise: immediately, or in daily
+/// digests at <see cref="DigestTimes"/> in the person's time zone, on every day or on working days only,
+/// and immediately anyway from <see cref="ImmediatelyFrom"/>; never in <see cref="QuietHours"/>. The
+/// assistant's delivery reads it; the alert list shows every alert at once whatever its delivery.
 /// </summary>
-/// <param name="Mode">Immediately or in the daily digest.</param>
-/// <param name="DigestTime">The time of day of the digest, for <see cref="NhAssistantAlertDeliveryMode.DailyDigest"/>.</param>
-/// <param name="WorkdaysOnly">The digest goes out on working days only.</param>
-/// <param name="ImmediatelyFrom">An alert of this urgency or higher is delivered immediately instead of in the digest.</param>
+/// <param name="Mode">Immediately or in the daily digests.</param>
+/// <param name="DigestTime">The time of day of the first digest, for <see cref="NhAssistantAlertDeliveryMode.DailyDigest"/>.</param>
+/// <param name="WorkdaysOnly">The digests go out on working days only.</param>
+/// <param name="ImmediatelyFrom">An alert of this urgency or higher is delivered immediately instead of in a digest.</param>
 public sealed record NhAssistantAlertDelivery(
     NhAssistantAlertDeliveryMode Mode,
     TimeOnly? DigestTime,
     bool WorkdaysOnly,
     NhAssistantAlertUrgency? ImmediatelyFrom)
 {
+    private readonly IReadOnlyList<TimeOnly>? _digestTimes;
+
     /// <summary>Delivered as soon as an alert is raised. The default of a kind.</summary>
     public static NhAssistantAlertDelivery Immediately { get; } = new(NhAssistantAlertDeliveryMode.Immediately, null, false, null);
+
+    /// <summary>
+    /// The times of day of the digests in ascending order, at most
+    /// <see cref="AssistantAlertKindSetting.MaxDigestTimes"/>, the first of them <see cref="DigestTime"/>;
+    /// empty for a kind delivered immediately.
+    /// </summary>
+    public IReadOnlyList<TimeOnly> DigestTimes
+    {
+        get => _digestTimes ?? (DigestTime is { } time ? [time] : []);
+        init => _digestTimes = value;
+    }
+
+    /// <summary>When nothing of the kind is delivered, in the person's time zone; <see langword="null"/> for none.</summary>
+    public NhAssistantAlertQuietHours? QuietHours { get; init; }
 
     /// <summary>
     /// Whether an alert of <paramref name="urgency"/> is delivered immediately under this delivery.
@@ -232,6 +291,32 @@ public sealed record NhAssistantAlertDelivery(
         return Mode == NhAssistantAlertDeliveryMode.Immediately
             || (ImmediatelyFrom is { } from && urgency >= from);
     }
+
+    public bool Equals(NhAssistantAlertDelivery? other)
+    {
+        return other is not null
+            && Mode == other.Mode
+            && DigestTime == other.DigestTime
+            && WorkdaysOnly == other.WorkdaysOnly
+            && ImmediatelyFrom == other.ImmediatelyFrom
+            && DigestTimes.SequenceEqual(other.DigestTimes)
+            && QuietHours == other.QuietHours;
+    }
+
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Mode);
+        hash.Add(WorkdaysOnly);
+        hash.Add(ImmediatelyFrom);
+        hash.Add(QuietHours);
+        foreach (var time in DigestTimes)
+        {
+            hash.Add(time);
+        }
+
+        return hash.ToHashCode();
+    }
 }
 
 /// <summary>
@@ -240,9 +325,10 @@ public sealed record NhAssistantAlertDelivery(
 public sealed class NhAssistantAlertDeliveryBuilder
 {
     private NhAssistantAlertDeliveryMode _mode = NhAssistantAlertDeliveryMode.Immediately;
-    private TimeOnly? _digestTime;
+    private IReadOnlyList<TimeOnly> _digestTimes = [];
     private bool _workdaysOnly;
     private NhAssistantAlertUrgency? _immediatelyFrom;
+    private NhAssistantAlertQuietHours? _quietHours;
 
     internal NhAssistantAlertDeliveryBuilder()
     {
@@ -252,7 +338,7 @@ public sealed class NhAssistantAlertDeliveryBuilder
     public NhAssistantAlertDeliveryBuilder Immediately()
     {
         _mode = NhAssistantAlertDeliveryMode.Immediately;
-        _digestTime = null;
+        _digestTimes = [];
         return this;
     }
 
@@ -262,13 +348,49 @@ public sealed class NhAssistantAlertDeliveryBuilder
     /// </summary>
     public NhAssistantAlertDeliveryBuilder DailyDigest(TimeOnly at)
     {
-        if (at.Second != 0 || at.Millisecond != 0 || at.Microsecond != 0)
+        return DailyDigests(at);
+    }
+
+    /// <summary>
+    /// Delivers the alerts in digests at each of <paramref name="times"/> a day, such as 07:30 and 13:00,
+    /// in the person's time zone: one to <see cref="AssistantAlertKindSetting.MaxDigestTimes"/> whole
+    /// minutes. An alert goes out in the first digest after it is raised.
+    /// </summary>
+    public NhAssistantAlertDeliveryBuilder DailyDigests(params TimeOnly[] times)
+    {
+        ArgumentNullException.ThrowIfNull(times);
+        var distinct = times.Distinct().Order().ToArray();
+        if (distinct.Length is 0 or > AssistantAlertKindSetting.MaxDigestTimes)
         {
-            throw new ArgumentOutOfRangeException(nameof(at), "A digest time is a whole minute.");
+            throw new ArgumentOutOfRangeException(
+                nameof(times),
+                $"A kind has one to {AssistantAlertKindSetting.MaxDigestTimes} digest times a day.");
+        }
+        if (distinct.Any(time => !NhAssistantAlertQuietHours.IsWholeMinute(time)))
+        {
+            throw new ArgumentOutOfRangeException(nameof(times), "A digest time is a whole minute.");
         }
 
         _mode = NhAssistantAlertDeliveryMode.DailyDigest;
-        _digestTime = at;
+        _digestTimes = distinct;
+        return this;
+    }
+
+    /// <summary>
+    /// Delivers nothing of the kind from <paramref name="start"/> up to <paramref name="end"/> in the
+    /// person's time zone, whole minutes that differ; an end before the start spans midnight, such as
+    /// 22:00 to 07:00. A digest that would go out in them waits for the first digest time after they end,
+    /// and an alert delivered immediately waits for their end, unless it is urgent and the kind lets
+    /// urgent alerts through (<see cref="NhAssistantAlertKindBuilder.UrgentBreaksQuietHours"/>).
+    /// </summary>
+    public NhAssistantAlertDeliveryBuilder QuietHours(TimeOnly start, TimeOnly end)
+    {
+        if (!NhAssistantAlertQuietHours.IsValid(start, end))
+        {
+            throw new ArgumentOutOfRangeException(nameof(end), "Quiet hours start and end at different whole minutes.");
+        }
+
+        _quietHours = new NhAssistantAlertQuietHours(start, end);
         return this;
     }
 
@@ -302,7 +424,11 @@ public sealed class NhAssistantAlertDeliveryBuilder
                 $"Alert kind '{kindId}' is delivered immediately, so WorkdaysOnly and ImmediatelyFrom do not apply. Call DailyDigest first.");
         }
 
-        return new NhAssistantAlertDelivery(_mode, _digestTime, _workdaysOnly, _immediatelyFrom);
+        return new NhAssistantAlertDelivery(_mode, _digestTimes.Count > 0 ? _digestTimes[0] : null, _workdaysOnly, _immediatelyFrom)
+        {
+            DigestTimes = _digestTimes,
+            QuietHours = _quietHours
+        };
     }
 }
 
@@ -383,6 +509,12 @@ public sealed class NhAssistantAlertKind
     public bool ResolveWhenNotRaised { get; internal init; }
 
     /// <summary>
+    /// An urgent alert of the kind is delivered during quiet hours as well, the kind's and a person's own;
+    /// see <see cref="NhAssistantAlertKindBuilder.UrgentBreaksQuietHours"/>.
+    /// </summary>
+    public bool UrgentBreaksQuietHours { get; internal init; }
+
+    /// <summary>
     /// The application's check that says whether an open alert of the kind still applies when the
     /// application revalidates its subject (<see cref="INhAssistantAlerts.RevalidateAsync"/>);
     /// <see langword="null"/> leaves the kind's alerts alone.
@@ -414,6 +546,7 @@ public sealed class NhAssistantAlertKindBuilder
     private NhAssistantAlertPushContent _pushShows = NhAssistantAlertPushContent.TitleOnly;
     private NhAssistantAlertAdminChoices _adminChoices = NhAssistantAlertAdminChoices.All;
     private bool _resolveWhenNotRaised;
+    private bool _urgentBreaksQuietHours;
     private Type? _checkType;
 
     internal NhAssistantAlertKindBuilder(string id)
@@ -590,6 +723,17 @@ public sealed class NhAssistantAlertKindBuilder
     }
 
     /// <summary>
+    /// Lets an urgent alert of the kind through quiet hours: it goes out when it is due as if there were
+    /// none, whether the quiet hours are the code's, an administrator's or a person's own. Without it an
+    /// urgent alert waits for the end of the quiet hours as every other alert does.
+    /// </summary>
+    public NhAssistantAlertKindBuilder UrgentBreaksQuietHours()
+    {
+        _urgentBreaksQuietHours = true;
+        return this;
+    }
+
+    /// <summary>
     /// Declares the application's check of the kind's open alerts (FB87-10): when the application calls
     /// <see cref="INhAssistantAlerts.RevalidateAsync"/> for a subject, <typeparamref name="TCheck"/> says
     /// for each open alert of the kind about it whether it still applies or is resolved. The check is
@@ -638,6 +782,7 @@ public sealed class NhAssistantAlertKindBuilder
         {
             AdministratorChoices = _adminChoices,
             ResolveWhenNotRaised = _resolveWhenNotRaised,
+            UrgentBreaksQuietHours = _urgentBreaksQuietHours,
             CheckType = _checkType
         };
     }
