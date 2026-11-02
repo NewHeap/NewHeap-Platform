@@ -146,6 +146,7 @@ describe('NhAssistantStore with an agent offered only for chats about a subject 
   const subject = { subjectType: 'project', subjectId: 'p-1', subjectDisplayName: 'Alpha migration' };
   const projects: AgentSummary = { id: 'projects', version: 1, displayNameKey: 'agents.projects', descriptionKey: 'agents.projects', canMutate: true };
   const projectChat: AgentSummary = { id: 'project-chat', version: 1, displayNameKey: 'agents.project-chat', descriptionKey: 'agents.project-chat', canMutate: false };
+  const tasks: AgentSummary = { id: 'tasks', version: 1, displayNameKey: 'agents.tasks', descriptionKey: 'agents.tasks', canMutate: false };
 
   function codeAgent(agent: AgentSummary, worksOn: Partial<NhAssistantMockAdminAgent>): NhAssistantMockAdminAgent {
     return {
@@ -253,6 +254,31 @@ describe('NhAssistantStore with an agent offered only for chats about a subject 
     expect(store.selectedAgentId()).toBe('projects');
   });
 
+  it('chooses the agent of a new chat as soon as the person starts one, and the picker shows that agent', async () => {
+    const fixture = await render(subjectOnly([projects, tasks]));
+    const store = TestBed.inject(NhAssistantStore);
+    await store.initialize();
+    await store.setChatSubject(subject);
+    TestBed.inject(NhAssistantPanelService).open({ agentId: projectChat.id });
+    await settle(fixture);
+    await store.send('What is the status?');
+    await settle(fixture);
+    expect(store.selectedAgentId()).toBe('project-chat');
+
+    // "+" in the panel: the next chat is about nothing in particular, so the status offers its agents.
+    store.startNewConversation();
+    await settle(fixture);
+
+    const picker = TestBed.inject(OverlayContainer).getContainerElement()
+      .querySelector<HTMLSelectElement>('nh-assistant-agent-picker select')!;
+    expect(store.selectedAgentId()).toBe('projects');
+    expect(picker.value).toBe('projects');
+
+    expect(await store.send('Which projects are late?')).toBeTrue();
+    await settle(fixture);
+    expect(store.activeConversation()?.agentId).toBe('projects');
+  });
+
   it('leaves the choice alone while the agents of the subject load', async () => {
     const fixture = await render(subjectOnly());
     const store = TestBed.inject(NhAssistantStore);
@@ -263,14 +289,16 @@ describe('NhAssistantStore with an agent offered only for chats about a subject 
     await settle(fixture);
     await store.send('What is the status?');
     await settle(fixture);
-    store.startNewConversation();
-    expect(store.selectedAgentId()).toBe('project-chat');
 
     const listed = new Subject<AgentSummary[]>();
     const agents = spyOn(api, 'agents').and.returnValue(listed);
     const started = store.setChatSubject({ subjectType: 'project', subjectId: 'p-1' });
     await settle(fixture);
     expect(agents).toHaveBeenCalled();
+
+    // "+" while they load chooses nothing either.
+    store.startNewConversation();
+    expect(store.selectedAgentId()).toBe('project-chat');
 
     // A status that arrives now knows nothing of the subject's agents, so it does not choose.
     await store.reloadStatus();

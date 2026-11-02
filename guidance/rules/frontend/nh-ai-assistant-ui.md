@@ -111,6 +111,7 @@ open chat when a next chat does not offer it, so that the picker names the agent
 server), otherwise those of the status; `store.agents()` also knows those agents for lookups. The store keeps the chosen agent among
 those agents whenever it reads the status, which it does before every message, so a first message goes
 to an agent the status leaves out. The agent of the open chat stays chosen as long as the store knows it,
+`startNewConversation()` chooses again among the agents of a new chat when that agent is not one of them,
 a status that arrives while a subject's agents load chooses nothing, and for a subject without agents the
 server refuses the chosen agent with `assistant-agent-does-not-work-on` instead of the message being
 dropped. `requireChatSubject` and `chatsAbout` of a mock agent (`NhAssistantMockAdminAgent`) make the mock

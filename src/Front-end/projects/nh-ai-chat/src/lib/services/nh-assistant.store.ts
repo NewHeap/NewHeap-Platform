@@ -869,12 +869,14 @@ export class NhAssistantStore {
 
   /**
    * Leaves the open conversation; the next message creates a new one. Turns of other
-   * conversations keep running in the background.
+   * conversations keep running in the background. The agent of the left chat stays chosen only when a
+   * new chat offers it too, so the picker shows the agent the next message goes to.
    */
   startNewConversation(): void {
     this.activeIdState.set(null);
     this.uiState.update({ conversationId: null });
     this.draftErrorState.set(null);
+    this.selectAgentOfChat();
   }
 
   /**
