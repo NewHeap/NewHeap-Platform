@@ -112,11 +112,47 @@ policy (the generator reports `NHAI014` otherwise), and the agent registration
 grants the tool. Declare `ApprovalPolicy` on the tool when approvers must satisfy
 a different policy than callers. An agent that answers for itself never
 executes a non-read effect without approval: the default effect policy turns
-every such call into a proposal and denies issuer tools. The audit record names
+every such call into a proposal and denies issuer tools. The one exception is
+running a kind of action without approval, described below. The audit record names
 the grant source (`NhAiGrantSource.Delegated` or `Agent`), the agent, the
 accountable owner and the proposal, so reviewers can tell elevated calls from
 calls within a person's own rights. The contract hash of a tool changes when it
 opts in, so existing approvals for that tool expire.
+
+Running a kind of action without approval (FB82, SPM-391) is the one exception
+to that rule, and it takes two keys as well. The tool's key is in code:
+`AllowWithoutApproval = true` on `NhAiToolAttribute` says that what the tool does
+is reversible and of low risk, so that people who approve it as a rule may let an
+agent do it on its own. Weigh it as a change of the trust in the agents: set it
+only on a change of the application's own data that a person can undo, that
+affects no one outside the application and that people approve almost always,
+such as ticking off a task; never on a payment, a message to an external party,
+an irreversible or a bulk change. The generator refuses it (`NHAI019`) without
+agent exposure and an authorization policy, and for any effect other than
+`IdempotentMutation` or `Mutation`, an approval the platform does not decide
+(`Issuer`, `ConsumerAuthoritative`) and a tool that declares `RequireIndividualDecision`, whose effect a
+person must decide on its own; `NhAiWithoutApproval.Validate` refuses the
+same for a hand-built or attested catalog, and the invoker never lifts an approval
+for such a contract. MCP imports, compositions and the script tool never allow it.
+The key changes the tool's contract hash. The administrator's key is data: a
+switch per agent and tool (`INhAssistantWithoutApprovalSwitches`, see
+`nh-ai-agent-runs`), first in shadow and only from shadow live. The governed
+invoker asks the registered `INhAiWithoutApprovalSwitches` only when the default
+effect policy asked for an approval a switch may lift (`approval-required`,
+`agent-accountable-approval-required`, `effect-requires-approval`; an
+application's own effect policy that asks with another code keeps its approval)
+and no approval evidence exists, and only for an agent's own work
+(`NhAiInvocationContext.IsAgentWork`) in an agent scope of that agent that does
+not require approval for every effect, outside a person's turn and without a
+proposal it executes. Live, the call runs with every other rule intact: the
+invocation gate, capabilities, budgets, concurrency, idempotency and the verifier.
+The context carries `WithoutApproval` with the switch's version, and every audit
+record of the call has the approval code `without-approval`
+(`NhAiWithoutApproval.ApprovalCode`) with `WithoutApprovalMode = Live` and
+`WithoutApprovalSwitchVersion`. In shadow the call still returns
+`ai-tool-approval-required` and becomes the proposal it was; its approval-required
+record says `Shadow` with the version. Without the assistant every call stays off.
+Grants and approvals otherwise never become data.
 
 Who approves a proposal of the assistant is a named approval policy that code resolves. When it depends
 on the proposal itself, such as four eyes only while a second person may approve, choose among registered
@@ -181,6 +217,9 @@ approval evidence, and a call the tool makes internally carries none.
 ## Avoid
 
 - Adding `AllowAgentGrant` to a tool merely so that an agent can call it, without a policy that approvers are checked against.
+- Adding `AllowWithoutApproval` to a tool whose effect cannot be undone, leaves the application or
+  changes much at once, or to every tool of a set; or registering an own `INhAiWithoutApprovalSwitches`
+  or effect policy to let calls run without approval outside the audited switch.
 - Letting people approve an irreversible effect, such as an external message, among hundreds of routine proposals at once; declare `RequireIndividualDecision` on its tool.
 
 - Treating a conversational confirmation as approval.
@@ -217,7 +256,13 @@ codes, and that a delegating effect decision is rejected for a tool that did not
 opt in. Issue a grant through an issuer tool and consume it through the consuming
 write; assert the audit codes `issuer` and the validated or denied consumer code,
 and assert the generator rejects an issuer that declares a Platform idempotency
-lease. For every refusal, assert that the audit record's `ResultCode` equals the
+lease. For a tool that allows running without approval, assert that the switches
+are never asked without the code key, for a contract that may not allow it, in a
+scope that requires approval for every effect, outside agent work or for another
+agent; that a live decision runs the call with the approval code
+`without-approval` and the switch's version on its audit records, and that a
+shadow decision still requires approval with `Shadow` on the record
+(`NhAiWithoutApprovalTests`). For every refusal, assert that the audit record's `ResultCode` equals the
 `code` of the shared tool result (`NhAiToolResult.CodePropertyName`), as the
 library's own tests do for each exit of the invoker. SPM-224, SPM-240 and `NewHeap.Platform.AI.Tests` are the executable
 references.
