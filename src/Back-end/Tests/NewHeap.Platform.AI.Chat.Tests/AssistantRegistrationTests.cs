@@ -274,6 +274,9 @@ public sealed class AssistantRegistrationTests
                     // The kind of an alert event, a dash-case id registered with AddAlertKind (FB87);
                     // never the alert's key, parameters or texts.
                     or "AlertKind"
+                    // The names of the settings of an alert kind an administrator changed, dash-case
+                    // codes such as digest-times (FB87 phase 2); never their values or the reason.
+                    or "ChangedFields"
                     or "EqualityContract",
             $"{property.Name} is not an identifier, code or timestamp."));
     }
