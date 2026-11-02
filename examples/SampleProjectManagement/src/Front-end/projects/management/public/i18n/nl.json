@@ -776,5 +776,14 @@
       "off-for-agent": "uit in de eigen definitie van de agent",
       "off-by-application": "hier uitgezet"
     }
+  },
+  "alerts-page": {
+    "navigation": "Attenties",
+    "title": "Attenties",
+    "description": "Waarschuwingen over de projecten waaraan je werkt, zoals een project dat vandaag af moet terwijl er nog taken openstaan. Er wacht niets op je goedkeuring: lees een attentie, open het project of leg haar weg, en kies hoe attenties je bereiken.",
+    "compact-list": "Compacte lijst",
+    "unread": "{{count}} ongelezen",
+    "bell": "Attenties",
+    "bell-unread": "Attenties, {{count}} ongelezen"
   }
 }

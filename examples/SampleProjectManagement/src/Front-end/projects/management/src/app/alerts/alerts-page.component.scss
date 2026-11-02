@@ -1,0 +1,12 @@
+@use '../../../../../styles/playground' as pg;
+
+:host { display: block; }
+@include pg.shell('.alerts-lab');
+@include pg.panel('.alerts-grid article');
+@include pg.badge('.case-badge');
+.case-badge { white-space: nowrap; }
+
+.alerts-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: 14px; margin-top: 18px; align-items: start; }
+.density-toggle { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; }
+
+@media (max-width: 1100px) { .alerts-grid { grid-template-columns: 1fr; } }

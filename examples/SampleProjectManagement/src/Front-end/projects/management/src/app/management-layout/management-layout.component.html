@@ -21,6 +21,14 @@
       }
       @if (canUseAssistant()) {
         <a class="nav-item" routerLink="/management/chat" routerLinkActive="active"><i class="ph ph-chats-circle" aria-hidden="true"></i>{{ 'project.assistant-chat-nav' | translate }}</a>
+        <!-- SPM-392: the person's alerts, with the number of unread ones. -->
+        <a class="nav-item" routerLink="/management/alerts" routerLinkActive="active" data-alerts-nav>
+          <i class="ph ph-bell" aria-hidden="true"></i>{{ 'alerts-page.navigation' | translate }}
+          @if (alertBadge.unread() > 0) {
+            <span class="nav-count" [attr.data-urgency]="alertBadge.highestUrgency()" aria-hidden="true">{{ alertBadge.unread() > 99 ? '99+' : alertBadge.unread() }}</span>
+            <span class="visually-hidden">{{ 'alerts-page.unread' | translate: { count: alertBadge.unread() } }}</span>
+          }
+        </a>
       }
       <a class="nav-item" routerLink="/management/assistant" routerLinkActive="active"><i class="ph ph-sparkle" aria-hidden="true"></i>{{ 'project.assistant-playground-nav' | translate }}</a>
       @if (canAdministerAssistant()) {
@@ -59,6 +67,21 @@
       </div>
       <div class="topbar-actions">
         <span class="connection" [attr.data-mode]="connectionState.mode()" role="status" aria-live="polite"><span></span>{{ connectionState.labelKey() | translate }}</span>
+        @if (canUseAssistant()) {
+          <!-- SPM-392: the bell counts the unread alerts, coloured by the highest urgency, and opens the list. -->
+          <a
+            class="alerts-bell"
+            routerLink="/management/alerts"
+            data-alerts-bell
+            [attr.data-urgency]="alertBadge.highestUrgency()"
+            [attr.aria-label]="(alertBadge.unread() > 0 ? 'alerts-page.bell-unread' : 'alerts-page.bell') | translate: { count: alertBadge.unread() }"
+            [attr.title]="(alertBadge.unread() > 0 ? 'alerts-page.bell-unread' : 'alerts-page.bell') | translate: { count: alertBadge.unread() }">
+            <i class="ph ph-bell" aria-hidden="true"></i>
+            @if (alertBadge.unread() > 0) {
+              <span class="bell-count" aria-hidden="true">{{ alertBadge.unread() > 99 ? '99+' : alertBadge.unread() }}</span>
+            }
+          </a>
+        }
         <nh-assistant-launcher />
         <app-sample-user-menu profileRoute="/management/profile" />
       </div>

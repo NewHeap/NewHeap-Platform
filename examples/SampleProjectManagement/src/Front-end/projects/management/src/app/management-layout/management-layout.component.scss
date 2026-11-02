@@ -35,6 +35,15 @@ h1 { overflow: hidden; margin: 0; font-size: clamp(18px, 2vw, 23px); line-height
 .menu-button { display: none; place-items: center; width: 40px; height: 40px; flex: 0 0 40px; border: 1px solid var(--line); border-radius: var(--radius-control); color: var(--ink); background: var(--surface); }
 .menu-button .ph { font-size: 21px; }
 .topbar-actions { display: flex; align-items: center; gap: 14px; }
+// SPM-392: the count of unread alerts; strong colour only for an urgent one.
+.nav-count { margin-left: auto; min-width: 20px; padding: 1px 6px; border-radius: 999px; color: var(--nh-white); background: rgb(255 255 255 / .14); font-size: 11px; font-weight: 750; text-align: center; }
+.nav-count[data-urgency='urgent'] { color: var(--accent-ink); background: var(--accent); }
+.alerts-bell { position: relative; display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 40px; border: 1px solid var(--line); border-radius: var(--radius-control); color: var(--ink); background: var(--surface); text-decoration: none; }
+.alerts-bell .ph { font-size: 20px; }
+.alerts-bell:hover { background: var(--surface-subtle); }
+.bell-count { position: absolute; top: -6px; right: -6px; min-width: 18px; padding: 1px 5px; border: 2px solid var(--canvas); border-radius: 999px; color: var(--nh-white); background: var(--primary); font-size: 10px; font-weight: 800; line-height: 14px; text-align: center; }
+.alerts-bell[data-urgency='urgent'] .bell-count { color: var(--accent-ink); background: var(--accent); }
+.alerts-bell[data-urgency='warning'] .bell-count { color: var(--nh-ink); background: var(--warning); }
 .connection { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; font-weight: 650; white-space: nowrap; }
 .connection > span { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); }
 .connection[data-mode='connected'] > span { background: var(--success); }

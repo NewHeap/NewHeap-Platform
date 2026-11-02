@@ -1,0 +1,26 @@
+<section class="alerts-lab" id="alerts">
+  <header>
+    <div>
+      <h2>{{ 'alerts-page.title' | translate }}</h2>
+      <p>{{ 'alerts-page.description' | translate }}</p>
+    </div>
+    <span class="case-badge"><i class="ph ph-bell-ringing" aria-hidden="true"></i> SPM-392</span>
+  </header>
+
+  <div class="alerts-grid">
+    <article class="list-card">
+      <!-- SPM-392: one compact row per alert for a long list. -->
+      <label class="density-toggle">
+        <input type="checkbox" data-compact-alerts [checked]="density() === 'compact'" (change)="toggleDensity()" />
+        {{ 'alerts-page.compact-list' | translate }}
+      </label>
+      <!-- The list groups the alerts per division, the parent every project names; it never navigates. -->
+      <nh-assistant-alerts [grouped]="true" [density]="density()" (openSubject)="openSubject($event)" />
+    </article>
+
+    <article class="preferences-card">
+      <!-- SPM-392: how the alerts reach the person, in their own time zone. -->
+      <nh-assistant-notification-preferences />
+    </article>
+  </div>
+</section>

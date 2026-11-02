@@ -1,6 +1,11 @@
 import { Component, HostListener, OnDestroy, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { NhAssistantLauncherComponent, NhAssistantPanelComponent, NhAssistantPushService } from '@newheap/platform-ai-chat';
+import {
+  NhAssistantAlertBadgeService,
+  NhAssistantLauncherComponent,
+  NhAssistantPanelComponent,
+  NhAssistantPushService
+} from '@newheap/platform-ai-chat';
 import { NhAuthService } from '@newheap/platform-common';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subscription, filter } from 'rxjs';
@@ -29,8 +34,11 @@ export class ManagementLayoutComponent implements OnDestroy {
   private readonly auth = inject(NhAuthService);
   private readonly navigationSubscription: Subscription;
   private readonly notifiedRunSubscription: Subscription;
+  private readonly releaseAlertBadge?: () => void;
 
   readonly connectionState = inject(SampleApiConnectionStateService);
+  /** SPM-392: the person's unread alerts, which the bell and the navigation count. */
+  readonly alertBadge = inject(NhAssistantAlertBadgeService);
   readonly navigationOpen = signal(false);
   readonly pageTitle = signal('Samplecatalogus');
 
@@ -48,11 +56,18 @@ export class ManagementLayoutComponent implements OnDestroy {
     // conversations. The shell subscribes, so a notification that opens a new window finds it.
     this.notifiedRunSubscription = inject(NhAssistantPushService).openRun$
       .subscribe(runId => void this.router.navigate(['/management/intake-reviews'], { queryParams: { run: runId } }));
+
+    // SPM-392: the shell keeps the badge of the person's alerts current while it shows: on load, on
+    // focus, every few minutes and after the person's own actions on the alerts page.
+    if (this.canUseAssistant()) {
+      this.releaseAlertBadge = this.alertBadge.watch();
+    }
   }
 
   ngOnDestroy(): void {
     this.navigationSubscription.unsubscribe();
     this.notifiedRunSubscription.unsubscribe();
+    this.releaseAlertBadge?.();
   }
 
   canAdministerBackgroundOperations(): boolean {

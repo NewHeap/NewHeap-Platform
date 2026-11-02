@@ -776,5 +776,14 @@
       "off-for-agent": "off in the agent's own definition",
       "off-by-application": "switched off here"
     }
+  },
+  "alerts-page": {
+    "navigation": "Alerts",
+    "title": "Alerts",
+    "description": "Warnings about the projects you work on, such as a project that is due today while tasks are still open. Nothing waits for your approval: read an alert, open its project or dismiss it, and choose how alerts reach you.",
+    "compact-list": "Compact list",
+    "unread": "{{count}} unread",
+    "bell": "Alerts",
+    "bell-unread": "Alerts, {{count}} unread"
   }
 }

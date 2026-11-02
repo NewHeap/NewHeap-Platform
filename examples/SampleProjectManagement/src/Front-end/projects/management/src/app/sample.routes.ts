@@ -148,6 +148,15 @@ export const SAMPLE_ROUTES: Routes = [
           .then(module => module.IntakeReviewsPageComponent)
       },
       {
+        // SPM-392: the person's alerts and how they reach them; the shell's bell counts the unread ones.
+        path: 'alerts',
+        title: 'Alerts',
+        canActivate: [NhIsOnePermissionGrantedGuard],
+        data: { oneMatchPermissions: ['app.assistant.access'] },
+        loadComponent: () => import('./alerts/alerts-page.component')
+          .then(module => module.AlertsPageComponent)
+      },
+      {
         // SPM-336: a bundle of Markdown documents read with nh-assistant-document.
         path: 'handbook',
         title: 'Project handbook',
