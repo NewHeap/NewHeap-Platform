@@ -255,7 +255,13 @@ next run of the reviewer on that project starts from the rejection and the appro
 words, so it does not propose the same change again unchanged. Administrators read the
 rejection rate and the categories per tool and agent version and export the feedback as
 JSON Lines; the sample's `SampleProposalFeedbackLog` forwards each feedback to the
-application's analytics without its text.
+application's analytics without its text. The summary also says how long people take to decide,
+the median and the 90th percentile from proposal to approval or rejection, and the
+administration's Kinds of action section compares each kind of action over all agents. Per agent
+it marks a kind as a candidate for running without approval when the numbers meet the thresholds
+it explains: with the sample's development thresholds three quick approvals of status requests
+are enough, until a rejection takes the candidate away again. The section only suggests; every
+proposal still waits for its approver, and only administrators see it.
 The agent's work also appears on the project itself (SPM-280): the project directory shows a
 badge per project from one summary request, the project dialog shows the open proposals of
 every agent on the project with the viewer's decision rights, and opening the conversation with
