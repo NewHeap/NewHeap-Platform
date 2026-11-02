@@ -779,6 +779,11 @@ public sealed class AssistantApplicationMessageTests(AssistantDatabaseFixture da
             _applicationMessages.Enqueue(conversationId);
             return Task.CompletedTask;
         }
+
+        public Task<NhAssistantAlertChannelOutcome> AlertAsync(NhAssistantAlertPush alert, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(NhAssistantAlertChannelOutcome.Skipped);
+        }
     }
 
     /// <summary>

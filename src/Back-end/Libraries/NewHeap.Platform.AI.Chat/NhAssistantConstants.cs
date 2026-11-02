@@ -846,6 +846,36 @@ public static class NhAssistantErrorCodes
     public const string PushSubscriptionInvalid = "assistant-push-subscription-invalid";
 
     /// <summary>
+    /// A change of the caller's notification preferences (<c>PUT notifications</c>) names an alert kind
+    /// that is not registered. Nothing was saved.
+    /// </summary>
+    public const string NotificationKindUnknown = "assistant-notification-kind-unknown";
+
+    /// <summary>
+    /// A change of the caller's notification preferences mutes an alert kind that is required or does
+    /// not let people mute it. Nothing was saved.
+    /// </summary>
+    public const string NotificationMuteNotAllowed = "assistant-notification-mute-not-allowed";
+
+    /// <summary>
+    /// A change of the caller's notification preferences sets a digest time for an alert kind that is
+    /// delivered immediately or does not let people choose the time. Nothing was saved.
+    /// </summary>
+    public const string NotificationDigestTimeNotAllowed = "assistant-notification-digest-time-not-allowed";
+
+    /// <summary>
+    /// A change of the caller's notification preferences turns a channel off for an alert kind that does
+    /// not let people choose its channels. Nothing was saved.
+    /// </summary>
+    public const string NotificationChannelsNotAllowed = "assistant-notification-channels-not-allowed";
+
+    /// <summary>
+    /// A digest time in a change of the caller's notification preferences is not a time of day as
+    /// <c>HH:mm</c>, such as <c>07:30</c>. Nothing was saved.
+    /// </summary>
+    public const string NotificationDigestTimeInvalid = "assistant-notification-digest-time-invalid";
+
+    /// <summary>
     /// An impersonation session (an access token with the NewHeap impersonation origin) acts as the
     /// person, but does not grant anything in the person's name that outlives the session: consent to
     /// background use of an MCP server, a personal MCP connection (starting or completing its OAuth

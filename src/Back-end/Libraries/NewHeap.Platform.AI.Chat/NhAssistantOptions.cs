@@ -83,6 +83,12 @@ public sealed class NhAssistantOptions
     public NhAssistantPushOptions Push { get; set; } = new();
 
     /// <summary>
+    /// The delivery of alerts (<c>NewHeap:AI:Assistant:Alerts</c>): the application's time zone for the
+    /// daily digest and the host's alert list.
+    /// </summary>
+    public NhAssistantAlertOptions Alerts { get; set; } = new();
+
+    /// <summary>
     /// The thresholds by which the view per kind of action marks candidates for running without
     /// approval (<c>NewHeap:AI:Assistant:RoutineCandidates</c>); read for every request of the view.
     /// </summary>
