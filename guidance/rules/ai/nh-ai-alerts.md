@@ -3,9 +3,9 @@ id: nh-ai-alerts
 title: "Warn people about an object with alerts of a kind declared in code, raised by rules and by the application without a proposal"
 area: backend
 reference: ai-alerts
-summary: "Declare each kind of alert in code with AddAlertKind, let an agent's rules raise and resolve the kinds it lists with WithAlerts and ResolveAlerts, raise them from the application's code with INhAssistantAlerts, and rely on one open alert per kind, subject and key, on the recipient check before anything reaches a person, on expiry and on the bounded retention; the run maintenance delivers them immediately or in one daily digest per person in their time zone through Web Push, the in-app notifications and the application's channels, as each person chose per kind."
+summary: "Declare each kind of alert in code with AddAlertKind, let an agent's rules raise and resolve the kinds it lists with WithAlerts and ResolveAlerts, raise them from the application's code with INhAssistantAlerts, and rely on one open alert per kind, subject and key, on the recipient check before anything reaches a person, on expiry and on the bounded retention; the run maintenance delivers them immediately or in one daily digest per person in their time zone through Web Push, the in-app notifications and the application's channels, as each person chose per kind. People read, dismiss and count their own alerts through GET alerts with nh-assistant-alerts, the badge service and nh-assistant-notification-preferences."
 sample-cases: ["SPM-392"]
-public-symbols: ["AddAlertKind", "NhAssistantAlertKindBuilder", "NhAssistantAlertKind", "NhAssistantAlertUrgency", "NhAssistantAlertRecipients", "NhAssistantAlertRecipientSelector", "NhAssistantAlertDelivery", "NhAssistantAlertDeliveryBuilder", "NhAssistantAlertDeliveryMode", "NhAssistantAlertChoices", "NhAssistantAlertPushContent", "NhAssistantAgentRunBuilder.Alerts", "AlertKinds", "NhAssistantRuleResult.WithAlerts", "NhAssistantRuleResult.ResolveAlerts", "AlertsToResolve", "NhAssistantAlert", "NhAssistantAlertKey", "INhAssistantAlerts", "NhAssistantAlertReceipt", "NhAssistantAlertOutcome", "INhAssistantAlertPolicy", "NhAssistantAlertRecipientContext", "NhAssistantDefaultAlertPolicy", "UseAlertPolicy", "NhAssistantAlertCodes", "NhAssistantAlertLimits", "NhAssistantAlertStatuses", "NhAssistantAlertDeliveryStatuses", "NhAssistantAlertDropReasons", "MaxAlertsPerRun", "MaxAlertsPerSubjectPerDay", "AlertRetention", "AssistantAlert", "AssistantAlertDelivery", "NhAssistantAuditEventKind.AgentAlertRaised", "NhAssistantAuditEventKind.AgentAlertResolved", "NhAssistantAuditEventKind.AgentAlertDismissed", "NhAssistantAuditEventKind.AgentAlertRecipientDropped", "NhAssistantAuditEvent.AlertId", "NhAssistantAuditEvent.AlertKind", "NhAssistantAuditEvent.AlertRevision", "NhAssistantAuditEvent.AlertRecipientCount", "NhAssistantAlertOptions", "ConfigureAlerts", "INhAssistantPersonTimeZones", "UsePersonTimeZones", "INhAssistantAlertChannel", "AddAlertChannel", "NhAssistantAlertMessage", "NhAssistantAlertMessageItem", "NhAssistantAlertWithholdReasons", "NhAssistantAlertDeliveryStatuses.Withheld", "MaxAlertsPerPersonPerDay", "MaxAlertDigestLines", "AssistantNotificationPreference", "NhAssistantAlertKindPreferenceDto", "NhAssistantAlertChannelsDto", "NhAssistantAlertKindPreferenceUpdateDto", "NhAssistantAlertChannelsUpdateDto", "NhAssistantErrorCodes.NotificationKindUnknown", "NhAssistantErrorCodes.NotificationMuteNotAllowed", "NhAssistantErrorCodes.NotificationDigestTimeNotAllowed", "NhAssistantErrorCodes.NotificationChannelsNotAllowed", "NhAssistantErrorCodes.NotificationDigestTimeInvalid", "openAlerts$", "NhAssistantAlertNotificationClick", "alertsUrl"]
+public-symbols: ["AddAlertKind", "NhAssistantAlertKindBuilder", "NhAssistantAlertKind", "NhAssistantAlertUrgency", "NhAssistantAlertRecipients", "NhAssistantAlertRecipientSelector", "NhAssistantAlertDelivery", "NhAssistantAlertDeliveryBuilder", "NhAssistantAlertDeliveryMode", "NhAssistantAlertChoices", "NhAssistantAlertPushContent", "NhAssistantAgentRunBuilder.Alerts", "AlertKinds", "NhAssistantRuleResult.WithAlerts", "NhAssistantRuleResult.ResolveAlerts", "AlertsToResolve", "NhAssistantAlert", "NhAssistantAlertKey", "INhAssistantAlerts", "NhAssistantAlertReceipt", "NhAssistantAlertOutcome", "INhAssistantAlertPolicy", "NhAssistantAlertRecipientContext", "NhAssistantDefaultAlertPolicy", "UseAlertPolicy", "NhAssistantAlertCodes", "NhAssistantAlertLimits", "NhAssistantAlertStatuses", "NhAssistantAlertDeliveryStatuses", "NhAssistantAlertDropReasons", "MaxAlertsPerRun", "MaxAlertsPerSubjectPerDay", "AlertRetention", "AssistantAlert", "AssistantAlertDelivery", "NhAssistantAuditEventKind.AgentAlertRaised", "NhAssistantAuditEventKind.AgentAlertResolved", "NhAssistantAuditEventKind.AgentAlertDismissed", "NhAssistantAuditEventKind.AgentAlertRecipientDropped", "NhAssistantAuditEvent.AlertId", "NhAssistantAuditEvent.AlertKind", "NhAssistantAuditEvent.AlertRevision", "NhAssistantAuditEvent.AlertRecipientCount", "NhAssistantAlertOptions", "ConfigureAlerts", "INhAssistantPersonTimeZones", "UsePersonTimeZones", "INhAssistantAlertChannel", "AddAlertChannel", "NhAssistantAlertMessage", "NhAssistantAlertMessageItem", "NhAssistantAlertWithholdReasons", "NhAssistantAlertDeliveryStatuses.Withheld", "MaxAlertsPerPersonPerDay", "MaxAlertDigestLines", "AssistantNotificationPreference", "NhAssistantAlertKindPreferenceDto", "NhAssistantAlertChannelsDto", "NhAssistantAlertKindPreferenceUpdateDto", "NhAssistantAlertChannelsUpdateDto", "NhAssistantErrorCodes.NotificationKindUnknown", "NhAssistantErrorCodes.NotificationMuteNotAllowed", "NhAssistantErrorCodes.NotificationDigestTimeNotAllowed", "NhAssistantErrorCodes.NotificationChannelsNotAllowed", "NhAssistantErrorCodes.NotificationDigestTimeInvalid", "openAlerts$", "NhAssistantAlertNotificationClick", "alertsUrl", "NhAssistantAlertListStatuses", "NhAssistantAlertUrgencyNames", "NhAssistantAlertListDto", "NhAssistantAlertDto", "NhAssistantAlertParentDto", "NhAssistantAlertGroupDto", "NhAssistantAlertSubjectGroupDto", "NhAssistantAlertSummaryDto", "NhAssistantAlertUrgencyCountsDto", "NhAssistantAlertJsonSerializerContext", "NhAssistantAlertsComponent", "NhAssistantAlertBadgeService", "NhAssistantNotificationPreferencesComponent", "NhAssistantAlertDensity", "AlertSubjectTarget", "NotificationAlertKind", "NotificationAlertKindChange", "UpdateNotificationSettingsRequest", "getAlerts", "getAlertSummary", "markAlertRead", "dismissAlert", "updateNotificationPreferences"]
 skills: ["newheap-backend-development", "newheap-background-processing"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -125,6 +125,52 @@ apply the `Alerts` and `NotificationPreferences` migrations of the SQL Server or
 storage before raising the first alert. Everything is opt-in; an application without alert kinds sees
 no change.
 
+### A person's alerts: the API and the components
+
+`MapNewHeapAssistant` maps a person's side of alerts with the access policy of the assistant
+endpoints, and each endpoint reads only the caller's own deliveries. `GET alerts` lists them the most
+recently raised first, paged as the approval inbox pages (`page`, `itemsPerPage` up to 100), with the
+title and text written in the caller's language, the kind and its name key, the urgency (`info`,
+`warning`, `urgent`, `NhAssistantAlertUrgencyNames`), the subject with its parent and their links, and
+the caller's state as `status` (`NhAssistantAlertListStatuses`): `unread` or `read` while the alert is
+open, `resolved` or `expired` once it closed, `dismissed` once the caller dismissed it. A delivery that was
+withheld from the caller's channels, such as for a kind they muted, is `unread` with `isWithheld` and its
+`withheldReason`; the badge does not count a muted one. Filter with
+`status` (one of those, or `open` and `closed`), `kind`, `subjectType` with `subjectId` and `urgency`;
+without a status the list shows every alert the caller did not dismiss. `grouped=true` groups by the
+parent the subject's resolver names, as the inbox groups. `GET alerts/summary` gives a badge its
+unread count in total and per urgency. `POST alerts/{id}/read` and `POST alerts/{id}/dismiss` are
+idempotent and return the alert as the list now shows it; a read delivery that still waits for a
+digest is not sent, and the first dismissal is audited as `AgentAlertDismissed`, with the user who
+impersonates in an impersonation session. Every alert passes the recipient check again with the
+caller's tenant when it is read, so a person who lost access to a subject no longer reads its stored
+text: it leaves the list and the counts, and its id answers `404 assistant-alert-not-found`, as do
+another person's alerts. A malformed filter answers `400 assistant-alert-filter-invalid`.
+
+In Angular, `@newheap/platform-ai-chat` shows the list with `nh-assistant-alerts`
+(`NhAssistantAlertsComponent`): grouped by default, `density: 'compact'` for one row per alert, read
+and dismiss in place, resolved and expired alerts shown as such, and `openSubject` with the subject
+and its link, which the host routes; the component never navigates. `NhAssistantAlertBadgeService`
+gives the shell its badge: call `watch()` where the badge shows and the function it returns when it
+no longer does; it reads the counts on load, on focus and visibility, every five minutes while the page
+is visible and after the person's own actions. `nh-assistant-notification-preferences`
+(`NhAssistantNotificationPreferencesComponent`) shows the push switch of `NhAssistantPushService`, the
+person's time zone and per kind what the kind lets them change, and saves through `PUT notifications`.
+`NhAssistantApiService` has `getAlerts`, `getAlertSummary`, `markAlertRead`, `dismissAlert` and
+`updateNotificationPreferences`; `provideNhAssistantMockApi` serves all of it from the scenario's
+`alerts` without a server.
+
+```typescript
+// The shell: a bell with the unread count, coloured by the highest urgency.
+readonly alertBadge = inject(NhAssistantAlertBadgeService);
+private readonly release = this.alertBadge.watch();
+
+// The alerts page: the host routes the subject of an opened alert.
+openSubject(target: AlertSubjectTarget): void {
+  void this.router.navigateByUrl(target.link ?? `/projects/${target.subjectId}`);
+}
+```
+
 ## Avoid
 
 - Raising a proposal, or an application message in a thread, to warn a person about an object.
@@ -139,6 +185,9 @@ no change.
 - A channel that throws for one failed message or writes an alert's texts into its logs.
 - Keeping digest times or mutes per person in the application; they are the person's choices in the
   assistant's preferences, which the kind bounds.
+- Reading the alert store yourself for a person's list or badge instead of `GET alerts`, which checks
+  every alert against the person's access again.
+- Navigating from inside the alert list, or polling the summary yourself next to the badge service.
 
 ## Verification
 
@@ -158,3 +207,10 @@ that the daily limit holds, that two dispatchers never send one delivery twice a
 channel does not stop the others. Assert that `PUT notifications` changes only the caller's choices and
 refuses what a kind does not allow. Run the store tests on SQL Server and PostgreSQL. SPM-392 is the
 executable reference.
+
+For a person's side, read `GET alerts` as the recipient and assert the title in their language, the
+subject's link and the groups per parent across pages; mark one read and dismiss one twice and assert
+the badge's counts and one `AgentAlertDismissed`. Assert that another person, a person who lost access
+to the subject and an impersonation session's origin user list nothing and get `404` for the id, on
+SQL Server and PostgreSQL. In Angular, render the list and the notification choices on
+`provideNhAssistantMockApi` with an `alerts` scenario.

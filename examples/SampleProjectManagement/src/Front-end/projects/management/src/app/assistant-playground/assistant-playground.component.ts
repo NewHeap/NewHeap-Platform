@@ -14,6 +14,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { AssistantPlaygroundAccess } from './assistant-playground-access';
 import {
   ASSISTANT_PLAYGROUND_ADMIN_ROUTE,
+  ASSISTANT_PLAYGROUND_ALERTS_ROUTE,
   ASSISTANT_PLAYGROUND_PROMPTS,
   PLAYGROUND_CHANGED_REMOTE_TOOLS,
   PLAYGROUND_COLLEAGUE,
@@ -54,6 +55,8 @@ export class AssistantPlaygroundComponent {
   readonly featureEnabled = this.backend.enabled;
   readonly adminGranted = this.backend.canAdminister;
   readonly adminRoute = ASSISTANT_PLAYGROUND_ADMIN_ROUTE;
+  /** SPM-392: the alert list, the badge and the notification choices on the mock API. */
+  readonly alertsRoute = ASSISTANT_PLAYGROUND_ALERTS_ROUTE;
   readonly schemaChangeSimulated = signal(false);
   readonly projectPages = PLAYGROUND_PROJECT_PAGES;
   readonly pageContext = inject(SampleAssistantPageContext);

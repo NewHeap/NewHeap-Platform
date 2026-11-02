@@ -562,7 +562,9 @@
       "assistant-step-chain-stopped": "Not run: an earlier step stopped the call.",
       "assistant-step-arguments-invalid": "The arguments of a step were not valid.",
       "assistant-step-host-unavailable": "Steps cannot run here.",
-      "assistant-composition-step-result-unavailable": "A step needed the result of an earlier step that had none."
+      "assistant-composition-step-result-unavailable": "A step needed the result of an earlier step that had none.",
+      "assistant-alert-not-found": "This alert no longer exists or is not yours to see.",
+      "assistant-alert-filter-invalid": "The alerts could not be filtered this way."
     },
     "notices": {
       "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",
@@ -1102,6 +1104,91 @@
       "connecting": "Waiting for the authorization…",
       "connected": "{{name}} is connected.",
       "retry": "Ask again"
+    },
+    "alerts": {
+      "title": "Alerts",
+      "description": "Warnings about your work that ask for your attention, the most recent first. There is nothing to approve.",
+      "description-grouped": "Warnings about your work that ask for your attention, grouped by what they belong to. There is nothing to approve.",
+      "refresh": "Refresh",
+      "loading": "Loading your alerts",
+      "load-failed": "Your alerts could not be loaded.",
+      "retry": "Try again",
+      "filter": {
+        "label": "Show",
+        "active": "All alerts",
+        "unread": "Unread",
+        "read": "Read",
+        "open": "Open",
+        "closed": "Resolved or expired",
+        "resolved": "Resolved",
+        "expired": "Expired",
+        "dismissed": "Dismissed"
+      },
+      "empty": {
+        "active": "You have no alerts.",
+        "unread": "You have no unread alerts.",
+        "read": "You have no read alerts.",
+        "open": "You have no open alerts.",
+        "closed": "You have no resolved or expired alerts.",
+        "resolved": "You have no resolved alerts.",
+        "expired": "You have no expired alerts.",
+        "dismissed": "You have not dismissed any alerts."
+      },
+      "status": {
+        "unread": "New",
+        "read": "Read",
+        "resolved": "Resolved",
+        "expired": "Expired",
+        "dismissed": "Dismissed"
+      },
+      "urgency": {
+        "info": "Information",
+        "warning": "Warning",
+        "urgent": "Urgent"
+      },
+      "untitled": "An alert about {{subject}}",
+      "mark-read": "Mark as read",
+      "dismiss": "Dismiss",
+      "group-count": "{{count}} of {{total}}",
+      "group-continued": "Continued from the previous page",
+      "group-continues": "Continues on the next page",
+      "pages": "Pages of your alerts",
+      "previous": "Previous",
+      "next": "Next",
+      "page": "Page {{page}} of {{pages}}",
+      "withheld": {
+        "muted": "Muted",
+        "other": "Not notified"
+      }
+    },
+    "notification-preferences": {
+      "title": "Notifications",
+      "alerts-label": "Alerts",
+      "description": "Choose how alerts reach you. Your alert list always shows every alert; required alerts always reach you.",
+      "time-zone": "Times are in your time zone, {{timeZone}}.",
+      "no-kinds": "There are no alerts to choose for.",
+      "required": "Required",
+      "receive": "Receive these alerts",
+      "delivery-immediately": "Delivered as soon as they are raised.",
+      "delivery-digest": "Delivered in the daily overview at {{time}}.",
+      "delivery-digest-workdays": "Delivered in the daily overview at {{time}} on working days.",
+      "digest-time": "Time of the daily overview",
+      "digest-default": "Default: {{time}}",
+      "digest-default-immediately": "Default: as soon as they are raised",
+      "digest-time-invalid": "Enter a time such as 07:30.",
+      "reset": "Use the default",
+      "channels": "Channels",
+      "channel": {
+        "push": "Desktop notifications",
+        "in-app": "Notifications in the application"
+      },
+      "save": "Save notification choices",
+      "saving": "Saving your choices",
+      "saved": "Your notification choices are saved.",
+      "back": "Close notification choices",
+      "loading": "Loading your notification choices",
+      "load-failed": "Your notification choices could not be loaded.",
+      "retry": "Try again"
     }
   }
 }

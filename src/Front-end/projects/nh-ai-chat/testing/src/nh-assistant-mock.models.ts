@@ -15,6 +15,8 @@ import {
   AgentRunStatus,
   AgentSummary,
   AgentTriggerReceipt,
+  Alert,
+  AlertStatus,
   AssistantDataClassification,
   AssistantPreferences,
   AssistantStatus,
@@ -26,6 +28,7 @@ import {
   DataTriggerRequest,
   McpDiscovery,
   McpServerInput,
+  NotificationAlertKind,
   AssistantAccount,
   ApprovalPresentation,
   NhAssistantConsultationLeaveRoute,
@@ -798,7 +801,30 @@ export interface NhAssistantMockScenario {
    * Default: no scanner, as on a server without one.
    */
   scanUpload?: (upload: NhAssistantMockUpload) => 'refused' | 'failed' | null;
+  /**
+   * The signed-in person's alerts and their choices per kind (FB87): `GET alerts` lists `items`, the most
+   * recently raised first, `GET alerts/summary` counts the unread ones, and `GET notifications` lists `kinds`
+   * and `timeZone`. Without it the mock answers as a server without alerts: an empty list and no kinds.
+   */
+  alerts?: NhAssistantMockAlertScenario;
 }
+
+/** The person's alerts and notification choices of the mock (`NhAssistantMockScenario.alerts`). */
+export interface NhAssistantMockAlertScenario {
+  items?: NhAssistantMockAlert[];
+  /** The kinds the person receives, with what each lets them change. */
+  kinds?: NotificationAlertKind[];
+  /** The person's time zone. Default `Europe/Amsterdam`. */
+  timeZone?: string;
+}
+
+/**
+ * An alert of the mock: the fields of `Alert` that matter for a scenario, the others filled in. `status`
+ * sets the person's state; `updatedAt` orders the list, the most recent first.
+ */
+export type NhAssistantMockAlert = Pick<Alert, 'id' | 'kindId' | 'urgency' | 'title' | 'subjectType' | 'subjectId'>
+  & Partial<Omit<Alert, 'id' | 'kindId' | 'urgency' | 'title' | 'subjectType' | 'subjectId' | 'status'>>
+  & { status?: AlertStatus };
 
 /** A consultation of an agent by another assistant, as the consulted agent's thread lists it. */
 export interface NhAssistantMockConsultation {

@@ -43,7 +43,13 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-file-upload-invalid',
     'assistant-file-too-many-pages',
     'assistant-file-count-limit',
-    'assistant-file-token-limit'
+    'assistant-file-token-limit',
+    'assistant-alert-filter-invalid',
+    'assistant-notification-kind-unknown',
+    'assistant-notification-mute-not-allowed',
+    'assistant-notification-digest-time-not-allowed',
+    'assistant-notification-channels-not-allowed',
+    'assistant-notification-digest-time-invalid'
   ],
   401: [
     'assistant-webhook-signature-invalid'
@@ -66,6 +72,7 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
   ],
   404: [
     'assistant-disabled',
+    'assistant-alert-not-found',
     'assistant-conversation-not-found',
     'assistant-agent-not-found',
     'assistant-metadata-entry-not-found',

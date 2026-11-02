@@ -2,6 +2,7 @@ import { Injectable, InjectionToken, inject, signal } from '@angular/core';
 import {
   AgentConsultationList,
   AgentUploads,
+  Alert,
   AnswerQuestionRequest,
   ApplicationMessageDetails,
   ApprovalPart,
@@ -23,6 +24,7 @@ import {
   NH_ASSISTANT_CONFIG,
   NhAssistantSseEvent,
   NhAssistantUploadRequest,
+  NotificationAlertKind,
   QuestionPart,
   ResolveApprovalRequest,
   SendMessageRequest,
@@ -34,6 +36,7 @@ import {
 } from '@newheap/platform-ai-chat';
 import { Observable, Subject } from 'rxjs';
 import { NhAssistantMockAdmin } from './nh-assistant-mock-admin';
+import { NhAssistantMockAlerts } from './nh-assistant-mock-alerts';
 import { NhAssistantMockResult, mockFailure } from './nh-assistant-mock-admin-shared';
 import { NhAssistantMockAgentPackages } from './nh-assistant-mock-agent-packages';
 import { NhAssistantMockFiles } from './nh-assistant-mock-files';
@@ -45,6 +48,7 @@ import { NhAssistantMockSubjects, divisionSubjectId } from './nh-assistant-mock-
 import { mockSystemSubjectType } from './nh-assistant-mock-works-on';
 import { NhAssistantMockAuthorizationWindow } from './nh-assistant-mock-authorization';
 import {
+  NhAssistantMockAlert,
   NhAssistantMockApprovalStep,
   NhAssistantMockInstructionAsset,
   NhAssistantMockPerson,
@@ -188,6 +192,8 @@ export class NhAssistantMockBackend {
   private readonly activeActors = new Map<string, string>();
   private readonly liveSubject = new Subject<NhAssistantMockLiveMessage>();
   private readonly files = new NhAssistantMockFiles(this.scenario.refuseUpload, this.scenario.scanUpload);
+  /** The person's alerts and their choices per kind (FB87). */
+  private readonly alerts = new NhAssistantMockAlerts(this.scenario.alerts, () => new Date().toISOString());
   private pushEnabled = true;
   private sequence = 0;
 
@@ -284,6 +290,27 @@ export class NhAssistantMockBackend {
     this.emitLive({ kind: 'event', data: { conversationId, actorId: 'application', type: 'message.created', data: stored } });
     this.emitChanged(conversationId);
     return stored;
+  }
+
+  /**
+   * Raises an alert for the signed-in person, as a rule or the application's code would, or updates the
+   * one with the same id. The alert list and the badge show it on their next read.
+   */
+  raiseAlert(alert: NhAssistantMockAlert): Alert {
+    return this.alerts.raise(alert);
+  }
+
+  /**
+   * Replaces or adds a kind in the person's notification choices, as when the application changes its
+   * alert kinds in code; `GET notifications` lists it from the next read.
+   */
+  setAlertKind(kind: NotificationAlertKind): void {
+    this.alerts.setKind(kind);
+  }
+
+  /** Resolves one of the person's alerts; the alert list shows it as resolved. */
+  resolveAlert(alertId: string): void {
+    this.alerts.resolve(alertId);
   }
 
   /** Switches the simulated `NewHeap:AI:Assistant:Enabled` flag. */
@@ -436,11 +463,22 @@ export class NhAssistantMockBackend {
     if (segments[0] === 'mcp-connections') {
       return this.result(this.admin.handleMcpConnections(method, segments, body));
     }
+    if (segments[0] === 'alerts') {
+      return this.result(this.alerts.handle(method, segments, query) ?? { status: 404 });
+    }
     if (path === 'notifications') {
       if (method === 'PUT') {
-        this.pushEnabled = (body as { pushEnabled?: boolean } | undefined)?.pushEnabled === true;
+        const update = body as { pushEnabled?: unknown; alertKinds?: unknown } | undefined;
+        // The choices per alert kind apply together with the push switch, or neither does.
+        const refused = this.alerts.update(update?.alertKinds);
+        if (refused) {
+          return this.result(refused);
+        }
+        if (typeof update?.pushEnabled === 'boolean') {
+          this.pushEnabled = update.pushEnabled;
+        }
       }
-      return this.json(200, { pushEnabled: this.pushEnabled, pushAvailable: false, publicKey: null });
+      return this.json(200, { pushEnabled: this.pushEnabled, pushAvailable: false, publicKey: null, ...this.alerts.settings() });
     }
     if (path === 'notifications/push-subscription') {
       return this.error('assistant-push-unavailable');

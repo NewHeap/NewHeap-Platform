@@ -158,12 +158,94 @@ const longReport = [
   '3. Add alerting to the Gamma ingestion pipeline.'
 ].join('\n');
 
+/** The route of the alerts on the mock API, the same page as the portal's Alerts page (SPM-392). */
+export const ASSISTANT_PLAYGROUND_ALERTS_ROUTE = '/management/assistant/alerts';
+
+const playgroundDivision = {
+  subjectType: 'nh-division',
+  subjectId: 'north',
+  displayName: 'North',
+  subjectTypeName: 'Division'
+};
+
+/**
+ * SPM-392: the deadline watch's alerts as the mock API keeps them, so the alert list, the badge and the
+ * notification choices run without the assistant back-end: two projects of one division due today, one
+ * of them urgent, and one of another division that was resolved once its tasks were done.
+ */
+const PLAYGROUND_ALERTS: NonNullable<NhAssistantMockScenario['alerts']> = {
+  timeZone: 'Europe/Amsterdam',
+  items: [
+    {
+      id: 'playground-alert-alpha',
+      kindId: 'project-due-today',
+      urgency: 'urgent',
+      title: 'PRJ-ALPHA is due today',
+      text: '3 tasks are still open; the deadline is today.',
+      subjectType: 'project',
+      subjectId: 'alpha',
+      subjectDisplayName: 'Alpha migration',
+      subjectTypeName: 'Project',
+      subjectLink: '/management/intake-reviews?project=alpha',
+      parent: playgroundDivision,
+      updatedAt: '2026-11-02T07:30:00Z'
+    },
+    {
+      id: 'playground-alert-gamma',
+      kindId: 'project-due-today',
+      urgency: 'warning',
+      title: 'PRJ-GAMMA is due today',
+      text: '1 task is still open; the deadline is today.',
+      subjectType: 'project',
+      subjectId: 'gamma',
+      subjectDisplayName: 'Gamma analytics',
+      subjectTypeName: 'Project',
+      subjectLink: '/management/intake-reviews?project=gamma',
+      parent: playgroundDivision,
+      updatedAt: '2026-11-02T07:20:00Z'
+    },
+    {
+      id: 'playground-alert-beta',
+      kindId: 'project-due-today',
+      urgency: 'warning',
+      title: 'PRJ-BETA is due today',
+      text: 'The tasks are done.',
+      status: 'resolved',
+      subjectType: 'project',
+      subjectId: 'beta',
+      subjectDisplayName: 'Beta onboarding',
+      subjectTypeName: 'Project',
+      subjectLink: '/management/intake-reviews?project=beta',
+      parent: { ...playgroundDivision, subjectId: 'south', displayName: 'South' },
+      updatedAt: '2026-11-02T06:00:00Z'
+    }
+  ],
+  kinds: [
+    {
+      id: 'project-due-today',
+      displayNameKey: 'nh-assistant.alert-kinds.project-due-today.name',
+      urgency: 'warning',
+      required: false,
+      mayMute: true,
+      mayChangeDigestTime: true,
+      mayChooseChannels: true,
+      muted: false,
+      defaultDigestTime: '07:30',
+      digestTime: null,
+      workdaysOnly: true,
+      channels: { push: true, inApp: true },
+      availableChannels: ['push', 'in-app']
+    }
+  ]
+};
+
 /**
  * Scripted assistant turns for the management playground. The mock API from
  * `@newheap/platform-ai-chat/testing` plays them as contract events, so the panel runs
  * without the assistant back-end.
  */
 export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
+  alerts: PLAYGROUND_ALERTS,
   agents: [
     {
       id: PROJECT_ASSISTANT_ID,

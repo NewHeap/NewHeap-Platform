@@ -10,9 +10,9 @@ import {
 import { nhAssistantErrorKeys, toNhAssistantError } from '../../internal/nh-assistant-errors';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantMcpConnectionsComponent } from './nh-assistant-mcp-connections.component';
+import { NhAssistantPushSwitchComponent } from '../../internal/nh-assistant-push-switch.component';
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
 import { NhAssistantApiService } from '../../services/nh-assistant-api.service';
-import { NhAssistantPushService } from '../../services/nh-assistant-push.service';
 import { NhAssistantError } from '../../services/nh-assistant.store';
 
 /** Maximum length of the user's own instructions. */
@@ -30,14 +30,13 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-preferences',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantMcpConnectionsComponent],
+  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantMcpConnectionsComponent, NhAssistantPushSwitchComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-preferences.component.html',
   styleUrl: './nh-assistant-preferences.component.scss'
 })
 export class NhAssistantPreferencesComponent {
   private readonly api = inject(NhAssistantApiService);
-  readonly push = inject(NhAssistantPushService);
   private subscription?: Subscription;
 
   /** Emitted when the user leaves the preferences. */
@@ -94,15 +93,9 @@ export class NhAssistantPreferencesComponent {
     });
   }
 
-  /** Turns desktop notifications on or off; turning them on asks the browser for permission. */
-  async toggleNotifications(event: Event): Promise<void> {
-    const enabled = (event.target as HTMLInputElement).checked;
-    this.error.set(null);
-    try {
-      await this.push.setEnabled(enabled);
-    } catch (error) {
-      this.error.set(toNhAssistantError(error));
-    }
+  /** Shows why desktop notifications could not be turned on or off. */
+  onPushFailed(error: unknown): void {
+    this.error.set(toNhAssistantError(error));
   }
 
   onInstructionsInput(event: Event): void {

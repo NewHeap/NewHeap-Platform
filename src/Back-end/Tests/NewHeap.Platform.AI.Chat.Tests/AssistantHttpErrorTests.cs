@@ -79,6 +79,8 @@ public sealed class AssistantHttpErrorTests
     [InlineData(NhAssistantErrorCodes.QuestionNotPending, StatusCodes.Status409Conflict)]
     [InlineData(NhAssistantErrorCodes.QuestionExpired, StatusCodes.Status409Conflict)]
     [InlineData(NhAssistantErrorCodes.QuestionAnswerInvalid, StatusCodes.Status400BadRequest)]
+    [InlineData(NhAssistantAlertCodes.NotFound, StatusCodes.Status404NotFound)]
+    [InlineData(NhAssistantAlertCodes.FilterInvalid, StatusCodes.Status400BadRequest)]
     [InlineData("application-own-code", StatusCodes.Status400BadRequest)]
     public void A_code_answers_its_one_status(string code, int status)
     {

@@ -20,8 +20,10 @@ namespace SampleProjectManagement.Core.Tests;
 /// <summary>
 /// SPM-392: the deadline watch warns the people of a project due today with an alert, not a proposal.
 /// Two morning rounds are one alert, the application's own warning of more people reaches only those
-/// who read the project, and the watch resolves the alert once the tasks are done. The warning arrives
-/// in the 07:30 digest where each person works, and not for a person who muted its kind.
+/// who read the project, each of them reads it through <c>GET alerts</c> in their language and marks it
+/// read or dismisses it, an outsider reads nothing, and the watch resolves the alert once the tasks are
+/// done. The warning arrives in the 07:30 digest where each person works, and not for a person who
+/// muted its kind.
 /// </summary>
 public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : IClassFixture<AssistantAlertSampleHost>
 {
@@ -65,6 +67,37 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
         Assert.Equal(warned.Data.AlertId, colleagues.Data!.AlertId);
         Assert.Equal(3, colleagues.Data.RecipientCount);
 
+        // Each of them reads the one stored alert in their own list, written in their language, with the
+        // project as its subject and its link; the badge counts it as unread.
+        using var participant = host.CreateClient(host.ParticipantId.ToString());
+        using var reader = host.CreateClient(host.ReaderId.ToString());
+        using var outsider = host.CreateClient(host.OutsiderId.ToString());
+        var alert = Assert.Single((await ListAlertsAsync(owner)).Items);
+        Assert.Equal(
+            (warned.Data.AlertId, SampleDeadlineAlertsComposition.KindId, SampleDeadlineAlertsComposition.KindNameKey, NhAssistantAlertUrgencyNames.Warning, NhAssistantAlertListStatuses.Unread),
+            (alert.Id, alert.KindId, alert.DisplayNameKey, alert.Urgency, alert.Status));
+        Assert.EndsWith(" is due today", alert.Title);
+        Assert.Contains("2 tasks are still open", alert.Text);
+        Assert.Equal((ProjectSubjects.Type, ProjectSubjects.IdOf(project)), (alert.SubjectType, alert.SubjectId));
+        Assert.Equal(ProjectSubjects.LinkTemplate.Replace("{id}", ProjectSubjects.IdOf(project)), alert.SubjectLink);
+        Assert.Equal(warned.Data.AlertId, Assert.Single((await ListAlertsAsync(participant)).Items).Id);
+        Assert.Equal(warned.Data.AlertId, Assert.Single((await ListAlertsAsync(reader)).Items).Id);
+        Assert.Equal(1, (await SummaryAsync(owner)).UnreadByUrgency.Warning);
+
+        // The outsider has no delivery and no role on the project: nothing to list, read or dismiss.
+        Assert.Empty((await ListAlertsAsync(outsider)).Items);
+        Assert.Equal(0, (await SummaryAsync(outsider)).Unread);
+        using (var refused = await outsider.PostAsync($"/api/assistant/alerts/{alert.Id}/read", null))
+        {
+            Assert.Equal(HttpStatusCode.NotFound, refused.StatusCode);
+        }
+
+        // The owner reads it, which takes it off the badge; the reader dismisses it from their list.
+        Assert.Equal(NhAssistantAlertListStatuses.Read, (await PostAlertAsync(owner, alert.Id, "read")).Status);
+        Assert.Equal(0, (await SummaryAsync(owner)).Unread);
+        Assert.Equal(NhAssistantAlertListStatuses.Dismissed, (await PostAlertAsync(reader, alert.Id, "dismiss")).Status);
+        Assert.Empty((await ListAlertsAsync(reader)).Items);
+
         // The tasks are done: the next round resolves the alert, so the application finds nothing open.
         await host.CompleteTasksAsync(tasks);
         host.StartMorningRound();
@@ -74,6 +107,28 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
         Assert.Contains(done.GetResultItems(), item => item.Name == SampleDeadlineAlerts.NotDueToday);
         await using var scope = host.Services.CreateAsyncScope();
         Assert.Equal(0, (await scope.ServiceProvider.GetRequiredService<SampleDeadlineAlerts>().ResolveAsync(project)).Data);
+
+        // The owner's list shows the alert as resolved, and the participant's badge no longer counts it.
+        var resolved = Assert.Single((await ListAlertsAsync(owner, "?status=closed")).Items);
+        Assert.Equal((NhAssistantAlertListStatuses.Resolved, true), (resolved.Status, resolved.IsResolved));
+        Assert.Equal(0, (await SummaryAsync(participant)).Unread);
+    }
+
+    private static async Task<NhAssistantAlertListDto> ListAlertsAsync(HttpClient client, string query = "")
+    {
+        return (await client.GetFromJsonAsync<NhAssistantAlertListDto>("/api/assistant/alerts" + query, Json))!;
+    }
+
+    private static async Task<NhAssistantAlertSummaryDto> SummaryAsync(HttpClient client)
+    {
+        return (await client.GetFromJsonAsync<NhAssistantAlertSummaryDto>("/api/assistant/alerts/summary", Json))!;
+    }
+
+    private static async Task<NhAssistantAlertDto> PostAlertAsync(HttpClient client, Guid alertId, string action)
+    {
+        using var response = await client.PostAsync($"/api/assistant/alerts/{alertId}/{action}", null);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<NhAssistantAlertDto>(Json))!;
     }
 
     [Fact]

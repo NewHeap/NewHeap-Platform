@@ -1297,15 +1297,21 @@ internal sealed class NhAssistantAgentEvents(
     }
 
     /// <summary>
-    /// Records that <paramref name="actorId"/> dismissed an alert.
+    /// Records that <paramref name="actorId"/> dismissed an alert, in an impersonation session with the
+    /// user who impersonated them (<paramref name="impersonationOriginActorId"/>).
     /// </summary>
-    public Task AlertDismissedAsync(AssistantAlert alert, string actorId, CancellationToken cancellationToken)
+    public Task AlertDismissedAsync(
+        AssistantAlert alert,
+        string actorId,
+        CancellationToken cancellationToken,
+        string? impersonationOriginActorId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
         return RecordAsync(
             AlertEvent(NhAssistantAuditEventKind.AgentAlertDismissed, alert, actorId) with
             {
-                ResultCode = NhAssistantAlertDeliveryStatuses.Dismissed
+                ResultCode = NhAssistantAlertDeliveryStatuses.Dismissed,
+                ImpersonationOriginActorId = impersonationOriginActorId
             },
             cancellationToken);
     }

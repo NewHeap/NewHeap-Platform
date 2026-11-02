@@ -7,6 +7,7 @@
  */
 
 import type { AgentSubjectRole } from './assistant-agent-run.models';
+import type { NotificationAlertKind, NotificationAlertKindChange } from './assistant-alert.models';
 
 export interface AssistantStatus {
   enabled: boolean;
@@ -576,6 +577,25 @@ export interface NotificationSettings {
   pushAvailable: boolean;
   /** The VAPID key browsers subscribe with. */
   publicKey: string | null;
+  /**
+   * The person's effective time zone id, such as `Europe/Amsterdam`, in which digest times apply.
+   * Read-only; a server without alerts sends none.
+   */
+  timeZone?: string | null;
+  /**
+   * The kinds of alert the person receives, each with what it lets them change and their choices
+   * (FB87). A server without alerts sends none; treat it as empty.
+   */
+  alertKinds?: NotificationAlertKind[];
+}
+
+/**
+ * Body of `PUT notifications`: the push switch and the person's changes per alert kind, each optional.
+ * Only what is named changes.
+ */
+export interface UpdateNotificationSettingsRequest {
+  pushEnabled?: boolean;
+  alertKinds?: NotificationAlertKindChange[];
 }
 
 /** Body of `PUT notifications/push-subscription`: `PushSubscription.toJSON()` plus the text language. */

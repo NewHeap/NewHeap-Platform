@@ -8,6 +8,7 @@ import {
 } from './nh-assistant.config';
 import { NhAssistantAdminApiService } from './services/nh-assistant-admin-api.service';
 import { NhAssistantAgentRunApiService } from './services/nh-assistant-agent-run-api.service';
+import { NhAssistantAlertBadgeService } from './services/nh-assistant-alert-badge.service';
 import { NhAssistantApiService } from './services/nh-assistant-api.service';
 import { NhAssistantLiveService } from './services/nh-assistant-live.service';
 import { NhAssistantMcpConnectService } from './services/nh-assistant-mcp-connect.service';
@@ -38,6 +39,7 @@ export function provideNhAssistant(config: NhAssistantConfig): EnvironmentProvid
     NhAssistantPanelService,
     NhAssistantSubjectSummaryService,
     NhAssistantMcpConnectService,
+    NhAssistantAlertBadgeService,
     // A redirect-mode MCP authorization returns to the page with its outcome in the fragment. Every
     // outcome, a failure to complete it included, arrives in `NhAssistantMcpConnectService.returned`,
     // where the connection screens show it.

@@ -1,0 +1,263 @@
+@use '../../styles/tokens';
+@use '../../styles/forms';
+
+@include tokens.tokens;
+
+:host {
+  display: block;
+  min-width: 0;
+  color: var(--nha-text);
+  font-family: var(--nha-font);
+  font-size: 14px;
+  @include forms.controls;
+}
+
+.alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.section-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+
+  > div {
+    min-width: 0;
+    max-width: 72ch;
+  }
+}
+
+h3 {
+  margin: 0 0 4px;
+  font-size: 17px;
+  font-weight: 750;
+}
+
+.muted {
+  margin: 0;
+  color: var(--nha-text-muted);
+  font-size: 13px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 650;
+
+  select {
+    width: auto;
+  }
+}
+
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  border: 1px dashed var(--nha-border);
+  border-radius: var(--nha-radius);
+  padding: 18px;
+  color: var(--nha-text-muted);
+  font-size: 13px;
+
+  p { margin: 0; }
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.group-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+
+  .muted {
+    font-size: 12px;
+    font-weight: 500;
+  }
+}
+
+.group-name {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.alert-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius);
+  padding: 12px 14px;
+  background: var(--nha-surface);
+
+  // An unread alert carries the accent on its edge; strong colour stays with the urgency.
+  &.unread {
+    border-left: 3px solid var(--nha-highlight);
+  }
+
+  // A resolved or expired alert stays visible but no longer asks for attention.
+  &.closed {
+    border-style: dashed;
+    background: transparent;
+
+    .title {
+      color: var(--nha-text-muted);
+    }
+  }
+}
+
+.urgency {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  color: var(--nha-text-muted);
+  background: var(--nha-surface-strong);
+
+  &[data-urgency='warning'] {
+    color: var(--nha-warning);
+    background: var(--nha-warning-soft);
+  }
+
+  &[data-urgency='urgent'] {
+    color: var(--nha-danger);
+    background: var(--nha-danger-soft);
+  }
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+}
+
+// The title opens the alert's subject; the host routes it.
+.title {
+  min-height: 0;
+  border: 0;
+  padding: 0;
+  color: var(--nha-text);
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  @include tokens.focus-ring;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.text {
+  margin: 0;
+  color: var(--nha-text);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 0;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.alert-actions {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+
+// One row per alert: the title, its state and its meta on one line where they fit.
+.compact {
+  .alert-list {
+    gap: 4px;
+  }
+
+  .alert {
+    align-items: center;
+    border-radius: var(--nha-radius-control);
+    padding: 6px 10px;
+  }
+
+  .urgency {
+    width: 24px;
+    height: 24px;
+  }
+
+  .body {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 12px;
+  }
+
+  .alert-actions .icon-button {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .alert {
+    transition: border-color 120ms ease, background-color 120ms ease;
+  }
+}

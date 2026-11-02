@@ -65,7 +65,7 @@ internal sealed record NhAssistantAlertWrite(
 /// rows with conditional updates, so several instances can run them at the same time. Every time is on
 /// the application's clock, which callers pass.
 /// </summary>
-internal sealed class NhAssistantAlertStore(NhAssistantDbContextFactory contextFactory)
+internal sealed partial class NhAssistantAlertStore(NhAssistantDbContextFactory contextFactory)
 {
     /// <summary>How long a write waits for the subject's alert lock.</summary>
     internal static readonly TimeSpan LockTimeout = TimeSpan.FromSeconds(30);

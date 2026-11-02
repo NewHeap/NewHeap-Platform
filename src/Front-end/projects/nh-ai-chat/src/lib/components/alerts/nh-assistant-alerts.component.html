@@ -1,0 +1,159 @@
+<section class="alerts" [class.compact]="compact()" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading()">
+  <header class="section-header">
+    <div>
+      <h3 [id]="id + '-title'">{{ 'nh-assistant.alerts.title' | translate }}</h3>
+      <p class="muted">{{ (grouped() ? 'nh-assistant.alerts.description-grouped' : 'nh-assistant.alerts.description') | translate }}</p>
+    </div>
+    <div class="toolbar">
+      @if (showStatusFilter()) {
+        <label class="filter">
+          <span>{{ 'nh-assistant.alerts.filter.label' | translate }}</span>
+          <select data-alert-status-filter (change)="onStatusChange($event)">
+            @for (option of filterStatuses; track option) {
+              <option [value]="option" [selected]="(shownStatus() ?? '') === option">{{ filterKey(option) | translate }}</option>
+            }
+          </select>
+        </label>
+      }
+      <button class="secondary" type="button" [disabled]="loading()" (click)="load()">
+        <nh-assistant-icon name="refresh" />{{ 'nh-assistant.alerts.refresh' | translate }}
+      </button>
+    </div>
+  </header>
+
+  @if (actionError(); as failure) {
+    <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ actionErrorKeys() | nhAssistantTranslate: failure.code }}</p>
+  }
+
+  @if (loading() && !loaded()) {
+    <p class="state" role="status">{{ 'nh-assistant.alerts.loading' | translate }}</p>
+  } @else if (loadFailed()) {
+    <div class="state" role="alert">
+      <p>{{ 'nh-assistant.alerts.load-failed' | translate }}</p>
+      <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.alerts.retry' | translate }}</button>
+    </div>
+  } @else if (items().length === 0) {
+    <p class="state" data-alerts-empty>{{ emptyKey() | translate }}</p>
+  } @else {
+    @for (block of blocks(); track block.key) {
+      <div class="block" role="group" [attr.aria-label]="block.group ? groupName(block.group) : null">
+        @if (block.group; as group) {
+          <h4 class="group-header" data-alert-group>
+            <span class="group-name">
+              @if (group.subjectTypeName) {
+                <span class="muted">{{ group.subjectTypeName }}</span>
+              }
+              {{ groupName(group) }}
+            </span>
+            <span class="muted">{{ 'nh-assistant.alerts.group-count' | translate: { count: group.count, total: group.total } }}</span>
+            @if (group.continuesFromPreviousPage) {
+              <span class="muted">{{ 'nh-assistant.alerts.group-continued' | translate }}</span>
+            }
+            @if (group.continuesOnNextPage) {
+              <span class="muted">{{ 'nh-assistant.alerts.group-continues' | translate }}</span>
+            }
+          </h4>
+        }
+        <ul class="alert-list">
+          @for (alert of block.items; track alert.id) {
+            <li
+              class="alert"
+              data-alert
+              [attr.data-alert-id]="alert.id"
+              [attr.data-urgency]="alert.urgency"
+              [attr.data-status]="alert.status"
+              [class.unread]="alert.status === 'unread'"
+              [class.closed]="alert.status === 'resolved' || alert.status === 'expired'">
+              <span class="urgency" [attr.data-urgency]="alert.urgency" [attr.title]="'nh-assistant.alerts.urgency.' + alert.urgency | translate">
+                <nh-assistant-icon [name]="urgencyIcon(alert.urgency)" />
+                <span class="visually-hidden">{{ 'nh-assistant.alerts.urgency.' + alert.urgency | translate }}</span>
+              </span>
+              <div class="body">
+                <div class="title-row">
+                  <button
+                    type="button"
+                    class="title"
+                    data-alert-open
+                    [attr.title]="compact() ? alert.text : null"
+                    (click)="open(alert)">
+                    {{ alert.title ?? ('nh-assistant.alerts.untitled' | translate: { subject: alert.subjectDisplayName ?? alert.subjectId }) }}
+                  </button>
+                  @switch (alert.status) {
+                    @case ('unread') {
+                      <span class="badge warning" data-alert-state>{{ 'nh-assistant.alerts.status.unread' | translate }}</span>
+                    }
+                    @case ('resolved') {
+                      <span class="badge success" data-alert-state>{{ 'nh-assistant.alerts.status.resolved' | translate }}</span>
+                    }
+                    @case ('expired') {
+                      <span class="badge" data-alert-state>{{ 'nh-assistant.alerts.status.expired' | translate }}</span>
+                    }
+                    @case ('dismissed') {
+                      <span class="badge" data-alert-state>{{ 'nh-assistant.alerts.status.dismissed' | translate }}</span>
+                    }
+                  }
+                  @if (alert.isWithheld) {
+                    <!-- It reached none of the person's channels, for example a kind they muted. -->
+                    <span class="badge" data-alert-withheld>{{ withheldKey(alert) | translate }}</span>
+                  }
+                </div>
+                @if (!compact() && alert.text) {
+                  <p class="text">{{ alert.text }}</p>
+                }
+                <p class="meta">
+                  <span>{{ alert.displayNameKey | nhAssistantTranslate: alert.kindId }}</span>
+                  @if (!isGroupSubject(alert, block.group)) {
+                    <span>
+                      @if (alert.subjectTypeName) {
+                        {{ alert.subjectTypeName }}:
+                      }
+                      {{ alert.subjectDisplayName ?? alert.subjectId }}
+                    </span>
+                  }
+                  <time [attr.datetime]="alert.updatedAt">{{ alert.updatedAt | date: 'short' }}</time>
+                </p>
+              </div>
+              <div class="alert-actions">
+                @if (alert.status === 'unread') {
+                  <button
+                    class="icon-button"
+                    type="button"
+                    data-alert-read
+                    [disabled]="busyId() !== null"
+                    [attr.aria-label]="'nh-assistant.alerts.mark-read' | translate"
+                    [attr.title]="'nh-assistant.alerts.mark-read' | translate"
+                    (click)="markRead(alert)">
+                    <nh-assistant-icon name="check" />
+                  </button>
+                }
+                @if (alert.status !== 'dismissed') {
+                  <button
+                    class="icon-button"
+                    type="button"
+                    data-alert-dismiss
+                    [disabled]="busyId() !== null"
+                    [attr.aria-label]="'nh-assistant.alerts.dismiss' | translate"
+                    [attr.title]="'nh-assistant.alerts.dismiss' | translate"
+                    (click)="dismiss(alert)">
+                    <nh-assistant-icon name="x" />
+                  </button>
+                }
+              </div>
+            </li>
+          }
+        </ul>
+      </div>
+    }
+    @if (pages() > 1) {
+      <nav class="toolbar" [attr.aria-label]="'nh-assistant.alerts.pages' | translate">
+        <button class="secondary" type="button" [disabled]="page() <= 1 || loading()" (click)="goTo(page() - 1)">
+          {{ 'nh-assistant.alerts.previous' | translate }}
+        </button>
+        <span class="muted">{{ 'nh-assistant.alerts.page' | translate: { page: page(), pages: pages() } }}</span>
+        <button class="secondary" type="button" [disabled]="page() >= pages() || loading()" (click)="goTo(page() + 1)">
+          {{ 'nh-assistant.alerts.next' | translate }}
+        </button>
+      </nav>
+    }
+  }
+</section>
