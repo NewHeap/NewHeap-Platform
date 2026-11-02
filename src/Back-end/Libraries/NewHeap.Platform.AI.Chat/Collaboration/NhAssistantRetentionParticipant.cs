@@ -35,6 +35,10 @@ internal sealed class NhAssistantRetentionParticipant(
         await context.NotificationSettings
             .Where(setting => setting.ActorId == actorId)
             .ExecuteDeleteAsync(cancellationToken);
+        // FB87-6: the person's choices per kind of notification.
+        await context.NotificationPreferences
+            .Where(preference => preference.ActorId == actorId)
+            .ExecuteDeleteAsync(cancellationToken);
         await context.McpConnectionNotices
             .Where(notice => notice.PersonActorId == actorId)
             .ExecuteDeleteAsync(cancellationToken);

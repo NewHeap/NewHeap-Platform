@@ -69,6 +69,8 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantNotificationSetting> NotificationSettings => Set<AssistantNotificationSetting>();
 
+    public DbSet<AssistantNotificationPreference> NotificationPreferences => Set<AssistantNotificationPreference>();
+
     public DbSet<AssistantThread> Threads => Set<AssistantThread>();
 
     public DbSet<AssistantRun> Runs => Set<AssistantRun>();
@@ -201,6 +203,16 @@ public sealed class NhAssistantDbContext : DbContext
             setting.ToTable("AssistantNotificationSetting");
             setting.HasKey(item => item.ActorId);
             setting.Property(item => item.ActorId).HasMaxLength(256);
+        });
+
+        // FB87-6: a person's choices per kind of notification, read by the alert delivery.
+        modelBuilder.Entity<AssistantNotificationPreference>(preference =>
+        {
+            preference.ToTable("AssistantNotificationPreference");
+            preference.HasKey(item => new { item.ActorId, item.Category, item.KindId });
+            preference.Property(item => item.ActorId).HasMaxLength(256);
+            preference.Property(item => item.Category).HasMaxLength(32);
+            preference.Property(item => item.KindId).HasMaxLength(NhAssistantAlertLimits.MaxKindIdLength);
         });
 
         modelBuilder.Entity<AssistantToolInvocation>(invocation =>
