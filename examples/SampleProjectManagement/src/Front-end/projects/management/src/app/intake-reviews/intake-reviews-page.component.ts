@@ -1,9 +1,15 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
-import { NhAssistantPanelService, NhAssistantStore } from '@newheap/platform-ai-chat';
+import {
+  AgentInboxSort,
+  AgentInboxSummary,
+  NhAssistantAgentRunApiService,
+  NhAssistantPanelService,
+  NhAssistantStore
+} from '@newheap/platform-ai-chat';
 import { NhAssistantAgentFeedbackReportComponent } from '@newheap/platform-ai-chat/admin';
 import {
   NhAssistantAgentInboxComponent,
@@ -40,6 +46,17 @@ const agentIdPattern = /^[a-z0-9][a-z0-9._-]{0,99}$/i;
  * portal's shell subscribes to) opens this page with `?run=`; the inbox then lists every proposal of
  * that run the person may decide, of any agent and object, until the person shows all again.
  *
+ * FB78: a filter per kind of action over the inbox. `getInboxSummary` counts what the inbox lists
+ * with the page's own filter, per kind of action named as its cards name it, and how many expire within
+ * 24 hours; the page offers those kinds and the expiry as filters and labels the counts "listed",
+ * because deciding still checks each proposal on its own. The inbox takes the chosen kind (`toolId`),
+ * the expiry (`expiresBefore`) and an order (`sort`).
+ *
+ * FB80: the inbox offers "Decide all" for its whole filter, such as one kind of action. It first shows
+ * what it decides, how many times which kind of action on how many projects, and leaves the equipment
+ * orders, whose tool requires that each is decided on its own; then it decides exactly that set, each
+ * proposal with its own rules, and shows what succeeded, what was refused and what had changed.
+ *
  * SPM-277: "Compact list" shows the inbox with `density: 'compact'`: one row per proposal that expands
  * to its card, one tab stop with the arrow keys, and the list's letters (`j`, `k`, `x`, `a`, `r`, `?`)
  * while the focus is in a row; `a` and `r` decide the focused row, never the selection.
@@ -74,6 +91,7 @@ export class IntakeReviewsPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly agentRuns = inject(NhAssistantAgentRunApiService);
 
   readonly agentId = 'sample-project-intake-reviewer';
   /** SPM-310: the division the person works in now, for the inbox's division filter. */
@@ -88,6 +106,16 @@ export class IntakeReviewsPageComponent implements OnInit {
   readonly boardAgentId = signal<string | null>(null);
   /** SPM-304: the division of the board that asked, if any. */
   readonly boardDivisionId = signal<string | null>(null);
+  /** FB78: what the inbox lists with the page's filter, counted per kind of action; `null` while unknown. */
+  readonly summary = signal<AgentInboxSummary | null>(null);
+  /** FB78: the kind of action the inbox shows, or `null` for every kind. */
+  readonly toolId = signal<string | null>(null);
+  /** FB78: whether the inbox shows only proposals that expire within 24 hours. */
+  readonly expiringSoonOnly = signal(false);
+  /** FB78: the order of the inbox, or `null` for its own: the soonest expiry first. */
+  readonly sort = signal<AgentInboxSort | null>(null);
+  /** FB78: until when a proposal counts as expiring soon, from the summary. */
+  readonly expiresBefore = computed(() => (this.expiringSoonOnly() ? this.summary()?.expiringBefore ?? null : null));
   readonly projects = signal<ProjectViewModel[]>([]);
   readonly projectId = signal<string | null>(null);
   readonly loading = signal(true);
@@ -99,7 +127,9 @@ export class IntakeReviewsPageComponent implements OnInit {
     // The portal's launcher normally starts the assistant scope already; starting it twice is safe.
     void this.assistant.initialize();
 
-    // A subject link names the project; following one on this page keeps the page and switches.
+    // A subject link names the project; following one on this page keeps the page and switches. The
+    // agent and division a board asked for change what the inbox lists, so its counts are read again.
+    let counted = false;
     this.route.queryParamMap
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(parameters => {
@@ -109,10 +139,18 @@ export class IntakeReviewsPageComponent implements OnInit {
         }
         const run = parameters.get('run');
         this.runId.set(run && idPattern.test(run) ? run : null);
+
         const agent = parameters.get('agent');
-        this.boardAgentId.set(agent && agentIdPattern.test(agent) ? agent : null);
         const division = parameters.get('division');
-        this.boardDivisionId.set(division && idPattern.test(division) ? division : null);
+        const boardAgentId = agent && agentIdPattern.test(agent) ? agent : null;
+        const boardDivisionId = division && idPattern.test(division) ? division : null;
+        const boardChanged = boardAgentId !== this.boardAgentId() || boardDivisionId !== this.boardDivisionId();
+        this.boardAgentId.set(boardAgentId);
+        this.boardDivisionId.set(boardDivisionId);
+        if (!counted || boardChanged) {
+          counted = true;
+          this.loadSummary();
+        }
       });
 
     this.projectApi.list(new ProjectCollectionRequestOptions({ itemsPerPage: 100 }))
@@ -138,6 +176,48 @@ export class IntakeReviewsPageComponent implements OnInit {
       queryParamsHandling: 'merge',
       replaceUrl: true
     });
+  }
+
+  /**
+   * FB78: counts what the inbox lists with the page's agent, type and division, or with the agent and
+   * division a board asked for (SPM-304), so the kinds of action it offers are those that wait. A
+   * summary that cannot be read leaves the filter out.
+   */
+  loadSummary(): void {
+    const boardAgentId = this.boardAgentId();
+    const activeDivisionId = this.activeDivisionOnly() ? this.activeDivisionId ?? undefined : undefined;
+    this.agentRuns
+      .getInboxSummary({
+        agentId: boardAgentId ?? this.agentId,
+        subjectType: boardAgentId ? undefined : 'project',
+        divisionId: this.boardDivisionId() ?? activeDivisionId
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: summary => {
+          this.summary.set(summary);
+          // A kind that no longer waits is no longer offered, so the inbox shows every kind again.
+          if (this.toolId() && !summary.tools.some(tool => tool.toolId === this.toolId())) {
+            this.toolId.set(null);
+          }
+        },
+        error: () => this.summary.set(null)
+      });
+  }
+
+  /** SPM-310: shows the active division's proposals only, or all again, with their counts. */
+  toggleActiveDivisionOnly(): void {
+    this.activeDivisionOnly.set(!this.activeDivisionOnly());
+    this.loadSummary();
+  }
+
+  onToolChange(event: Event): void {
+    this.toolId.set((event.target as HTMLSelectElement).value || null);
+  }
+
+  onSortChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.sort.set(value === 'expiresAt' || value === 'createdAt' ? value : null);
   }
 
   openConversation(conversationId: string): void {

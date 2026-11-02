@@ -442,6 +442,10 @@
       "assistant-approval-policy-selector-timed-out": "De applicatie deed te lang over de keuze wie dit voorstel goedkeurt. Probeer het later opnieuw.",
       "assistant-four-eyes-required": "Iemand anders dan de starter moet hierover beslissen.",
       "assistant-execution-not-uncertain": "Deze uitvoering wacht niet op afhandeling.",
+      "assistant-individual-decision-required": "Over deze soort actie wordt per voorstel beslist. Beslis er afzonderlijk over.",
+      "assistant-bulk-decision-not-found": "Dit overzicht is niet meer beschikbaar. Open een nieuw overzicht.",
+      "assistant-bulk-decision-expired": "Dit overzicht is verlopen. Open een nieuw overzicht om te beslissen over wat nog wacht.",
+      "assistant-bulk-decision-in-progress": "Er wordt nu over deze voorstellen beslist. Probeer het zo opnieuw om het resultaat te zien.",
       "assistant-proposal-stale": "Dit voorstel is niet meer van toepassing, bijvoorbeeld omdat het werk al gedaan is. Er is niets gewijzigd.",
       "assistant-proposal-check-failed": "Kon niet controleren of dit voorstel nog van toepassing is, dus er is niets gewijzigd. Probeer het later opnieuw.",
       "assistant-proposal-already-open": "Hetzelfde voorstel wacht al op een besluit.",
@@ -760,7 +764,26 @@
         "group-continued": "Vervolg van de vorige pagina.",
         "group-continues": "Meer voorstellen van deze groep staan op de volgende pagina.",
         "run": "Eén run van {{agent}}, {{date}}",
-        "no-run": "Voorgesteld in een gesprek"
+        "no-run": "Voorgesteld in een gesprek",
+        "bulk": {
+          "decide-all": "Over alle {{count}} beslissen",
+          "title": "In één keer over {{count}} voorstellen beslissen",
+          "title-one": "Over 1 voorstel beslissen",
+          "kind": "{{count}} keer {{kind}}, op {{subjects}} objecten ({{type}})",
+          "kind-one-object": "{{count}} keer {{kind}}, op één object ({{type}})",
+          "nothing": "Over geen van de voorstellen in deze lijst kan samen worden beslist.",
+          "individual": "{{count}} voorstellen blijven in de lijst, omdat daarover per voorstel wordt beslist: {{kinds}}.",
+          "individual-one": "1 voorstel blijft in de lijst, omdat daarover afzonderlijk wordt beslist: {{kinds}}.",
+          "remaining": "Er staan nog {{count}} voorstellen in de lijst. Eén beslissing omvat er hoogstens {{limit}}; beslis daarna over de rest.",
+          "remaining-one": "Er staat nog 1 voorstel in de lijst. Eén beslissing omvat er hoogstens {{limit}}; beslis daarna erover.",
+          "checked": "Elk voorstel wordt nog afzonderlijk gecontroleerd. Sommige kunnen worden geweigerd of zijn sinds dit overzicht gewijzigd.",
+          "reason": "Reden (optioneel)",
+          "approve": "{{count}} goedkeuren",
+          "reject": "{{count}} afwijzen",
+          "cancel": "Annuleren",
+          "approved": "{{succeeded}} goedgekeurd, {{refused}} geweigerd, {{stale}} niet meer zoals getoond.",
+          "rejected": "{{succeeded}} afgewezen, {{refused}} geweigerd, {{stale}} niet meer zoals getoond."
+        }
       },
       "proposal": {
         "approve": "Goedkeuren",

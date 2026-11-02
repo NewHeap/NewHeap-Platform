@@ -435,7 +435,112 @@ public sealed record NhAssistantFeedbackSummaryRowDto(
     /// Why proposals closed as stale, per kind and reason code, before and after approval.
     /// </summary>
     public IReadOnlyList<NhAssistantInvalidationCountDto> Invalidations { get; init; } = [];
+
+    /// <summary>
+    /// How long people took from the proposal to their decision, for the approved and rejected
+    /// proposals a person decided; <see langword="null"/> before anyone decided.
+    /// </summary>
+    public NhAssistantDecisionTimeDto? DecisionTime { get; init; }
 }
+
+/// <summary>
+/// How long people took from a proposal to their decision: the median and the 90th percentile, with
+/// linear interpolation between the nearest decisions as <c>percentile_cont</c> computes it, in whole
+/// seconds. Only proposals a person approved or rejected count, never expired, withdrawn or
+/// invalidated ones, nor decisions of agents or of the platform.
+/// </summary>
+/// <param name="SampleSize">The decisions the times are computed from.</param>
+/// <param name="Sampled">
+/// True when the group had more decisions than the sample holds (1,000): the times are those of the
+/// newest decisions of the period.
+/// </param>
+public sealed record NhAssistantDecisionTimeDto(
+    int SampleSize,
+    int MedianSeconds,
+    int Percentile90Seconds,
+    bool Sampled);
+
+/// <summary>
+/// The numbers of one kind of action (tool) in the period: what people decided and how fast.
+/// </summary>
+/// <param name="Approved">Approved proposals, including those that executed, failed, closed as stale when they ran or were resolved.</param>
+/// <param name="Decisions">Approved plus rejected.</param>
+/// <param name="Invalidated">Open proposals closed before anyone decided because they no longer fit; not part of the decisions.</param>
+/// <param name="StaleAfterApproval">Approved proposals closed right before they ran because they no longer fit; part of <paramref name="Approved"/>.</param>
+/// <param name="ExecutionFailed">Approved proposals whose execution failed; part of <paramref name="Approved"/>.</param>
+/// <param name="ApprovalRate">Approved divided by the decisions, or <see langword="null"/> before anyone decided.</param>
+/// <param name="RejectionRate">Rejected divided by the decisions, or <see langword="null"/> before anyone decided.</param>
+/// <param name="DecisionTime">How long people took to decide, or <see langword="null"/> before anyone decided.</param>
+/// <param name="LastRejectedAt">When a person last rejected a proposal of the period, or <see langword="null"/>.</param>
+public sealed record NhAssistantProposalKindNumbersDto(
+    int Pending,
+    int Approved,
+    int Rejected,
+    int Decisions,
+    int Expired,
+    int Withdrawn,
+    int Invalidated,
+    int StaleAfterApproval,
+    int ExecutionFailed,
+    double? ApprovalRate,
+    double? RejectionRate,
+    NhAssistantDecisionTimeDto? DecisionTime,
+    DateTimeOffset? LastRejectedAt);
+
+/// <summary>
+/// One agent's proposals of one kind of action in the period, and whether the numbers make the kind a
+/// candidate for running without approval for that agent. A candidate is a suggestion only: it changes
+/// nothing about how the agent's proposals are decided.
+/// </summary>
+/// <param name="AgentDisplayName">The agent's name: a translation key for an agent in code (<paramref name="AgentSource"/> <c>code</c>), the name an administrator typed otherwise; <see langword="null"/> for an agent that no longer exists.</param>
+/// <param name="AgentSource"><c>code</c> or <c>admin</c>; <see langword="null"/> for an agent that no longer exists.</param>
+/// <param name="Candidate">The numbers meet every threshold of <see cref="NhAssistantRoutineCandidateThresholdsDto"/>.</param>
+/// <param name="UnmetThresholds">The thresholds the numbers miss, as <see cref="NhAssistantRoutineCandidateReasons"/> codes; empty for a candidate.</param>
+public sealed record NhAssistantRoutineCandidateDto(
+    string AgentId,
+    string? AgentDisplayName,
+    string? AgentSource,
+    string ToolId,
+    NhAssistantProposalKindNumbersDto Numbers,
+    bool Candidate,
+    IReadOnlyList<string> UnmetThresholds);
+
+/// <summary>
+/// One kind of action over all agents: the numbers of every agent together, and per agent the numbers
+/// and whether the kind is a candidate for running without approval for it.
+/// </summary>
+/// <param name="DisplayName">The name the proposal cards show for the kind, from the presentation of its newest proposal in the caller's culture; the tool id without one.</param>
+/// <param name="Agents">Per agent, most decisions first.</param>
+public sealed record NhAssistantProposalKindDto(
+    string ToolId,
+    string DisplayName,
+    NhAssistantProposalKindNumbersDto Numbers,
+    IReadOnlyList<NhAssistantRoutineCandidateDto> Agents);
+
+/// <summary>
+/// The thresholds the view applied (<see cref="NhAssistantRoutineCandidateOptions"/>), so it can
+/// explain them.
+/// </summary>
+/// <param name="QuietPeriodDays">The quiet period in days before the period's end, which may be fractional.</param>
+public sealed record NhAssistantRoutineCandidateThresholdsDto(
+    int MinimumDecisions,
+    double MinimumApprovalRate,
+    double QuietPeriodDays,
+    int MaximumStaleOrFailedAfterApproval);
+
+/// <summary>
+/// The view per kind of action over all agents, for administrators: per kind the counts, the rejection
+/// rate and the decision times, and per agent whether the numbers make the kind a candidate for running
+/// without approval. These are suggestions from the numbers only.
+/// </summary>
+/// <param name="From">Start of the period; proposals are selected by when they were made.</param>
+/// <param name="To">End of the period, exclusive; the quiet period counts back from it.</param>
+/// <param name="Kinds">Most decisions first.</param>
+public sealed record NhAssistantProposalKindsDto(
+    DateTimeOffset From,
+    DateTimeOffset To,
+    NhAssistantRoutineCandidateThresholdsDto Thresholds,
+    IReadOnlyList<NhAssistantProposalKindDto> Kinds);
 
 /// <param name="Kind"><c>already-done</c>, <c>changed</c> or <c>not-applicable</c>.</param>
 /// <param name="ReasonCode">The application guard's reason code.</param>
@@ -926,6 +1031,62 @@ public sealed record NhAssistantInboxSubjectGroupDto(
     bool ContinuesOnNextPage);
 
 /// <summary>
+/// What the approval inbox lists with a filter, counted (<c>GET approvals/inbox/summary</c>): with the
+/// inbox's filter and visibility, so every count is what the inbox lists, never what the caller may
+/// decide. Deciding still checks each proposal on its own: four-eyes, the approver rules and the
+/// tool's approve policy apply only then.
+/// </summary>
+/// <param name="Total">How many proposals the inbox lists with the filter.</param>
+/// <param name="ExpiringSoon">How many of them expire before <see cref="ExpiringBefore"/>, 24 hours from now on the application's clock.</param>
+/// <param name="Agents">Per agent how many it lists, the most first.</param>
+/// <param name="Tools">Per kind of action how many it lists, the most first, named as its cards name it.</param>
+/// <param name="SubjectTypes">Per subject type how many it lists and on how many subjects, the most first.</param>
+public sealed record NhAssistantInboxSummaryDto(
+    int Total,
+    int ExpiringSoon,
+    IReadOnlyList<NhAssistantInboxAgentCountDto> Agents,
+    IReadOnlyList<NhAssistantInboxToolCountDto> Tools,
+    IReadOnlyList<NhAssistantInboxSubjectTypeCountDto> SubjectTypes)
+{
+    /// <summary>
+    /// The status the summary counts, one of <see cref="NhAssistantInboxStatuses"/>.
+    /// </summary>
+    public string Status { get; init; } = NhAssistantInboxStatuses.Pending;
+
+    /// <summary>
+    /// Until when a proposal counts in <see cref="ExpiringSoon"/>: 24 hours after the summary was made.
+    /// </summary>
+    public DateTimeOffset ExpiringBefore { get; init; }
+}
+
+/// <summary>
+/// How many proposals of one agent an inbox summary lists.
+/// </summary>
+public sealed record NhAssistantInboxAgentCountDto(string AgentId, int Count);
+
+/// <summary>
+/// How many proposals of one kind of action an inbox summary or a bulk decision's overview lists.
+/// </summary>
+/// <param name="ToolId">The kind of action: the tool the proposals would run, the value of <c>toolId</c>.</param>
+/// <param name="DisplayName">The name the cards show, in the caller's language: the tool's name from the
+/// presentation its newest proposal stored, or the tool id when no presenter named it, as for a
+/// confidential tool.</param>
+/// <param name="Count">How many proposals of the kind it lists.</param>
+public sealed record NhAssistantInboxToolCountDto(string ToolId, string DisplayName, int Count);
+
+/// <summary>
+/// How many proposals on subjects of one type an inbox summary or a bulk decision's overview lists.
+/// </summary>
+/// <param name="SubjectTypeName">The type's name in the caller's language, when the application named it.</param>
+/// <param name="Count">How many proposals on subjects of the type it lists.</param>
+/// <param name="Subjects">On how many distinct subjects of the type.</param>
+public sealed record NhAssistantInboxSubjectTypeCountDto(
+    string SubjectType,
+    string? SubjectTypeName,
+    int Count,
+    int Subjects);
+
+/// <summary>
 /// A recorded visit of the approval inbox in one scope (<c>POST approvals/inbox/visit</c>).
 /// </summary>
 /// <param name="ScopeKey"><c>global</c>, or <c>division:{id}</c> for the inbox of one division.</param>
@@ -941,7 +1102,14 @@ public sealed record NhAssistantProposalDecisionRequest(
 public sealed record NhAssistantBulkDecisionRequest(
     IReadOnlyList<Guid>? ApprovalIds,
     string? Decision,
-    string? Reason);
+    string? Reason)
+{
+    /// <summary>
+    /// The proposal hash the person saw, per approval id; a proposal whose hash differs now is refused
+    /// with <c>assistant-proposal-hash-mismatch</c>. A proposal without one is decided as it is.
+    /// </summary>
+    public IReadOnlyDictionary<Guid, string>? ExpectedProposalHashes { get; init; }
+}
 
 public sealed record NhAssistantDecisionOutcomeDto(
     Guid ApprovalId,
@@ -950,6 +1118,129 @@ public sealed record NhAssistantDecisionOutcomeDto(
     string? Status);
 
 public sealed record NhAssistantBulkDecisionDto(IReadOnlyList<NhAssistantDecisionOutcomeDto> Results);
+
+/// <summary>
+/// The filter whose pending proposals a bulk decision's overview puts in its set
+/// (<c>POST approvals/bulk-decisions/overview</c>): the inbox's filter, without paging or grouping.
+/// </summary>
+/// <param name="ToolIds">The kinds of action, as <c>toolId</c> of the inbox; empty for every kind.</param>
+/// <param name="ExpiresBefore">Only proposals whose decision deadline is before this time.</param>
+/// <param name="Sort">The order the set takes its first proposals in, as the inbox's <c>sort</c>.</param>
+public sealed record NhAssistantBulkDecisionOverviewRequest(
+    string? SubjectType,
+    string? AgentId,
+    Guid? DivisionId,
+    Guid? RunId,
+    IReadOnlyList<string>? ToolIds,
+    DateTimeOffset? ExpiresBefore,
+    string? Sort);
+
+/// <summary>
+/// What a bulk decision of a filter would decide: the set of pending proposals the caller's inbox lists
+/// with the filter, at most <see cref="Limit"/>, counted per kind of action and per subject type, with the
+/// token that decides exactly that set. Proposals of tools that are decided one by one stay out of the set
+/// (<see cref="Individual"/>). Deciding still checks each proposal on its own.
+/// </summary>
+/// <param name="Token">Decides the set with <c>POST approvals/bulk-decisions</c> until <see cref="ExpiresAt"/>,
+/// only for the caller in the caller's tenant; <see langword="null"/> for an empty set.</param>
+/// <param name="ExpiresAt">Until when the set may be decided, on the application's clock.</param>
+/// <param name="Count">How many proposals the set holds.</param>
+/// <param name="Subjects">On how many distinct subjects.</param>
+/// <param name="Listed">How many proposals the inbox lists with the filter, those decided one by one included.</param>
+/// <param name="Remaining">How many it lists beyond the set's bound, for a next round.</param>
+/// <param name="Limit">The most proposals one set holds.</param>
+/// <param name="Kinds">Per kind of action and subject type how many and on how many subjects, the most first,
+/// for a confirmation such as "212 times Add office task, on 38 projects".</param>
+/// <param name="Tools">Per kind of action how many, the most first.</param>
+/// <param name="SubjectTypes">Per subject type how many and on how many subjects, the most first.</param>
+/// <param name="Individual">The proposals the filter lists that the set leaves out because their tool is
+/// decided one by one.</param>
+public sealed record NhAssistantBulkDecisionOverviewDto(
+    string? Token,
+    DateTimeOffset? ExpiresAt,
+    int Count,
+    int Subjects,
+    int Listed,
+    int Remaining,
+    int Limit,
+    IReadOnlyList<NhAssistantBulkDecisionKindDto> Kinds,
+    IReadOnlyList<NhAssistantInboxToolCountDto> Tools,
+    IReadOnlyList<NhAssistantInboxSubjectTypeCountDto> SubjectTypes,
+    NhAssistantBulkDecisionExclusionDto Individual);
+
+/// <summary>
+/// One kind of action on one subject type in a bulk decision's set.
+/// </summary>
+public sealed record NhAssistantBulkDecisionKindDto(
+    string ToolId,
+    string ToolDisplayName,
+    string SubjectType,
+    string? SubjectTypeName,
+    int Count,
+    int Subjects);
+
+/// <summary>
+/// The proposals a bulk decision's set leaves out because their tool requires that each is decided on
+/// its own (<c>RequireIndividualDecision</c>), per kind of action.
+/// </summary>
+public sealed record NhAssistantBulkDecisionExclusionDto(int Count, IReadOnlyList<NhAssistantInboxToolCountDto> Tools);
+
+/// <param name="Token">The token of the overview whose set is decided.</param>
+/// <param name="Decision"><c>approve</c> or <c>reject</c>.</param>
+/// <param name="Reason">An optional reason of at most 500 characters, recorded with every decision.</param>
+public sealed record NhAssistantBulkDecisionSetRequest(
+    string? Token,
+    string? Decision,
+    string? Reason);
+
+/// <summary>
+/// The outcome of a bulk decision of a set: per proposal and counted. A repeat of the same token reports
+/// the stored outcome again (<see cref="Repeated"/>) and decides nothing.
+/// </summary>
+/// <param name="Token">The set's token, which the audit records as the batch id of every decision.</param>
+/// <param name="Decision"><c>approve</c> or <c>reject</c>: the decision the set was decided with.</param>
+/// <param name="Succeeded">How many proposals were decided.</param>
+/// <param name="Refused">How many a rule of their own refused: four-eyes, the approver rules, the tool's
+/// approve policy, a tool decided one by one, or a proposal the caller no longer sees.</param>
+/// <param name="Stale">How many were no longer what the overview showed: changed, decided or closed
+/// meanwhile, expired, or closed as no longer applying at the decision.</param>
+/// <param name="Repeated">Whether this answers a repeat of a token that was already decided.</param>
+/// <param name="Items">Per proposal of the set its outcome, in the set's order.</param>
+public sealed record NhAssistantBulkDecisionResultDto(
+    string Token,
+    string Decision,
+    int Succeeded,
+    int Refused,
+    int Stale,
+    bool Repeated,
+    IReadOnlyList<NhAssistantBulkDecisionItemDto> Items);
+
+/// <summary>
+/// The outcome of one proposal of a bulk decision's set.
+/// </summary>
+/// <param name="Outcome">One of <see cref="NhAssistantBulkDecisionOutcomes"/>.</param>
+/// <param name="Code">The failure code of a refused or stale proposal; <see langword="null"/> when it succeeded.</param>
+/// <param name="Status">The proposal's status after its decision; <see langword="null"/> when it was not decided.</param>
+public sealed record NhAssistantBulkDecisionItemDto(
+    Guid ApprovalId,
+    string Outcome,
+    string? Code,
+    string? Status);
+
+/// <summary>
+/// The outcomes of the proposals of a bulk decision (<see cref="NhAssistantBulkDecisionItemDto.Outcome"/>).
+/// </summary>
+public static class NhAssistantBulkDecisionOutcomes
+{
+    /// <summary>The proposal was decided.</summary>
+    public const string Succeeded = "succeeded";
+
+    /// <summary>A rule of the proposal refused the decision.</summary>
+    public const string Refused = "refused";
+
+    /// <summary>The proposal was no longer what the overview showed.</summary>
+    public const string Stale = "stale";
+}
 
 /// <param name="Action"><c>re-execute</c> runs the proposal again; <c>hand-to-application</c> hands a
 /// proposal the application executes (one with <see cref="NhAssistantProposalDto.ExecutionReportDueAt"/>)
@@ -1003,9 +1294,15 @@ public sealed record NhAssistantResolveExecutionRequest(
 [JsonSerializable(typeof(NhAssistantProposalDto[]))]
 [JsonSerializable(typeof(NhAssistantInboxDto))]
 [JsonSerializable(typeof(NhAssistantInboxVisitDto))]
+[JsonSerializable(typeof(NhAssistantInboxSummaryDto))]
 [JsonSerializable(typeof(NhAssistantProposalDecisionRequest))]
 [JsonSerializable(typeof(NhAssistantBulkDecisionRequest))]
 [JsonSerializable(typeof(NhAssistantBulkDecisionDto))]
+[JsonSerializable(typeof(NhAssistantBulkDecisionOverviewRequest))]
+[JsonSerializable(typeof(NhAssistantBulkDecisionOverviewDto))]
+[JsonSerializable(typeof(NhAssistantBulkDecisionSetRequest))]
+[JsonSerializable(typeof(NhAssistantBulkDecisionResultDto))]
+[JsonSerializable(typeof(NhAssistantBulkDecisionItemDto[]))]
 [JsonSerializable(typeof(NhAssistantResolveExecutionRequest))]
 [JsonSerializable(typeof(NhAssistantConsultationListDto))]
 [JsonSerializable(typeof(NhAssistantProposalFeedbackRequest))]
@@ -1013,6 +1310,7 @@ public sealed record NhAssistantResolveExecutionRequest(
 [JsonSerializable(typeof(NhAssistantProposalFeedbackDto))]
 [JsonSerializable(typeof(NhAssistantBulkProposalFeedbackDto))]
 [JsonSerializable(typeof(NhAssistantFeedbackSummaryDto))]
+[JsonSerializable(typeof(NhAssistantProposalKindsDto))]
 [JsonSerializable(typeof(NhAssistantFeedbackListDto))]
 [JsonSerializable(typeof(NhAssistantFeedbackExportRecord))]
 [JsonSerializable(typeof(NhAssistantEvaluationDto))]

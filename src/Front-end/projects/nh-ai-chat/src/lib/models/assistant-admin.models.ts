@@ -1057,6 +1057,114 @@ export interface AgentFeedbackSummaryRow {
   invalidated?: number;
   /** Why proposals closed as stale, per kind and reason code. Missing on older servers. */
   invalidations?: AgentInvalidationCount[];
+  /**
+   * How long people took from a proposal to their approval or rejection; `null` before anyone
+   * decided. Missing on older servers.
+   */
+  decisionTime?: AgentDecisionTime | null;
+}
+
+/**
+ * How long people took from a proposal to their decision: the median and the 90th percentile in
+ * whole seconds, interpolated between the nearest decisions as `percentile_cont` does. Only proposals
+ * a person approved or rejected count.
+ */
+export interface AgentDecisionTime {
+  /** The decisions the times are computed from. */
+  sampleSize: number;
+  medianSeconds: number;
+  percentile90Seconds: number;
+  /** The group had more decisions than the sample holds (1,000): the times are those of the newest. */
+  sampled: boolean;
+}
+
+/** Why the view per kind of action does not mark a kind as a candidate for an agent. */
+export type RoutineCandidateReason =
+  | 'too-few-decisions'
+  | 'approval-rate-too-low'
+  | 'recent-rejection'
+  | 'stale-or-failed-after-approval';
+
+/** The numbers of one kind of action (tool) in the period: what people decided and how fast. */
+export interface ProposalKindNumbers {
+  pending: number;
+  /** Approved proposals, including those that executed, failed, closed as stale when they ran or were resolved. */
+  approved: number;
+  rejected: number;
+  /** Approved plus rejected. */
+  decisions: number;
+  expired: number;
+  withdrawn: number;
+  /** Open proposals closed before anyone decided because they no longer fit; not part of the decisions. */
+  invalidated: number;
+  /** Approved proposals closed right before they ran because they no longer fit; part of `approved`. */
+  staleAfterApproval: number;
+  /** Approved proposals whose execution failed; part of `approved`. */
+  executionFailed: number;
+  /** Approved divided by the decisions (0..1); `null` before anyone decided. */
+  approvalRate: number | null;
+  /** Rejected divided by the decisions (0..1); `null` before anyone decided. */
+  rejectionRate: number | null;
+  decisionTime: AgentDecisionTime | null;
+  /** When a person last rejected a proposal of the period. */
+  lastRejectedAt: string | null;
+}
+
+/**
+ * One agent's proposals of one kind of action in the period, and whether the numbers make the kind a
+ * candidate for running without approval for that agent. A candidate is a suggestion only: nothing
+ * about deciding changes. Identified by `agentId` and `toolId`.
+ */
+export interface RoutineCandidate {
+  agentId: string;
+  /** A translation key for an agent in code, the typed name otherwise; `null` for an agent that no longer exists. */
+  agentDisplayName: string | null;
+  /** `code` or `admin`; `null` for an agent that no longer exists. */
+  agentSource: string | null;
+  toolId: string;
+  numbers: ProposalKindNumbers;
+  /** The numbers meet every threshold of `RoutineCandidateThresholds`. */
+  candidate: boolean;
+  /** The thresholds the numbers miss; empty for a candidate. */
+  unmetThresholds: RoutineCandidateReason[];
+}
+
+/** One kind of action over all agents, with the numbers per agent. */
+export interface ProposalKind {
+  toolId: string;
+  /** The name the proposal cards show, from the newest proposal; the tool id without one. */
+  displayName: string;
+  numbers: ProposalKindNumbers;
+  /** Per agent, most decisions first. */
+  agents: RoutineCandidate[];
+}
+
+/** The thresholds the server applied to mark candidates (`NewHeap:AI:Assistant:RoutineCandidates`). */
+export interface RoutineCandidateThresholds {
+  minimumDecisions: number;
+  /** 0..1 */
+  minimumApprovalRate: number;
+  /** Days before the end of the period without a rejection. */
+  quietPeriodDays: number;
+  maximumStaleOrFailedAfterApproval: number;
+}
+
+/** Response of `GET admin/proposal-kinds`: the view per kind of action over all agents. */
+export interface ProposalKinds {
+  from: string;
+  /** Exclusive end of the period; the quiet period counts back from it. */
+  to: string;
+  thresholds: RoutineCandidateThresholds;
+  /** Most decisions first. */
+  kinds: ProposalKind[];
+}
+
+/** The period and filters of `getProposalKinds`; the last 30 days by default. */
+export interface ProposalKindsFilter {
+  from?: string;
+  to?: string;
+  agentId?: string;
+  toolId?: string;
 }
 
 /** Proposals of one tool and agent version that closed as stale for one kind and reason. */

@@ -261,7 +261,13 @@ next run of the reviewer on that project starts from the rejection and the appro
 words, so it does not propose the same change again unchanged. Administrators read the
 rejection rate and the categories per tool and agent version and export the feedback as
 JSON Lines; the sample's `SampleProposalFeedbackLog` forwards each feedback to the
-application's analytics without its text.
+application's analytics without its text. The summary also says how long people take to decide,
+the median and the 90th percentile from proposal to approval or rejection, and the
+administration's Kinds of action section compares each kind of action over all agents. Per agent
+it marks a kind as a candidate for running without approval when the numbers meet the thresholds
+it explains: with the sample's development thresholds three quick approvals of status requests
+are enough, until a rejection takes the candidate away again. The section only suggests; every
+proposal still waits for its approver, and only administrators see it.
 The agent's work also appears on the project itself (SPM-280): the project directory shows a
 badge per project from one summary request, the project dialog shows the open proposals of
 every agent on the project with the viewer's decision rights, and opening the conversation with
@@ -370,8 +376,16 @@ decide. The selection follows the list: a refresh of the same page keeps it, whi
 it, so "Approve selected" never decides a proposal the person no longer sees. The page can show the
 active division's proposals only. What came since the person's last
 visit of the inbox in its scope is marked new, also what arrives while it is shown. A run's result
-lets its reader select and decide the run's proposals together. `AssistantAgentRunSamplesTests` proves the
-grouped order and totals across pages, the recorded parent, the division filter and what is new.
+lets its reader select and decide the run's proposals together. Above the inbox the page offers the
+kinds of action it lists, counted per kind with `getInboxSummary` and named as their cards name them,
+with each count labelled "listed" because deciding still checks every proposal; a chosen kind, "Only
+what expires within 24 hours" and "Proposed first" pass `toolId`, `expiresBefore` and `sort` to the
+inbox. "Decide all" decides that whole filter after an overview of what it decides, per kind of action
+and number of projects; it leaves the equipment orders, whose tool declares `RequireIndividualDecision`,
+and decides exactly the set it showed, each proposal with its own rules, so a repeat reports and a
+four-eyes review is still refused to its creator. `AssistantAgentRunSamplesTests` proves the grouped
+order and totals across pages, the recorded parent, the division filter, what is new, the counts per
+kind of action with one kind listed, and a bulk decision that leaves the orders.
 
 What waits for people reaches them (SPM-327). The sample's daily approval digest, `SampleApprovalDigest`,
 counts per person what the approval inbox lists per status with `INhAssistantProposalCounts`: proposals

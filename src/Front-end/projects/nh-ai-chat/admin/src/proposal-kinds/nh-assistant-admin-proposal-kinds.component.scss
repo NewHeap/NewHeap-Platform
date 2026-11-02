@@ -1,0 +1,151 @@
+// The view per kind of action on top of the shared administration styles.
+@use '../../../src/lib/styles/tokens';
+@use './proposal-kinds-table' as table;
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 24px;
+
+  .field {
+    min-width: min(100%, 200px);
+  }
+}
+
+.only-candidates {
+  padding-bottom: 8px;
+}
+
+.thresholds {
+  ul {
+    margin: 0 0 8px;
+    padding-left: 20px;
+    font-size: 13px;
+  }
+
+  li + li {
+    margin-top: 2px;
+  }
+}
+
+.table-container {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.kinds-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  @include table.cells;
+
+  thead th {
+    color: var(--nha-text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .kind-row th,
+  .kind-row td {
+    background: var(--nha-surface);
+  }
+}
+
+.kind-toggle {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  background: none;
+  font: inherit;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+
+  nh-assistant-icon {
+    flex: none;
+    margin-top: 2px;
+    transform: rotate(-90deg);
+    transition: transform 120ms ease;
+  }
+
+  nh-assistant-icon.open {
+    transform: none;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--nha-highlight);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+.kind-name {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+
+  .mono {
+    font-weight: 400;
+  }
+}
+
+.sampled {
+  display: block;
+  font-size: 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kind-toggle nh-assistant-icon {
+    transition: none;
+  }
+}
+
+@container (max-width: #{table.$stack-width}) {
+  .kinds-table thead {
+    @include tokens.visually-hidden;
+  }
+
+  .kinds-table,
+  .kinds-table tbody,
+  .kinds-table .kind-row {
+    display: block;
+  }
+
+  .kinds-table tbody {
+    margin-bottom: 12px;
+  }
+
+  .kinds-table .kind-row {
+    margin-bottom: 8px;
+    border: 1px solid var(--nha-border);
+    border-radius: var(--nha-radius-control);
+    padding: 6px 12px;
+    background: var(--nha-surface);
+  }
+
+  .kinds-table .kind-row {
+    @include table.stacked-cells;
+
+    th,
+    td {
+      background: none;
+    }
+
+    td[aria-hidden='true'] {
+      display: none;
+    }
+  }
+}

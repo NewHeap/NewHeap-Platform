@@ -62,6 +62,9 @@ public sealed class ProjectAiEquipmentTools(IProjectEquipmentOrderDesk orders, I
         Approval = NhAiApprovalRequirement.Required,
         Idempotency = NhAiIdempotencySupport.Required,
         AllowAgentGrant = true,
+        // FB80: an order reaches the supplier and cannot be undone, so a person decides each one on
+        // its own card; "Decide all" leaves orders in the inbox and says how many.
+        RequireIndividualDecision = true,
         RequiredCapabilities = new[] { ProjectAiTools.ManageCapability })]
     [Authorize(Policy = ProjectAiTools.ManagePolicy)]
     [Description("Order equipment, such as laptops or monitors, for one project in the authorized active division at the order desk. The supplier confirms the order later.")]

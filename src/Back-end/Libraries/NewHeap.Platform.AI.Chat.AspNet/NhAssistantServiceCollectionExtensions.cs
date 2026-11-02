@@ -144,6 +144,7 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddSingleton<NhAssistantSystemRoleCache>();
             services.TryAddScoped<NhAssistantAgentWorkWatchers>();
             services.TryAddScoped<NhAssistantProposalDecisions>();
+            services.TryAddScoped<NhAssistantBulkDecisions>();
             // The same decision for the application's own channels, such as a messaging reply.
             services.TryAddScoped<INhAssistantProposalDecisionService, NhAssistantProposalDecisionService>();
             // Who may approve under a policy or a proposal's policy copy, for the application's code (FB20).
@@ -159,6 +160,8 @@ public static class NhAssistantServiceCollectionExtensions
             // What a person's inbox lists, counted per status for the application's digests (LS14).
             services.TryAddScoped<INhAssistantProposalCounts, NhAssistantProposalCounts>();
             services.TryAddScoped<NhAssistantProposalFeedbackService>();
+            // FB82: the administrators' view per kind of action with its candidates.
+            services.TryAddScoped<NhAssistantProposalKindReport>();
             services.TryAddScoped<INhAssistantSubjectWork, NhAssistantSubjectWork>();
             services.TryAddScoped<NhAssistantProposalReads>();
             services.TryAddScoped<NhAssistantProposalExecution>();

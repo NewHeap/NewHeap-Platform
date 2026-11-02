@@ -464,6 +464,18 @@ public sealed class NhAiToolTests
     }
 
     [Fact]
+    public void Generator_emits_an_individual_decision_without_changing_the_contract()
+    {
+        var plain = GenerateAgentTool(string.Empty);
+        var individual = GenerateAgentTool(", RequireIndividualDecision = true");
+
+        Assert.DoesNotContain("RequireIndividualDecision", plain, StringComparison.Ordinal);
+        Assert.Contains("RequireIndividualDecision = true,", individual, StringComparison.Ordinal);
+        // How a person decides is no part of the contract: pending proposals keep their binding.
+        Assert.Equal(ReadContractHash(plain), ReadContractHash(individual));
+    }
+
+    [Fact]
     public void Generator_reads_positional_inherited_and_overridden_authorization_policies()
     {
         const string source = """

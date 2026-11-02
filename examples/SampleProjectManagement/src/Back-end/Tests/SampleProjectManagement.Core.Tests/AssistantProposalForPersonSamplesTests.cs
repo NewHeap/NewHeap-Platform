@@ -122,7 +122,7 @@ public sealed class AssistantProposalForPersonSamplesTests(AssistantProposalForP
 /// SPM-364: the agent run host with the approval policy selection of Program.cs and the project page's status
 /// requests.
 /// </summary>
-public sealed class AssistantProposalForPersonSampleHost(SamplePostgreSqlServer postgreSql) : AssistantAgentRunSampleHost(postgreSql)
+public class AssistantProposalForPersonSampleHost(SamplePostgreSqlServer postgreSql) : AssistantAgentRunSampleHost(postgreSql)
 {
     protected override void ConfigureAssistant(IServiceCollection services)
     {

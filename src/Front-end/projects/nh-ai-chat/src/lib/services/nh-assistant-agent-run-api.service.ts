@@ -5,12 +5,17 @@ import {
   AgentBoard,
   AgentBoardList,
   AgentBoardVisit,
+  AgentBulkDecisionFilter,
+  AgentBulkDecisionOverview,
+  AgentBulkDecisionResult,
   AgentConsultationList,
   AgentDecisionOutcome,
   AgentExecutionResolution,
   AgentFeedbackOutcome,
   AgentInbox,
   AgentInboxFilter,
+  AgentInboxSummary,
+  AgentInboxSummaryFilter,
   AgentInboxVisit,
   AgentObjectAgents,
   AgentProposal,
@@ -247,14 +252,17 @@ export class NhAssistantAgentRunApiService {
    * uncertain execution (`execution-unknown`) instead, with the same visibility.
    */
   getInbox(filter: AgentInboxFilter = {}): Observable<AgentInbox> {
-    const query = new URLSearchParams();
-    for (const [key, value] of Object.entries(filter)) {
-      if (value !== undefined && value !== null && value !== '') {
-        query.set(key, String(value));
-      }
-    }
-    const suffix = query.toString();
-    return this.transport.json<AgentInbox>('GET', suffix ? `approvals/inbox?${suffix}` : 'approvals/inbox');
+    return this.transport.json<AgentInbox>('GET', withQuery('approvals/inbox', filter));
+  }
+
+  /**
+   * Counts what `getInbox` lists with the same filter and visibility: in total, per agent, per kind of
+   * action (named as its cards name it), per subject type with its subjects, and how many expire within
+   * 24 hours. The counts say what is listed; deciding still checks each proposal on its own, so a host
+   * labels them "listed", for example to offer a filter per kind of action.
+   */
+  getInboxSummary(filter: AgentInboxSummaryFilter = {}): Observable<AgentInboxSummary> {
+    return this.transport.json<AgentInboxSummary>('GET', withQuery('approvals/inbox/summary', filter));
   }
 
   /**
@@ -284,10 +292,55 @@ export class NhAssistantAgentRunApiService {
     });
   }
 
-  /** Decides several proposals; each one is checked and decided on its own. */
-  decideMany(approvalIds: string[], decision: AgentProposalDecision, reason?: string): Observable<{ results: AgentDecisionOutcome[] }> {
+  /**
+   * Decides at most 50 proposals by id; each one is checked and decided on its own. Pass the proposals
+   * the person saw, rather than their ids, to bind each decision to its proposal hash: one that changed
+   * since is refused with `assistant-proposal-hash-mismatch`. A proposal of a tool that is decided one by
+   * one is refused with `assistant-individual-decision-required`. To decide a whole filter of the inbox
+   * use `getBulkDecisionOverview` and `decideBulk`.
+   */
+  decideMany(
+    approvals: readonly (string | Pick<AgentProposal, 'approvalId' | 'proposalHash'>)[],
+    decision: AgentProposalDecision,
+    reason?: string
+  ): Observable<{ results: AgentDecisionOutcome[] }> {
+    const expectedProposalHashes: Record<string, string> = {};
+    for (const approval of approvals) {
+      if (typeof approval !== 'string') {
+        expectedProposalHashes[approval.approvalId] = approval.proposalHash;
+      }
+    }
+
     return this.transport.json<{ results: AgentDecisionOutcome[] }>('POST', 'approvals/decisions', {
-      approvalIds,
+      approvalIds: approvals.map(approval => (typeof approval === 'string' ? approval : approval.approvalId)),
+      decision,
+      reason: reason?.trim() || null,
+      ...(Object.keys(expectedProposalHashes).length > 0 ? { expectedProposalHashes } : {})
+    });
+  }
+
+  /**
+   * What deciding the whole filter would decide: the pending proposals the inbox lists with the filter,
+   * at most `NH_ASSISTANT_MAX_BULK_DECISION`, counted per kind of action and object type, without those
+   * of tools that are decided one by one, and the token that decides exactly that set. Show it before
+   * the decision, naming what happens ("212 times Add office task, on 38 projects").
+   */
+  getBulkDecisionOverview(filter: AgentBulkDecisionFilter = {}): Observable<AgentBulkDecisionOverview> {
+    const { toolId, ...rest } = filter;
+    const toolIds = toolId === undefined ? undefined : typeof toolId === 'string' ? [toolId] : [...toolId];
+    return this.transport.json<AgentBulkDecisionOverview>('POST', 'approvals/bulk-decisions/overview', { ...rest, toolIds });
+  }
+
+  /**
+   * Decides the set of an overview's token: only the proposals of that set that the inbox still lists,
+   * each with its own rules and the version the overview counted. The result counts what succeeded, what
+   * was refused and what was stale; a repeat of the same token reports again and decides nothing. Fails
+   * with `assistant-bulk-decision-not-found`, `assistant-bulk-decision-expired` (ask for a new overview)
+   * or `assistant-bulk-decision-in-progress`.
+   */
+  decideBulk(token: string, decision: AgentProposalDecision, reason?: string): Observable<AgentBulkDecisionResult> {
+    return this.transport.json<AgentBulkDecisionResult>('POST', 'approvals/bulk-decisions', {
+      token,
       decision,
       reason: reason?.trim() || null
     });
@@ -334,11 +387,17 @@ export class NhAssistantAgentRunApiService {
   }
 }
 
-/** Appends the filter values that are set as query parameters. */
+/** Appends the filter values that are set as query parameters; a list repeats its parameter per value. */
 function withQuery(path: string, filter: object): string {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(filter)) {
-    if (value !== undefined && value !== null && value !== '') {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item !== undefined && item !== null && item !== '') {
+          query.append(key, String(item));
+        }
+      }
+    } else if (value !== undefined && value !== null && value !== '') {
       query.set(key, String(value));
     }
   }

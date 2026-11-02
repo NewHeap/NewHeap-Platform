@@ -12,10 +12,69 @@
         }
       }
     </div>
-    <button class="secondary" type="button" [disabled]="loading()" (click)="load()">
-      <nh-assistant-icon name="refresh" />{{ 'nh-assistant.agent-runs.refresh' | translate }}
-    </button>
+    <div class="toolbar">
+      @if (decideAll() && loaded() && total() > 1 && !overview()) {
+        <!-- Decides the whole filter, not the page: an overview names what happens first. -->
+        <button class="secondary" type="button" data-decide-all [disabled]="loading() || bulkBusy()" (click)="openOverview()">
+          <nh-assistant-icon name="check" />{{ 'nh-assistant.agent-runs.inbox.bulk.decide-all' | translate: { count: total() } }}
+        </button>
+      }
+      <button class="secondary" type="button" [disabled]="loading()" (click)="load()">
+        <nh-assistant-icon name="refresh" />{{ 'nh-assistant.agent-runs.refresh' | translate }}
+      </button>
+    </div>
   </header>
+
+  @if (overview(); as set) {
+    <section class="card bulk-decision" data-bulk-overview role="region" [attr.aria-label]="'nh-assistant.agent-runs.inbox.bulk.title' | translate: { count: set.count }">
+      @if (set.count > 0) {
+        <h4>{{ one('title', set.count) | translate: { count: set.count } }}</h4>
+        <ul data-bulk-kinds>
+          @for (kind of set.kinds; track kind.toolId + '|' + kind.subjectType) {
+            <li>{{ kindKey(kind) | translate: { count: kind.count, kind: kind.toolDisplayName, subjects: kind.subjects, type: kind.subjectTypeName ?? kind.subjectType } }}</li>
+          }
+        </ul>
+      } @else {
+        <p data-bulk-nothing>{{ 'nh-assistant.agent-runs.inbox.bulk.nothing' | translate }}</p>
+      }
+      @if (set.individual.count > 0) {
+        <p class="muted" data-bulk-individual>{{ one('individual', set.individual.count) | translate: { count: set.individual.count, kinds: individualNames(set) } }}</p>
+      }
+      @if (set.remaining > 0) {
+        <p class="muted" data-bulk-remaining>{{ one('remaining', set.remaining) | translate: { count: set.remaining, limit: set.limit } }}</p>
+      }
+      @if (set.count > 0) {
+        <p class="muted">{{ 'nh-assistant.agent-runs.inbox.bulk.checked' | translate }}</p>
+        <label>
+          {{ 'nh-assistant.agent-runs.inbox.bulk.reason' | translate }}
+          <textarea maxlength="500" [value]="bulkReason()" [disabled]="bulkBusy()" (input)="onBulkReason($event)"></textarea>
+        </label>
+      }
+      @if (bulkError(); as failure) {
+        <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ bulkErrorKeys() | nhAssistantTranslate: failure.code }}</p>
+      }
+      <div class="toolbar">
+        @if (set.count > 0) {
+          <button class="primary" type="button" data-bulk-approve [disabled]="bulkBusy()" (click)="decideOverview('approve')">
+            <nh-assistant-icon name="check" />{{ 'nh-assistant.agent-runs.inbox.bulk.approve' | translate: { count: set.count } }}
+          </button>
+          <button class="secondary" type="button" data-bulk-reject [disabled]="bulkBusy()" (click)="decideOverview('reject')">
+            <nh-assistant-icon name="x" />{{ 'nh-assistant.agent-runs.inbox.bulk.reject' | translate: { count: set.count } }}
+          </button>
+        }
+        <button class="secondary" type="button" data-bulk-cancel [disabled]="bulkBusy()" (click)="closeOverview()">
+          {{ 'nh-assistant.agent-runs.inbox.bulk.cancel' | translate }}
+        </button>
+      </div>
+    </section>
+  } @else if (bulkError(); as failure) {
+    <p class="message error" role="alert"><nh-assistant-icon name="warning" />{{ bulkErrorKeys() | nhAssistantTranslate: failure.code }}</p>
+  }
+  @if (bulkResult(); as result) {
+    <p class="state" role="status" data-bulk-result>
+      {{ (result.decision === 'approve' ? 'nh-assistant.agent-runs.inbox.bulk.approved' : 'nh-assistant.agent-runs.inbox.bulk.rejected') | translate: { succeeded: result.succeeded, refused: result.refused, stale: result.stale } }}
+    </p>
+  }
 
   @if (loading() && items().length === 0 && !loaded()) {
     <p class="state" role="status">{{ 'nh-assistant.agent-runs.loading' | translate }}</p>

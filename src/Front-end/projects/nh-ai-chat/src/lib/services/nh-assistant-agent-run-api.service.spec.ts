@@ -86,8 +86,17 @@ describe('NhAssistantAgentRunApiService', () => {
       [() => firstValueFrom(api.getInbox()), 'GET', 'approvals/inbox'],
       [() => firstValueFrom(api.getInbox({ subjectType: 'project', page: 2, itemsPerPage: 10 })), 'GET', 'approvals/inbox?subjectType=project&page=2&itemsPerPage=10'],
       [() => firstValueFrom(api.getInbox({ status: 'awaiting-application' })), 'GET', 'approvals/inbox?status=awaiting-application'],
+      [
+        () => firstValueFrom(api.getInbox({ toolId: ['projects.add-task', 'projects.close'], expiresBefore: '2026-11-03T10:00:00Z', sort: 'createdAt' })),
+        'GET',
+        'approvals/inbox?toolId=projects.add-task&toolId=projects.close&expiresBefore=2026-11-03T10%3A00%3A00Z&sort=createdAt'
+      ],
+      [() => firstValueFrom(api.getInboxSummary()), 'GET', 'approvals/inbox/summary'],
+      [() => firstValueFrom(api.getInboxSummary({ agentId: 'intake', toolId: 'projects.close' })), 'GET', 'approvals/inbox/summary?agentId=intake&toolId=projects.close'],
       [() => firstValueFrom(api.decide(proposal, 'approve')), 'POST', 'approvals/approval%201/decisions'],
       [() => firstValueFrom(api.decideMany(['a', 'b'], 'reject')), 'POST', 'approvals/decisions'],
+      [() => firstValueFrom(api.getBulkDecisionOverview()), 'POST', 'approvals/bulk-decisions/overview'],
+      [() => firstValueFrom(api.decideBulk('token-1', 'approve')), 'POST', 'approvals/bulk-decisions'],
       [() => firstValueFrom(api.resolve('approval-1', 'mark-resolved')), 'POST', 'approvals/approval-1/resolve'],
       [() => firstValueFrom(api.giveFeedback('approval 1', 'not-now')), 'PUT', 'approvals/approval%201/feedback'],
       [() => firstValueFrom(api.giveFeedbackMany(['a', 'b'], 'incorrect')), 'POST', 'approvals/feedback']
@@ -133,6 +142,31 @@ describe('NhAssistantAgentRunApiService', () => {
     await firstValueFrom(api.decide(proposal, 'reject', '  not now  '));
 
     expect(lastCall().body).toEqual({ decision: 'reject', expectedProposalHash: 'hash-1', reason: 'not now' });
+  });
+
+  it('binds the decisions of several proposals to the hashes the person saw, and ids alone to none', async () => {
+    fetchSpy.and.callFake(() => Promise.resolve(jsonResponse({ results: [] })));
+
+    await firstValueFrom(api.decideMany([proposal, 'approval-2'], 'approve', '  routine  '));
+    expect(lastCall().body).toEqual({
+      approvalIds: ['approval 1', 'approval-2'],
+      decision: 'approve',
+      reason: 'routine',
+      expectedProposalHashes: { 'approval 1': 'hash-1' }
+    });
+
+    await firstValueFrom(api.decideMany(['approval-2'], 'reject'));
+    expect(lastCall().body).toEqual({ approvalIds: ['approval-2'], decision: 'reject', reason: null });
+  });
+
+  it('asks for the overview of a filter with its kinds as a list, and decides a set by its token', async () => {
+    fetchSpy.and.callFake(() => Promise.resolve(jsonResponse({})));
+
+    await firstValueFrom(api.getBulkDecisionOverview({ agentId: 'intake', toolId: 'projects.close', sort: 'createdAt' }));
+    expect(lastCall().body).toEqual({ agentId: 'intake', toolIds: ['projects.close'], sort: 'createdAt' });
+
+    await firstValueFrom(api.decideBulk('token-1', 'reject', '  not this quarter  '));
+    expect(lastCall().body).toEqual({ token: 'token-1', decision: 'reject', reason: 'not this quarter' });
   });
 
   it('sends feedback with a category and a trimmed text, and null for an empty text', async () => {

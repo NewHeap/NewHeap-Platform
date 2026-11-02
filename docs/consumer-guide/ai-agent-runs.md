@@ -10,7 +10,7 @@ Human-readable reference generated from the same rules as the NewHeap consumer s
 
 ## Run assistant agents on their own from events, with subject threads, deferred proposals, consultations, proposal feedback, revalidation and rule runs
 
-Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, also through the application's own channels, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, group agents on boards that show their latest results and what is new, keep the application's own typed data about agents as metadata, let the application execute approved proposals of its own tools and report how they went, take the instructions of data skills and agents created in the administration from the application's own text assets, let administrators connect agents with hand-offs and try shadow variants as data within ceilings in code and promote a variant onto its live agent, change agent definitions from code and read agents as they are in effect, move agents between hosts as versioned agent packages whose locked parts every save keeps, and group the approval inbox by the parent of each proposal's subject with what is new since the last visit.
+Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, also through the application's own channels, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, group agents on boards that show their latest results and what is new, keep the application's own typed data about agents as metadata, let the application execute approved proposals of its own tools and report how they went, take the instructions of data skills and agents created in the administration from the application's own text assets, let administrators connect agents with hand-offs and try shadow variants as data within ceilings in code and promote a variant onto its live agent, change agent definitions from code and read agents as they are in effect, move agents between hosts as versioned agent packages whose locked parts every save keeps, and group the approval inbox by the parent of each proposal's subject with what is new since the last visit, counted and filtered per kind of action, and decide a whole filter of it at once after an overview.
 
 ## Preferred approach
 
@@ -781,6 +781,58 @@ the inbox's own query and visibility for an `NhAssistantDecidingPerson` the appl
 ids and counts only; an unknown status throws `ArgumentException`. The visits live with the board visits under the platform's reserved id
 `nh-inbox`; `AddAgentGroup` therefore refuses every group id that starts with `nh-`, and the run
 maintenance removes inbox visits by age only.
+
+Let approvers see where the piles are before they decide (SPM-310). `GET approvals/inbox` also filters
+on the kind of action with `toolId`, repeated for several kinds and at most
+`NhAssistantAgentRunEndpoints.MaxToolFilters` (20), and on the decision deadline with `expiresBefore`
+(proposals whose `expiresAt` is before that time); `sort=expiresAt` orders every status by the decision
+deadline and `sort=createdAt` by when the proposal was made, both earliest first
+(`NhAssistantInboxSorts`), also grouped, where the groups then come by their first proposal of that
+time. Any other sort or an empty kind is `400 assistant-message-invalid`. `GET approvals/inbox/summary`
+takes the same filter (without paging, grouping or sort) and counts with the inbox's own query and
+visibility (`NhAssistantInboxSummaryDto`): the `Total`, per agent (`NhAssistantInboxAgentCountDto`),
+per kind of action (`NhAssistantInboxToolCountDto`, named as its cards name it: the tool's name from
+the presentation its newest proposal stored, in the caller's language, otherwise the tool id, as for a
+confidential tool that is never presented), per subject type with its distinct subjects
+(`NhAssistantInboxSubjectTypeCountDto`), and `ExpiringSoon`, the proposals that expire before
+`ExpiringBefore`, 24 hours ahead on the application's clock. Each count is one grouped query on the
+approval's own `ToolId` and `ExpiresAt` columns; no proposal is loaded and no migration was needed.
+The counts say what the inbox lists, not what the caller may decide: the listing applies the member
+snapshot and the view policies, while four-eyes, the approver rules and the tool's approve policy are
+checked only when a proposal is decided, so label them "listed".
+
+Decide a whole filter of the inbox in two steps, never by paging through it on the client (SPM-310).
+`POST approvals/bulk-decisions/overview` takes the inbox's filter
+(`NhAssistantBulkDecisionOverviewRequest`, pending proposals only) and puts what the caller's inbox lists
+with it in a set of at most `NhAssistantLimits.MaxBulkDecisionProposals` (200), the first in the inbox's
+order (`Sort`), each with the proposal hash it has then (`NhAssistantBulkDecisionOverviewDto`): `Count`
+and `Subjects`, `Kinds` per kind of action and subject type for a confirmation such as "212 times Add
+office task, on 38 projects" (`NhAssistantBulkDecisionKindDto`), `Tools` and `SubjectTypes`, `Listed`,
+`Remaining` beyond the bound for a next round, and `Individual` (`NhAssistantBulkDecisionExclusionDto`):
+the proposals of tools that declare `NhAiToolAttribute.RequireIndividualDecision`, such as a message to
+an external party, which stay out of the set and are decided on their own card. The set is stored for
+the caller and the caller's tenant (`AssistantDecisionBatch`, the migration `BulkDecisionSets`) for
+`NhAssistantLimits.BulkDecisionLifetime` (15 minutes on the application's clock), and `Token` names it.
+`POST approvals/bulk-decisions` (`NhAssistantBulkDecisionSetRequest`: token, `approve` or `reject`, an
+optional reason) decides only that set, never a proposal that arrived later: it runs the inbox's
+visibility again for the set, leaves a proposal no longer listed undecided, and decides each other one
+through the one decision with its own rules and the version the overview counted: tenant, view policy,
+proposal hash, expiry, four-eyes, the approver rules, the tool's approve policy, the changed-subject check
+and the proposal guards. `NhAssistantBulkDecisionResultDto` counts `Succeeded`, `Refused` (a rule refused
+it, or the caller no longer sees it) and `Stale` (changed, decided or closed meanwhile, expired, or no
+longer applying), with an `NhAssistantBulkDecisionItemDto` per proposal (`NhAssistantBulkDecisionOutcomes`).
+Every decision's `ApprovalApproved` or `ApprovalRejected` audit event carries the token as
+`NhAssistantAuditEvent.BatchId`, through the `web` channel. A decision claims the set, so a second request
+with the same token answers `409 assistant-bulk-decision-in-progress` while the first works, and once it
+ended any repeat reports the stored result with `Repeated` and decides nothing; a token of another person
+or tenant, or one that names no set, is `404 assistant-bulk-decision-not-found`, and a set not decided in
+time `409 assistant-bulk-decision-expired`. The decisions run in the request but do not stop when the
+client goes away, so a closed page never leaves half a set, and a repeat takes over a set whose decision
+stopped halfway after five minutes, counting what that decision already decided. The run maintenance
+removes sets a day after their lifetime. `POST approvals/decisions` (1 to 50 ids) takes
+`ExpectedProposalHashes` per id (`NhAssistantBulkDecisionRequest`) and refuses a proposal whose hash
+differs with `assistant-proposal-hash-mismatch`, refuses a proposal of an individual-decision tool with
+`assistant-individual-decision-required`, and gives its decisions one batch id per request.
 
 Start agents from application events with `AddTrigger<TEvent>` and
 `INhAssistantAgentTriggers.PublishAsync`, and set `Dedupe` to the event id or to the
@@ -1908,6 +1960,30 @@ Forward feedback to the application's analytics with `AddProposalFeedbackSink`; 
 receives the text, the business audit sink only the category
 (`AgentProposalFeedbackGiven`). Feedback is deleted with the subject's threads.
 
+See what is routine from the numbers before anything runs without approval. Each summary row
+carries `DecisionTime` (`NhAssistantDecisionTimeDto`): the median and the 90th percentile of the
+time from a proposal to a person's approval or rejection, in whole seconds and interpolated as
+`percentile_cont` does. Expired, withdrawn and invalidated proposals do not count, nor decisions
+of agents or of the platform. The numbers are a bounded load with provider-neutral LINQ, the same
+on SQL Server and PostgreSQL: at most the newest 1,000 decisions per row, and `Sampled` says
+when there were more. A proposal's creation follows the system clock and its decision the
+application's clock, so an application whose `TimeProvider` runs ahead reads the shift in the
+times. `GET admin/proposal-kinds` (`NhAssistantProposalKindsDto`) is the administration's view
+per kind of action over all agents: per tool the counts, `ApprovalRate`, `RejectionRate`,
+`DecisionTime`, `LastRejectedAt` and the name the proposal cards show (from the newest
+proposal's presentation in the caller's culture, the tool id without one), and per agent a
+`NhAssistantRoutineCandidateDto` with `AgentId`, `ToolId`, the numbers, `Candidate` and the
+`UnmetThresholds` (`NhAssistantRoutineCandidateReasons`). A kind is a candidate for running
+without approval for an agent when the period meets every threshold of
+`NhAssistantRoutineCandidateOptions` (`NewHeap:AI:Assistant:RoutineCandidates` or
+`ConfigureRoutineCandidates`): at least `MinimumDecisions` (50), at least `MinimumApprovalRate`
+(98%) approved, no rejection within `QuietPeriod` (7 days) before the period's end and at most
+`MaximumStaleOrFailedAfterApproval` (none) approved proposals that closed as stale when they ran
+or failed. Keep the defaults in production; lower `MinimumDecisions` only for a development
+database. A candidate is a suggestion only: nothing about deciding changes, and the view is behind
+the admin policy like the rest of the administration. Filter it with `agentId` and `toolId`; the
+period defaults to 30 days and spans at most 366.
+
 Close proposals that people overtook. A proposal can wait for days while a person does the
 work by hand. Register an `INhAiProposalGuard` for the tools it knows with
 `AddProposalGuard<TGuard>(toolSelectors)`; several guards may apply to one tool and the first
@@ -2360,6 +2436,18 @@ instructions in full: call them for an administrator or process the application 
   example through one shared helper.
 - Grouping or naming inbox proposals by calling a subject resolver per proposal, or sorting a page of
   the inbox on the client; name the parent in `DescribeAsync` and ask the server for `grouped=true`.
+- Fetching every page of the inbox to count proposals per kind of action, agent or object; ask
+  `GET approvals/inbox/summary`, which counts with the same filter in grouped queries, and filter the
+  inbox with `toolId`, `expiresBefore` and `sort` instead of on the client.
+- Presenting the summary's counts as what a person may decide; they count what is listed, and four-eyes,
+  the approver rules and the tool's approve policy still refuse per proposal when it is decided.
+- Deciding a filter by fetching its pages and sending their ids in chunks; a closed page leaves half a
+  decision, nothing binds it to what the person saw, and a proposal that arrived meanwhile gets decided.
+  Ask for `POST approvals/bulk-decisions/overview`, show what it names, and decide its token.
+- Deciding several proposals by id without their `ExpectedProposalHashes`; the person then decides a
+  version they did not see.
+- Leaving a tool whose effect cannot be undone, such as a message to an external party, open to bulk
+  decisions; declare `RequireIndividualDecision` on it.
 - Selecting or deciding the proposals of a group on pages the approver has not seen; a group's total
   may span pages, and only the proposals shown may be selected.
 - Registering a group id that starts with `nh-`; the platform reserves those ids.
@@ -2402,6 +2490,25 @@ was made and keeps it when the parent changes later, that a subject named as its
 that `NewApprovalIds` follows the last visit per person and scope (all before the first visit),
 that a visit of a division the caller does not work in answers `404` and stores nothing, that the run
 maintenance keeps recent inbox visits, and that `AddAgentGroup` refuses `nh-` ids.
+
+For the inbox by kind of action, on both providers, assert that `toolId` (one or several) and
+`expiresBefore` filter the flat and grouped inbox, that `sort=createdAt` and `sort=expiresAt` order it
+(grouped by the first proposal of that time), that another sort, an empty kind and more than 20 kinds
+answer `400`, and that `GET approvals/inbox/summary` counts per agent, kind of action (named by the
+stored presentation, otherwise the tool id), subject type with its distinct subjects and expiry within
+24 hours exactly what the inbox lists with the same filter, never another approver's proposal or another
+status, and nothing for a person without a role (`AssistantInboxOverviewTests`, SPM-310).
+
+For bulk decisions, on both providers, assert that the overview counts the set per kind of action and
+subject type and leaves the proposals of an individual-decision tool out with their count, that the
+token decides for nobody else (`404`), that a proposal changed after the overview is stale with
+`assistant-proposal-hash-mismatch`, one decided meanwhile stale with `assistant-approval-not-pending`, one
+that arrived after it stays pending, that four-eyes and the approver rules still refuse per proposal,
+that every decision's audit carries the token as its batch id, that a repeat reports with `Repeated` and
+decides nothing, that a claimed set answers `409 assistant-bulk-decision-in-progress` and is taken over
+after the lease, that an expired set is refused and removed a day later, that a set holds at most 200 and
+says what remains, and that `POST approvals/decisions` checks the hashes sent and refuses an
+individual-decision tool (`AssistantBulkDecisionTests`, SPM-310).
 
 For webhook deliveries, on both providers, post a signed delivery that starts a run and a second one
 that joins it, let the run claim both and end, and assert that delivering either again answers
@@ -2921,7 +3028,7 @@ SPM-316 and SPM-317 are the executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs)
-- SPM-279 — Approvers explain rejected agent proposals and administrators review the feedback
+- SPM-279 — Approvers explain rejected agent proposals and administrators review the feedback and decision numbers
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalFeedbackLog.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalFeedbackLog.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
@@ -3046,7 +3153,7 @@ SPM-316 and SPM-317 are the executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Events/ProjectEvents.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Events/ProjectEvents.cs)
-- SPM-310 — The approval inbox in the management portal groups the intake reviewer's proposals per division, the parent every project names, and marks what came since the last visit
+- SPM-310 — The approval inbox in the management portal groups the intake reviewer's proposals per division, the parent every project names, marks what came since the last visit, counts and filters them per kind of action, and decides a whole filter after an overview
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectSubjectAccessResolver.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectSubjectAccessResolver.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts)

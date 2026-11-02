@@ -13,7 +13,7 @@
            project and run; it marks what is new since the last visit and can show the active division only. -->
       @if (activeDivisionId; as divisionId) {
         <label class="division-filter">
-          <input type="checkbox" [checked]="activeDivisionOnly()" (change)="activeDivisionOnly.set(!activeDivisionOnly())" />
+          <input type="checkbox" [checked]="activeDivisionOnly()" (change)="toggleActiveDivisionOnly()" />
           {{ 'intake-reviews.active-division-only' | translate }}
         </label>
       }
@@ -38,6 +38,36 @@
           <button type="button" (click)="showAllProposals()">{{ 'intake-reviews.show-all' | translate }}</button>
         </p>
       }
+      <!-- FB78: the kinds of action the inbox lists, counted with its filter; the counts say what is listed,
+           since deciding still checks each proposal. -->
+      @if (summary(); as counted) {
+        @if (counted.total > 0 && !runId()) {
+          <div class="kind-filter">
+            <label>
+              {{ 'intake-reviews.kind' | translate }}
+              <select (change)="onToolChange($event)">
+                <option value="" [selected]="!toolId()">{{ 'intake-reviews.all-kinds' | translate: { count: counted.total } }}</option>
+                @for (tool of counted.tools; track tool.toolId) {
+                  <option [value]="tool.toolId" [selected]="tool.toolId === toolId()">
+                    {{ 'intake-reviews.kind-listed' | translate: { name: tool.displayName, count: tool.count } }}
+                  </option>
+                }
+              </select>
+            </label>
+            <label>
+              {{ 'intake-reviews.order' | translate }}
+              <select (change)="onSortChange($event)">
+                <option value="" [selected]="!sort()">{{ 'intake-reviews.order-expiry' | translate }}</option>
+                <option value="createdAt" [selected]="sort() === 'createdAt'">{{ 'intake-reviews.order-created' | translate }}</option>
+              </select>
+            </label>
+            <label class="expiring-filter">
+              <input type="checkbox" [checked]="expiringSoonOnly()" (change)="expiringSoonOnly.set(!expiringSoonOnly())" />
+              {{ 'intake-reviews.expiring-soon' | translate: { count: counted.expiringSoon } }}
+            </label>
+          </div>
+        }
+      }
       <!-- SPM-302: a proposal a run for the whole application placed here opens that run's conversation. -->
       <nh-assistant-agent-inbox
         [agentId]="runId() ? undefined : (boardAgentId() ?? agentId)"
@@ -45,6 +75,9 @@
         [runId]="runId()"
         [divisionId]="boardDivisionId() ?? (activeDivisionOnly() ? activeDivisionId : null)"
         [recordVisit]="!boardAgentId()"
+        [toolId]="runId() ? null : toolId()"
+        [expiresBefore]="runId() ? null : expiresBefore()"
+        [sort]="sort()"
         [grouped]="true"
         [groupByRun]="true"
         [density]="compactList() ? 'compact' : 'comfortable'"

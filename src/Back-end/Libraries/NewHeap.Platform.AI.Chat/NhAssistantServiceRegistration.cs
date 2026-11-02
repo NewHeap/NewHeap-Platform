@@ -162,7 +162,9 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<NhAssistantRunResultCultures>();
         services.TryAddScoped<NhAssistantArtifactStore>();
         services.TryAddScoped<NhAssistantProposalFeedbackStore>();
+        services.TryAddScoped<NhAssistantDecisionNumbersStore>();
         services.TryAddScoped<NhAssistantBoardStore>();
+        services.TryAddScoped<NhAssistantDecisionBatchStore>();
         services.TryAddScoped<Live.NhAssistantAgentWorkUpdates>();
         services.TryAddScoped<INhAiArtifacts, NhAssistantArtifacts>();
         services.TryAddScoped<NhAssistantConsultationService>();

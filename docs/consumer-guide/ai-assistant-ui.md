@@ -525,8 +525,18 @@ cards `canGiveFeedback`, and the approval card offers the same question behind a
 low-key "What was wrong?" button; plain chat approvals never ask. Administrators review
 the feedback per agent with `nh-assistant-agent-feedback-report` of
 `@newheap/platform-ai-chat/admin`, also reachable from each agent in the administration
-page: rejection rates and categories per tool and agent version, the texts and a JSON
-Lines export through `NhAssistantAdminApiService`. The same page pauses, stops, switches off
+page: rejection rates, categories and the time to a decision (median and 90th percentile,
+`AgentFeedbackSummaryRow.decisionTime`) per tool and agent version, the texts and a JSON
+Lines export through `NhAssistantAdminApiService`. The administration's Kinds of action section
+(`NhAssistantAdminTab` `proposal-kinds`, `nh-assistant-admin-proposal-kinds`, over
+`getProposalKinds` and `ProposalKinds`) compares each kind of action over all agents: the name the
+cards show, the decisions, the rejection rate and the decision times, and per agent a
+`RoutineCandidate` (`agentId`, `toolId`, `numbers`, `candidate`, `unmetThresholds`) from the
+thresholds the server returns and the section explains. It says that candidates are suggestions
+that change nothing about deciding and that only administrators see them. Each agent's row is
+`tr[nhAssistantRoutineCandidateRow]` (`NhAssistantRoutineCandidateRowComponent`); pass
+`candidateActions` (a template with `NhAssistantRoutineCandidateActionContext`) to give the rows a
+last column with an action of the host's own. The same page pauses, stops, switches off
 and resumes an agent and each skill (an agent or skill that is off offers "Switch on", which
 replays nothing, and an agent that started off in code says so; a stopped agent says, from
 `offBeforeStop` on `AdminAgent` and `AgentState`, whether releasing the kill switch switches it back
@@ -828,6 +838,31 @@ division of `divisionId`, keeps them marked while the inbox is shown and marks t
 board's per-agent proposals do, so the next visit of the whole inbox still marks what the person did not
 see. `nh-assistant-agent-proposals` takes the same `groups`, `groupByRun` and `newIds` for custom
 layouts, and every proposal carries its `parent` (`AgentProposalParent`).
+
+Filter the inbox by kind of action with its inputs `toolId` (one id or several,
+`AgentInboxFilter.toolId`, at most `NH_ASSISTANT_MAX_INBOX_TOOL_FILTERS`), `expiresBefore` (an ISO
+time; only proposals whose decision deadline is earlier) and `sort` (`AgentInboxSort`: `expiresAt` or
+`createdAt`, earliest first); changing one reloads it from the first page. Build the host's own filter
+on `NhAssistantAgentRunApiService.getInboxSummary` (`AgentInboxSummaryFilter`, `AgentInboxSummary`
+with `AgentInboxAgentCount`, `AgentInboxToolCount` and `AgentInboxSubjectTypeCount`), which counts what
+the inbox lists with the same filter: per agent, per kind of action with the name its cards show, per
+subject type with its subjects, and how many expire before `expiringBefore`, 24 hours ahead. Label those
+counts "listed": deciding still checks each proposal, so a person may be refused some of them. The
+intake reviews page of the management portal offers the kinds and the expiry this way (SPM-310).
+
+Let approvers decide the inbox's whole filter with its "Decide all N" (`decideAll`, on by default; turn
+it off where people should decide one proposal at a time). It first shows what it decides: the overview
+of `NhAssistantAgentRunApiService.getBulkDecisionOverview` (`AgentBulkDecisionFilter`,
+`AgentBulkDecisionOverview` with `AgentBulkDecisionKind`) as "212 times Add office task, on 38 objects
+(Project)" per kind of action and object type, the proposals of kinds that are decided one by one, which
+stay in the list, and how many remain beyond one set of `NH_ASSISTANT_MAX_BULK_DECISION`, with an
+optional reason. Approving or rejecting there decides exactly that set with `decideBulk`
+(`AgentBulkDecisionResult`, `AgentBulkDecisionItem`, `AgentBulkDecisionOutcome`), and the inbox shows how
+many succeeded, were refused and were no longer as shown, then reloads; a refused overview, such as an
+expired one, shows its localized error. Changing the inbox's filter closes an open overview. Pass the
+shown proposals, not their ids, to `decideMany`, so each decision is bound to the proposal hash the person
+saw; a proposal of a tool that is decided one by one is refused there with
+`assistant-individual-decision-required`.
 
 For an inbox of many proposals pass `density: 'compact'` (`NhAssistantProposalDensity`) to
 `nh-assistant-agent-inbox`, which passes it to `nh-assistant-agent-proposals` (SPM-277). Each proposal is
@@ -1283,10 +1318,17 @@ page when one changes, render a header per group and subject and per run, say ho
 shown and that it continues, select with "Select group" only the shown pending proposals the person may
 decide, mark what is new since the last visit and what arrives while shown, record the visit once, and
 let a run result's reader select and decide the run's proposals; the mock API serves parents, the
-division filter, the grouped order with its totals and the inbox's visits (SPM-310). The selection tests
-keep a selection through a refresh of the same page, drop it on the next page so "Approve selected" sends
-only the proposal selected there, and drop a proposal the host no longer shows, also when it comes back
-(SPM-310).
+division filter, the grouped order with its totals and the inbox's visits (SPM-310). The tests of the
+inbox by kind of action pass `toolId`, `expiresBefore` and `sort` to the inbox and reload from the first
+page when one changes, and the mock API filters and sorts by them and counts per agent, kind of action
+and subject type what it lists, as the server does (`nh-assistant-inbox-by-kind.spec.ts`). The tests of
+deciding the whole inbox show "Decide all" with its overview per kind, the proposals that stay, the
+tallies afterwards, the overview's own filter, token and reason, a refused decision and the switch, and
+let the mock API serve the overview, a decision of its set once, a repeat, an unknown token and the
+versions and individual decisions of several by id (`nh-assistant-inbox-bulk-decision.spec.ts`). The
+selection tests keep a selection through a refresh of the same page, drop it on the next page so
+"Approve selected" sends only the proposal selected there, and drop a proposal the host no longer shows,
+also when it comes back (SPM-310).
 SPM-248, SPM-253, SPM-265, SPM-277, SPM-279, SPM-280, SPM-295, SPM-298, SPM-301 to SPM-304 and SPM-310
 are the executable references.
 
@@ -1327,7 +1369,7 @@ shows its source with the reason (SPM-336).
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs)
-- SPM-279 — Approvers explain rejected agent proposals and administrators review the feedback
+- SPM-279 — Approvers explain rejected agent proposals and administrators review the feedback and decision numbers
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalFeedbackLog.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalFeedbackLog.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
@@ -1402,7 +1444,7 @@ shows its source with the reason (SPM-336).
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiExecutionGuards.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiExecutionGuards.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantClassificationSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantClassificationSamplesTests.cs)
-- SPM-310 — The approval inbox in the management portal groups the intake reviewer's proposals per division, the parent every project names, and marks what came since the last visit
+- SPM-310 — The approval inbox in the management portal groups the intake reviewer's proposals per division, the parent every project names, marks what came since the last visit, counts and filters them per kind of action, and decides a whole filter after an overview
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectSubjectAccessResolver.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectSubjectAccessResolver.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
   - [src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts)

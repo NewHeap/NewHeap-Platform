@@ -13,6 +13,9 @@ label { display: grid; gap: 5px; margin-bottom: 14px; }
 select { width: 100%; }
 .division-filter,
 .density-toggle { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; }
+.kind-filter { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 0 10px; margin-bottom: 4px; }
+.kind-filter label { margin-bottom: 10px; font-size: 13px; }
+.kind-filter .expiring-filter { display: flex; grid-column: 1 / -1; align-items: center; gap: 8px; }
 .run-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 13px; }
 .run-filter button { margin-left: auto; }
 .report-card { display: block; margin-top: 14px; }
@@ -20,3 +23,4 @@ select { width: 100%; }
 .error { padding: 10px; border: 1px solid var(--danger); border-radius: var(--radius-control); color: var(--danger); background: var(--danger-soft); }
 
 @media (max-width: 960px) { .reviews-grid { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .kind-filter { grid-template-columns: 1fr; } }

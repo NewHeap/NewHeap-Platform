@@ -293,6 +293,9 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 .ToImmutableArray();
             var allowAgentGrant = GetNamedBool(toolAttribute, "AllowAgentGrant");
             var approvalPolicy = GetNamedString(toolAttribute, "ApprovalPolicy");
+            // How a person decides the proposals is no part of what the tool does, so it stays out of
+            // the contract hash and a pending proposal keeps its binding when the author adds it.
+            var requireIndividualDecision = GetNamedBool(toolAttribute, "RequireIndividualDecision");
             if (version < 1)
             {
                 context.ReportDiagnostic(Diagnostic.Create(
@@ -533,7 +536,8 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 allowAgentGrant,
                 approvalPolicy,
                 subject.Type,
-                subject.ArgumentName));
+                subject.ArgumentName,
+                requireIndividualDecision));
         }
 
         var duplicateGroups = tools.GroupBy(tool => tool.LogicalId + "@" + tool.Version)
@@ -782,6 +786,10 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         if (tool.ApprovalPolicy is not null)
         {
             builder.Append("        ApprovalPolicy = ").Append(Literal(tool.ApprovalPolicy)).AppendLine(",");
+        }
+        if (tool.RequireIndividualDecision)
+        {
+            builder.AppendLine("        RequireIndividualDecision = true,");
         }
         if (tool.SubjectType is not null && tool.SubjectArgument is not null)
         {
@@ -1921,7 +1929,8 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             bool allowAgentGrant,
             string? approvalPolicy,
             string? subjectType,
-            string? subjectArgument)
+            string? subjectArgument,
+            bool requireIndividualDecision)
         {
             Method = method;
             SetId = setId;
@@ -1960,6 +1969,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             ApprovalPolicy = approvalPolicy;
             SubjectType = subjectType;
             SubjectArgument = subjectArgument;
+            RequireIndividualDecision = requireIndividualDecision;
         }
 
         public IMethodSymbol Method { get; }
@@ -2000,6 +2010,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         public string? ApprovalPolicy { get; }
         public string? SubjectType { get; }
         public string? SubjectArgument { get; }
+        public bool RequireIndividualDecision { get; }
     }
 
     /// <summary>

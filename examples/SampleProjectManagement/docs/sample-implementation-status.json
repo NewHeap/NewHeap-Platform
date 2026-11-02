@@ -2501,7 +2501,18 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-agent-work.ts",
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-inbox.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-thread-view.component.ts",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-live.service.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-live.service.spec.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantDecisionNumbersSamplesTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json",
+      "src/Front-end/projects/management/src/app/assistant-administration/sample-assistant-admin-location.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantRoutineCandidateOptions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDecisionNumbersStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalKindReport.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDecisionNumbersTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/proposal-kinds/nh-assistant-admin-proposal-kinds.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/proposal-kinds/nh-assistant-routine-candidate-row.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/admin-proposal-kinds.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-proposal-kinds.ts"
     ],
     "SPM-280": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
@@ -3138,6 +3149,24 @@
       "../../src/Front-end/projects/nh-ai-chat/push/nh-assistant-push-worker.js",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantWebPushTests.cs",
+      "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.scss",
+      "src/Front-end/projects/management/public/i18n/en.json",
+      "src/Front-end/projects/management/public/i18n/nl.json",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalCounts.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/models/assistant-agent-run.models.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-agent-run-api.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-agent-run-api.service.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-inbox-by-kind.spec.ts",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiEquipmentTools.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantBulkDecisions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDecisionBatchStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantBulkDecisionTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-inbox-bulk-decision.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-compact-proposals.spec.ts"
     ],
     "SPM-311": [
@@ -3758,7 +3787,8 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantConsultationProposals.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantApprovalPolicySelectorTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantApprovalPolicySelectorTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantBulkDecisionTests.cs"
     ],
     "SPM-357": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleApprovalReplyChannel.cs",

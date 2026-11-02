@@ -3196,6 +3196,204 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
+    /// The most kinds of action whose name one summary reads from their newest proposal; the others
+    /// are named by their tool id.
+    /// </summary>
+    internal const int MaxNamedInboxTools = 50;
+
+    /// <summary>
+    /// Counts what the inbox of <paramref name="actorId"/> lists with <paramref name="filter"/>, with
+    /// the visibility of <see cref="ListInboxAsync"/>: in total, per agent, per kind of action with the
+    /// presentation of its newest proposal, per subject type with its distinct subjects, and how many
+    /// expire before <paramref name="expiringBefore"/>. Every count is one grouped query; no proposal
+    /// is loaded.
+    /// </summary>
+    public async Task<NhAssistantInboxSummaryRow> SummarizeInboxAsync(
+        string actorId,
+        NhAssistantInboxFilter filter,
+        NhAssistantSystemInbox? system,
+        DateTimeOffset expiringBefore,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var query = InboxQuery(context, actorId, filter, system);
+        var total = await query.CountAsync(cancellationToken);
+        if (total == 0)
+        {
+            return new NhAssistantInboxSummaryRow(0, 0, [], [], []);
+        }
+
+        var expiring = await query.CountAsync(row => row.Approval.ExpiresAt < expiringBefore, cancellationToken);
+        var agents = await query
+            .GroupBy(row => row.Thread.AgentId)
+            .Select(group => new { AgentId = group.Key, Count = group.Count() })
+            .ToListAsync(cancellationToken);
+        var tools = await query
+            .GroupBy(row => row.Approval.ToolId)
+            .Select(group => new { ToolId = group.Key, Count = group.Count() })
+            .ToListAsync(cancellationToken);
+        var types = await query
+            .GroupBy(row => row.Thread.SubjectType)
+            .Select(group => new { SubjectType = group.Key, Count = group.Count() })
+            .ToListAsync(cancellationToken);
+        // Scope keys keep equal ids of different tenants or divisions apart.
+        var subjects = await query
+            .Select(row => new { row.Thread.SubjectType, row.Thread.ScopeKey, row.Thread.SubjectId })
+            .Distinct()
+            .GroupBy(row => row.SubjectType)
+            .Select(group => new { SubjectType = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(row => row.SubjectType, row => row.Count, StringComparer.Ordinal, cancellationToken);
+
+        var named = await NameToolsAsync(
+            query,
+            tools.Select(tool => (tool.ToolId, tool.Count)).ToArray(),
+            cancellationToken);
+
+        return new NhAssistantInboxSummaryRow(
+            total,
+            expiring,
+            agents
+                .OrderByDescending(agent => agent.Count)
+                .ThenBy(agent => agent.AgentId, StringComparer.Ordinal)
+                .Select(agent => new NhAssistantInboxCountRow(agent.AgentId, agent.Count))
+                .ToArray(),
+            named,
+            types
+                .OrderByDescending(type => type.Count)
+                .ThenBy(type => type.SubjectType, StringComparer.Ordinal)
+                .Select(type => new NhAssistantInboxSubjectTypeRow(type.SubjectType, type.Count, subjects.GetValueOrDefault(type.SubjectType)))
+                .ToArray());
+    }
+
+    /// <summary>
+    /// How many proposals of each kind of action the inbox of <paramref name="actorId"/> lists with
+    /// <paramref name="filter"/>, the most first, each named as its cards name it.
+    /// </summary>
+    public async Task<IReadOnlyList<NhAssistantInboxToolRow>> CountInboxToolsAsync(
+        string actorId,
+        NhAssistantInboxFilter filter,
+        NhAssistantSystemInbox? system,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var query = InboxQuery(context, actorId, filter, system);
+        var tools = await query
+            .GroupBy(row => row.Approval.ToolId)
+            .Select(group => new { ToolId = group.Key, Count = group.Count() })
+            .ToListAsync(cancellationToken);
+        return await NameToolsAsync(query, tools.Select(tool => (tool.ToolId, tool.Count)).ToArray(), cancellationToken);
+    }
+
+    /// <summary>
+    /// The kinds of action, the most first, with the presentation their newest proposal stored that has
+    /// one: the name a card shows for a kind is the presentation its proposals stored.
+    /// </summary>
+    private static async Task<IReadOnlyList<NhAssistantInboxToolRow>> NameToolsAsync(
+        IQueryable<NhAssistantInboxCandidate> query,
+        IReadOnlyList<(string ToolId, int Count)> tools,
+        CancellationToken cancellationToken)
+    {
+        var ordered = tools
+            .OrderByDescending(tool => tool.Count)
+            .ThenBy(tool => tool.ToolId, StringComparer.Ordinal)
+            .ToArray();
+        var named = new List<NhAssistantInboxToolRow>(ordered.Length);
+        foreach (var (toolId, count) in ordered)
+        {
+            var presentation = named.Count < MaxNamedInboxTools
+                ? await query
+                    .Where(row => row.Approval.ToolId == toolId && row.Approval.PresentationJson != null)
+                    .OrderByDescending(row => row.Approval.CreatedAt)
+                    .ThenBy(row => row.Approval.Id)
+                    .Select(row => new { row.Approval.PresentationJson, row.Approval.PresentationsJson })
+                    .FirstOrDefaultAsync(cancellationToken)
+                : null;
+            named.Add(new NhAssistantInboxToolRow(toolId, count, presentation?.PresentationJson, presentation?.PresentationsJson));
+        }
+
+        return named;
+    }
+
+    /// <summary>
+    /// The first <paramref name="limit"/> proposals the inbox of <paramref name="actorId"/> lists with
+    /// <paramref name="filter"/>, in the flat inbox's order, as the set of a bulk decision: each with its
+    /// version, kind of action, subject and stored presentation, never its arguments.
+    /// </summary>
+    public async Task<IReadOnlyList<NhAssistantDecisionSetRow>> ListDecisionSetAsync(
+        string actorId,
+        NhAssistantInboxFilter filter,
+        NhAssistantSystemInbox? system,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await InboxQuery(context, actorId, filter, system)
+            .OrderBy(row => row.SortAt)
+            .ThenBy(row => row.Approval.Id)
+            .Take(limit)
+            .Select(row => new NhAssistantDecisionSetRow(
+                row.Approval.Id,
+                row.Approval.ProposalHash,
+                row.Approval.ToolId,
+                row.Thread.AgentId,
+                row.Thread.SubjectType,
+                row.Thread.ScopeKey,
+                row.Thread.SubjectId,
+                row.Approval.PresentationJson,
+                row.Approval.PresentationsJson))
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Which of <paramref name="approvalIds"/> the inbox of <paramref name="actorId"/> lists with
+    /// <paramref name="filter"/> now: the visibility of a bulk decision's set, run again when it is
+    /// decided.
+    /// </summary>
+    public async Task<IReadOnlySet<Guid>> ListedAmongAsync(
+        string actorId,
+        NhAssistantInboxFilter filter,
+        NhAssistantSystemInbox? system,
+        IReadOnlyCollection<Guid> approvalIds,
+        CancellationToken cancellationToken)
+    {
+        if (approvalIds.Count == 0)
+        {
+            return new HashSet<Guid>();
+        }
+
+        var ids = approvalIds.Distinct().ToArray();
+        await using var context = contextFactory.CreateDbContext();
+        var listed = await InboxQuery(context, actorId, filter, system)
+            .Where(row => ids.Contains(row.Approval.Id))
+            .Select(row => row.Approval.Id)
+            .ToListAsync(cancellationToken);
+        return listed.ToHashSet();
+    }
+
+    /// <summary>
+    /// The status and expiry of each of <paramref name="approvalIds"/> that exists, to say why a proposal of
+    /// a bulk decision's set is no longer listed; nothing else of the proposal.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<Guid, (string Status, DateTimeOffset ExpiresAt)>> GetApprovalStatesAsync(
+        IReadOnlyCollection<Guid> approvalIds,
+        CancellationToken cancellationToken)
+    {
+        if (approvalIds.Count == 0)
+        {
+            return new Dictionary<Guid, (string, DateTimeOffset)>();
+        }
+
+        var ids = approvalIds.Distinct().ToArray();
+        await using var context = contextFactory.CreateDbContext();
+        var states = await context.Approvals
+            .AsNoTracking()
+            .Where(approval => ids.Contains(approval.Id))
+            .Select(approval => new { approval.Id, approval.Status, approval.ExpiresAt })
+            .ToListAsync(cancellationToken);
+        return states.ToDictionary(state => state.Id, state => (state.Status, state.ExpiresAt));
+    }
+
+    /// <summary>
     /// The approvals in the inbox status <paramref name="status"/> at <paramref name="now"/> on the
     /// application's clock: a pending proposal before its expiry, one handed to the application before
     /// its report falls due, and an uncertain execution until an approver resolves it.
@@ -3276,6 +3474,41 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
         if (filter.RunId is { } runId)
         {
             visible = visible.Where(row => row.approval.RunId == runId);
+        }
+        if (filter.ToolIds is { Count: > 0 } toolIds)
+        {
+            var kinds = toolIds.Distinct(StringComparer.Ordinal).ToArray();
+            visible = visible.Where(row => kinds.Contains(row.approval.ToolId));
+        }
+        if (filter.ExcludedToolIds is { Count: > 0 } excludedToolIds)
+        {
+            var excluded = excludedToolIds.Distinct(StringComparer.Ordinal).ToArray();
+            visible = visible.Where(row => !excluded.Contains(row.approval.ToolId));
+        }
+        if (filter.ExpiresBefore is { } expiresBefore)
+        {
+            visible = visible.Where(row => row.approval.ExpiresAt < expiresBefore);
+        }
+
+        // A sort the caller asked for orders every status by that time; otherwise each status by its
+        // own time.
+        if (filter.Sort == NhAssistantInboxSort.ExpiresAt)
+        {
+            return visible.Select(row => new NhAssistantInboxCandidate
+            {
+                Approval = row.approval,
+                Thread = row.thread,
+                SortAt = row.approval.ExpiresAt
+            });
+        }
+        if (filter.Sort == NhAssistantInboxSort.CreatedAt)
+        {
+            return visible.Select(row => new NhAssistantInboxCandidate
+            {
+                Approval = row.approval,
+                Thread = row.thread,
+                SortAt = row.approval.CreatedAt
+            });
         }
 
         return filter.Status switch
@@ -3535,7 +3768,81 @@ internal sealed record NhAssistantInboxFilter(
     /// by id follow it. The whole application's proposals follow the caller's system inbox.
     /// </summary>
     public string? TenantId { get; init; }
+
+    /// <summary>
+    /// The kinds of action (tool ids) the inbox lists; <see langword="null"/> or empty for every kind.
+    /// </summary>
+    public IReadOnlyCollection<string>? ToolIds { get; init; }
+
+    /// <summary>
+    /// Kinds of action the inbox leaves out, such as those that are never decided in bulk.
+    /// </summary>
+    public IReadOnlyCollection<string>? ExcludedToolIds { get; init; }
+
+    /// <summary>
+    /// Lists only proposals whose decision deadline (<see cref="AssistantApproval.ExpiresAt"/>) is
+    /// before this time.
+    /// </summary>
+    public DateTimeOffset? ExpiresBefore { get; init; }
+
+    /// <summary>
+    /// The time the inbox lists by; <see cref="NhAssistantInboxSort.Default"/> keeps each status's own.
+    /// </summary>
+    public NhAssistantInboxSort Sort { get; init; } = NhAssistantInboxSort.Default;
 }
+
+/// <summary>
+/// The time the inbox lists proposals by, earliest first.
+/// </summary>
+internal enum NhAssistantInboxSort
+{
+    /// <summary>A pending proposal by its expiry, one handed to the application by its report deadline, an uncertain execution by its decision.</summary>
+    Default = 0,
+
+    /// <summary>By the decision deadline, in every status.</summary>
+    ExpiresAt = 1,
+
+    /// <summary>By when the proposal was made, the oldest first.</summary>
+    CreatedAt = 2
+}
+
+/// <summary>
+/// What a summary of the inbox counts (<see cref="NhAssistantRunStore.SummarizeInboxAsync"/>).
+/// </summary>
+internal sealed record NhAssistantInboxSummaryRow(
+    int Total,
+    int Expiring,
+    IReadOnlyList<NhAssistantInboxCountRow> Agents,
+    IReadOnlyList<NhAssistantInboxToolRow> Tools,
+    IReadOnlyList<NhAssistantInboxSubjectTypeRow> SubjectTypes);
+
+internal sealed record NhAssistantInboxCountRow(string Key, int Count);
+
+/// <summary>
+/// One kind of action of an inbox summary with the stored presentation of its newest proposal that
+/// has one, which names it as its cards do.
+/// </summary>
+internal sealed record NhAssistantInboxToolRow(string ToolId, int Count, string? PresentationJson, string? PresentationsJson);
+
+/// <summary>
+/// One subject type of an inbox summary: its proposals and its distinct subjects.
+/// </summary>
+internal sealed record NhAssistantInboxSubjectTypeRow(string SubjectType, int Count, int Subjects);
+
+/// <summary>
+/// One proposal of a bulk decision's set: its version, kind of action, agent, subject and stored
+/// presentation.
+/// </summary>
+internal sealed record NhAssistantDecisionSetRow(
+    Guid ApprovalId,
+    string ProposalHash,
+    string ToolId,
+    string AgentId,
+    string SubjectType,
+    string ScopeKey,
+    string SubjectId,
+    string? PresentationJson,
+    string? PresentationsJson);
 
 internal sealed record NhAssistantInboxRow(AssistantApproval Approval, AssistantThread Thread);
 

@@ -444,6 +444,10 @@
       "assistant-execution-not-uncertain": "This execution is not waiting to be resolved.",
       "assistant-proposal-stale": "This proposal no longer applies, for example because the work was already done. Nothing was changed.",
       "assistant-proposal-check-failed": "Whether this proposal still applies could not be checked, so nothing was changed. Try again later.",
+      "assistant-individual-decision-required": "This kind of action is decided one proposal at a time. Decide it on its own.",
+      "assistant-bulk-decision-not-found": "This overview is no longer available. Open a new one.",
+      "assistant-bulk-decision-expired": "This overview has expired. Open a new one to decide what still waits.",
+      "assistant-bulk-decision-in-progress": "These proposals are being decided right now. Try again in a moment to see the result.",
       "assistant-proposal-already-open": "The same proposal already waits for a decision.",
       "assistant-proposal-recently-rejected": "People rejected the same proposal recently.",
       "assistant-proposal-superseded": "A newer proposal replaced this one.",
@@ -760,7 +764,26 @@
         "group-continued": "Continued from the previous page.",
         "group-continues": "More proposals of this group are on the next page.",
         "run": "One run of {{agent}}, {{date}}",
-        "no-run": "Proposed in a conversation"
+        "no-run": "Proposed in a conversation",
+        "bulk": {
+          "decide-all": "Decide all {{count}}",
+          "title": "Decide {{count}} proposals at once",
+          "title-one": "Decide 1 proposal",
+          "kind": "{{count}} times {{kind}}, on {{subjects}} objects ({{type}})",
+          "kind-one-object": "{{count}} times {{kind}}, on one object ({{type}})",
+          "nothing": "None of the proposals listed here can be decided together.",
+          "individual": "{{count}} proposals stay in the list, because they are decided one at a time: {{kinds}}.",
+          "individual-one": "1 proposal stays in the list, because it is decided on its own: {{kinds}}.",
+          "remaining": "{{count}} more proposals are listed. One decision covers at most {{limit}}; decide the rest next.",
+          "remaining-one": "1 more proposal is listed. One decision covers at most {{limit}}; decide it next.",
+          "checked": "Each proposal is still checked on its own. Some may be refused, or may have changed since this overview.",
+          "reason": "Reason (optional)",
+          "approve": "Approve {{count}}",
+          "reject": "Reject {{count}}",
+          "cancel": "Cancel",
+          "approved": "{{succeeded}} approved, {{refused}} refused, {{stale}} no longer as shown.",
+          "rejected": "{{succeeded}} rejected, {{refused}} refused, {{stale}} no longer as shown."
+        }
       },
       "proposal": {
         "approve": "Approve",

@@ -197,6 +197,21 @@ internal sealed class NhAssistantApproverCheck(
             .OrderByDescending(descriptor => descriptor.Version)
             .FirstOrDefault();
     }
+
+    /// <summary>
+    /// The tools whose newest version requires that each proposal is decided on its own
+    /// (<see cref="NhAiToolDescriptor.RequireIndividualDecision"/>), as the decision reads them.
+    /// </summary>
+    public IReadOnlyList<string> IndividualDecisionToolIds()
+    {
+        return _catalogs
+            .SelectMany(catalog => catalog.Descriptors)
+            .GroupBy(descriptor => descriptor.Id, StringComparer.Ordinal)
+            .Where(tool => tool.OrderByDescending(descriptor => descriptor.Version).First().RequireIndividualDecision)
+            .Select(tool => tool.Key)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+    }
 }
 
 /// <summary>
@@ -309,6 +324,13 @@ internal sealed class NhAssistantProposalDecisions(
         if (approval.Status != NhAssistantApprovalStatuses.Pending)
         {
             return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ApprovalNotPending, "The proposal is no longer pending.");
+        }
+        // A decision of several proposals at once leaves a tool's proposals that are decided one by one.
+        if (origin.BatchId is not null && approvers.FindDescriptor(approval.ToolId)?.RequireIndividualDecision == true)
+        {
+            return TaskResult<AssistantApproval>.Failed(
+                NhAssistantErrorCodes.IndividualDecisionRequired,
+                "This proposal is decided on its own.");
         }
         if (approval.Mode == NhAssistantApprovalModes.Inline && approval.RunId is null)
         {
@@ -832,7 +854,8 @@ internal sealed class NhAssistantProposalDecisions(
             ConsultationId = approval.ConsultationId,
             ConsultationRoute = NhAssistantConsultationRoutes.Of(approval.ConsultationId, approval.Mode, approval.GrantSource),
             Channel = origin.Channel,
-            IdempotencyKey = origin.IdempotencyKey
+            IdempotencyKey = origin.IdempotencyKey,
+            BatchId = origin.BatchId
         };
         foreach (var sink in _businessSinks)
         {
@@ -905,4 +928,11 @@ internal sealed record NhAssistantDecisionOrigin(string Channel, string? Idempot
     /// supports it as a UI culture.
     /// </summary>
     public string? Culture { get; init; }
+
+    /// <summary>
+    /// The bulk decision this decision belongs to, which the audit records
+    /// (<see cref="NhAssistantAuditEvent.BatchId"/>); <see langword="null"/> for a decision of one
+    /// proposal. A tool that requires individual decisions refuses every decision with a batch.
+    /// </summary>
+    public Guid? BatchId { get; init; }
 }

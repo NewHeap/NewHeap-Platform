@@ -158,6 +158,28 @@ describe('NhAssistantAgentFeedbackReportComponent', () => {
     expect(badges[0].getAttribute('title')).toBe('task-completed (2)');
   });
 
+  it('shows how long people took to decide per tool and agent version (FB82)', async () => {
+    admin.getAgentFeedbackSummary.and.returnValue(of({
+      agentId: 'intake',
+      from: '2026-09-13T00:00:00Z',
+      to: '2026-10-13T00:00:00Z',
+      rows: [
+        { ...row('projects.change-status', 3, 0.4), decisionTime: { sampleSize: 10, medianSeconds: 210, percentile90Seconds: 5_400, sampled: false } },
+        { ...row('projects.request-review', null, null), decisionTime: null }
+      ]
+    }));
+    fixture = TestBed.createComponent(NhAssistantAgentFeedbackReportComponent);
+    fixture.componentRef.setInput('agentId', 'intake');
+    fixture.detectChanges();
+    await flush();
+    fixture.detectChanges();
+
+    const rows = Array.from(element().querySelectorAll('.summary-table tbody tr'));
+    expect(rows[0].querySelector('[data-median]')?.textContent?.trim()).toBe('3 min');
+    expect(rows[0].querySelector('[data-percentile-90]')?.textContent?.trim()).toBe('1 h 30 min');
+    expect(rows[1].querySelector('[data-median]')?.textContent?.trim()).toBe('Not decided yet');
+  });
+
   it('lists the feedback with the proposal as approvers read it', () => {
     const card = element().querySelector('.cards .card') as HTMLElement;
 

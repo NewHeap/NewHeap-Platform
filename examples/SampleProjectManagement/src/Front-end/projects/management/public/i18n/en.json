@@ -717,7 +717,14 @@
     "compact-list": "Compact list with keyboard keys",
     "run-only": "The proposals of the run a notification is about",
     "board-agent-only": "The open proposals of one agent of the Project management board",
-    "show-all": "Show all proposals"
+    "show-all": "Show all proposals",
+    "kind": "Kind of action",
+    "all-kinds": "Every kind ({{count}} listed)",
+    "kind-listed": "{{name}} ({{count}} listed)",
+    "order": "Order",
+    "order-expiry": "Expires first",
+    "order-created": "Proposed first",
+    "expiring-soon": "Only what expires within 24 hours ({{count}} listed)"
   },
   "project-management-board": {
     "navigation": "Project management",
