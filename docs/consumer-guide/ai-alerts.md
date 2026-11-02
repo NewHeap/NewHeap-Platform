@@ -10,7 +10,7 @@ Human-readable reference generated from the same rules as the NewHeap consumer s
 
 ## Warn people about an object with alerts of a kind declared in code, raised by rules and by the application without a proposal
 
-Declare each kind of alert in code with AddAlertKind, let an agent's rules raise and resolve the kinds it lists with WithAlerts and ResolveAlerts, raise them from the application's code with INhAssistantAlerts, and rely on one open alert per kind, subject and key, on the recipient check before anything reaches a person, on expiry and on the bounded retention; the run maintenance delivers them immediately or in one daily digest per person in their time zone through Web Push, the in-app notifications and the application's channels, as each person chose per kind. People read, dismiss and count their own alerts through GET alerts with nh-assistant-alerts, the badge service and nh-assistant-notification-preferences. Administrators switch a kind off and change its default delivery within the bounds its code sets, and read its numbers, through GET and PUT admin/alert-kinds and the Alerts section of nh-assistant-admin. A kind delivers in up to four digests a day and keeps quiet hours, a person chooses their own where the kind allows it, and a person who dismisses an alert may hear nothing more of its kind about that object for a while.
+Declare each kind of alert in code with AddAlertKind, let an agent's rules raise and resolve the kinds it lists with WithAlerts and ResolveAlerts, raise them from the application's code with INhAssistantAlerts, and rely on one open alert per kind, subject and key, on the recipient check before anything reaches a person, on expiry and on the bounded retention; the run maintenance delivers them immediately or in one daily digest per person in their time zone through Web Push, the in-app notifications and the application's channels, as each person chose per kind. People read, dismiss and count their own alerts through GET alerts with nh-assistant-alerts, the badge service and nh-assistant-notification-preferences. Administrators switch a kind off and change its default delivery within the bounds its code sets, and read its numbers, through GET and PUT admin/alert-kinds and the Alerts section of nh-assistant-admin. A kind delivers in up to four digests a day and keeps quiet hours, a person chooses their own where the kind allows it, and a person who dismisses an alert may hear nothing more of its kind about that object for a while. An agent's language model raises a kind only through the template its code declares with RaisedByModel, by the platform tool raise_alert in its own runs on one subject, with typed parameters the platform checks as plain values before anything is stored, once an administrator switched the kind on for the agent, first in shadow, through admin/agents/{id}/alert-model and the agent's Rollout tab.
 
 ## Preferred approach
 
@@ -334,6 +334,73 @@ activating push for the signed-in person reuses settings that were loaded for th
 assistant's start do not each ask. These features add the `AlertTimingAndMutes` migration of the SQL
 Server or PostgreSQL assistant storage, on top of `AlertKindSettings`.
 
+### Alerts from an agent's model (FB87-9)
+
+An agent's language model raises an alert only through a template that its kind declares in code
+with `RaisedByModel`, and only once an administrator switched it on for the agent. Free text of the
+model is never an alert: the model chooses one of the kinds it is offered and fills that kind's typed
+parameters, which `NhAssistantAlertModelTemplateBuilder` declares, each required: `Choice` from a fixed
+list, `WholeNumber` between bounds, `Date` as `yyyy-MM-dd` and `Text` of at most
+`NhAssistantAlertLimits.MaxModelTextLength` characters. `Describe` tells the model when the kind
+applies; `Key` names the parameters whose values tell the kind's alerts about one subject apart, and the
+platform derives the key from the kind, the subject and those values, so the same values update one
+open alert and a person who dismissed it hears again only when they change. Write the kind's title and
+text from these parameters only, and prefer a choice or a number to a text.
+
+```csharp
+assistant
+    .AddAlertKind("project-deliverable-due", kind => kind
+        .DisplayName("app.alerts.project-deliverable-due")
+        .Title((culture, parameters) => Texts.Format("DeliverableDue", culture, parameters["deliverable"], parameters["daysLeft"]))
+        .Recipients(NhAssistantAlertRecipients.SubjectResponsible)
+        .RaisedByModel(template => template
+            .Describe("A deliverable of the project is due within 14 days and its work is not done.")
+            .Text("deliverable", "The deliverable's name, without a file extension.", 80)
+            .Date("deadline", "The deliverable's deadline.")
+            .WholeNumber("daysLeft", "The days left until the deadline.", 0, 14)
+            .Choice("work", "How far its work is.", "not-started", "in-progress")
+            .Key("deliverable", "deadline")))
+    .ConfigureAgent("deadline-reviewer", agent => agent.Alerts("project-deliverable-due"));
+```
+
+A run's model is offered the platform tool `raise_alert` (`assistant.alert.raise`) only for the kinds its
+agent lists with `Alerts(...)` that declare a template and whose switch for the agent is shadow or live,
+and only in the agent's own run on one subject: never in a person's chat, a person's turn in a thread,
+a consultation or a run on the whole application (`nh-system`), which has no person responsible and no
+members to warn. Its input is the kind and the parameters, nothing else: the subject is the run's own and
+the recipients are the kind's, checked as every alert's recipients are. The values are untrusted, since
+the model may have read them in a document an attacker wrote, so the platform checks every one before
+anything is stored and refuses with `assistant-alert-parameter-invalid` and the parameter and reason
+(`NhAssistantAlertParameterErrors`), never the value: a value outside its choices, bounds or date, an
+unknown or missing parameter, an argument that names recipients or a subject, a text that is too long,
+and a text with a link (a URL, a scheme such as `mailto:`, a `www.` address, an IP address or a word with
+a dot between letters such as `example.com` or `report.pdf`, which mail clients and phones turn into
+links), with markup (`<`, `>`, brackets, braces, a backtick or an HTML entity) or with a control, format or
+private-use character. A kind the tool does not offer is refused with `assistant-alert-kind-not-offered`.
+The alert is then raised as a rule's: `MaxAlertsPerRun` counts the run's alerts, `MaxAlertsPerSubjectPerDay`
+the subject's, a kind that is off is refused with `assistant-alert-kind-off` and a paused agent raises
+nothing. The result tells the model only whether the alert was recorded and whether it was new, updated or
+unchanged, never whom it reaches, and reads the same in shadow. The alert stores that the model raised or
+last updated it (`AssistantAlert.RaisedByModel`), `AgentAlertRaised` carries `AlertRaisedByModel`, `GET
+alerts` returns `raisedByModel` and `nh-assistant-alerts` labels it "Raised by AI"; render its title and
+text as plain text only, in every channel of the application too.
+
+Roll the model out per agent and kind as running without approval is rolled out (FB82), with
+`INhAssistantAlertModelSwitches` behind the admin policy: `GET admin/agents/{id}/alert-model` lists the
+kinds the agent lists that declare a template, with when they apply, their parameters and the switch,
+and `PUT admin/agents/{id}/alert-kinds/{kindId}/model` switches it with `mode` and `expectedVersion`. A
+switch starts off, goes to shadow first, where the model's alerts are shadow alerts that reach nobody and
+count as `wouldHaveSent` in `GET admin/alert-kinds`, and only from shadow live, where they reach the kind's
+recipients; off before live answers `409 assistant-alert-model-shadow-first`, a kind the agent's model cannot
+raise `409 assistant-alert-model-not-allowed`. Versions are append-only (`AssistantAgentAlertModelSwitch`,
+`GET .../model/versions`), every change is audited as `AdminAlertModelSwitchChanged` with the mode and
+version, never the reason, and applies to the next run on every host. A switch applies to the template it
+was made for: a kind whose template changed reads as off until it is switched again, first in shadow. A
+shadow agent's or shadow run's alerts stay shadow alerts whatever the switch says, and a shadow variant has
+no switch of its own. `nh-assistant-admin` shows the switches on the agent's Rollout tab, explaining each
+step before it applies. Apply the `AlertModelSwitches` migration of the SQL Server or PostgreSQL assistant
+storage before the first switch.
+
 ## Avoid
 
 - Raising a proposal, or an application message in a thread, to warn a person about an object.
@@ -367,6 +434,12 @@ Server or PostgreSQL assistant storage, on top of `AlertKindSettings`.
   that must reach people is `Required()`.
 - Fetching `GET notifications` yourself next to `nh-assistant-notification-preferences`; read the
   person's settings through `NhAssistantPushService.loadSettings()`, which the page shares.
+- Letting a model write an alert's text, or a template parameter that is free text where a choice, a
+  number or a date fits; a text parameter is the one place where content the model read reaches people.
+- Switching the model live without a period in shadow, or switching it on for an agent whose model reads
+  content that people outside the subject write without looking at its shadow alerts first.
+- Rendering an alert's title or text as HTML or Markdown, in the platform's list or in an application
+  channel such as e-mail.
 
 ## Verification
 
@@ -422,9 +495,19 @@ to the subject and an impersonation session's origin user list nothing and get `
 SQL Server and PostgreSQL. In Angular, render the list and the notification choices on
 `provideNhAssistantMockApi` with an `alerts` scenario.
 
+For the model tool, declare a kind with a template, list it for an agent and assert that the tool is not
+offered while the switch is off, for a kind without a template, for a kind the agent does not list and in
+a run on the whole application; that live before shadow is refused; that a shadow alert reaches nobody and
+a live one only the kind's checked recipients; that a text with a URL, a word such as `example.com`,
+markup or a control character, a value outside its choices or bounds, an unknown or missing parameter, a
+text that is too long and arguments that name recipients or a subject are refused before anything is
+stored; that the same key values update one alert; and that the store, the audit and `GET alerts` mark the
+alert as the model's, on SQL Server and PostgreSQL. In Angular, render the Rollout tab on
+`provideNhAssistantMockApi` with `admin.alertModel` and the list with an alert that has `raisedByModel`.
+
 ## Executable evidence
 
-- SPM-392 — The deadline watch warns a project's owner and the people working on it about a project due today, once per day, in the morning or afternoon digest where each person works and never at night, and resolves the warning when the tasks are done; a person chooses their own digest times and mutes the project for a while, and an administrator switches the warning off or moves it within the bounds of its code
+- SPM-392 — The deadline watch warns a project's owner and the people working on it about a project due today, once per day, in the morning or afternoon digest where each person works and never at night, and resolves the warning when the tasks are done; a person chooses their own digest times and mutes the project for a while, and an administrator switches the warning off or moves it within the bounds of its code, and the deadline reviewer's model warns about a deliverable due soon through its kind's template, first in shadow
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleDeadlineAlertsComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleDeadlineAlertsComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx)
