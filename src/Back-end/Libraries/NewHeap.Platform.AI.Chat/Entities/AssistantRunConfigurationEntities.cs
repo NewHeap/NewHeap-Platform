@@ -394,6 +394,75 @@ public sealed class AssistantAgentConsultationDefinition
 }
 
 /// <summary>
+/// One version of an administrator's switch that lets one agent run one tool without a person's
+/// approval (FB82), which the tool allows in code (<see cref="NhAiToolAttribute.AllowWithoutApproval"/>).
+/// Versions are append-only: the highest version of an agent and a tool is the switch in effect, and
+/// the earlier ones say who switched what when. A switch applies only to the tool contract it was made
+/// for (<see cref="ContractHash"/>); a tool whose contract changed reads as off until it is switched
+/// again, first in shadow.
+/// </summary>
+public sealed class AssistantAgentToolSwitch
+{
+    public const int MaxReasonLength = 500;
+
+    public Guid Id { get; set; }
+
+    public string AgentId { get; set; } = string.Empty;
+
+    public string ToolId { get; set; } = string.Empty;
+
+    /// <summary>The version, from 1, per agent and tool.</summary>
+    public int Version { get; set; }
+
+    /// <summary>One of <see cref="NhAssistantWithoutApprovalModes"/>.</summary>
+    public string Mode { get; set; } = NhAssistantWithoutApprovalModes.Off;
+
+    /// <summary>The contract hash of the tool when the switch was made.</summary>
+    public string ContractHash { get; set; } = string.Empty;
+
+    public string ChangedBy { get; set; } = string.Empty;
+
+    public DateTimeOffset ChangedAt { get; set; }
+
+    /// <summary>Why, kept with the switch and left out of the business audit.</summary>
+    public string? Reason { get; set; }
+}
+
+/// <summary>
+/// The modes of a switch that lets an agent run a tool without approval, as the administration API
+/// names them.
+/// </summary>
+public static class NhAssistantWithoutApprovalModes
+{
+    /// <summary>Every call that needs approval becomes a proposal.</summary>
+    public const string Off = "off";
+
+    /// <summary>
+    /// Every call still becomes a proposal, and the platform records that it would have run without
+    /// approval.
+    /// </summary>
+    public const string Shadow = "shadow";
+
+    /// <summary>The agent's calls run without a proposal and are audited as run without approval.</summary>
+    public const string Live = "live";
+
+    public static bool IsKnown(string? mode)
+    {
+        return mode is Off or Shadow or Live;
+    }
+
+    public static NhAiWithoutApprovalMode ToMode(string mode)
+    {
+        return mode switch
+        {
+            Shadow => NhAiWithoutApprovalMode.Shadow,
+            Live => NhAiWithoutApprovalMode.Live,
+            _ => NhAiWithoutApprovalMode.Off
+        };
+    }
+}
+
+/// <summary>
 /// One row whose value changes with every change of the data-defined run configuration, so every
 /// host knows when to reload.
 /// </summary>

@@ -204,6 +204,12 @@ public sealed class AssistantToolInvocation
     /// </summary>
     public string? ReadForActorId { get; set; }
 
+    /// <summary>
+    /// The version of the administrator's switch under which the call ran without a person's approval
+    /// (FB82); <see langword="null"/> for every other call.
+    /// </summary>
+    public int? WithoutApprovalVersion { get; set; }
+
     public DateTimeOffset StartedAt { get; set; }
 
     public DateTimeOffset? CompletedAt { get; set; }
@@ -390,6 +396,13 @@ public sealed class AssistantApproval
     /// thread always writes in the default culture.
     /// </summary>
     public string? DecisionCulture { get; set; }
+
+    /// <summary>
+    /// The version of the administrator's switch in shadow under which this agent proposal would have run
+    /// without approval (FB82); the proposal waits for people as every other one, and the numbers compare
+    /// how people decided such proposals. <see langword="null"/> for every other proposal.
+    /// </summary>
+    public int? WithoutApprovalVersion { get; set; }
 
     public Guid ConcurrencyStamp { get; set; }
 
