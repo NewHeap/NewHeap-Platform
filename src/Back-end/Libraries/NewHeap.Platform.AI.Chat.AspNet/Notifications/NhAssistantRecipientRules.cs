@@ -120,6 +120,32 @@ internal sealed partial class NhAssistantPrincipalRecipientRules(
         }
     }
 
+    /// <summary>
+    /// Whether the factory that resolves people (<see cref="NhAssistantPlatformPrincipals.Resolving"/>)
+    /// rebuilds the person for <paramref name="subject"/>, with its division and tenant, as a headless run
+    /// on the subject would: the recipient check of alerts. Without such a factory everyone is.
+    /// </summary>
+    public async ValueTask<bool> IsResolvedForAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
+        ArgumentNullException.ThrowIfNull(subject);
+        var principals = NhAssistantPlatformPrincipals.Resolving(services);
+        if (principals is null)
+        {
+            return true;
+        }
+
+        try
+        {
+            return await principals.CreateAsync(actorId, subject, cancellationToken) is not null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+        {
+            LogLookupFailed(logger, exception);
+            return false;
+        }
+    }
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "The assistant could not rebuild a recipient; nothing is delivered to that person this time.")]
     private static partial void LogLookupFailed(ILogger logger, Exception exception);
 }

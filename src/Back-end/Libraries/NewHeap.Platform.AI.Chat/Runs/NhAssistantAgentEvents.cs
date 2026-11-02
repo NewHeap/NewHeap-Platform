@@ -3,6 +3,7 @@ using NewHeap.Platform.AI.Chat.Collaboration;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Notifications;
 using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.Chat.Runtime;
 
 namespace NewHeap.Platform.AI.Chat.Runs;
 
@@ -1268,6 +1269,90 @@ internal sealed class NhAssistantAgentEvents(
                 ResultCode = result
             },
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Records that an alert was raised, updated in place or delivered again (FB87), with how many people
+    /// it reaches; never its parameters or texts.
+    /// </summary>
+    public Task AlertRaisedAsync(AssistantAlert alert, string outcome, int recipientCount, CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            AlertEvent(NhAssistantAuditEventKind.AgentAlertRaised, alert, RaiserOf(alert)) with
+            {
+                ResultCode = outcome,
+                AlertRecipientCount = recipientCount
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Records that an open alert closed: <c>resolved</c> or <c>expired</c> (<see cref="NhAssistantAlertStatuses"/>).
+    /// </summary>
+    public Task AlertResolvedAsync(AssistantAlert alert, string status, CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            AlertEvent(NhAssistantAuditEventKind.AgentAlertResolved, alert, RaiserOf(alert)) with { ResultCode = status },
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Records that <paramref name="actorId"/> dismissed an alert.
+    /// </summary>
+    public Task AlertDismissedAsync(AssistantAlert alert, string actorId, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
+        return RecordAsync(
+            AlertEvent(NhAssistantAuditEventKind.AgentAlertDismissed, alert, actorId) with
+            {
+                ResultCode = NhAssistantAlertDeliveryStatuses.Dismissed
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Records that <paramref name="actorId"/> was left out of an alert because they no longer qualify,
+    /// with why (<see cref="NhAssistantAlertDropReasons"/>).
+    /// </summary>
+    public Task AlertRecipientDroppedAsync(AssistantAlert alert, string actorId, string reason, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        return RecordAsync(
+            AlertEvent(NhAssistantAuditEventKind.AgentAlertRecipientDropped, alert, NhAssistantContent.Bound(actorId ?? string.Empty, 256)) with
+            {
+                ResultCode = reason
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// The actor of an alert's own events: the agent whose rules raised it, or the application.
+    /// </summary>
+    private static string RaiserOf(AssistantAlert alert)
+    {
+        return alert.AgentId is { } agentId ? AgentActorPrefix + agentId : NhAssistantSpeakers.ApplicationActorId;
+    }
+
+    private static NhAssistantAuditEvent AlertEvent(NhAssistantAuditEventKind kind, AssistantAlert alert, string actorId)
+    {
+        ArgumentNullException.ThrowIfNull(alert);
+        return new NhAssistantAuditEvent(
+            kind,
+            Guid.Empty,
+            Guid.Empty,
+            actorId,
+            alert.AgentId ?? string.Empty,
+            0,
+            DateTimeOffset.UtcNow)
+        {
+            AlertId = alert.Id,
+            AlertKind = alert.KindId,
+            AlertRevision = alert.Revision,
+            RunId = alert.RunId,
+            SubjectType = alert.SubjectType,
+            SubjectId = alert.SubjectId,
+            Shadow = alert.Shadow
+        };
     }
 
     private async Task RecordAsync(NhAssistantAuditEvent evt, CancellationToken cancellationToken)

@@ -114,6 +114,10 @@ public sealed class NhAssistantDbContext : DbContext
     public DbSet<AssistantAgentToolSwitch> AgentToolSwitches => Set<AssistantAgentToolSwitch>();
     public DbSet<AssistantDecisionBatch> DecisionBatches => Set<AssistantDecisionBatch>();
 
+    public DbSet<AssistantAlert> Alerts => Set<AssistantAlert>();
+
+    public DbSet<AssistantAlertDelivery> AlertDeliveries => Set<AssistantAlertDelivery>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(_storageOptions.Schema);
@@ -881,6 +885,58 @@ public sealed class NhAssistantDbContext : DbContext
             batch.Property(item => item.Decision).HasMaxLength(16);
             // Serves the run maintenance, which removes sets some time after they could be decided.
             batch.HasIndex(item => item.ExpiresAt);
+        });
+
+        modelBuilder.Entity<AssistantAlert>(alert =>
+        {
+            alert.ToTable("AssistantAlert");
+            alert.HasKey(item => item.Id);
+            alert.Property(item => item.Id).ValueGeneratedNever();
+            alert.Property(item => item.KindId).HasMaxLength(NhAssistantAlertLimits.MaxKindIdLength).IsRequired();
+            alert.Property(item => item.ScopeKey).HasMaxLength(128).IsRequired();
+            alert.Property(item => item.SubjectType).HasMaxLength(NhAiSubjectRef.MaxTypeLength).IsRequired();
+            alert.Property(item => item.SubjectId).HasMaxLength(NhAiSubjectRef.MaxIdLength).IsRequired();
+            alert.Property(item => item.SubjectDisplayName).HasMaxLength(200);
+            alert.Property(item => item.TenantId).HasMaxLength(NhAssistantRegistrationState.MaxTenantIdLength);
+            alert.Property(item => item.ParentSubjectType).HasMaxLength(NhAiSubjectRef.MaxTypeLength);
+            alert.Property(item => item.ParentSubjectId).HasMaxLength(NhAiSubjectRef.MaxIdLength);
+            alert.Property(item => item.ParentDisplayName).HasMaxLength(NhAiSubjectParent.MaxDisplayNameLength);
+            alert.Property(item => item.Key).HasMaxLength(NhAssistantAlertLimits.MaxKeyLength).IsRequired();
+            alert.Property(item => item.IdentityHash).HasMaxLength(64).IsRequired();
+            alert.Property(item => item.Status).HasMaxLength(16).IsRequired();
+            alert.Property(item => item.ParametersJson).IsRequired();
+            alert.Property(item => item.AgentId).HasMaxLength(128);
+            alert.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
+            // One open alert per identity on both providers without a filtered index: an open alert's
+            // marker is empty, a closed alert's is its own id.
+            alert.HasIndex(item => new { item.IdentityHash, item.ClosedMarker }).IsUnique();
+            // The subject's alerts: the daily limit per subject and resolving by kind and subject.
+            alert.HasIndex(item => new { item.SubjectType, item.SubjectId, item.RaisedAt });
+            // The run maintenance: open alerts whose expiry passed, closed alerts past their retention.
+            alert.HasIndex(item => new { item.Status, item.ExpiresAt });
+            alert.HasIndex(item => new { item.Status, item.ClosedAt });
+            alert.HasMany(item => item.Deliveries)
+                .WithOne(item => item.Alert)
+                .HasForeignKey(item => item.AlertId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantAlertDelivery>(delivery =>
+        {
+            delivery.ToTable("AssistantAlertDelivery");
+            delivery.HasKey(item => item.Id);
+            delivery.Property(item => item.Id).ValueGeneratedNever();
+            delivery.Property(item => item.RecipientActorId).HasMaxLength(256).IsRequired();
+            delivery.Property(item => item.Status).HasMaxLength(16).IsRequired();
+            delivery.Property(item => item.ReasonCode).HasMaxLength(64);
+            delivery.Property(item => item.ClaimedBy).HasMaxLength(128);
+            delivery.Property(item => item.Channels).HasMaxLength(256);
+            delivery.Property(item => item.ConcurrencyStamp).IsConcurrencyToken();
+            delivery.HasIndex(item => new { item.AlertId, item.RecipientActorId }).IsUnique();
+            // The delivery's claims: pending deliveries in the order they fall due.
+            delivery.HasIndex(item => new { item.Status, item.DueAt });
+            // A person's alerts, by status.
+            delivery.HasIndex(item => new { item.RecipientActorId, item.Status });
         });
 
         modelBuilder.Entity<AssistantAgentMetadata>(metadata =>

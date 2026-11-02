@@ -10,7 +10,7 @@ namespace NewHeap.Platform.AI.Chat.Collaboration;
 /// The assistant's part of <see cref="INhRetention"/>: when the application forgets a user, for example
 /// when NewHeap Identity deletes them, the assistant removes what reaches or names that person outside
 /// a conversation's content: their Web Push subscriptions, their notification choice, the notices of
-/// missing MCP connections they were sent, and their participant rows in chats and agent threads, so
+/// missing MCP connections they were sent, their deliveries of alerts, and their participant rows in chats and agent threads, so
 /// no browser of theirs is notified again and no conversation lists them. The person's actor id is the
 /// user id as <see cref="NhActorRef.ForUser"/> writes it. Conversations the person owns, their messages
 /// and their personal MCP connections follow their own retention. Running it again changes nothing. The
@@ -38,6 +38,8 @@ internal sealed class NhAssistantRetentionParticipant(
         await context.McpConnectionNotices
             .Where(notice => notice.PersonActorId == actorId)
             .ExecuteDeleteAsync(cancellationToken);
+        // FB87: the person's deliveries of alerts, which name them; the alerts stay for their other recipients.
+        await NhAssistantAlertStore.ForgetRecipientAsync(context, actorId, cancellationToken);
 
         var conversations = await context.Participants
             .Where(participant => participant.ActorId == actorId)

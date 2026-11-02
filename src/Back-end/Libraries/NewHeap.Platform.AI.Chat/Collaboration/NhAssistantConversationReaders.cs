@@ -246,6 +246,14 @@ internal interface INhAssistantRecipientRules
     /// <see langword="true"/> when the platform cannot tell.
     /// </summary>
     ValueTask<bool> IsResolvedAsync(string actorId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether the platform still rebuilds the person for <paramref name="subject"/>, in its division or
+    /// tenant, as a headless run would: <see langword="false"/> for an unknown person and one who may no
+    /// longer sign in; <see langword="true"/> when the platform cannot tell. The recipient check of alerts
+    /// asks it before anything reaches a person.
+    /// </summary>
+    ValueTask<bool> IsResolvedForAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -263,6 +271,11 @@ internal sealed class NhAssistantEveryoneReceives : INhAssistantRecipientRules
     }
 
     public ValueTask<bool> IsResolvedAsync(string actorId, CancellationToken cancellationToken)
+    {
+        return ValueTask.FromResult(true);
+    }
+
+    public ValueTask<bool> IsResolvedForAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken)
     {
         return ValueTask.FromResult(true);
     }

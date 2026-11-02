@@ -1548,6 +1548,23 @@ internal sealed partial class NhAssistantTurnRunner(
             var context = await CreateRuleContextAsync(state, inputs, interceptor, tools, timeout.Token);
             var handler = (INhAssistantAgentRuleHandler)services.GetRequiredService(handlerType);
             result = await handler.RunAsync(context, timeout.Token);
+            if (result is { Alerts.Count: > 0 } or { AlertsToResolve.Count: > 0 })
+            {
+                // FB87: the rules' alerts once they ended; a kind the agent does not list fails the run.
+                var agentTurn = state.AgentTurn!;
+                var applied = await services.GetRequiredService<Alerts.NhAssistantAlertService>().ApplyRuleResultAsync(
+                    agentTurn.Options,
+                    new Alerts.NhAssistantAlertRaiser(agentTurn.Thread.AgentId, agentTurn.RunId, agentTurn.Thread.Shadow),
+                    result.Alerts,
+                    result.AlertsToResolve,
+                    timeout.Token);
+                if (!applied.Success)
+                {
+                    outcomeStatus = NhAssistantTurnStatuses.Failed;
+                    errorCode = NhAssistantResults.CodeOf(applied, NhAssistantAlertCodes.KindNotListed);
+                    result = null;
+                }
+            }
         }
         catch (OperationCanceledException)
         {

@@ -294,6 +294,25 @@ public sealed class NhAssistantLimits
     /// </summary>
     public TimeSpan ReaderTextRetention { get; set; } = TimeSpan.FromHours(24);
 
+    /// <summary>
+    /// The most alerts one run raises, from 1 to 1,000: 50 by default. Its rules' further alerts are
+    /// refused with <see cref="NhAssistantAlertCodes.LimitReached"/>; the run itself goes on.
+    /// </summary>
+    public int MaxAlertsPerRun { get; set; } = 50;
+
+    /// <summary>
+    /// The most new alerts one subject gets per day on the application's clock (a UTC day), from 1 to
+    /// 1,000: 20 by default. A raise that updates an open alert in place is no new alert; a further new
+    /// one is refused with <see cref="NhAssistantAlertCodes.LimitReached"/>. Shadow alerts count apart.
+    /// </summary>
+    public int MaxAlertsPerSubjectPerDay { get; set; } = 20;
+
+    /// <summary>
+    /// How long a resolved or expired alert and its deliveries are kept before the run maintenance
+    /// purges them, from one day to 365 days: 30 days by default. Open alerts are never purged.
+    /// </summary>
+    public TimeSpan AlertRetention { get; set; } = TimeSpan.FromDays(30);
+
     internal void Validate()
     {
         if (MaintenanceInterval < TimeSpan.FromSeconds(1) || MaintenanceInterval > TimeSpan.FromHours(1))
@@ -340,7 +359,11 @@ public sealed class NhAssistantLimits
             || MaxFilesPerTurn is < 1 or > 50
             || MaxFileTokensPerTurn is < 1_000 or > 2_000_000
             || ReaderTextRetention < TimeSpan.Zero
-            || ReaderTextRetention > TimeSpan.FromDays(30))
+            || ReaderTextRetention > TimeSpan.FromDays(30)
+            || MaxAlertsPerRun is < 1 or > 1_000
+            || MaxAlertsPerSubjectPerDay is < 1 or > 1_000
+            || AlertRetention < TimeSpan.FromDays(1)
+            || AlertRetention > TimeSpan.FromDays(365))
         {
             throw new InvalidOperationException("Assistant limits must be positive and bounded.");
         }
