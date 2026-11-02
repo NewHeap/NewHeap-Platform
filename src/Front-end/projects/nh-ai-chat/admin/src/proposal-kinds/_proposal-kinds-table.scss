@@ -1,0 +1,49 @@
+// The cells of the view per kind of action, shared by the view and its agent rows: the view's own
+// cells and the cells of each row component get the same look, and stack into labelled lines when
+// the table's container is narrow, so the page never scrolls sideways.
+
+@mixin cells {
+  th,
+  td {
+    border-bottom: 1px solid var(--nha-border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .number {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mono {
+    font-family: var(--nha-mono);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+}
+
+@mixin stacked-cells {
+  th,
+  td {
+    display: grid;
+    grid-template-columns: minmax(110px, 40%) minmax(0, 1fr);
+    gap: 8px;
+    border: 0;
+    padding: 4px 0;
+    text-align: left;
+
+    &::before {
+      content: attr(data-label);
+      color: var(--nha-text-muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+  }
+
+  .number {
+    text-align: left;
+  }
+}
+
+$stack-width: 900px;

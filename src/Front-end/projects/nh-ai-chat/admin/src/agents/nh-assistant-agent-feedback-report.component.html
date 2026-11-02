@@ -79,6 +79,12 @@
                 {{ 'nh-assistant.admin.feedback.columns.invalidated' | translate }}
               </th>
               <th scope="col" class="number">{{ 'nh-assistant.admin.feedback.columns.rejection-rate' | translate }}</th>
+              <th scope="col" class="number" [attr.title]="'nh-assistant.admin.feedback.decision-time-hint' | translate">
+                {{ 'nh-assistant.admin.feedback.columns.median' | translate }}
+              </th>
+              <th scope="col" class="number" [attr.title]="'nh-assistant.admin.proposal-kinds.percentile-90-hint' | translate">
+                {{ 'nh-assistant.admin.feedback.columns.percentile-90' | translate }}
+              </th>
               <th scope="col" class="number">{{ 'nh-assistant.admin.feedback.columns.with-feedback' | translate }}</th>
               <th scope="col" class="number">{{ 'nh-assistant.admin.feedback.columns.people' | translate }}</th>
               <th scope="col">{{ 'nh-assistant.admin.feedback.columns.categories' | translate }}</th>
@@ -120,6 +126,20 @@
                     <span class="muted">{{ 'nh-assistant.admin.feedback.no-decisions' | translate }}</span>
                   } @else {
                     {{ row.rejectionRate | percent: '1.0-0' }}
+                  }
+                </td>
+                <td class="number" data-median [attr.data-label]="'nh-assistant.admin.feedback.columns.median' | translate">
+                  @if (row.median; as text) {
+                    {{ text.key | translate: text.params }}
+                  } @else {
+                    <span class="muted">{{ 'nh-assistant.admin.feedback.no-decisions' | translate }}</span>
+                  }
+                </td>
+                <td class="number" data-percentile-90 [attr.data-label]="'nh-assistant.admin.feedback.columns.percentile-90' | translate">
+                  @if (row.percentile90; as text) {
+                    {{ text.key | translate: text.params }}
+                  } @else {
+                    <span class="muted">{{ 'nh-assistant.admin.feedback.no-decisions' | translate }}</span>
                   }
                 </td>
                 <td class="number" [attr.data-label]="'nh-assistant.admin.feedback.columns.with-feedback' | translate">{{ row.rejectedWithFeedback }}</td>

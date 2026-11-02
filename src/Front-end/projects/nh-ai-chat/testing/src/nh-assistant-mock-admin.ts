@@ -16,6 +16,7 @@ import { NhAssistantMockAccounts } from './nh-assistant-mock-accounts';
 import { NhAssistantMockAdminAgents } from './nh-assistant-mock-admin-agents';
 import { NhAssistantMockAdminMcp } from './nh-assistant-mock-admin-mcp';
 import { mockCompositionActivity } from './nh-assistant-mock-compositions';
+import { mockProposalKinds } from './nh-assistant-mock-proposal-kinds';
 import { NhAssistantMockHandOffs } from './nh-assistant-mock-hand-offs';
 import {
   NhAssistantMockResult,
@@ -272,6 +273,10 @@ export class NhAssistantMockAdmin {
         return this.instructionAssets.handle(method, segments.slice(2));
       case 'accounts':
         return segments.length === 2 ? this.accounts.search(method, query) : failure('assistant-not-found');
+      case 'proposal-kinds':
+        return segments.length === 2
+          ? mockProposalKinds(method, this.agents.all().filter(agent => !agent.shadowOf), query, this.now())
+          : failure('assistant-not-found');
       case 'agents':
         if (id !== undefined && (action === 'without-approval' || (action === 'tools' && segments[5] === 'without-approval'))) {
           const switched = this.withoutApproval.handle(method, id, segments.slice(3), body);

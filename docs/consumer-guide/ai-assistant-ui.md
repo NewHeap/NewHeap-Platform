@@ -525,8 +525,18 @@ cards `canGiveFeedback`, and the approval card offers the same question behind a
 low-key "What was wrong?" button; plain chat approvals never ask. Administrators review
 the feedback per agent with `nh-assistant-agent-feedback-report` of
 `@newheap/platform-ai-chat/admin`, also reachable from each agent in the administration
-page: rejection rates and categories per tool and agent version, the texts and a JSON
-Lines export through `NhAssistantAdminApiService`. The same page pauses, stops, switches off
+page: rejection rates, categories and the time to a decision (median and 90th percentile,
+`AgentFeedbackSummaryRow.decisionTime`) per tool and agent version, the texts and a JSON
+Lines export through `NhAssistantAdminApiService`. The administration's Kinds of action section
+(`NhAssistantAdminTab` `proposal-kinds`, `nh-assistant-admin-proposal-kinds`, over
+`getProposalKinds` and `ProposalKinds`) compares each kind of action over all agents: the name the
+cards show, the decisions, the rejection rate and the decision times, and per agent a
+`RoutineCandidate` (`agentId`, `toolId`, `numbers`, `candidate`, `unmetThresholds`) from the
+thresholds the server returns and the section explains. It says that candidates are suggestions
+that change nothing about deciding and that only administrators see them. Each agent's row is
+`tr[nhAssistantRoutineCandidateRow]` (`NhAssistantRoutineCandidateRowComponent`); pass
+`candidateActions` (a template with `NhAssistantRoutineCandidateActionContext`) to give the rows a
+last column with an action of the host's own. The same page pauses, stops, switches off
 and resumes an agent and each skill (an agent or skill that is off offers "Switch on", which
 replays nothing, and an agent that started off in code says so; a stopped agent says, from
 `offBeforeStop` on `AdminAgent` and `AgentState`, whether releasing the kill switch switches it back
@@ -1279,7 +1289,7 @@ shows its source with the reason (SPM-336).
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiAssets.cs)
-- SPM-279 — Approvers explain rejected agent proposals and administrators review the feedback
+- SPM-279 — Approvers explain rejected agent proposals and administrators review the feedback and decision numbers
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalFeedbackLog.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalFeedbackLog.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)

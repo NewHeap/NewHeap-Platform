@@ -49,6 +49,8 @@ import {
   McpServerInput,
   McpServerTestResult,
   McpTool,
+  ProposalKinds,
+  ProposalKindsFilter,
   AssistantAccount,
   InstructionAssetList,
   InstructionAssetText,
@@ -421,6 +423,16 @@ export class NhAssistantAdminApiService {
    */
   getAgentFeedbackSummary(agentId: string, filter: AgentFeedbackFilter = {}): Observable<AgentFeedbackSummary> {
     return this.request<AgentFeedbackSummary>('GET', withQuery(`${feedbackPath(agentId)}/summary`, filter));
+  }
+
+  /**
+   * The view per kind of action over all agents (`GET admin/proposal-kinds`): per kind the counts,
+   * the rejection rate and how long people take to decide, and per agent whether the numbers make
+   * the kind a candidate for running without approval, with the thresholds the server applied.
+   * Candidates are suggestions only; nothing about deciding changes.
+   */
+  getProposalKinds(filter: ProposalKindsFilter = {}): Observable<ProposalKinds> {
+    return this.request<ProposalKinds>('GET', withQuery('admin/proposal-kinds', filter));
   }
 
   /** The feedback on the agent's proposals with the proposal as approvers read it, newest change first. */

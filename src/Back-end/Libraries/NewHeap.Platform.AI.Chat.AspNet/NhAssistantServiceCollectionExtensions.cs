@@ -159,6 +159,8 @@ public static class NhAssistantServiceCollectionExtensions
             // What a person's inbox lists, counted per status for the application's digests (LS14).
             services.TryAddScoped<INhAssistantProposalCounts, NhAssistantProposalCounts>();
             services.TryAddScoped<NhAssistantProposalFeedbackService>();
+            // FB82: the administrators' view per kind of action with its candidates.
+            services.TryAddScoped<NhAssistantProposalKindReport>();
             services.TryAddScoped<INhAssistantSubjectWork, NhAssistantSubjectWork>();
             services.TryAddScoped<NhAssistantProposalReads>();
             services.TryAddScoped<NhAssistantProposalExecution>();

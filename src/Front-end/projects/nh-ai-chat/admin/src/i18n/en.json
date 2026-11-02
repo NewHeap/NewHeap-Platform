@@ -7,7 +7,8 @@
       "tabs": {
         "context": "Context",
         "agents": "Agents",
-        "mcp-servers": "Tools & connections"
+        "mcp-servers": "Tools & connections",
+        "proposal-kinds": "Kinds of action"
       },
       "loading": "Loading",
       "load-failed": "The data could not be loaded.",
@@ -644,7 +645,9 @@
           "with-feedback": "Rejected with feedback",
           "invalidated": "No longer needed",
           "people": "People",
-          "categories": "Top categories"
+          "categories": "Top categories",
+          "median": "Median time to decide",
+          "percentile-90": "90% decided within"
         },
         "version": "v{{version}}",
         "consultations": "Consultations",
@@ -663,7 +666,8 @@
         "previous": "Previous",
         "next": "Next",
         "page": "Page {{page}} of {{pages}}",
-        "pages": "Pages"
+        "pages": "Pages",
+        "decision-time-hint": "How long people took from the proposal to approving or rejecting it."
       },
       "evaluation": {
         "back": "Back to the agents",
@@ -2015,6 +2019,70 @@
         "no-steps": "No tool call ran.",
         "rounds-saved": "{{count}} model rounds saved",
         "result-size": "{{count}} characters returned to the model"
+      },
+      "proposal-kinds": {
+        "title": "Kinds of action",
+        "description": "How people decide each kind of action the agents propose, over all agents: the decisions, the rejection rate and how long a decision takes. A kind that people almost always approve quickly may be routine.",
+        "refresh": "Refresh",
+        "suggestions-only": "These are suggestions from the numbers. A candidate changes nothing about how proposals are decided: every proposal still waits for its approvers.",
+        "audience": "Only the assistant's administrators see this view.",
+        "period": "Period",
+        "only-candidates": "Only kinds with a candidate",
+        "thresholds": {
+          "title": "When a kind of action is a candidate",
+          "intro": "A kind of action is a candidate for running without approval for an agent when its numbers in the period meet all of these:",
+          "minimum-decisions": "At least {{count}} decisions (approved or rejected), so the numbers say enough.",
+          "approval-rate": "At least {{rate}}% of them approved.",
+          "quiet-period": "No rejection in the last {{days}} days of the period: people no longer correct the agent.",
+          "none-stale-or-failed": "No approved proposal closed as stale right before it ran, or failed when it ran.",
+          "stale-or-failed": "At most {{count}} approved proposals closed as stale right before they ran, or failed when they ran.",
+          "configured": "The application sets these thresholds (NewHeap:AI:Assistant:RoutineCandidates)."
+        },
+        "empty": "No agent made proposals in this period.",
+        "empty-candidates": "No kind of action is a candidate in this period.",
+        "columns": {
+          "kind": "Kind of action",
+          "agent": "Agent",
+          "decisions": "Decisions",
+          "approved": "Approved",
+          "rejected": "Rejected",
+          "rejection-rate": "Rejection rate",
+          "median": "Median time to decide",
+          "percentile-90": "90% decided within",
+          "candidate": "Candidate",
+          "actions": "Actions"
+        },
+        "median-hint": "Half of the decisions took at most this long, from the proposal to approving or rejecting it.",
+        "percentile-90-hint": "Nine in ten decisions took at most this long.",
+        "no-decisions": "Not decided yet",
+        "sampled": "newest 1,000",
+        "sampled-hint": "Computed from the newest 1,000 decisions of each agent in the period.",
+        "show-agents": "Show the {{count}} agents of {{kind}}",
+        "hide-agents": "Hide the agents of {{kind}}",
+        "candidates": "{{count}} of {{agents}} agents",
+        "no-candidates": "None",
+        "candidate": "Candidate",
+        "candidate-hint": "The numbers meet every threshold. Running this kind without approval is a decision of its own.",
+        "unmet-label": "Thresholds the numbers miss",
+        "last-rejected": "Last rejected on {{date}}",
+        "reasons": {
+          "too-few-decisions": "Too few decisions",
+          "approval-rate-too-low": "Approved too rarely",
+          "recent-rejection": "Rejected recently",
+          "stale-or-failed-after-approval": "Stale or failed after approval"
+        },
+        "reason-hints": {
+          "too-few-decisions": "Fewer than {{count}} decisions in the period.",
+          "approval-rate-too-low": "Less than {{rate}}% of the decisions were approvals.",
+          "recent-rejection": "Someone rejected a proposal in the last {{days}} days of the period.",
+          "stale-or-failed-after-approval": "More than {{maximum}} approved proposals closed as stale before they ran or failed when they ran."
+        },
+        "duration": {
+          "seconds": "{{count}} s",
+          "minutes": "{{count}} min",
+          "hours": "{{hours}} h {{minutes}} min",
+          "days": "{{days}} d {{hours}} h"
+        }
       }
     }
   }

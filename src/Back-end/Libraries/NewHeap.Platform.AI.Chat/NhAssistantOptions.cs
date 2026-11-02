@@ -82,6 +82,12 @@ public sealed class NhAssistantOptions
     /// </summary>
     public NhAssistantPushOptions Push { get; set; } = new();
 
+    /// <summary>
+    /// The thresholds by which the view per kind of action marks candidates for running without
+    /// approval (<c>NewHeap:AI:Assistant:RoutineCandidates</c>); read for every request of the view.
+    /// </summary>
+    public NhAssistantRoutineCandidateOptions RoutineCandidates { get; set; } = new();
+
     public const string DefaultHubPath = "/hub/assistant";
 
     /// <summary>

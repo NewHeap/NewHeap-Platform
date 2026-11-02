@@ -25,7 +25,8 @@ export function sampleAssistantAdminLocation(): SampleAssistantAdminLocation {
     const section = params.get('section');
     const agentId = params.get('agent');
     return {
-      tab: section === 'mcp-servers' || section === 'context' ? section : 'agents',
+      // SPM-279: `?section=proposal-kinds` opens the view per kind of action over all agents.
+      tab: section === 'mcp-servers' || section === 'context' || section === 'proposal-kinds' ? section : 'agents',
       agentId,
       agentTab: agentId ? nhAssistantAgentTab(params.get('view')) : null
     };
