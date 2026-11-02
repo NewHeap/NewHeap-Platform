@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Resources;
 using System.Runtime.CompilerServices;
@@ -27,6 +28,12 @@ namespace SampleProjectManagement.Api.Composition;
 /// through <see cref="SampleDeadlineAlerts"/>; the platform checks every recipient, so a person without
 /// a role on the project receives nothing. The sample's tasks have no due date or responsible person of
 /// their own, so the watch alerts about the project's deadline and its owner.
+/// The delivery (FB87, lane AB): the morning round runs at 07:00 in the sample's time zone and the kind
+/// arrives in the 07:30 digest, one notification per person, in the person's own time zone: the time
+/// zone of the division they work in (<see cref="SamplePersonTimeZones"/>), so a colleague whose
+/// division is in New York gets it at 07:30 there. A person who muted the kind in their notification
+/// preferences receives nothing. The digest reaches people through Web Push, the in-app notifications
+/// and the sample's stand-in for an e-mail channel (<see cref="SampleAlertOutbox"/>).
 /// Call it after <c>AddSampleIntakeReviewer</c>, which registers the project subject type.
 /// </summary>
 public static class SampleDeadlineAlertsComposition
@@ -46,7 +53,13 @@ public static class SampleDeadlineAlertsComposition
     public static IServiceCollection AddSampleDeadlineAlerts(this IServiceCollection services)
     {
         services.TryAddScoped<SampleDeadlineAlerts>();
+        services.TryAddSingleton<SampleAlertOutbox>();
         services.AddNewHeapAssistant(assistant => assistant
+            // The digest and working days count in the application's time zone, unless the person's
+            // own division is elsewhere.
+            .ConfigureAlerts(alerts => alerts.TimeZone = TimeZone.Id)
+            .UsePersonTimeZones<SamplePersonTimeZones>()
+            .AddAlertChannel<SampleAlertOutboxChannel>()
             .AddAgent(new NhAssistantAgentDefinition(
                 Id: AgentId,
                 Version: 1,
@@ -112,6 +125,17 @@ public static class SampleDeadlineAlertsComposition
     {
         var local = day.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
         return new DateTimeOffset(local, TimeZone.GetUtcOffset(local)).ToUniversalTime();
+    }
+
+    /// <summary>
+    /// The moment the clock in <paramref name="zone"/> shows <paramref name="time"/> on
+    /// <paramref name="day"/>, in UTC.
+    /// </summary>
+    public static DateTimeOffset At(DateOnly day, TimeOnly time, TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(zone);
+        var local = day.ToDateTime(time, DateTimeKind.Unspecified);
+        return new DateTimeOffset(local, zone.GetUtcOffset(local)).ToUniversalTime();
     }
 
     /// <summary>
@@ -277,5 +301,87 @@ public sealed class SampleDeadlineAlerts(
         return alerts.ResolveAsync(
             new NhAssistantAlertKey(SampleDeadlineAlertsComposition.KindId, ProjectSubjects.For(projectId), key: null),
             cancellationToken);
+    }
+}
+
+/// <summary>
+/// SPM-392: a person's time zone for the digest of alerts, from the profile the platform keeps: the time
+/// zone of the division they work in (<c>NhUser.ActiveDivision</c>). A person without one gets the
+/// application's time zone for alerts.
+/// </summary>
+public sealed class SamplePersonTimeZones(SampleProjectManagementDbContext dbContext) : INhAssistantPersonTimeZones
+{
+    public async ValueTask<string?> FindTimeZoneIdAsync(string actorId, CancellationToken cancellationToken = default)
+    {
+        if (!Guid.TryParse(actorId, out var userId))
+        {
+            return null;
+        }
+
+        var timeZoneId = await dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId && user.ActiveDivision != null)
+            .Select(user => user.ActiveDivision!.TimeZoneId)
+            .SingleOrDefaultAsync(cancellationToken);
+        return string.IsNullOrWhiteSpace(timeZoneId) ? null : timeZoneId;
+    }
+}
+
+/// <summary>
+/// SPM-392: one notification of alerts as the sample's outbox keeps it: to whom, when on the
+/// application's clock, the digest if any, its title and the alerts it names.
+/// </summary>
+public sealed record SampleAlertOutboxEntry(
+    string RecipientActorId,
+    DateTimeOffset SentAt,
+    Guid? DigestId,
+    string Title,
+    IReadOnlyList<Guid> AlertIds,
+    int MoreCount);
+
+/// <summary>
+/// SPM-392: the sample's stand-in for an e-mail channel of alerts, since the sample sends no e-mail: it
+/// keeps the latest notifications in memory, at most <see cref="Capacity"/>, as a mail catcher of a
+/// development environment would. An application's real channel sends the message; it keeps the texts
+/// out of its logs, because they are the application's data.
+/// </summary>
+public sealed class SampleAlertOutbox
+{
+    public const int Capacity = 200;
+
+    private readonly ConcurrentQueue<SampleAlertOutboxEntry> _entries = new();
+
+    public IReadOnlyList<SampleAlertOutboxEntry> Entries => _entries.ToArray();
+
+    public void Add(SampleAlertOutboxEntry entry)
+    {
+        _entries.Enqueue(entry);
+        while (_entries.Count > Capacity && _entries.TryDequeue(out _))
+        {
+        }
+    }
+}
+
+/// <summary>
+/// SPM-392: the application's own channel of alerts (<c>AddAlertChannel</c>) next to Web Push and the
+/// in-app notifications. The assistant calls it for every notification that goes out: one alert, or the
+/// digest of one person at one digest time, after it checked the person again and applied their
+/// choices. A failing channel never stops the others.
+/// </summary>
+public sealed class SampleAlertOutboxChannel(SampleAlertOutbox outbox, TimeProvider clock) : INhAssistantAlertChannel
+{
+    public string Id => "e-mail";
+
+    public Task<TaskResult> DeliverAsync(NhAssistantAlertMessage message, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        outbox.Add(new SampleAlertOutboxEntry(
+            message.RecipientActorId,
+            clock.GetUtcNow(),
+            message.DigestId,
+            message.Title,
+            message.Alerts.Select(alert => alert.AlertId).ToArray(),
+            message.MoreCount));
+        return Task.FromResult(TaskResult.Succeeded());
     }
 }

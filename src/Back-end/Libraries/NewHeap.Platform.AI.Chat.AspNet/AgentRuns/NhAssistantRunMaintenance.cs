@@ -81,7 +81,8 @@ internal sealed class NhAssistantBackgroundOperationAccess(
 /// visits older than <see cref="NhAssistantLimits.BoardVisitRetention"/> and those of groups that
 /// are no longer registered, and the sets of bulk decisions a day after their lifetime. In a host with
 /// alert kinds it closes the alerts whose expiry passed and purges closed alerts after
-/// <see cref="NhAssistantLimits.AlertRetention"/>, on the application's clock (FB87). Every change is a compare-and-set update or a conditional delete, so
+/// <see cref="NhAssistantLimits.AlertRetention"/>, on the application's clock (FB87), and then sends the
+/// deliveries of alerts that are due while the assistant is enabled. Every change is a compare-and-set update or a conditional delete, so
 /// several instances can run it at the same time. A proposal's expiry, escalation, reminders and decision
 /// follow the application's clock (a registered <see cref="TimeProvider"/>, otherwise the system
 /// clock); runs, background-operation liveness and board visits keep the system clock.
@@ -140,6 +141,9 @@ internal sealed class NhAssistantRunMaintenance(
             await alertScope.ServiceProvider
                 .GetRequiredService<Alerts.NhAssistantAlertService>()
                 .MaintainAsync(cancellationToken);
+            // Then the delivery sends what is due, after expired alerts left their waiting digests. With
+            // the assistant disabled nothing goes out; the deliveries wait.
+            await DispatchAlertsAsync(alertScope.ServiceProvider, cancellationToken);
         }
 
         // Chat-only agents never run, so they leave nothing to maintain (FB8).
@@ -212,6 +216,30 @@ internal sealed class NhAssistantRunMaintenance(
             // A bulk decision's set is read again only by a repeat soon after its decision.
             await RemoveExpiredDecisionSetsAsync(services.GetRequiredService<NhAssistantDecisionBatchStore>(), proposalTime, cancellationToken);
             _boardVisitsCleanedAt = now;
+        }
+    }
+
+    /// <summary>
+    /// Sends the alerts that are due (FB87, lane AB). Claims keep several instances from sending one
+    /// delivery twice. A failed pass is logged and tried again at the next interval, so it never stops
+    /// the maintenance of runs and proposals.
+    /// </summary>
+    private async Task DispatchAlertsAsync(IServiceProvider services, CancellationToken cancellationToken)
+    {
+        if (!services.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<NhAssistantOptions>>().CurrentValue.Enabled)
+        {
+            return;
+        }
+
+        try
+        {
+            await services.GetRequiredService<Alerts.NhAssistantAlertDispatcher>().DispatchAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+        {
+            logger.LogWarning(
+                "The delivery of alerts failed ({ExceptionType}); it runs again at the next interval.",
+                exception.GetType().Name);
         }
     }
 

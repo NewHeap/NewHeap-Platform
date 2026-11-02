@@ -282,7 +282,9 @@ recipients and its default delivery, for the owner and the people working on a p
 today with open tasks. A later round on the same day is the same alert, so nobody is warned twice;
 the application's own code may name more people, and the platform leaves out everyone without a role
 on the project; once the tasks are done the watch resolves the alert. `AssistantAlertSamplesTests`
-runs three rounds on one day.
+runs three rounds on one day. The warning arrives in the 07:30 digest in each person's own time zone,
+which the sample takes from the division a person works in: a colleague in New York gets it at 07:30
+there, and a colleague who muted the kind in their notification preferences gets nothing.
 The agent's work also appears on the project itself (SPM-280): the project directory shows a
 badge per project from one summary request, the project dialog shows the open proposals of
 every agent on the project with the viewer's decision rights, and opening the conversation with

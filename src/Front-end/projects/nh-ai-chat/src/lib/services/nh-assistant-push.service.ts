@@ -17,6 +17,16 @@ import { NhAssistantApiService } from './nh-assistant-api.service';
 export type NhAssistantPushState = 'unavailable' | 'off' | 'prompt' | 'blocked' | 'on';
 
 const openConversationMessage = 'nh-assistant.open-conversation';
+const openAlertsMessage = 'nh-assistant.open-alerts';
+
+/**
+ * A clicked notification of alerts: one alert with its `alertId`, or a digest with its `digestId`.
+ * Either opens the host's alert list.
+ */
+export interface NhAssistantAlertNotificationClick {
+  alertId?: string;
+  digestId?: string;
+}
 
 /**
  * Keeps this browser's Web Push subscription in line with the user's choice. Notifications are on
@@ -37,12 +47,19 @@ export class NhAssistantPushService {
   private readonly busyState = signal(false);
   private readonly openSubject = new Subject<string>();
   private readonly openRunSubject = new Subject<string>();
+  private readonly openAlertsSubject = new Subject<NhAssistantAlertNotificationClick>();
   private registration?: Promise<ServiceWorkerRegistration>;
   private revision = 0;
   private readonly onWorkerMessage = (event: MessageEvent) => {
-    const data = event.data as { type?: unknown; conversationId?: unknown; runId?: unknown } | null;
+    const data = event.data as { type?: unknown; conversationId?: unknown; runId?: unknown; alertId?: unknown; digestId?: unknown } | null;
     if (data?.type === openConversationMessage && typeof data.conversationId === 'string') {
       this.openNotification(data.conversationId, typeof data.runId === 'string' ? data.runId : undefined);
+    }
+    if (data?.type === openAlertsMessage) {
+      this.openAlerts({
+        alertId: typeof data.alertId === 'string' ? data.alertId : undefined,
+        digestId: typeof data.digestId === 'string' ? data.digestId : undefined
+      });
     }
   };
 
@@ -64,6 +81,13 @@ export class NhAssistantPushService {
    * the subscription.
    */
   readonly openRun$: Observable<string> = this.openRunSubject.asObservable();
+  /**
+   * Clicked notifications of alerts, one alert or a digest, for the application to open its alert list,
+   * for example with `nh-assistant-alerts`. Subscribe in the application shell. Without a subscriber a
+   * click in an open window goes to `push.alertsUrl` when it is set; a click without an open window
+   * opens that page in a new one.
+   */
+  readonly openAlerts$: Observable<NhAssistantAlertNotificationClick> = this.openAlertsSubject.asObservable();
   readonly state = computed<NhAssistantPushState>(() => {
     const settings = this.settingsState();
     if (!settings?.pushAvailable || !this.isSupported()) {
@@ -86,6 +110,7 @@ export class NhAssistantPushService {
       }
       this.openSubject.complete();
       this.openRunSubject.complete();
+      this.openAlertsSubject.complete();
     });
     if (this.browser && this.isSupported()) {
       navigator.serviceWorker.addEventListener('message', this.onWorkerMessage);
@@ -105,6 +130,23 @@ export class NhAssistantPushService {
     }
 
     this.openSubject.next(conversationId);
+  }
+
+  /**
+   * Opens the alert list for a clicked notification of alerts: through `openAlerts$` while the
+   * application subscribes, otherwise by going to `push.alertsUrl` when it is set. The bundled worker
+   * calls it.
+   */
+  openAlerts(click: NhAssistantAlertNotificationClick): void {
+    if (this.openAlertsSubject.observed) {
+      this.openAlertsSubject.next(click);
+      return;
+    }
+
+    const alertsUrl = this.config.push?.alertsUrl;
+    if (this.browser && alertsUrl) {
+      location.assign(new URL(alertsUrl, location.href).href);
+    }
   }
 
   /**
@@ -237,6 +279,7 @@ export class NhAssistantPushService {
     this.registration ??= (async () => {
       const url = new URL(push.serviceWorkerUrl, location.href);
       url.searchParams.set('app', new URL(push.openUrl ?? '/', location.href).href);
+      url.searchParams.set('alerts', new URL(push.alertsUrl ?? push.openUrl ?? '/', location.href).href);
       if (push.icon) {
         url.searchParams.set('icon', new URL(push.icon, location.href).href);
       }

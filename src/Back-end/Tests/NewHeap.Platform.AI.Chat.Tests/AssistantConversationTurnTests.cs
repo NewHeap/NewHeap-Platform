@@ -690,6 +690,11 @@ public sealed class AssistantConversationTurnTests(AssistantDatabaseFixture data
             return Task.CompletedTask;
         }
 
+        public Task<NhAssistantAlertChannelOutcome> AlertAsync(NhAssistantAlertPush alert, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(NhAssistantAlertChannelOutcome.Skipped);
+        }
+
         private TaskCompletionSource<NhAssistantTurnOutcome> SourceOf(Guid conversationId)
         {
             return _ended.GetOrAdd(conversationId, _ => new TaskCompletionSource<NhAssistantTurnOutcome>(TaskCreationOptions.RunContinuationsAsynchronously));

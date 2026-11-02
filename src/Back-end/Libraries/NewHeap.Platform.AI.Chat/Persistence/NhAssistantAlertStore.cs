@@ -273,9 +273,9 @@ internal sealed partial class NhAssistantAlertStore(NhAssistantDbContextFactory 
                 return;
         }
 
-        if (!redeliver && delivery.SentAt is not null)
+        if (!redeliver && (delivery.SentAt is not null || delivery.ReadAt is not null))
         {
-            // The person received the alert; its new content shows where they read it.
+            // The person received or read the alert; its new content shows where they read it.
             return;
         }
 
@@ -734,6 +734,92 @@ internal sealed partial class NhAssistantAlertStore(NhAssistantDbContextFactory 
                     .SetProperty(delivery => delivery.ConcurrencyStamp, Guid.NewGuid()),
                 cancellationToken);
         return changed == 1;
+    }
+
+    /// <summary>
+    /// Closes a claimed delivery that was due without sending it, with why
+    /// (<see cref="NhAssistantAlertWithholdReasons"/>), such as for a person who muted its kind. Returns
+    /// <see langword="false"/> when the claim was lost or the delivery was taken back meanwhile.
+    /// </summary>
+    public async Task<bool> WithholdAsync(
+        Guid deliveryId,
+        string claimant,
+        string reason,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        await using var context = contextFactory.CreateDbContext();
+        var changed = await context.AlertDeliveries
+            .Where(delivery => delivery.Id == deliveryId
+                && delivery.ClaimedBy == claimant
+                && delivery.Status == NhAssistantAlertDeliveryStatuses.Pending)
+            .ExecuteUpdateAsync(
+                update => update
+                    .SetProperty(delivery => delivery.Status, NhAssistantAlertDeliveryStatuses.Withheld)
+                    .SetProperty(delivery => delivery.ReasonCode, reason)
+                    .SetProperty(delivery => delivery.ClosedAt, now)
+                    .SetProperty(delivery => delivery.ClaimedBy, (string?)null)
+                    .SetProperty(delivery => delivery.ClaimedUntil, (DateTimeOffset?)null)
+                    .SetProperty(delivery => delivery.UpdatedAt, now)
+                    .SetProperty(delivery => delivery.ConcurrencyStamp, Guid.NewGuid()),
+                cancellationToken);
+        return changed == 1;
+    }
+
+    /// <summary>
+    /// Which of <paramref name="deliveryIds"/> <paramref name="claimant"/> still holds, waiting, for an
+    /// alert that is still open: the check right before a notification goes out, so a delivery that was
+    /// read, resolved or expired since it was claimed is not sent.
+    /// </summary>
+    public async Task<IReadOnlySet<Guid>> FindStillClaimedAsync(
+        IReadOnlyCollection<Guid> deliveryIds,
+        string claimant,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(deliveryIds);
+        if (deliveryIds.Count == 0)
+        {
+            return new HashSet<Guid>();
+        }
+
+        var ids = deliveryIds.ToArray();
+        await using var context = contextFactory.CreateDbContext();
+        var held = await context.AlertDeliveries
+            .AsNoTracking()
+            .Where(delivery => ids.Contains(delivery.Id)
+                && delivery.ClaimedBy == claimant
+                && delivery.Status == NhAssistantAlertDeliveryStatuses.Pending
+                && delivery.Alert!.Status == NhAssistantAlertStatuses.Open)
+            .Select(delivery => delivery.Id)
+            .ToListAsync(cancellationToken);
+        return held.ToHashSet();
+    }
+
+    /// <summary>
+    /// How many alerts went out to each of <paramref name="recipientActorIds"/> since
+    /// <paramref name="since"/>, for the daily limit per person; a person without any is missing.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, int>> CountSentSinceAsync(
+        IReadOnlyCollection<string> recipientActorIds,
+        DateTimeOffset since,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(recipientActorIds);
+        if (recipientActorIds.Count == 0)
+        {
+            return new Dictionary<string, int>(StringComparer.Ordinal);
+        }
+
+        var ids = recipientActorIds.Distinct(StringComparer.Ordinal).ToArray();
+        await using var context = contextFactory.CreateDbContext();
+        var counts = await context.AlertDeliveries
+            .AsNoTracking()
+            .Where(delivery => ids.Contains(delivery.RecipientActorId) && delivery.SentAt != null && delivery.SentAt >= since)
+            .GroupBy(delivery => delivery.RecipientActorId)
+            .Select(group => new { ActorId = group.Key, Count = group.Count() })
+            .ToListAsync(cancellationToken);
+        return counts.ToDictionary(item => item.ActorId, item => item.Count, StringComparer.Ordinal);
     }
 
     /// <summary>

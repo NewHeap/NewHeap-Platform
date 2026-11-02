@@ -313,6 +313,21 @@ public sealed class NhAssistantLimits
     /// </summary>
     public TimeSpan AlertRetention { get; set; } = TimeSpan.FromDays(30);
 
+    /// <summary>
+    /// The most alerts the delivery sends one person per day on the application's clock (a UTC day),
+    /// from 1 to 1,000: 50 by default. Each alert in a digest counts, and an alert delivered again
+    /// counts once. A further delivery that day is withheld with the reason <c>limit-reached</c>
+    /// (<see cref="NhAssistantAlertDeliveryStatuses.Withheld"/>): the alert stays in the person's alert
+    /// list, and raising it again on a later day delivers it then.
+    /// </summary>
+    public int MaxAlertsPerPersonPerDay { get; set; } = 50;
+
+    /// <summary>
+    /// The most alerts one digest lists, from 1 to 50: 10 by default, most urgent first; the digest ends
+    /// with "and N more" for the rest, which its title counts as well.
+    /// </summary>
+    public int MaxAlertDigestLines { get; set; } = 10;
+
     internal void Validate()
     {
         if (MaintenanceInterval < TimeSpan.FromSeconds(1) || MaintenanceInterval > TimeSpan.FromHours(1))
@@ -363,7 +378,9 @@ public sealed class NhAssistantLimits
             || MaxAlertsPerRun is < 1 or > 1_000
             || MaxAlertsPerSubjectPerDay is < 1 or > 1_000
             || AlertRetention < TimeSpan.FromDays(1)
-            || AlertRetention > TimeSpan.FromDays(365))
+            || AlertRetention > TimeSpan.FromDays(365)
+            || MaxAlertsPerPersonPerDay is < 1 or > 1_000
+            || MaxAlertDigestLines is < 1 or > 50)
         {
             throw new InvalidOperationException("Assistant limits must be positive and bounded.");
         }

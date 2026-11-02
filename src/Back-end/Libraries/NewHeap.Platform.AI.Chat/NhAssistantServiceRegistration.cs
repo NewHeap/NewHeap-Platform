@@ -191,6 +191,14 @@ internal static class NhAssistantServiceRegistration
         services.TryAddSingleton<Alerts.INhAssistantAlertScheduler, Alerts.NhAssistantImmediateAlertScheduler>();
         services.TryAddScoped<Alerts.NhAssistantAlertService>();
         services.TryAddScoped<INhAssistantAlerts>(provider => provider.GetRequiredService<Alerts.NhAssistantAlertService>());
+        // The delivery of alerts (FB87, lane AB): the daily digest at the kind's or the person's time in
+        // the person's time zone, the person's choices per kind (FB87-6) and the dispatcher that the run
+        // maintenance runs.
+        services.Replace(ServiceDescriptor.Scoped<Alerts.INhAssistantAlertScheduler, Alerts.NhAssistantAlertDigestScheduler>());
+        services.TryAddScoped<INhAssistantPersonTimeZones, Alerts.NhAssistantNoPersonTimeZones>();
+        services.TryAddScoped<Alerts.NhAssistantAlertTimeZones>();
+        services.TryAddScoped<Alerts.NhAssistantAlertPreferences>();
+        services.TryAddScoped<Alerts.NhAssistantAlertDispatcher>();
         return state;
     }
 

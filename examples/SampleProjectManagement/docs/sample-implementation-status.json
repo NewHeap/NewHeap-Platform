@@ -4212,7 +4212,22 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261102143739_Alerts.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261102143749_Alerts.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAlertTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAlertKindTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAlertKindTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertDispatcher.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertScheduler.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertOptions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertPreferences.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertDigestTexts.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantNotificationPreferenceEntities.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantNotificationStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantCollaborationEndpoints.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261102152013_NotificationPreferences.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261102152023_NotificationPreferences.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAlertDeliveryTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantNotificationPreferenceTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/push/nh-assistant-push-worker.js",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-push.service.ts"
     ]
   }
 }

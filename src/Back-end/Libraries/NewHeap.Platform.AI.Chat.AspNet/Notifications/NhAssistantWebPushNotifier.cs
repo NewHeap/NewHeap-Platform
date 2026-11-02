@@ -247,6 +247,51 @@ internal sealed class NhAssistantWebPushNotifier(
     }
 
     /// <summary>
+    /// Sends a notification of alerts (FB87) to the person's browsers. It belongs to no conversation: the
+    /// delivery checked the person against the alert's subject right before, and a click opens the
+    /// host's alert list. The payload carries the alert or digest id and the texts the delivery wrote,
+    /// never an alert's parameters.
+    /// </summary>
+    public async Task<NhAssistantAlertChannelOutcome> AlertAsync(NhAssistantAlertPush alert, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(alert);
+        var push = options.CurrentValue.Push;
+        if (!push.IsConfigured)
+        {
+            return NhAssistantAlertChannelOutcome.Skipped;
+        }
+
+        try
+        {
+            var kind = alert.DigestId is null ? NhAssistantPushKinds.Alert : NhAssistantPushKinds.AlertDigest;
+            var (attempted, delivered) = await SendToBrowsersAsync(
+                push,
+                new Dictionary<string, string>(StringComparer.Ordinal) { [alert.RecipientActorId] = kind },
+                (subscription, _) =>
+                {
+                    var (title, body) = alert.Texts(subscription.Language);
+                    return NhAssistantPushPayload.ForAlert(kind, alert.AlertId, alert.DigestId, title, body);
+                },
+                _ => alert.Urgent ? "high" : "normal",
+                alert.DigestId ?? alert.AlertId ?? Guid.Empty,
+                cancellationToken);
+            if (attempted == 0)
+            {
+                return NhAssistantAlertChannelOutcome.Skipped;
+            }
+
+            return delivered > 0 ? NhAssistantAlertChannelOutcome.Delivered : NhAssistantAlertChannelOutcome.Failed;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+        {
+            logger.LogWarning(
+                "Assistant push of an alert notification was not sent ({ExceptionType}).",
+                exception.GetType().Name);
+            return NhAssistantAlertChannelOutcome.Failed;
+        }
+    }
+
+    /// <summary>
     /// The recipients among <paramref name="kindsByActor"/> whom the conversation's read rule admits
     /// now and the platform still resolves, with their kinds.
     /// </summary>
@@ -300,10 +345,41 @@ internal sealed class NhAssistantWebPushNotifier(
         CancellationToken cancellationToken,
         Guid? runId = null)
     {
+        await SendToBrowsersAsync(
+            push,
+            kindsByActor,
+            (subscription, kind) =>
+            {
+                var (title, body) = texts(kind, subscription.Language);
+                return NhAssistantPushPayload.Create(kind, conversation.Id, title, body, runId);
+            },
+            kind => kind is NhAssistantPushKinds.ApprovalRequired
+                or NhAssistantPushKinds.QuestionWaiting
+                or NhAssistantPushKinds.AgentProposals
+                or NhAssistantPushKinds.AgentRunProposals
+                or NhAssistantPushKinds.AgentExecutionUnknown ? "high" : "normal",
+            runId ?? conversation.Id,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Sends one payload per browser of the people in <paramref name="kindsByActor"/> who did not turn
+    /// push off, in parallel, and removes the subscriptions the push service reports as gone. Returns how
+    /// many browsers it tried and how many push services accepted their message.
+    /// </summary>
+    /// <param name="topicId">A newer notification with the same topic replaces an undelivered older one.</param>
+    private async Task<(int Attempted, int Delivered)> SendToBrowsersAsync(
+        NhAssistantPushOptions push,
+        IReadOnlyDictionary<string, string> kindsByActor,
+        Func<AssistantPushSubscription, string, byte[]> payloadOf,
+        Func<string, string> urgencyOf,
+        Guid topicId,
+        CancellationToken cancellationToken)
+    {
         var subscriptions = await notifications.GetDeliverableSubscriptionsAsync(kindsByActor.Keys.ToArray(), cancellationToken);
         if (subscriptions.Count == 0)
         {
-            return;
+            return (0, 0);
         }
 
         // Sign once per push service origin, before the parallel deliveries share the results.
@@ -331,6 +407,7 @@ internal sealed class NhAssistantWebPushNotifier(
         }
 
         var gone = new ConcurrentBag<Guid>();
+        var delivered = 0;
         var client = httpClients.CreateClient(HttpClientName);
         await Parallel.ForEachAsync(
             deliverable,
@@ -338,25 +415,23 @@ internal sealed class NhAssistantWebPushNotifier(
             async (item, token) =>
             {
                 var kind = kindsByActor[item.Subscription.ActorId];
-                var (title, body) = texts(kind, item.Subscription.Language);
-                var payload = NhAssistantPushPayload.Create(kind, conversation.Id, title, body, runId);
                 var status = await SendAsync(
                     client,
                     push,
                     item.Subscription,
                     item.Endpoint,
                     authorizations[item.Endpoint.GetLeftPart(UriPartial.Authority)],
-                    payload,
-                    kind is NhAssistantPushKinds.ApprovalRequired
-                        or NhAssistantPushKinds.QuestionWaiting
-                        or NhAssistantPushKinds.AgentProposals
-                        or NhAssistantPushKinds.AgentRunProposals
-                        or NhAssistantPushKinds.AgentExecutionUnknown ? "high" : "normal",
-                    runId ?? conversation.Id,
+                    payloadOf(item.Subscription, kind),
+                    urgencyOf(kind),
+                    topicId,
                     token);
                 if (status is HttpStatusCode.NotFound or HttpStatusCode.Gone)
                 {
                     gone.Add(item.Subscription.Id);
+                }
+                else if (status is { } accepted && (int)accepted is >= 200 and < 300)
+                {
+                    Interlocked.Increment(ref delivered);
                 }
             });
 
@@ -364,6 +439,8 @@ internal sealed class NhAssistantWebPushNotifier(
         {
             await notifications.DeleteSubscriptionsAsync(gone.ToArray(), cancellationToken);
         }
+
+        return (deliverable.Count, delivered);
     }
 
     private async Task<HttpStatusCode?> SendAsync(
@@ -490,6 +567,17 @@ internal static class NhAssistantPushKinds
     /// </summary>
     public const string ApplicationMessage = "application-message";
 
+    /// <summary>
+    /// One alert (FB87); the payload carries the alert and no conversation, and a click opens the
+    /// host's alert list.
+    /// </summary>
+    public const string Alert = "alert";
+
+    /// <summary>
+    /// The digest of a person's alerts at one digest time; the payload carries the digest.
+    /// </summary>
+    public const string AlertDigest = "alert-digest";
+
     public static string ForAgent(NhAssistantAgentNotificationKind kind)
     {
         return kind switch
@@ -537,6 +625,36 @@ internal static class NhAssistantPushPayload
             writer.WriteString(
                 "tag",
                 runId is { } tagged ? "nh-assistant-run:" + tagged.ToString("D") : "nh-assistant:" + conversationId.ToString("D"));
+            writer.WriteEndObject();
+        }
+        return stream.ToArray();
+    }
+
+    /// <summary>
+    /// The payload of a notification of alerts (FB87): the kind <c>alert</c> with its <c>alertId</c>, or
+    /// <c>alert-digest</c> with its <c>digestId</c>, and the texts; no conversation. It is tagged per alert
+    /// or digest, so an alert delivered again replaces its earlier notification.
+    /// </summary>
+    public static byte[] ForAlert(string kind, Guid? alertId, Guid? digestId, string title, string body)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            writer.WriteString("type", "nh-assistant");
+            writer.WriteString("kind", kind);
+            if (digestId is { } digest)
+            {
+                writer.WriteString("digestId", digest);
+                writer.WriteString("tag", "nh-assistant-alert-digest:" + digest.ToString("D"));
+            }
+            else if (alertId is { } alert)
+            {
+                writer.WriteString("alertId", alert);
+                writer.WriteString("tag", "nh-assistant-alert:" + alert.ToString("D"));
+            }
+            writer.WriteString("title", Bound(title, 120));
+            writer.WriteString("body", Bound(body, 240));
             writer.WriteEndObject();
         }
         return stream.ToArray();

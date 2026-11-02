@@ -61,6 +61,12 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-directory-unavailable',
   'assistant-push-unavailable',
   'assistant-push-subscription-invalid',
+  // A person's notification preferences per alert kind (PUT notifications)
+  'assistant-notification-kind-unknown',
+  'assistant-notification-mute-not-allowed',
+  'assistant-notification-digest-time-not-allowed',
+  'assistant-notification-channels-not-allowed',
+  'assistant-notification-digest-time-invalid',
   'assistant-not-allowed-while-impersonating',
   // Agent runs
   'assistant-subject-not-found',

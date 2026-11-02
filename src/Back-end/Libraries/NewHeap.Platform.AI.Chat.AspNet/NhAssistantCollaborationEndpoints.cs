@@ -77,12 +77,12 @@ internal static class NhAssistantCollaborationEndpoints
         enabled.MapGet("notifications", GetNotificationSettingsAsync)
             .WithName("NhAssistantGetNotificationSettings")
             .WithSummary("Get my notification settings")
-            .WithDescription("Returns whether the caller receives push notifications, whether the server supports them and the key browsers subscribe with.")
+            .WithDescription("Returns whether the caller receives push notifications, whether the server supports them, the key browsers subscribe with, the caller's time zone for the daily digest of alerts and their choices per alert kind. Only the caller's own settings.")
             .Produces<NhAssistantNotificationSettingsDto>();
         enabled.MapPut("notifications", UpdateNotificationSettingsAsync)
             .WithName("NhAssistantUpdateNotificationSettings")
             .WithSummary("Update my notification settings")
-            .WithDescription("Turns push notifications on or off for every browser of the caller.")
+            .WithDescription("Turns push notifications on or off for every browser of the caller (pushEnabled, optional) and changes the caller's choices per alert kind (alertKinds, optional): muted, digest time and channels. An unknown kind or a change the kind does not allow is refused with 400 and changes nothing. Only the caller's own settings.")
             .Produces<NhAssistantNotificationSettingsDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest);
         enabled.MapPut("notifications/push-subscription", SubscribeAsync)
@@ -333,6 +333,7 @@ internal static class NhAssistantCollaborationEndpoints
     private static async Task<IResult> GetNotificationSettingsAsync(
         HttpContext httpContext,
         NhAssistantNotificationStore notifications,
+        Alerts.NhAssistantAlertPreferences alertPreferences,
         IOptionsMonitor<NhAssistantOptions> options)
     {
         var caller = await ResolveCallerAsync(httpContext);
@@ -340,13 +341,20 @@ internal static class NhAssistantCollaborationEndpoints
         {
             return ContextUnavailable();
         }
-        var enabled = await notifications.IsPushEnabledAsync(caller.Data.ActorId, httpContext.RequestAborted);
-        return Json(Settings(enabled, options.CurrentValue.Push), NhAssistantJsonSerializerContext.Default.NhAssistantNotificationSettingsDto);
+        return Json(
+            await SettingsAsync(caller.Data.ActorId, notifications, alertPreferences, options.CurrentValue.Push, httpContext.RequestAborted),
+            NhAssistantJsonSerializerContext.Default.NhAssistantNotificationSettingsDto);
     }
 
+    /// <summary>
+    /// Changes the caller's own settings: the push switch and the choices per alert kind (FB87-6). Every
+    /// change of an alert kind is checked first, so a refused one changes nothing, the switch included.
+    /// An impersonation session acts as the person here, as for the push switch: a choice grants nothing.
+    /// </summary>
     private static async Task<IResult> UpdateNotificationSettingsAsync(
         HttpContext httpContext,
         NhAssistantNotificationStore notifications,
+        Alerts.NhAssistantAlertPreferences alertPreferences,
         IOptionsMonitor<NhAssistantOptions> options)
     {
         var caller = await ResolveCallerAsync(httpContext);
@@ -355,12 +363,30 @@ internal static class NhAssistantCollaborationEndpoints
             return ContextUnavailable();
         }
         var request = await ReadBodyAsync(httpContext, NhAssistantJsonSerializerContext.Default.NhAssistantUpdateNotificationSettingsRequest);
-        if (request?.PushEnabled is not { } enabled)
+        if (request is null
+            || (request.PushEnabled is null && request.AlertKinds is null)
+            || request.AlertKinds?.Any(kind => kind is null) == true)
         {
             return Error(NhAssistantAdminErrorCodes.ValidationFailed);
         }
-        await notifications.SetPushEnabledAsync(caller.Data.ActorId, enabled, httpContext.RequestAborted);
-        return Json(Settings(enabled, options.CurrentValue.Push), NhAssistantJsonSerializerContext.Default.NhAssistantNotificationSettingsDto);
+        if (request.AlertKinds is { } alertKinds)
+        {
+            var changed = await alertPreferences.UpdateAsync(
+                caller.Data.ActorId,
+                alertKinds.Select(RequestOf).ToArray(),
+                httpContext.RequestAborted);
+            if (!changed.Success)
+            {
+                return FromFailure(changed);
+            }
+        }
+        if (request.PushEnabled is { } enabled)
+        {
+            await notifications.SetPushEnabledAsync(caller.Data.ActorId, enabled, httpContext.RequestAborted);
+        }
+        return Json(
+            await SettingsAsync(caller.Data.ActorId, notifications, alertPreferences, options.CurrentValue.Push, httpContext.RequestAborted),
+            NhAssistantJsonSerializerContext.Default.NhAssistantNotificationSettingsDto);
     }
 
     private static async Task<IResult> SubscribeAsync(
@@ -419,11 +445,69 @@ internal static class NhAssistantCollaborationEndpoints
         return TypedResults.NoContent();
     }
 
-    private static NhAssistantNotificationSettingsDto Settings(bool enabled, NhAssistantPushOptions push)
+    private static async Task<NhAssistantNotificationSettingsDto> SettingsAsync(
+        string actorId,
+        NhAssistantNotificationStore notifications,
+        Alerts.NhAssistantAlertPreferences alertPreferences,
+        NhAssistantPushOptions push,
+        CancellationToken cancellationToken)
     {
+        var enabled = await notifications.IsPushEnabledAsync(actorId, cancellationToken);
+        var alerts = await alertPreferences.GetAsync(actorId, cancellationToken);
+        var available = new List<string>(2);
+        if (push.IsConfigured)
+        {
+            available.Add("push");
+        }
+        if (alerts.InAppAvailable)
+        {
+            available.Add("in-app");
+        }
+
         return new NhAssistantNotificationSettingsDto(
             enabled,
             push.IsConfigured,
-            push.IsConfigured ? push.PublicKey : null);
+            push.IsConfigured ? push.PublicKey : null)
+        {
+            TimeZone = alerts.TimeZoneId,
+            AlertKinds = alerts.Kinds.Select(kind => new NhAssistantAlertKindPreferenceDto(
+                    kind.Kind.Id,
+                    kind.Kind.DisplayNameKey,
+                    UrgencyOf(kind.Kind.Urgency),
+                    kind.Kind.Required,
+                    kind.MayMute,
+                    kind.MayChangeDigestTime,
+                    kind.MayChooseChannels,
+                    kind.Choice.Muted,
+                    Alerts.NhAssistantAlertPreferences.FormatDigestTime(
+                        kind.Kind.Delivery.Mode == NhAssistantAlertDeliveryMode.DailyDigest ? kind.Kind.Delivery.DigestTime : null),
+                    Alerts.NhAssistantAlertPreferences.FormatDigestTime(kind.Choice.ChosenDigestTime),
+                    kind.Kind.Delivery.WorkdaysOnly,
+                    new NhAssistantAlertChannelsDto(kind.Choice.Push, kind.Choice.InApp),
+                    available))
+                .ToArray()
+        };
+    }
+
+    private static Alerts.NhAssistantAlertPreferenceRequest RequestOf(NhAssistantAlertKindPreferenceUpdateDto update)
+    {
+        return new Alerts.NhAssistantAlertPreferenceRequest(update.Id)
+        {
+            Muted = update.Muted,
+            DigestTimeGiven = update.DigestTimeGiven,
+            DigestTime = update.DigestTime,
+            Push = update.Channels?.Push,
+            InApp = update.Channels?.InApp
+        };
+    }
+
+    private static string UrgencyOf(NhAssistantAlertUrgency urgency)
+    {
+        return urgency switch
+        {
+            NhAssistantAlertUrgency.Urgent => "urgent",
+            NhAssistantAlertUrgency.Warning => "warning",
+            _ => "info"
+        };
     }
 }
