@@ -69,10 +69,12 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
 
         // Each of them reads the one stored alert in their own list, written in their language, with the
         // project as its subject and its link; the badge counts it as unread.
+        // Only this project's alerts: the other tests of the shared host warn the same people about theirs.
+        var about = $"subjectType={ProjectSubjects.Type}&subjectId={ProjectSubjects.IdOf(project)}";
         using var participant = host.CreateClient(host.ParticipantId.ToString());
         using var reader = host.CreateClient(host.ReaderId.ToString());
         using var outsider = host.CreateClient(host.OutsiderId.ToString());
-        var alert = Assert.Single((await ListAlertsAsync(owner)).Items);
+        var alert = Assert.Single((await ListAlertsAsync(owner, about)).Items);
         Assert.Equal(
             (warned.Data.AlertId, SampleDeadlineAlertsComposition.KindId, SampleDeadlineAlertsComposition.KindNameKey, NhAssistantAlertUrgencyNames.Warning, NhAssistantAlertListStatuses.Unread),
             (alert.Id, alert.KindId, alert.DisplayNameKey, alert.Urgency, alert.Status));
@@ -80,13 +82,13 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
         Assert.Contains("2 tasks are still open", alert.Text);
         Assert.Equal((ProjectSubjects.Type, ProjectSubjects.IdOf(project)), (alert.SubjectType, alert.SubjectId));
         Assert.Equal(ProjectSubjects.LinkTemplate.Replace("{id}", ProjectSubjects.IdOf(project)), alert.SubjectLink);
-        Assert.Equal(warned.Data.AlertId, Assert.Single((await ListAlertsAsync(participant)).Items).Id);
-        Assert.Equal(warned.Data.AlertId, Assert.Single((await ListAlertsAsync(reader)).Items).Id);
-        Assert.Equal(1, (await SummaryAsync(owner)).UnreadByUrgency.Warning);
+        Assert.Equal(warned.Data.AlertId, Assert.Single((await ListAlertsAsync(participant, about)).Items).Id);
+        Assert.Equal(warned.Data.AlertId, Assert.Single((await ListAlertsAsync(reader, about)).Items).Id);
+        Assert.Equal(1, (await SummaryAsync(owner, about)).UnreadByUrgency.Warning);
 
         // The outsider has no delivery and no role on the project: nothing to list, read or dismiss.
-        Assert.Empty((await ListAlertsAsync(outsider)).Items);
-        Assert.Equal(0, (await SummaryAsync(outsider)).Unread);
+        Assert.Empty((await ListAlertsAsync(outsider, about)).Items);
+        Assert.Equal(0, (await SummaryAsync(outsider, about)).Unread);
         using (var refused = await outsider.PostAsync($"/api/assistant/alerts/{alert.Id}/read", null))
         {
             Assert.Equal(HttpStatusCode.NotFound, refused.StatusCode);
@@ -94,9 +96,9 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
 
         // The owner reads it, which takes it off the badge; the reader dismisses it from their list.
         Assert.Equal(NhAssistantAlertListStatuses.Read, (await PostAlertAsync(owner, alert.Id, "read")).Status);
-        Assert.Equal(0, (await SummaryAsync(owner)).Unread);
+        Assert.Equal(0, (await SummaryAsync(owner, about)).Unread);
         Assert.Equal(NhAssistantAlertListStatuses.Dismissed, (await PostAlertAsync(reader, alert.Id, "dismiss")).Status);
-        Assert.Empty((await ListAlertsAsync(reader)).Items);
+        Assert.Empty((await ListAlertsAsync(reader, about)).Items);
 
         // The tasks are done: the next round resolves the alert, so the application finds nothing open.
         await host.CompleteTasksAsync(tasks);
@@ -109,19 +111,20 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
         Assert.Equal(0, (await scope.ServiceProvider.GetRequiredService<SampleDeadlineAlerts>().ResolveAsync(project)).Data);
 
         // The owner's list shows the alert as resolved, and the participant's badge no longer counts it.
-        var resolved = Assert.Single((await ListAlertsAsync(owner, "?status=closed")).Items);
+        var resolved = Assert.Single((await ListAlertsAsync(owner, about, "closed")).Items);
         Assert.Equal((NhAssistantAlertListStatuses.Resolved, true), (resolved.Status, resolved.IsResolved));
-        Assert.Equal(0, (await SummaryAsync(participant)).Unread);
+        Assert.Equal(0, (await SummaryAsync(participant, about)).Unread);
     }
 
-    private static async Task<NhAssistantAlertListDto> ListAlertsAsync(HttpClient client, string query = "")
+    private static async Task<NhAssistantAlertListDto> ListAlertsAsync(HttpClient client, string about, string? status = null)
     {
-        return (await client.GetFromJsonAsync<NhAssistantAlertListDto>("/api/assistant/alerts" + query, Json))!;
+        var query = status is null ? about : $"{about}&status={status}";
+        return (await client.GetFromJsonAsync<NhAssistantAlertListDto>("/api/assistant/alerts?" + query, Json))!;
     }
 
-    private static async Task<NhAssistantAlertSummaryDto> SummaryAsync(HttpClient client)
+    private static async Task<NhAssistantAlertSummaryDto> SummaryAsync(HttpClient client, string about)
     {
-        return (await client.GetFromJsonAsync<NhAssistantAlertSummaryDto>("/api/assistant/alerts/summary", Json))!;
+        return (await client.GetFromJsonAsync<NhAssistantAlertSummaryDto>("/api/assistant/alerts/summary?" + about, Json))!;
     }
 
     private static async Task<NhAssistantAlertDto> PostAlertAsync(HttpClient client, Guid alertId, string action)
