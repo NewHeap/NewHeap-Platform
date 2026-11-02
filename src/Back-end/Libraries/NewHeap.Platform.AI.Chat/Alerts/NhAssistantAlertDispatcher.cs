@@ -12,13 +12,15 @@ using NewHeap.Platform.Common.Actors;
 namespace NewHeap.Platform.AI.Chat.Alerts;
 
 /// <summary>
-/// One delivery about to go out, with what applies to its person and its texts in their culture.
+/// One delivery about to go out, with its kind's effective delivery, what applies to its person and its
+/// texts in their culture.
 /// </summary>
 internal sealed record NhAssistantAlertDispatchItem(
     AssistantAlertDelivery Delivery,
     NhAssistantAlertKind Kind,
     NhAssistantAlertChoice Choice,
-    NhAssistantAlertText Text)
+    NhAssistantAlertText Text,
+    NhAssistantAlertEffectiveDelivery KindDelivery)
 {
     public AssistantAlert Alert => Delivery.Alert!;
 }
@@ -45,7 +47,9 @@ internal sealed record NhAssistantAlertDispatchResult(
 /// and for each person checks every recipient again right before sending: a person who no longer
 /// qualifies is dropped with the content-free audit <c>AgentAlertRecipientDropped</c>. A person who
 /// muted a kind that is not required, or who reached <see cref="NhAssistantLimits.MaxAlertsPerPersonPerDay"/>,
-/// gets nothing and the delivery is withheld; the alert stays in their list. An alert delivered
+/// gets nothing and the delivery is withheld; the alert stays in their list, as it does when an
+/// administrator switched its kind off meanwhile. A kind's delivery is its effective one
+/// (<see cref="NhAssistantAlertKindSettings"/>). An alert delivered
 /// immediately goes out on its own; every other delivery of a person due at the same moment goes out
 /// as one digest, whose title counts its alerts per urgency and which lists at most
 /// <see cref="NhAssistantLimits.MaxAlertDigestLines"/> of them. A notification goes out through Web Push
@@ -63,6 +67,7 @@ internal sealed class NhAssistantAlertDispatcher(
     NhAssistantNotificationStore notifications,
     NhAssistantAlertTexts texts,
     NhAssistantAgentEvents events,
+    NhAssistantAlertKindSettings kindSettings,
     INhAssistantNotifier notifier,
     IEnumerable<INhAssistantAlertChannel> channels,
     IOptionsMonitor<NhAssistantOptions> options,
@@ -127,6 +132,7 @@ internal sealed class NhAssistantAlertDispatcher(
         var preferences = await notifications.GetPreferencesAsync(recipients, NhAssistantNotificationPreferenceCategories.Alert, cancellationToken);
         var sentToday = await store.CountSentSinceAsync(recipients, new DateTimeOffset(now.UtcDateTime.Date, TimeSpan.Zero), cancellationToken);
         var cultures = await CulturesAsync(recipients, cancellationToken);
+        var kinds = await kindSettings.GetAllAsync(cancellationToken);
         var pass = new Pass(claimant, now) { Claimed = claimed.Count };
 
         foreach (var person in claimed.GroupBy(delivery => delivery.RecipientActorId, StringComparer.Ordinal).OrderBy(group => group.Key, StringComparer.Ordinal))
@@ -137,6 +143,7 @@ internal sealed class NhAssistantAlertDispatcher(
                     pass,
                     person.Key,
                     person.OrderBy(delivery => delivery.DueAt).ThenBy(delivery => delivery.Id).ToArray(),
+                    kinds,
                     preferences,
                     sentToday.GetValueOrDefault(person.Key),
                     cultures.GetValueOrDefault(person.Key),
@@ -168,6 +175,7 @@ internal sealed class NhAssistantAlertDispatcher(
         Pass pass,
         string actorId,
         IReadOnlyList<AssistantAlertDelivery> deliveries,
+        IReadOnlyDictionary<string, NhAssistantAlertKindState> kinds,
         IReadOnlyDictionary<(string ActorId, string KindId), AssistantNotificationPreference> preferences,
         int sentToday,
         CultureInfo? knownCulture,
@@ -184,11 +192,18 @@ internal sealed class NhAssistantAlertDispatcher(
                 // Expired before the maintenance closed it: never sent; closing it takes the delivery back.
                 continue;
             }
-            if (!registration.AlertKinds.TryGetValue(alert.KindId, out var kind))
+            if (!kinds.TryGetValue(alert.KindId, out var state))
             {
                 await WithholdAsync(pass, delivery, NhAssistantAlertWithholdReasons.KindUnknown, cancellationToken);
                 continue;
             }
+            if (!state.Enabled)
+            {
+                await WithholdAsync(pass, delivery, NhAssistantAlertWithholdReasons.KindOff, cancellationToken);
+                continue;
+            }
+
+            var kind = state.Kind;
 
             // The one check of a person against an alert, right before anything reaches them.
             var verdict = await recipientCheck.CheckAsync(actorId, alert, cancellationToken);
@@ -202,7 +217,7 @@ internal sealed class NhAssistantAlertDispatcher(
                 continue;
             }
 
-            var choice = NhAssistantAlertChoice.Of(kind, preferences.GetValueOrDefault((actorId, kind.Id)));
+            var choice = NhAssistantAlertChoice.Of(kind, state.Delivery, preferences.GetValueOrDefault((actorId, kind.Id)));
             if (choice.Muted)
             {
                 await WithholdAsync(pass, delivery, NhAssistantAlertWithholdReasons.Muted, cancellationToken);
@@ -221,16 +236,16 @@ internal sealed class NhAssistantAlertDispatcher(
                 continue;
             }
 
-            items.Add(new NhAssistantAlertDispatchItem(delivery, kind, choice, text));
+            items.Add(new NhAssistantAlertDispatchItem(delivery, kind, choice, text, state.Delivery));
         }
 
         // An alert delivered immediately goes out on its own; the rest go out as one digest per moment.
-        foreach (var item in items.Where(item => item.Kind.Delivery.IsImmediateFor(item.Alert.Urgency)))
+        foreach (var item in items.Where(item => item.KindDelivery.IsImmediateFor(item.Alert.Urgency)))
         {
             await SendAsync(pass, actorId, culture, knownCulture is not null, [item], null, cancellationToken);
         }
         foreach (var digest in items
-                     .Where(item => !item.Kind.Delivery.IsImmediateFor(item.Alert.Urgency))
+                     .Where(item => !item.KindDelivery.IsImmediateFor(item.Alert.Urgency))
                      .GroupBy(item => item.Delivery.DueAt)
                      .OrderBy(group => group.Key))
         {

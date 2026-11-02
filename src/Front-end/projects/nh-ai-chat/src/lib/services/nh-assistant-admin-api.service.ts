@@ -51,6 +51,10 @@ import {
   McpTool,
   ProposalKinds,
   ProposalKindsFilter,
+  AdminAlertKind,
+  AdminAlertKindChange,
+  AdminAlertKinds,
+  AdminAlertKindsFilter,
   AssistantAccount,
   InstructionAssetList,
   InstructionAssetText,
@@ -433,6 +437,25 @@ export class NhAssistantAdminApiService {
    */
   getProposalKinds(filter: ProposalKindsFilter = {}): Observable<ProposalKinds> {
     return this.request<ProposalKinds>('GET', withQuery('admin/proposal-kinds', filter));
+  }
+
+  /**
+   * Every alert kind with what its code lets an administrator change, the administrator's settings,
+   * what applies now and the numbers of its alerts in the period (`GET admin/alert-kinds`), with the
+   * shadow alerts each agent would have sent.
+   */
+  getAlertKinds(filter: AdminAlertKindsFilter = {}): Observable<AdminAlertKinds> {
+    return this.request<AdminAlertKinds>('GET', withQuery('admin/alert-kinds', filter));
+  }
+
+  /**
+   * Changes an alert kind's settings within the bounds of its code (`PUT admin/alert-kinds/{id}`):
+   * switching it off and its default delivery. A change the code does not allow fails with
+   * `assistant-alert-kind-switch-off-not-allowed` or `assistant-alert-kind-delivery-not-allowed`, a
+   * stale `expectedVersion` with `assistant-version-conflict`. Returns the kind without numbers.
+   */
+  updateAlertKind(kindId: string, change: AdminAlertKindChange): Observable<AdminAlertKind> {
+    return this.request<AdminAlertKind>('PUT', `admin/alert-kinds/${encodeURIComponent(kindId)}`, change);
   }
 
   /** The feedback on the agent's proposals with the proposal as approvers read it, newest change first. */

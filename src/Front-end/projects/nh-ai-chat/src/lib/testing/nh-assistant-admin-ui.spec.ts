@@ -167,7 +167,7 @@ describe('NhAssistantAdminComponent', () => {
     const { fixture, element } = await render(NhAssistantAdminComponent);
 
     const tabs = () => Array.from(element.querySelectorAll('.admin > .tabs [role="tab"]')) as HTMLElement[];
-    expect(tabs().map(tab => tab.textContent?.trim())).toEqual(['Agents', 'Kinds of action', 'Tools & connections', 'Context']);
+    expect(tabs().map(tab => tab.textContent?.trim())).toEqual(['Agents', 'Kinds of action', 'Alerts', 'Tools & connections', 'Context']);
     expect(tabs()[0].getAttribute('aria-selected')).toBe('true');
     expect(element.querySelector('[role="tabpanel"] nh-assistant-admin-agents')).not.toBeNull();
 
@@ -186,6 +186,16 @@ describe('NhAssistantAdminComponent', () => {
     await settle(fixture);
 
     expect(tabs()[2].getAttribute('aria-selected')).toBe('true');
+    // FB87 phase 2: the kinds of alert with their numbers and settings, from the mock's example.
+    const alertKinds = element.querySelector('[role="tabpanel"] nh-assistant-admin-alert-kinds')!;
+    expect(alertKinds).not.toBeNull();
+    expect(alertKinds.querySelector('tbody[data-kind="task-due-today"] [data-raised]')?.textContent?.trim()).toBe('48');
+    expect(TestBed.inject(NhAssistantMockBackend).requests.some(item => item.path === 'admin/alert-kinds')).toBeTrue();
+
+    element.querySelector('.admin > .tabs')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    await settle(fixture);
+
+    expect(tabs()[3].getAttribute('aria-selected')).toBe('true');
     expect(element.querySelector('[role="tabpanel"] nh-assistant-admin-mcp-servers')).not.toBeNull();
   });
 

@@ -250,7 +250,8 @@ public sealed record NhAssistantAlertSummaryDto(
 public sealed record NhAssistantAlertUrgencyCountsDto(int Info, int Warning, int Urgent);
 
 /// <summary>
-/// Source-generated JSON contract of the alert endpoints: web (camelCase) names, nulls written.
+/// Source-generated JSON contract of the alert endpoints and of the administration of alert kinds: web
+/// (camelCase) names, nulls written.
 /// </summary>
 [JsonSourceGenerationOptions(
     JsonSerializerDefaults.Web,
@@ -258,4 +259,7 @@ public sealed record NhAssistantAlertUrgencyCountsDto(int Info, int Warning, int
 [JsonSerializable(typeof(NhAssistantAlertDto))]
 [JsonSerializable(typeof(NhAssistantAlertListDto))]
 [JsonSerializable(typeof(NhAssistantAlertSummaryDto))]
+[JsonSerializable(typeof(NhAssistantAdminAlertKindsDto))]
+[JsonSerializable(typeof(NhAssistantAdminAlertKindDto))]
+[JsonSerializable(typeof(NhAssistantAdminAlertKindRequest))]
 public sealed partial class NhAssistantAlertJsonSerializerContext : JsonSerializerContext;

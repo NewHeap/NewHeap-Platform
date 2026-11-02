@@ -479,10 +479,10 @@ internal static class NhAssistantCollaborationEndpoints
                     kind.MayChangeDigestTime,
                     kind.MayChooseChannels,
                     kind.Choice.Muted,
-                    Alerts.NhAssistantAlertPreferences.FormatDigestTime(
-                        kind.Kind.Delivery.Mode == NhAssistantAlertDeliveryMode.DailyDigest ? kind.Kind.Delivery.DigestTime : null),
+                    // The kind's effective delivery: its code with an administrator's settings.
+                    Alerts.NhAssistantAlertPreferences.FormatDigestTime(kind.Delivery.DigestTime),
                     Alerts.NhAssistantAlertPreferences.FormatDigestTime(kind.Choice.ChosenDigestTime),
-                    kind.Kind.Delivery.WorkdaysOnly,
+                    kind.Delivery.WorkdaysOnly,
                     new NhAssistantAlertChannelsDto(kind.Choice.Push, kind.Choice.InApp),
                     available))
                 .ToArray()

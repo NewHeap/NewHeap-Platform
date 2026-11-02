@@ -1,4 +1,4 @@
-import { AgentPackage, ClientContext } from '@newheap/platform-ai-chat';
+import { AdminAlertKind, AgentPackage, ClientContext } from '@newheap/platform-ai-chat';
 import { NhAssistantMockPerson, NhAssistantMockRemoteTool, NhAssistantMockScenario } from '@newheap/platform-ai-chat/testing';
 
 export const PROJECT_ASSISTANT_ID = 'sample-project-assistant';
@@ -240,6 +240,27 @@ const PLAYGROUND_ALERTS: NonNullable<NhAssistantMockScenario['alerts']> = {
 };
 
 /**
+ * SPM-392: the deadline watch's kind as the administration's Alerts section shows it on the mock API:
+ * delivered in the morning digest on working days, urgent ones at once, with the numbers of the last
+ * 30 days. Its code lets an administrator switch it off and change its default delivery, as on the API.
+ */
+const PLAYGROUND_ALERT_KINDS: AdminAlertKind[] = [
+  {
+    id: 'project-due-today',
+    displayNameKey: 'nh-assistant.alert-kinds.project-due-today.name',
+    urgency: 'warning',
+    required: false,
+    administratorMayChange: { switchOff: true, digestTimes: true, workdaysOnly: true, immediatelyFrom: true, quietHours: true },
+    codeDelivery: { mode: 'daily-digest', digestTimes: ['07:30'], workdaysOnly: true, immediatelyFrom: 'urgent', quietHours: null },
+    settings: { enabled: true, delivery: null, version: 0, changedBy: null, changedAt: null, reason: null },
+    enabled: true,
+    delivery: { mode: 'daily-digest', digestTimes: ['07:30'], workdaysOnly: true, immediatelyFrom: 'urgent', quietHours: null },
+    numbers: { raised: 3, delivered: 2, read: 1, dismissed: 0, resolvedBeforeReading: 1, withheld: 0, muted: 0 },
+    shadow: []
+  }
+];
+
+/**
  * Scripted assistant turns for the management playground. The mock API from
  * `@newheap/platform-ai-chat/testing` plays them as contract events, so the panel runs
  * without the assistant back-end.
@@ -378,6 +399,7 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
     }
   ],
   admin: {
+    alertKinds: PLAYGROUND_ALERT_KINDS,
     context: [
       'Sample Project Management tracks projects for divisions.',
       '',

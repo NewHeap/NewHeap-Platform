@@ -1333,6 +1333,32 @@ internal sealed class NhAssistantAgentEvents(
     }
 
     /// <summary>
+    /// Records that <paramref name="actorId"/> changed the settings of alert kind <paramref name="kindId"/>
+    /// (FB87 phase 2): <c>created</c> or <c>changed</c>, with the names of the settings that changed and
+    /// never their values or the reason.
+    /// </summary>
+    public Task AlertKindChangedAsync(
+        string kindId,
+        string actorId,
+        string outcome,
+        IReadOnlyCollection<string> changedFields,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(kindId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
+        ArgumentNullException.ThrowIfNull(changedFields);
+        return RecordAsync(
+            new NhAssistantAuditEvent(NhAssistantAuditEventKind.AdminAlertKindChanged, Guid.Empty, Guid.Empty, actorId, string.Empty, 0, DateTimeOffset.UtcNow)
+            {
+                ObjectId = kindId,
+                AlertKind = kindId,
+                ResultCode = outcome,
+                ChangedFields = changedFields.Count == 0 ? null : string.Join(',', changedFields)
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
     /// The actor of an alert's own events: the agent whose rules raised it, or the application.
     /// </summary>
     private static string RaiserOf(AssistantAlert alert)

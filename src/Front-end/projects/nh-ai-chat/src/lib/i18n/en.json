@@ -564,7 +564,11 @@
       "assistant-step-host-unavailable": "Steps cannot run here.",
       "assistant-composition-step-result-unavailable": "A step needed the result of an earlier step that had none.",
       "assistant-alert-not-found": "This alert no longer exists or is not yours to see.",
-      "assistant-alert-filter-invalid": "The alerts could not be filtered this way."
+      "assistant-alert-filter-invalid": "The alerts could not be filtered this way.",
+      "assistant-alert-kind-unknown": "This kind of alert no longer exists. Reload the alert kinds.",
+      "assistant-alert-kind-switch-off-not-allowed": "This kind of alert cannot be switched off: it is required, or its code does not allow it.",
+      "assistant-alert-kind-delivery-not-allowed": "The code of this kind of alert does not let administrators change this part of its delivery.",
+      "assistant-alert-kind-delivery-invalid": "Check the delivery: a daily digest needs one to four different times such as 07:30, and quiet hours need a start and an end that differ."
     },
     "notices": {
       "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",

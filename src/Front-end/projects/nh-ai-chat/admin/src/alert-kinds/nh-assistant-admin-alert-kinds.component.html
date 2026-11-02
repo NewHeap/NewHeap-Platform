@@ -1,0 +1,349 @@
+<ng-template #deliveryText let-delivery>
+  @for (text of summary(delivery); track text.key) {
+    <span class="summary-line">
+      @if (text.urgency) {
+        {{ text.key | translate: { urgency: (urgencyKey(text.urgency) | translate) } }}
+      } @else {
+        {{ text.key | translate: text.params }}
+      }
+    </span>
+  }
+</ng-template>
+
+<section class="section alert-kinds" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading()">
+  <header class="section-header">
+    <div>
+      <h3 [id]="id + '-title'">{{ 'nh-assistant.admin.alert-kinds.title' | translate }}</h3>
+      <p class="muted">{{ 'nh-assistant.admin.alert-kinds.description' | translate }}</p>
+    </div>
+    <div class="header-actions">
+      <button class="secondary" type="button" [disabled]="loading()" (click)="load()">
+        <nh-assistant-icon name="refresh" />{{ 'nh-assistant.admin.alert-kinds.refresh' | translate }}
+      </button>
+    </div>
+  </header>
+
+  <div class="message info" role="note" data-audience>
+    <nh-assistant-icon name="lock" />
+    <span>{{ 'nh-assistant.admin.alert-kinds.audience' | translate }}</span>
+  </div>
+
+  <div class="filters">
+    <div class="field">
+      <label [for]="id + '-period'">{{ 'nh-assistant.admin.alert-kinds.period' | translate }}</label>
+      <select [id]="id + '-period'" (change)="onPeriod($event)">
+        @for (days of periods; track days) {
+          <option [value]="days" [selected]="period() === days">{{ 'nh-assistant.admin.feedback.periods.last-' + days + '-days' | translate }}</option>
+        }
+      </select>
+    </div>
+    <p class="muted numbers-hint">{{ 'nh-assistant.admin.alert-kinds.numbers-hint' | translate }}</p>
+  </div>
+
+  @if (loading() && view() === null) {
+    <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+  } @else if (error(); as failed) {
+    <div class="state" role="alert">
+      <p>{{ errorKeys() | nhAssistantTranslate: failed.code }}</p>
+      <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.admin.retry' | translate }}</button>
+    </div>
+  } @else if (kinds().length === 0) {
+    <p class="state">{{ 'nh-assistant.admin.alert-kinds.empty' | translate }}</p>
+  } @else {
+    <div class="table-container">
+      <table class="kinds-table" [attr.aria-labelledby]="id + '-title'">
+        <thead>
+          <tr>
+            <th scope="col">{{ 'nh-assistant.admin.alert-kinds.columns.kind' | translate }}</th>
+            <th scope="col">{{ 'nh-assistant.admin.alert-kinds.columns.state' | translate }}</th>
+            <th scope="col">{{ 'nh-assistant.admin.alert-kinds.columns.delivery' | translate }}</th>
+            <th scope="col" class="number">{{ 'nh-assistant.admin.alert-kinds.columns.raised' | translate }}</th>
+            <th scope="col" class="number">{{ 'nh-assistant.admin.alert-kinds.columns.delivered' | translate }}</th>
+            <th scope="col" class="number">{{ 'nh-assistant.admin.alert-kinds.columns.read' | translate }}</th>
+            <th scope="col" class="number">{{ 'nh-assistant.admin.alert-kinds.columns.dismissed' | translate }}</th>
+            <th scope="col" class="number" [attr.title]="'nh-assistant.admin.alert-kinds.resolved-before-reading-hint' | translate">
+              {{ 'nh-assistant.admin.alert-kinds.columns.resolved-before-reading' | translate }}
+            </th>
+            <th scope="col" class="number" [attr.title]="'nh-assistant.admin.alert-kinds.withheld-hint' | translate">
+              {{ 'nh-assistant.admin.alert-kinds.columns.withheld' | translate }}
+            </th>
+            <th scope="col" [attr.title]="'nh-assistant.admin.alert-kinds.shadow.hint' | translate">
+              {{ 'nh-assistant.admin.alert-kinds.columns.shadow' | translate }}
+            </th>
+            <th scope="col">{{ 'nh-assistant.admin.alert-kinds.columns.actions' | translate }}</th>
+          </tr>
+        </thead>
+        @for (kind of kinds(); track kind.id) {
+          <tbody [attr.data-kind]="kind.id" [attr.data-enabled]="kind.enabled">
+            <tr class="kind-row">
+              <th scope="row" [attr.data-label]="'nh-assistant.admin.alert-kinds.columns.kind' | translate">
+                <span class="kind-name">
+                  <span>{{ kind.displayNameKey | nhAssistantTranslate: kind.id }}</span>
+                  <span class="mono muted">{{ kind.id }}</span>
+                  <span class="badges">
+                    <span class="badge" [class.warning]="kind.urgency === 'warning'" [class.danger]="kind.urgency === 'urgent'" data-urgency>
+                      {{ urgencyKey(kind.urgency) | translate }}
+                    </span>
+                    @if (kind.required) {
+                      <span class="badge" [attr.title]="'nh-assistant.admin.alert-kinds.required-hint' | translate" data-required>
+                        {{ 'nh-assistant.admin.alert-kinds.required' | translate }}
+                      </span>
+                    }
+                  </span>
+                </span>
+              </th>
+              <td [attr.data-label]="'nh-assistant.admin.alert-kinds.columns.state' | translate" data-state>
+                @if (kind.enabled) {
+                  <span class="badge success">{{ 'nh-assistant.admin.alert-kinds.on' | translate }}</span>
+                } @else {
+                  <span class="badge danger" [attr.title]="'nh-assistant.admin.alert-kinds.off-hint' | translate">{{ 'nh-assistant.admin.alert-kinds.off' | translate }}</span>
+                }
+              </td>
+              <td [attr.data-label]="'nh-assistant.admin.alert-kinds.columns.delivery' | translate" data-delivery>
+                <span class="summary">
+                  <ng-container *ngTemplateOutlet="deliveryText; context: { $implicit: kind.delivery }" />
+                  <span class="muted origin">
+                    @if (kind.settings.version > 0 && kind.settings.changedBy) {
+                      {{ 'nh-assistant.admin.alert-kinds.changed' | translate: { name: kind.settings.changedBy } }}
+                    } @else {
+                      {{ 'nh-assistant.admin.alert-kinds.from-code' | translate }}
+                    }
+                  </span>
+                </span>
+              </td>
+              @if (kind.numbers; as numbers) {
+                <td class="number" [attr.data-label]="'nh-assistant.admin.alert-kinds.columns.raised' | translate" data-raised>{{ numbers.raised }}</td>
+                <td class="number" [attr.data-label]="'nh-assistant.admin.alert-kinds.columns.delivered' | translate" data-delivered>{{ numbers.delivered }}</td>
+                <td class="number" [attr.data-label]="'nh-assistant.admin.alert-kinds.columns.read' | translate" data-read>{{ numbers.read }}</td>
+                <td class="number" [attr.data-label]="'nh-assistant.admin.alert-kinds.columns.dismissed' | translate" data-dismissed>{{ numbers.dismissed }}</td>
+                <td class="number" [attr.data-label]="'nh-assistant.admin.alert-kinds.columns.resolved-before-reading' | translate" data-resolved-before-reading>
+                  {{ numbers.resolvedBeforeReading }}
+                </td>
+                <td class="number" [attr.data-label]="'nh-assistant.admin.alert-kinds.columns.withheld' | translate" data-withheld>
+                  {{ numbers.withheld }}
+                  @if (numbers.muted > 0) {
+                    <span class="muted detail">{{ 'nh-assistant.admin.alert-kinds.muted' | translate: { count: numbers.muted } }}</span>
+                  }
+                </td>
+              } @else {
+                @for (column of [1, 2, 3, 4, 5, 6]; track column) {
+                  <td class="number" aria-hidden="true"></td>
+                }
+              }
+              <td [attr.data-label]="'nh-assistant.admin.alert-kinds.columns.shadow' | translate" data-shadow>
+                @if (kind.shadow.length === 0) {
+                  <span class="muted">{{ 'nh-assistant.admin.alert-kinds.shadow.none' | translate }}</span>
+                } @else {
+                  <ul class="shadow-list">
+                    @for (agent of kind.shadow; track agent.agentId) {
+                      <li [attr.data-agent-id]="agent.agentId">
+                        {{ 'nh-assistant.admin.alert-kinds.shadow.would-have-sent' | translate: {
+                          agent: (agent.agentDisplayName ? (agent.agentDisplayName | nhAssistantTranslate: agent.agentDisplayName) : agent.agentId),
+                          count: agent.wouldHaveSent
+                        } }}
+                      </li>
+                    }
+                  </ul>
+                }
+              </td>
+              <td class="actions-cell" [attr.data-label]="'nh-assistant.admin.alert-kinds.columns.actions' | translate">
+                <div class="row-actions">
+                  <button
+                    class="secondary"
+                    type="button"
+                    data-switch
+                    [disabled]="switchOffBlocked(kind) !== null || saving() === kind.id"
+                    [attr.aria-describedby]="switchOffBlocked(kind) ? id + '-' + kind.id + '-switch-hint' : null"
+                    [attr.aria-label]="(kind.enabled ? 'nh-assistant.admin.alert-kinds.switch-off-label' : 'nh-assistant.admin.alert-kinds.switch-on-label') | translate: { kind: (kind.displayNameKey | nhAssistantTranslate: kind.id) }"
+                    (click)="toggleEnabled(kind)">
+                    {{ (kind.enabled ? 'nh-assistant.admin.alert-kinds.switch-off' : 'nh-assistant.admin.alert-kinds.switch-on') | translate }}
+                  </button>
+                  <button
+                    class="secondary"
+                    type="button"
+                    data-edit
+                    [disabled]="!mayChangeDelivery(kind) || saving() === kind.id"
+                    [attr.aria-expanded]="editing() === kind.id"
+                    [attr.aria-describedby]="mayChangeDelivery(kind) ? null : id + '-' + kind.id + '-edit-hint'"
+                    [attr.aria-label]="'nh-assistant.admin.alert-kinds.edit-label' | translate: { kind: (kind.displayNameKey | nhAssistantTranslate: kind.id) }"
+                    (click)="editing() === kind.id ? cancel() : edit(kind)">
+                    <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.alert-kinds.edit' | translate }}
+                  </button>
+                </div>
+                @if (switchOffBlocked(kind); as hint) {
+                  <span class="muted detail" [id]="id + '-' + kind.id + '-switch-hint'" data-switch-hint>{{ hint | translate }}</span>
+                }
+                @if (!mayChangeDelivery(kind)) {
+                  <span class="muted detail" [id]="id + '-' + kind.id + '-edit-hint'" data-edit-hint>{{ 'nh-assistant.admin.alert-kinds.edit-not-allowed' | translate }}</span>
+                }
+              </td>
+            </tr>
+
+            @if (saved() === kind.id || failure()?.kindId === kind.id) {
+              <tr class="message-row">
+                <td colspan="11">
+                  @if (failure(); as failed) {
+                    <div class="message error" role="alert" data-failure>
+                      <nh-assistant-icon name="warning" />
+                      <span>{{ failureKeys() | nhAssistantTranslate: failed.error.code }}</span>
+                    </div>
+                  } @else {
+                    <div class="message success" role="status" data-saved>
+                      <nh-assistant-icon name="check" />
+                      <span>{{ 'nh-assistant.admin.alert-kinds.saved' | translate: { kind: (kind.displayNameKey | nhAssistantTranslate: kind.id) } }}</span>
+                    </div>
+                  }
+                </td>
+              </tr>
+            }
+
+            @if (editing() === kind.id && draft(); as change) {
+              <tr class="editor-row">
+                <td colspan="11">
+                  <form class="editor stack" [attr.aria-labelledby]="id + '-' + kind.id + '-editor-title'" (submit)="$event.preventDefault(); saveDelivery(kind)" data-editor>
+                    <div>
+                      <h4 [id]="id + '-' + kind.id + '-editor-title'">
+                        {{ 'nh-assistant.admin.alert-kinds.editor.title' | translate: { kind: (kind.displayNameKey | nhAssistantTranslate: kind.id) } }}
+                      </h4>
+                      <p class="muted code-delivery">
+                        <span>{{ 'nh-assistant.admin.alert-kinds.editor.code' | translate }}</span>
+                        <ng-container *ngTemplateOutlet="deliveryText; context: { $implicit: kind.codeDelivery }" />
+                      </p>
+                    </div>
+
+                    <fieldset class="group" [disabled]="!kind.administratorMayChange.digestTimes" data-mode>
+                      <legend>{{ 'nh-assistant.admin.alert-kinds.editor.mode' | translate }}</legend>
+                      <label class="check">
+                        <input type="radio" [name]="id + '-' + kind.id + '-mode'" value="immediately" [checked]="change.mode === 'immediately'" (change)="onMode($event)" />
+                        <span>{{ 'nh-assistant.admin.alert-kinds.editor.mode-immediately' | translate }}</span>
+                      </label>
+                      <label class="check">
+                        <input type="radio" [name]="id + '-' + kind.id + '-mode'" value="daily-digest" [checked]="change.mode === 'daily-digest'" (change)="onMode($event)" />
+                        <span>{{ 'nh-assistant.admin.alert-kinds.editor.mode-daily-digest' | translate }}</span>
+                      </label>
+                      @if (!kind.administratorMayChange.digestTimes) {
+                        <p class="hint">{{ 'nh-assistant.admin.alert-kinds.editor.not-allowed' | translate }}</p>
+                      }
+                    </fieldset>
+
+                    @if (change.mode === 'daily-digest') {
+                      <fieldset class="group" [disabled]="!kind.administratorMayChange.digestTimes" data-digest-times>
+                        <legend>{{ 'nh-assistant.admin.alert-kinds.editor.digest-times' | translate }}</legend>
+                        <div class="times">
+                          @for (time of change.digestTimes; track $index) {
+                            <div class="time">
+                              <input
+                                type="time"
+                                step="60"
+                                [value]="time"
+                                [attr.aria-label]="'nh-assistant.admin.alert-kinds.editor.digest-time' | translate: { index: $index + 1 }"
+                                (change)="onTime($index, $event)" />
+                              <button
+                                class="icon-button"
+                                type="button"
+                                [disabled]="change.digestTimes.length <= 1"
+                                [attr.aria-label]="'nh-assistant.admin.alert-kinds.editor.remove-time' | translate: { index: $index + 1 }"
+                                [attr.title]="'nh-assistant.admin.alert-kinds.editor.remove-time' | translate: { index: $index + 1 }"
+                                (click)="removeTime($index)">
+                                <nh-assistant-icon name="trash" />
+                              </button>
+                            </div>
+                          }
+                          <button class="secondary" type="button" data-add-time [disabled]="change.digestTimes.length >= maxDigestTimes" (click)="addTime()">
+                            <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.alert-kinds.editor.add-time' | translate }}
+                          </button>
+                        </div>
+                        <p class="hint">{{ 'nh-assistant.admin.alert-kinds.editor.max-times' | translate }}</p>
+                      </fieldset>
+
+                      <div class="grid">
+                        <div class="field">
+                          <label class="check">
+                            <input
+                              type="checkbox"
+                              data-workdays
+                              [checked]="change.workdaysOnly"
+                              [disabled]="!kind.administratorMayChange.workdaysOnly"
+                              (change)="update({ workdaysOnly: checked($event) })" />
+                            <span>{{ 'nh-assistant.admin.alert-kinds.editor.workdays-only' | translate }}</span>
+                          </label>
+                          @if (!kind.administratorMayChange.workdaysOnly) {
+                            <p class="hint">{{ 'nh-assistant.admin.alert-kinds.editor.not-allowed' | translate }}</p>
+                          }
+                        </div>
+                        <div class="field">
+                          <label [for]="id + '-' + kind.id + '-from'">{{ 'nh-assistant.admin.alert-kinds.editor.immediately-from' | translate }}</label>
+                          <select
+                            [id]="id + '-' + kind.id + '-from'"
+                            data-immediately-from
+                            [disabled]="!kind.administratorMayChange.immediatelyFrom"
+                            (change)="onImmediatelyFrom($event)">
+                            <option value="" [selected]="change.immediatelyFrom === null">{{ 'nh-assistant.admin.alert-kinds.editor.immediately-from-none' | translate }}</option>
+                            @for (urgency of urgencies; track urgency) {
+                              <option [value]="urgency" [selected]="change.immediatelyFrom === urgency">{{ urgencyKey(urgency) | translate }}</option>
+                            }
+                          </select>
+                          @if (!kind.administratorMayChange.immediatelyFrom) {
+                            <p class="hint">{{ 'nh-assistant.admin.alert-kinds.editor.not-allowed' | translate }}</p>
+                          }
+                        </div>
+                      </div>
+                    }
+
+                    <fieldset class="group" [disabled]="!kind.administratorMayChange.quietHours" data-quiet-hours>
+                      <legend>{{ 'nh-assistant.admin.alert-kinds.editor.quiet-hours' | translate }}</legend>
+                      <label class="check">
+                        <input type="checkbox" [checked]="change.quietHours" (change)="update({ quietHours: checked($event) })" />
+                        <span>{{ 'nh-assistant.admin.alert-kinds.editor.quiet-hours-hint' | translate }}</span>
+                      </label>
+                      @if (change.quietHours) {
+                        <div class="inline-fields">
+                          <div class="field">
+                            <label [for]="id + '-' + kind.id + '-quiet-start'">{{ 'nh-assistant.admin.alert-kinds.editor.quiet-start' | translate }}</label>
+                            <input type="time" step="60" [id]="id + '-' + kind.id + '-quiet-start'" [value]="change.quietStart" (change)="update({ quietStart: value($event) })" />
+                          </div>
+                          <div class="field">
+                            <label [for]="id + '-' + kind.id + '-quiet-end'">{{ 'nh-assistant.admin.alert-kinds.editor.quiet-end' | translate }}</label>
+                            <input type="time" step="60" [id]="id + '-' + kind.id + '-quiet-end'" [value]="change.quietEnd" (change)="update({ quietEnd: value($event) })" />
+                          </div>
+                        </div>
+                      }
+                      @if (!kind.administratorMayChange.quietHours) {
+                        <p class="hint">{{ 'nh-assistant.admin.alert-kinds.editor.not-allowed' | translate }}</p>
+                      }
+                    </fieldset>
+
+                    <div class="field">
+                      <label [for]="id + '-' + kind.id + '-reason'">{{ 'nh-assistant.admin.alert-kinds.editor.reason' | translate }}</label>
+                      <input type="text" [id]="id + '-' + kind.id + '-reason'" [attr.maxlength]="maxReason" [value]="change.reason" (input)="update({ reason: value($event) })" />
+                    </div>
+
+                    @if (draftProblem(); as problem) {
+                      <p class="field-error" role="alert" data-problem>{{ problem | translate }}</p>
+                    }
+
+                    <div class="card-actions">
+                      <button class="primary" type="submit" data-save [disabled]="draftProblem() !== null || saving() === kind.id">
+                        {{ (saving() === kind.id ? 'nh-assistant.admin.saving' : 'nh-assistant.admin.alert-kinds.editor.save') | translate }}
+                      </button>
+                      <button
+                        class="secondary"
+                        type="button"
+                        data-reset
+                        [disabled]="kind.settings.delivery === null || saving() === kind.id"
+                        [attr.title]="'nh-assistant.admin.alert-kinds.editor.reset-hint' | translate"
+                        (click)="reset(kind)">
+                        {{ 'nh-assistant.admin.alert-kinds.editor.reset' | translate }}
+                      </button>
+                      <button class="secondary" type="button" (click)="cancel()">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                    </div>
+                  </form>
+                </td>
+              </tr>
+            }
+          </tbody>
+        }
+      </table>
+    </div>
+  }
+</section>

@@ -86,6 +86,13 @@ public static class NhAssistantAlertCodes
     public const string AgentNotActive = "assistant-alert-agent-not-active";
 
     /// <summary>
+    /// An administrator switched the alert's kind off (<c>PUT admin/alert-kinds/{id}</c>), so nothing of
+    /// it is raised: no alert is recorded or updated and nobody is told. Resolving its alerts still works,
+    /// and its waiting deliveries are withheld (<see cref="NhAssistantAlertWithholdReasons.KindOff"/>).
+    /// </summary>
+    public const string KindOff = "assistant-alert-kind-off";
+
+    /// <summary>
     /// The caller has no delivery of the alert, may no longer read its subject, or the alert's kind is no
     /// longer registered: <c>POST alerts/{id}/read</c> and <c>POST alerts/{id}/dismiss</c> answer it with
     /// <c>404</c>, as for an alert that does not exist.
@@ -222,6 +229,9 @@ public static class NhAssistantAlertWithholdReasons
 
     /// <summary>The kind's title could not be written in the person's culture.</summary>
     public const string TextInvalid = "text-invalid";
+
+    /// <summary>An administrator switched the alert's kind off before the delivery went out.</summary>
+    public const string KindOff = "kind-off";
 }
 
 /// <summary>

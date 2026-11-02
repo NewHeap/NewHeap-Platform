@@ -49,7 +49,10 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-notification-mute-not-allowed',
     'assistant-notification-digest-time-not-allowed',
     'assistant-notification-channels-not-allowed',
-    'assistant-notification-digest-time-invalid'
+    'assistant-notification-digest-time-invalid',
+    'assistant-alert-kind-switch-off-not-allowed',
+    'assistant-alert-kind-delivery-not-allowed',
+    'assistant-alert-kind-delivery-invalid'
   ],
   401: [
     'assistant-webhook-signature-invalid'
@@ -73,6 +76,7 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
   404: [
     'assistant-disabled',
     'assistant-alert-not-found',
+    'assistant-alert-kind-unknown',
     'assistant-conversation-not-found',
     'assistant-agent-not-found',
     'assistant-metadata-entry-not-found',

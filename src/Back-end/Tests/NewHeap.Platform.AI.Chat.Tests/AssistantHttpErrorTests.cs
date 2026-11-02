@@ -81,6 +81,10 @@ public sealed class AssistantHttpErrorTests
     [InlineData(NhAssistantErrorCodes.QuestionAnswerInvalid, StatusCodes.Status400BadRequest)]
     [InlineData(NhAssistantAlertCodes.NotFound, StatusCodes.Status404NotFound)]
     [InlineData(NhAssistantAlertCodes.FilterInvalid, StatusCodes.Status400BadRequest)]
+    [InlineData(NhAssistantAlertCodes.KindUnknown, StatusCodes.Status404NotFound)]
+    [InlineData(NhAssistantAdminErrorCodes.AlertKindSwitchOffNotAllowed, StatusCodes.Status400BadRequest)]
+    [InlineData(NhAssistantAdminErrorCodes.AlertKindDeliveryNotAllowed, StatusCodes.Status400BadRequest)]
+    [InlineData(NhAssistantAdminErrorCodes.AlertKindDeliveryInvalid, StatusCodes.Status400BadRequest)]
     [InlineData("application-own-code", StatusCodes.Status400BadRequest)]
     public void A_code_answers_its_one_status(string code, int status)
     {

@@ -288,6 +288,9 @@ longer due raises nothing, and the kind resolves the watch's warning by omission
 `AssistantAlertSamplesTests` runs three rounds on one day. The warning arrives in the 07:30 digest in each person's own time zone,
 which the sample takes from the division a person works in: a colleague in New York gets it at 07:30
 there, and a colleague who muted the kind in their notification preferences gets nothing.
+An administrator manages the kind in the Alerts section of the assistant administration, within the
+bounds its code declares: they see its numbers per period, move its morning digest, which every
+person's preferences then show as the default, or switch it off, after which nothing of it is raised.
 The agent's work also appears on the project itself (SPM-280): the project directory shows a
 badge per project from one summary request, the project dialog shows the open proposals of
 every agent on the project with the viewer's decision rights, and opening the conversation with

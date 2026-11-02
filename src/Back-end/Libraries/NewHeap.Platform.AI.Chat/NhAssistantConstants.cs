@@ -2007,6 +2007,28 @@ public static class NhAssistantAdminErrorCodes
 
     public const string InstructionsTooLong = "assistant-instructions-too-long";
     public const string ContextNotFound = "assistant-context-not-found";
+
+    /// <summary>
+    /// A change of an alert kind's settings (<c>PUT admin/alert-kinds/{id}</c>) switches off a kind that
+    /// is required or whose code does not let an administrator switch it off. Nothing was saved.
+    /// </summary>
+    public const string AlertKindSwitchOffNotAllowed = "assistant-alert-kind-switch-off-not-allowed";
+
+    /// <summary>
+    /// A change of an alert kind's settings changes a part of its default delivery that its code does not
+    /// let an administrator change; the field errors name the parts (<c>delivery.digestTimes</c>,
+    /// <c>delivery.workdaysOnly</c>, <c>delivery.immediatelyFrom</c>, <c>delivery.quietHours</c>). A value
+    /// that repeats the code's is accepted. Nothing was saved.
+    /// </summary>
+    public const string AlertKindDeliveryNotAllowed = "assistant-alert-kind-delivery-not-allowed";
+
+    /// <summary>
+    /// The delivery in a change of an alert kind's settings is malformed: an unknown mode or urgency, a
+    /// digest without one to four distinct times of day as <c>HH:mm</c>, an immediate delivery with digest
+    /// times, working days or an urgency from which it is immediate, or quiet hours without a start and an
+    /// end as <c>HH:mm</c> that differ; the field errors name the parts. Nothing was saved.
+    /// </summary>
+    public const string AlertKindDeliveryInvalid = "assistant-alert-kind-delivery-invalid";
 }
 
 /// <summary>

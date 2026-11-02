@@ -8,6 +8,7 @@ import { NhAssistantAdminAgentsComponent, NhAssistantAgentsLocation } from './ag
 import { NhAssistantAdminContextComponent } from './context/nh-assistant-admin-context.component';
 import { NhAssistantAdminMcpServersComponent } from './mcp/nh-assistant-admin-mcp-servers.component';
 import { NhAssistantAdminProposalKindsComponent } from './proposal-kinds/nh-assistant-admin-proposal-kinds.component';
+import { NhAssistantAdminAlertKindsComponent } from './alert-kinds/nh-assistant-admin-alert-kinds.component';
 import { NhAssistantWithoutApprovalActionComponent } from './agents/page/nh-assistant-without-approval-action.component';
 import { NhAssistantAdminLocation, NhAssistantAdminTab } from './nh-assistant-admin-location';
 import { startNhAssistantAdminTranslations } from './i18n/nh-assistant-admin-translations';
@@ -16,8 +17,9 @@ let nextId = 0;
 
 /**
  * The assistant administration page with the sections Agents, Kinds of action (how people decide
- * each kind of action over all agents, with candidates for running without approval), Tools &
- * connections (the MCP servers) and Application context. The host routes to it and guards the route
+ * each kind of action over all agents, with candidates for running without approval), Alerts (the
+ * kinds of alert in code with their numbers and settings), Tools & connections (the MCP servers) and
+ * Application context. The host routes to it and guards the route
  * with its admin permission; the component additionally shows a no-access state unless the server
  * reports `canAdminister`.
  *
@@ -35,6 +37,7 @@ let nextId = 0;
     NhAssistantAdminAgentsComponent,
     NhAssistantAdminMcpServersComponent,
     NhAssistantAdminProposalKindsComponent,
+    NhAssistantAdminAlertKindsComponent,
     NhAssistantWithoutApprovalActionComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -54,7 +57,7 @@ export class NhAssistantAdminComponent {
   readonly locationChange = output<NhAssistantAdminLocation>();
 
   readonly id = `nh-assistant-admin-${nextId++}`;
-  readonly tabs: readonly NhAssistantAdminTab[] = ['agents', 'proposal-kinds', 'mcp-servers', 'context'];
+  readonly tabs: readonly NhAssistantAdminTab[] = ['agents', 'proposal-kinds', 'alert-kinds', 'mcp-servers', 'context'];
   readonly activeTab = signal<NhAssistantAdminTab | null>(null);
   readonly ready = signal(false);
   /** The agent and tab the agents section opens, as `location` names them. */

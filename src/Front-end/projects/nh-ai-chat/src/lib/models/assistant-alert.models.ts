@@ -71,10 +71,14 @@ export interface Alert {
   isExpired?: boolean;
   /**
    * The alert reached none of the person's channels, for example because they muted its kind; it is in
-   * the list all the same, and a muted one does not count on the badge.
+   * the list all the same, and one of a muted kind or a kind an administrator switched off does not
+   * count on the badge.
    */
   isWithheld?: boolean;
-  /** Why: `muted`, `limit-reached`, `kind-unknown` or `text-invalid`; `null` when the alert was not withheld. */
+  /**
+   * Why: `muted`, `limit-reached`, `kind-unknown`, `text-invalid` or `kind-off`; `null` when the alert was
+   * not withheld.
+   */
   withheldReason?: string | null;
 }
 

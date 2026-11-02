@@ -108,6 +108,38 @@
 | A delivery of an alert can end as `withheld`, a status of `NhAssistantAlertDeliveryStatuses` that is new. | Code that switches over the statuses handles or ignores `withheld`. |
 | An audit sink that switches over every `NhAssistantAuditEventKind` sees four new kinds. | Handle or ignore `AgentAlertRaised`, `AgentAlertResolved`, `AgentAlertDismissed` and `AgentAlertRecipientDropped`. |
 
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql and NewHeap.Platform.AI.Chat.AspNet: the administration of alert kinds (FB87 phase 2)
+
+- A kind's code declares what an administrator may change with `NhAssistantAlertKindBuilder.AdministratorMayChange`
+  (`NhAssistantAlertAdminChoices`: `SwitchOff`, and for the default delivery `DigestTimes`, `WorkdaysOnly`,
+  `ImmediatelyFrom` and `QuietHours`; `All` by default, `NhAssistantAlertKind.AdministratorChoices`). `Required()` takes
+  `SwitchOff` away: a required kind is never off.
+- `GET admin/alert-kinds` (admin policy) lists every kind with its bounds, its code's delivery, the administrator's
+  settings with their version, what applies now, and per period (30 days by default, at most 366) the numbers of its
+  alerts: raised, delivered, read, dismissed, resolved before reading, withheld and muted, and per agent the shadow
+  alerts it would have sent (`NhAssistantAdminAlertKindsDto`, `NhAssistantAdminAlertKindDto` and the DTOs beside them).
+- `PUT admin/alert-kinds/{id}` (`NhAssistantAdminAlertKindRequest`) saves the complete settings within the bounds with
+  `expectedVersion`: whether the kind is on and its default delivery, immediately or one to four daily digest times
+  with working days, the urgency from which it is immediate and quiet hours. A change the code does not allow answers
+  `400` with `assistant-alert-kind-switch-off-not-allowed` or `assistant-alert-kind-delivery-not-allowed`, a malformed
+  delivery `400 assistant-alert-kind-delivery-invalid`, an unknown kind `404 assistant-alert-kind-unknown` and a stale
+  version `409 assistant-version-conflict`. Every change is audited as `AdminAlertKindChanged` (131) with
+  `NhAssistantAuditEvent.ChangedFields`, the names of the settings that changed, never their values.
+- What applies is one effective delivery per kind, the code's merged with the administrator's settings; the digest
+  scheduler, the delivery and `GET`/`PUT notifications` read it, and a person's choices apply on top. Of several
+  digest times the scheduler plans the first of the day; quiet hours are stored and validated for the scheduler that
+  plans them.
+- A kind that is off raises nothing: `INhAssistantAlerts.RaiseAsync` and a rule's alert are refused with
+  `assistant-alert-kind-off` (`NhAssistantAlertCodes.KindOff`) and the run goes on. Its open alerts still resolve and
+  expire, a delivery of it that still waits is withheld as `kind-off` (`NhAssistantAlertWithholdReasons.KindOff`), which
+  the badge does not count, and a person's preferences leave the kind out.
+
+| Breaking change | Required action |
+|---|---|
+| The `AlertKindSettings` migrations add the table `AssistantAlertKindSetting` on SQL Server and PostgreSQL, which a host with alert kinds reads when it raises and delivers alerts. | Apply the assistant migrations for your provider, or keep `RunMigrations` on. |
+| An audit sink that switches over every `NhAssistantAuditEventKind` sees `AdminAlertKindChanged`. | Handle or ignore `AdminAlertKindChanged`. |
+| A withheld delivery can carry the reason `kind-off`, and raising an alert can fail with `assistant-alert-kind-off`. | Code that switches over `NhAssistantAlertWithholdReasons` or the alert codes handles or ignores them. |
+
 ## @newheap/platform-ai-chat: alerts (FB87)
 
 - `nh-assistant-alerts` (`NhAssistantAlertsComponent`) shows a person's own alerts, grouped by parent by default, with
@@ -136,3 +168,18 @@
 |---|---|
 | `PUT notifications` in the mock API changes the push switch only when the body names `pushEnabled`. | Send `pushEnabled` to change it in a test, as the server requires. |
 | The push worker's registration URL gains the `alerts` parameter, so browsers update the registered worker once. | Copy the new `nh-assistant-push-worker.js` into the application's assets. |
+
+## @newheap/platform-ai-chat: the administration of alert kinds (FB87 phase 2)
+
+- `nh-assistant-admin` gains an Alerts section ("Attenties"), the tab `alert-kinds`
+  (`NhAssistantAdminAlertKindsComponent` of `@newheap/platform-ai-chat/admin`): every alert kind with its numbers in a
+  period, the shadow alerts each agent would have sent, a switch off and its default delivery editable where its code
+  allows it, with a reset to the code's delivery.
+- `NhAssistantAdminApiService` gains `getAlertKinds` and `updateAlertKind`, with the models `AdminAlertKinds`,
+  `AdminAlertKind`, `AdminAlertDelivery`, `AdminAlertKindChoices`, `AdminAlertKindSettings`, `AdminAlertKindNumbers`,
+  `AdminAlertShadowAgent` and `AdminAlertKindChange`; `provideNhAssistantMockApi` serves and checks them, from the
+  scenario's `admin.alertKinds` or an example view. The texts and the new error codes are in English and Dutch.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAssistantAdminTab` gains `alert-kinds`. | Code that switches over the tabs handles or ignores it. |

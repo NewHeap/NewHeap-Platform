@@ -564,7 +564,11 @@
       "assistant-step-host-unavailable": "Stappen kunnen hier niet worden uitgevoerd.",
       "assistant-composition-step-result-unavailable": "Een stap had het resultaat nodig van een eerdere stap die er geen had.",
       "assistant-alert-not-found": "Deze attentie bestaat niet meer of is niet voor jou.",
-      "assistant-alert-filter-invalid": "De attenties konden niet zo worden gefilterd."
+      "assistant-alert-filter-invalid": "De attenties konden niet zo worden gefilterd.",
+      "assistant-alert-kind-unknown": "Dit soort attentie bestaat niet meer. Laad de soorten attenties opnieuw.",
+      "assistant-alert-kind-switch-off-not-allowed": "Dit soort attentie kan niet worden uitgezet: het is verplicht, of de code staat het niet toe.",
+      "assistant-alert-kind-delivery-not-allowed": "De code van dit soort attentie laat beheerders dit deel van de bezorging niet wijzigen.",
+      "assistant-alert-kind-delivery-invalid": "Controleer de bezorging: een dagelijks overzicht heeft één tot vier verschillende tijden nodig, zoals 07:30, en stille uren een begin en een einde die verschillen."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",
