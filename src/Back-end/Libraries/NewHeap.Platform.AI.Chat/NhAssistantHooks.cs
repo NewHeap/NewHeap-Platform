@@ -558,7 +558,19 @@ public enum NhAssistantAuditEventKind
     /// <see cref="NhAssistantAuditEvent.ResultCode"/> why (<see cref="NhAssistantAlertDropReasons"/>), with
     /// the alert, kind and subject of <see cref="AgentAlertRaised"/>.
     /// </summary>
-    AgentAlertRecipientDropped = 130
+    AgentAlertRecipientDropped = 130,
+
+    /// <summary>
+    /// An administrator changed the settings of an alert kind (FB87 phase 2, <c>PUT admin/alert-kinds/{id}</c>):
+    /// <see cref="NhAssistantAuditEvent.ActorId"/> is the administrator, <see cref="NhAssistantAuditEvent.AlertKind"/>
+    /// and <see cref="NhAssistantAuditEvent.ObjectId"/> the kind, <see cref="NhAssistantAuditEvent.ResultCode"/>
+    /// <c>created</c> for its first settings and <c>changed</c> otherwise, and
+    /// <see cref="NhAssistantAuditEvent.ChangedFields"/> which settings changed (<c>enabled</c>,
+    /// <c>delivery-mode</c>, <c>digest-times</c>, <c>workdays-only</c>, <c>immediately-from</c>,
+    /// <c>quiet-hours</c>). Never the values nor the reason. <see cref="NhAssistantAuditEvent.ConversationId"/>
+    /// and <see cref="NhAssistantAuditEvent.TurnId"/> are empty.
+    /// </summary>
+    AdminAlertKindChanged = 131
 }
 
 /// <summary>
@@ -898,6 +910,13 @@ public sealed record NhAssistantAuditEvent(
     /// event, after every check; never who they are. <see langword="null"/> for other events.
     /// </summary>
     public int? AlertRecipientCount { get; init; }
+
+    /// <summary>
+    /// The settings an administrator changed in an <see cref="NhAssistantAuditEventKind.AdminAlertKindChanged"/>
+    /// event: dash-case names of settings separated by commas, such as <c>enabled,digest-times</c>; never their
+    /// values. <see langword="null"/> for other events.
+    /// </summary>
+    public string? ChangedFields { get; init; }
 
     /// <summary>
     /// The most characters of <see cref="FileName"/>.

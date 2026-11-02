@@ -356,6 +356,14 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.NotificationDigestTimeNotAllowed,
             NhAssistantErrorCodes.NotificationChannelsNotAllowed,
             NhAssistantErrorCodes.NotificationDigestTimeInvalid);
+        // The administration of alert kinds (FB87 phase 2): a kind that is not registered, a change its code
+        // does not allow and a malformed delivery.
+        Add(statuses, StatusCodes.Status404NotFound,
+            NhAssistantAlertCodes.KindUnknown);
+        Add(statuses, StatusCodes.Status400BadRequest,
+            NhAssistantAdminErrorCodes.AlertKindSwitchOffNotAllowed,
+            NhAssistantAdminErrorCodes.AlertKindDeliveryNotAllowed,
+            NhAssistantAdminErrorCodes.AlertKindDeliveryInvalid);
         return statuses.ToFrozenDictionary(StringComparer.Ordinal);
     }
 

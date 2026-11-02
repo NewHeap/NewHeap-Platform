@@ -142,6 +142,8 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantInboxVisits>();
             // A person's alerts (FB87): the list, the badge's counts, read and dismiss.
             services.TryAddScoped<NhAssistantAlertList>();
+            // The administration of alert kinds (FB87 phase 2): settings within the code's bounds, and numbers.
+            services.TryAddScoped<NhAssistantAdminAlertKinds>();
             services.TryAddScoped<NhAssistantSystemApprovers>();
             services.TryAddSingleton<NhAssistantSystemRoleCache>();
             services.TryAddScoped<NhAssistantAgentWorkWatchers>();
