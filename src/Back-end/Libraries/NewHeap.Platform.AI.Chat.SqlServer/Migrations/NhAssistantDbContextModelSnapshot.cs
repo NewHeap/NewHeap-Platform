@@ -1256,6 +1256,67 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.ToTable("AssistantAlertDelivery", "nhai");
                 });
 
+            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAlertKindSetting", b =>
+                {
+                    b.Property<string>("KindId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("DeliveryMode")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("DigestTimes")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("ImmediatelyFrom")
+                        .HasColumnType("int");
+
+                    b.Property<TimeOnly?>("QuietHoursEnd")
+                        .HasColumnType("time");
+
+                    b.Property<TimeOnly?>("QuietHoursStart")
+                        .HasColumnType("time");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("WorkdaysOnly")
+                        .HasColumnType("bit");
+
+                    b.HasKey("KindId");
+
+                    b.ToTable("AssistantAlertKindSetting", "nhai");
+                });
+
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantApplicationContext", b =>
                 {
                     b.Property<string>("Id")
