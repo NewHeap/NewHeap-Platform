@@ -126,9 +126,8 @@
   version `409 assistant-version-conflict`. Every change is audited as `AdminAlertKindChanged` (131) with
   `NhAssistantAuditEvent.ChangedFields`, the names of the settings that changed, never their values.
 - What applies is one effective delivery per kind, the code's merged with the administrator's settings; the digest
-  scheduler, the delivery and `GET`/`PUT notifications` read it, and a person's choices apply on top. Of several
-  digest times the scheduler plans the first of the day; quiet hours are stored and validated for the scheduler that
-  plans them.
+  scheduler, the delivery and `GET`/`PUT notifications` read it, and a person's choices apply on top. The scheduler
+  plans the next of several digest times and keeps quiet hours (see "time and the person for alerts").
 - A kind that is off raises nothing: `INhAssistantAlerts.RaiseAsync` and a rule's alert are refused with
   `assistant-alert-kind-off` (`NhAssistantAlertCodes.KindOff`) and the run goes on. Its open alerts still resolve and
   expire, a delivery of it that still waits is withheld as `kind-off` (`NhAssistantAlertWithholdReasons.KindOff`), which
@@ -139,6 +138,43 @@
 | The `AlertKindSettings` migrations add the table `AssistantAlertKindSetting` on SQL Server and PostgreSQL, which a host with alert kinds reads when it raises and delivers alerts. | Apply the assistant migrations for your provider, or keep `RunMigrations` on. |
 | An audit sink that switches over every `NhAssistantAuditEventKind` sees `AdminAlertKindChanged`. | Handle or ignore `AdminAlertKindChanged`. |
 | A withheld delivery can carry the reason `kind-off`, and raising an alert can fail with `assistant-alert-kind-off`. | Code that switches over `NhAssistantAlertWithholdReasons` or the alert codes handles or ignores them. |
+
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql and NewHeap.Platform.AI.Chat.AspNet: time and the person for alerts (FB87 phase 2)
+
+- A kind delivers in up to four digests a day with `NhAssistantAlertDeliveryBuilder.DailyDigests(times)`
+  (`NhAssistantAlertDelivery.DigestTimes`; `DigestTime` stays the first), and keeps quiet hours with
+  `QuietHours(start, end)` (`NhAssistantAlertDelivery.QuietHours`, `NhAssistantAlertQuietHours`), across midnight when
+  the end comes before the start. The scheduler plans the next digest time in the person's time zone; a digest in
+  quiet hours moves to the first digest time after them, or to their end when every digest time is in them, and an
+  alert delivered immediately waits for their end. `NhAssistantAlertKindBuilder.UrgentBreaksQuietHours()`
+  (`NhAssistantAlertKind.UrgentBreaksQuietHours`) lets its urgent alerts through. An administrator's digest times and
+  quiet hours apply the same way.
+- A person chooses one to four digest times of their own where the kind allows `DigestTime`, and their own quiet hours
+  where it allows the new `NhAssistantAlertChoices.QuietHours`, which `All` includes; they replace the kind's.
+  `AssistantNotificationPreference` gains `DigestTimes`, `QuietHoursStart` and `QuietHoursEnd`.
+- "Do not tell me about this object for N days" (FB87-11): `POST alerts/{id}/dismiss` takes an optional body
+  `NhAssistantDismissAlertRequest` with `muteSubjectForDays` (1 to `NhAssistantAlertLimits.MaxSubjectMuteDays`, 90).
+  Only that kind about that object, for that person, is withheld while the mute lasts, as `subject-muted`
+  (`NhAssistantAlertWithholdReasons.SubjectMuted`); the alert stays in the list and leaves the badge. A kind the person
+  may not mute, such as a required one, answers `400 assistant-alert-subject-mute-not-allowed` and days out of bounds
+  `400 assistant-alert-subject-mute-days-invalid`, without dismissing. `NhAssistantAlertDto.MayMuteSubject` says whether
+  the person may. Mutes are kept in the new table `AssistantAlertSubjectMute`, removed by the run maintenance once
+  they ended and when the application forgets the user.
+- `GET notifications` gains per kind `defaultDigestTimes`, `digestTimes`, `mayChangeQuietHours`, `defaultQuietHours`,
+  `quietHours` (`NhAssistantQuietHoursDto`) and `urgentBreaksQuietHours`, and the person's `subjectMutes`
+  (`NhAssistantAlertSubjectMuteDto`). `PUT notifications` takes per kind `digestTimes` and `quietHours`
+  (`NhAssistantQuietHoursUpdateDto`), and `liftSubjectMutes` with the ids of the person's own mutes. New codes:
+  `assistant-notification-quiet-hours-not-allowed` and `assistant-notification-quiet-hours-invalid`.
+- A change in `PUT notifications` that leaves a kind's digest time out keeps it: a change such as `{ id, muted }` used
+  to reset the person's chosen digest time, because the JSON contract set every init accessor of
+  `NhAssistantAlertKindPreferenceUpdateDto`. Its `DigestTime`, `DigestTimes` and `QuietHours` have setters now.
+
+| Breaking change | Required action |
+|---|---|
+| The `AlertTimingAndMutes` migrations add the table `AssistantAlertSubjectMute` and the columns `DigestTimes`, `QuietHoursStart` and `QuietHoursEnd` of `AssistantNotificationPreference` on SQL Server and PostgreSQL, which a host with alert kinds reads when it plans and delivers alerts. | Apply the assistant migrations for your provider, or keep `RunMigrations` on. |
+| `NhAssistantAlertChoices.All` includes the new `QuietHours`, so a kind with the default choices lets a person choose quiet hours. | Declare `PersonMayChange` without `QuietHours` for a kind whose people must not keep it quiet. |
+| A withheld delivery can carry the reason `subject-muted`, and `POST alerts/{id}/dismiss` can answer the two new `400` codes. | Code that switches over `NhAssistantAlertWithholdReasons` or the alert codes handles or ignores them. |
+| `NhAssistantAlertKindPreferenceUpdateDto.DigestTime` has a setter instead of an init accessor. | Code that sets it in an object initializer compiles as before; nothing else changes. |
 
 ## @newheap/platform-ai-chat: alerts (FB87)
 
@@ -168,6 +204,33 @@
 |---|---|
 | `PUT notifications` in the mock API changes the push switch only when the body names `pushEnabled`. | Send `pushEnabled` to change it in a test, as the server requires. |
 | The push worker's registration URL gains the `alerts` parameter, so browsers update the registered worker once. | Copy the new `nh-assistant-push-worker.js` into the application's assets. |
+
+## @newheap/platform-ai-chat: time and the person for alerts (FB87 phase 2)
+
+- `nh-assistant-notification-preferences` edits up to four digest times of a kind and the person's own quiet hours
+  where the kind allows them, shows the kind's quiet hours otherwise and whether urgent alerts pass them, and lists the
+  objects the person muted (`subjectMutes`), which a save lifts (`liftSubjectMutes`). A server that sends no
+  `defaultDigestTimes` gets the single `digestTime` as before.
+- `nh-assistant-alerts` offers, where `mayMuteSubject` allows it, to dismiss an alert and hear nothing more of its kind
+  about its object for 7 or 30 days, and labels what was withheld for that "Muted for a while";
+  `NhAssistantApiService.dismissAlert(id, { muteSubjectForDays })` (`AlertDismissOptions`) sends it.
+- The models gain `NotificationQuietHours`, `NotificationSubjectMute`, the new fields of `NotificationAlertKind`,
+  `NotificationAlertKindChange` and `NotificationSettings`, `Alert.mayMuteSubject` and
+  `NH_ASSISTANT_ALERT_MAX_SUBJECT_MUTE_DAYS`; the mock serves and checks them, withholds an alert about a muted object
+  and takes the scenario's `alerts.subjectMutes` and `collaboration.push`.
+- A page with the alert list and the notification choices asked `GET notifications` three times (FB87-13): the
+  assistant's start activated push, the choices read the settings themselves and then activated push again, and the
+  store's first account reset dropped what the page had read. `NhAssistantPushService` now holds the person's settings
+  for the page: `loadSettings()` shares one request in flight, activation reuses loaded settings and is shared,
+  `updatePreferences(request)` keeps `settings` current, and the store forgets push only after it activated push for a
+  person. The choices read and save through it and show settings another part of the page changed, such as a mute set
+  on the list.
+- The texts are in English and Dutch.
+
+| Breaking change | Required action |
+|---|---|
+| `NhAssistantPushService.activate(true)` reuses the settings loaded for the signed-in person and shares a running activation instead of reading `GET notifications` on every call, and cancels this browser's subscription when the person turned notifications off. The store no longer deactivates push at its first account activation. | None for a host that calls `activate` as the assistant does; a host that relied on `activate` to read the settings again calls `loadSettings()`. |
+| `PUT notifications` in the mock API answers `400 assistant-validation` for a body without `pushEnabled`, `alertKinds` and `liftSubjectMutes`, as the server does. | Name what the test changes. |
 
 ## @newheap/platform-ai-chat: the administration of alert kinds (FB87 phase 2)
 
