@@ -22,7 +22,7 @@ export * from './lib/services/nh-assistant-reducer';
 export * from './lib/services/nh-assistant-page-context';
 export * from './lib/services/nh-assistant.store';
 export { NhAssistantLiveService, NhAssistantLiveState } from './lib/services/nh-assistant-live.service';
-export { NhAssistantPushService, NhAssistantPushState } from './lib/services/nh-assistant-push.service';
+export { NhAssistantAlertNotificationClick, NhAssistantPushService, NhAssistantPushState } from './lib/services/nh-assistant-push.service';
 export * from './lib/services/nh-assistant-panel.service';
 export * from './lib/services/nh-assistant-subject-summary.service';
 export * from './lib/services/nh-assistant-share-link';

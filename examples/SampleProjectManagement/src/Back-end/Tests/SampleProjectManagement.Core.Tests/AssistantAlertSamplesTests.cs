@@ -1,8 +1,11 @@
 using System.Globalization;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Hangfire;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AI.Chat;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
@@ -17,7 +20,8 @@ namespace SampleProjectManagement.Core.Tests;
 /// <summary>
 /// SPM-392: the deadline watch warns the people of a project due today with an alert, not a proposal.
 /// Two morning rounds are one alert, the application's own warning of more people reaches only those
-/// who read the project, and the watch resolves the alert once the tasks are done.
+/// who read the project, and the watch resolves the alert once the tasks are done. The warning arrives
+/// in the 07:30 digest where each person works, and not for a person who muted its kind.
 /// </summary>
 public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : IClassFixture<AssistantAlertSampleHost>
 {
@@ -70,6 +74,68 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
         Assert.Contains(done.GetResultItems(), item => item.Name == SampleDeadlineAlerts.NotDueToday);
         await using var scope = host.Services.CreateAsyncScope();
         Assert.Equal(0, (await scope.ServiceProvider.GetRequiredService<SampleDeadlineAlerts>().ResolveAsync(project)).Data);
+    }
+
+    [Fact]
+    public async Task SPM_392_the_warning_arrives_in_the_0730_digest_where_each_person_works_and_not_for_a_person_who_muted_it()
+    {
+        // 07:00 on a working day in the sample's time zone, when the morning round runs: before the digest.
+        host.MoveToNextWorkingMorning();
+        var today = SampleDeadlineAlertsComposition.DayOf(host.Clock.GetUtcNow());
+        var project = await host.CreateProjectAsync(
+            "DIGEST",
+            host.OwnerId,
+            ProjectStatus.Active,
+            SampleDeadlineAlertsComposition.StartOf(today).AddHours(17));
+        await host.AddTasksAsync(project, "Send the invoice");
+        // A colleague whose division works in New York, and one who turns the kind off.
+        var traveller = await host.AddPersonInTimeZoneAsync("America/New_York");
+        var muted = await host.CreatePersonAsync();
+        await host.AddMemberAsync(project, traveller, ProjectMemberRole.Reader);
+        await host.AddMemberAsync(project, muted, ProjectMemberRole.Participant);
+
+        // Each person's preferences: the time zone they read their digest in, and the kind they may mute.
+        using (var travellerClient = host.CreateClient(traveller.ToString()))
+        {
+            var settings = await travellerClient.GetFromJsonAsync<NhAssistantNotificationSettingsDto>("/api/assistant/notifications", Json);
+            Assert.Equal("America/New_York", settings!.TimeZone);
+            var kind = Assert.Single(settings.AlertKinds, item => item.Id == SampleDeadlineAlertsComposition.KindId);
+            Assert.Equal(("warning", "07:30", true, true, false), (kind.Urgency, kind.DefaultDigestTime, kind.WorkdaysOnly, kind.MayMute, kind.Muted));
+        }
+        using (var mutedClient = host.CreateClient(muted.ToString()))
+        {
+            using var response = await mutedClient.PutAsJsonAsync(
+                "/api/assistant/notifications",
+                new { alertKinds = new[] { new { id = SampleDeadlineAlertsComposition.KindId, muted = true } } },
+                Json);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var settings = await response.Content.ReadFromJsonAsync<NhAssistantNotificationSettingsDto>(Json);
+            Assert.True(Assert.Single(settings!.AlertKinds, item => item.Id == SampleDeadlineAlertsComposition.KindId).Muted);
+        }
+
+        var warned = await WarnAsync(project, traveller, muted);
+        Assert.Equal(3, warned.Data!.RecipientCount);
+
+        // 07:30 in Amsterdam: the owner's digest goes out, as one notification on every channel.
+        var amsterdam = SampleDeadlineAlertsComposition.At(today, new TimeOnly(7, 30), SampleDeadlineAlertsComposition.TimeZone);
+        host.MoveTo(amsterdam);
+        var ownerDigest = await host.WaitForOutboxAsync(host.OwnerId, warned.Data.AlertId);
+        Assert.True(ownerDigest.SentAt >= amsterdam);
+        Assert.NotNull(ownerDigest.DigestId);
+        Assert.Equal([warned.Data.AlertId], ownerDigest.AlertIds);
+        Assert.Contains(host.Inbox.Requests, request => request.UserId == host.OwnerId
+            && request.GroupKey == $"assistant-alert:digest:{ownerDigest.DigestId:N}");
+
+        // 07:30 in New York, six hours later: the colleague there gets theirs.
+        var newYork = SampleDeadlineAlertsComposition.At(today, new TimeOnly(7, 30), TimeZoneInfo.FindSystemTimeZoneById("America/New_York"));
+        host.MoveTo(newYork);
+        var travellerDigest = await host.WaitForOutboxAsync(traveller, warned.Data.AlertId);
+        Assert.True(travellerDigest.SentAt >= newYork);
+        Assert.Single(host.Outbox.Entries, entry => entry.RecipientActorId == traveller.ToString("D"));
+
+        // The colleague who muted the kind received nothing, on any channel.
+        Assert.DoesNotContain(host.Outbox.Entries, entry => entry.RecipientActorId == muted.ToString("D"));
+        Assert.DoesNotContain(host.Inbox.Requests, request => request.UserId == muted && request.Category == "assistant-alert");
     }
 
     private async Task<NewHeap.Platform.Common.Models.TaskResult<NhAssistantAlertReceipt>> WarnAsync(Guid projectId, params Guid[] people)
@@ -134,6 +200,82 @@ public sealed class AssistantAlertSampleHost(SamplePostgreSqlServer postgreSql) 
     /// Moves the host's clock to the next eight o'clock in the sample's time zone, so a test's rounds fall
     /// on one day.
     /// </summary>
+    /// <summary>
+    /// SPM-392: the sample's stand-in for an e-mail channel of alerts.
+    /// </summary>
+    public SampleAlertOutbox Outbox => Services.GetRequiredService<SampleAlertOutbox>();
+
+    /// <summary>
+    /// Moves the host's clock to 07:00 of the next working day in the sample's time zone, when the
+    /// watch's morning round runs.
+    /// </summary>
+    public void MoveToNextWorkingMorning()
+    {
+        var now = Clock.GetUtcNow();
+        var day = SampleDeadlineAlertsComposition.DayOf(now);
+        var morning = SampleDeadlineAlertsComposition.At(day, new TimeOnly(7, 0), SampleDeadlineAlertsComposition.TimeZone);
+        while (morning <= now || day.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+        {
+            day = day.AddDays(1);
+            morning = SampleDeadlineAlertsComposition.At(day, new TimeOnly(7, 0), SampleDeadlineAlertsComposition.TimeZone);
+        }
+
+        Clock.Advance(morning - now);
+    }
+
+    /// <summary>
+    /// Moves the host's clock to <paramref name="moment"/>; the run maintenance, every second in this
+    /// host, then delivers what falls due.
+    /// </summary>
+    public void MoveTo(DateTimeOffset moment)
+    {
+        var now = Clock.GetUtcNow();
+        if (moment > now)
+        {
+            Clock.Advance(moment - now);
+        }
+    }
+
+    /// <summary>
+    /// A person of the host's division who works in a division of their own in
+    /// <paramref name="timeZoneId"/>, as their profile shows.
+    /// </summary>
+    public async Task<Guid> AddPersonInTimeZoneAsync(string timeZoneId)
+    {
+        var personId = await CreatePersonAsync();
+        var divisionId = await AddDivisionAsync("Office in " + timeZoneId);
+        await using var scope = Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>();
+        var division = await dbContext.Set<NhDivision>().SingleAsync(item => item.Id == divisionId);
+        division.TimeZoneId = timeZoneId;
+        dbContext.Set<NhDivisionUser>().Add(new NhDivisionUser { Id = Guid.NewGuid(), UserId = personId, DivisionId = divisionId });
+        var person = await dbContext.Users.SingleAsync(item => item.Id == personId);
+        person.ActiveDivisionId = divisionId;
+        await dbContext.SaveChangesAsync();
+        return personId;
+    }
+
+    /// <summary>
+    /// The notification of <paramref name="alertId"/> to <paramref name="personId"/> in the outbox, once
+    /// the delivery sent it.
+    /// </summary>
+    public async Task<SampleAlertOutboxEntry> WaitForOutboxAsync(Guid personId, Guid alertId)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            var entry = Outbox.Entries.FirstOrDefault(item => item.RecipientActorId == personId.ToString("D") && item.AlertIds.Contains(alertId));
+            if (entry is not null)
+            {
+                return entry;
+            }
+
+            await Task.Delay(PollInterval);
+        }
+
+        throw new TimeoutException($"No notification of alert {alertId} reached person {personId} within 90 s.");
+    }
+
     public void MoveToNextMorning()
     {
         var now = Clock.GetUtcNow();

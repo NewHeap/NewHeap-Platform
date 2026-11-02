@@ -130,6 +130,13 @@ public static class NhAssistantAlertDeliveryStatuses
     /// <summary>The person no longer qualified; <see cref="NhAssistantAlertDropReasons"/> says why.</summary>
     public const string Dropped = "dropped";
 
+    /// <summary>
+    /// The delivery was due but not sent, for example because the person muted its kind;
+    /// <see cref="NhAssistantAlertWithholdReasons"/> says why. The alert stays in the person's alert list,
+    /// and raising it again plans the delivery again.
+    /// </summary>
+    public const string Withheld = "withheld";
+
     /// <summary>Whether a delivery in <paramref name="status"/> still waits to go out.</summary>
     public static bool IsWaiting(string? status)
     {
@@ -157,6 +164,25 @@ public static class NhAssistantAlertDropReasons
 
     /// <summary>The alert reached <see cref="NhAssistantAlertLimits.MaxRecipients"/> people before this one.</summary>
     public const string RecipientLimit = "recipient-limit";
+}
+
+/// <summary>
+/// Why a delivery that was due went out to none of the person's channels
+/// (<see cref="NhAssistantAlertDeliveryStatuses.Withheld"/>), on the delivery.
+/// </summary>
+public static class NhAssistantAlertWithholdReasons
+{
+    /// <summary>The person muted the alert's kind in their preferences.</summary>
+    public const string Muted = "muted";
+
+    /// <summary>The person received <see cref="NhAssistantLimits.MaxAlertsPerPersonPerDay"/> alerts that day.</summary>
+    public const string LimitReached = "limit-reached";
+
+    /// <summary>The alert's kind is no longer registered, so it has no text.</summary>
+    public const string KindUnknown = "kind-unknown";
+
+    /// <summary>The kind's title could not be written in the person's culture.</summary>
+    public const string TextInvalid = "text-invalid";
 }
 
 /// <summary>

@@ -129,6 +129,11 @@ export interface NhAssistantPushConfig {
   scope?: string;
   /** Page a notification opens when no window of the application is open. Default `/`. */
   openUrl?: string;
+  /**
+   * The host's alert list, which a click on a notification of alerts opens, such as `/alerts`; keep it
+   * in line with the server's `NewHeap:AI:Assistant:Alerts:ListUrl`. Default: `openUrl`.
+   */
+  alertsUrl?: string;
   /** Icon URL of the notifications. */
   icon?: string;
 }

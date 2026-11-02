@@ -10,7 +10,7 @@ Use only the rules that apply to the current consumer task.
 
 ## Warn people about an object with alerts of a kind declared in code, raised by rules and by the application without a proposal
 
-Declare each kind of alert in code with AddAlertKind, let an agent's rules raise and resolve the kinds it lists with WithAlerts and ResolveAlerts, raise them from the application's code with INhAssistantAlerts, and rely on one open alert per kind, subject and key, on the recipient check before anything reaches a person, on expiry and on the bounded retention.
+Declare each kind of alert in code with AddAlertKind, let an agent's rules raise and resolve the kinds it lists with WithAlerts and ResolveAlerts, raise them from the application's code with INhAssistantAlerts, and rely on one open alert per kind, subject and key, on the recipient check before anything reaches a person, on expiry and on the bounded retention; the run maintenance delivers them immediately or in one daily digest per person in their time zone through Web Push, the in-app notifications and the application's channels, as each person chose per kind.
 
 ## Preferred approach
 
@@ -76,9 +76,56 @@ with the content-free audit `AgentAlertRecipientDropped`. Replace the selectors 
 `AgentAlertRaised`, `AgentAlertResolved`, `AgentAlertDismissed` and `AgentAlertRecipientDropped` carry
 identifiers and codes only; the parameters are the application's data and stay in the alert's store.
 
-Alerts add the `AssistantAlert` and `AssistantAlertDelivery` tables: apply the `Alerts` migration of
-the SQL Server or PostgreSQL assistant storage before raising the first alert. Everything is opt-in;
-an application without alert kinds sees no change.
+The run maintenance delivers alerts while the assistant is enabled. It claims the deliveries that are
+due, so several instances never send one twice, and checks every recipient again right before sending;
+whoever no longer qualifies is left out with the same audit. An alert of a kind delivered immediately,
+or of an urgency from `ImmediatelyFrom`, goes out on its own within the maintenance interval. Every
+other alert of a person waits for the person's next digest and goes out with their other alerts of that
+moment as one notification: its title counts the alerts per urgency ("3 alerts, 1 urgent", in Dutch
+"3 attenties, 1 urgent"), it lists at most `NhAssistantLimits.MaxAlertDigestLines` of them, most urgent
+first, with "and N more", and in-app it is one thread of its own. A resolved, expired or read alert
+leaves a digest that did not go out. `MaxAlertsPerPersonPerDay` bounds what one person receives a day.
+
+The digest falls at the kind's `DailyDigest` time or the time the person chose, on working days (Monday
+to Friday) when the kind says `WorkdaysOnly`, in the person's time zone, and stays at that local time
+across daylight saving time. The person's zone is what the application's `INhAssistantPersonTimeZones`
+gives from its profiles (`UsePersonTimeZones<T>()`), otherwise the application's time zone for alerts:
+`NewHeap:AI:Assistant:Alerts:TimeZone` or `ConfigureAlerts`, which the host checks when it starts, and
+without it the zone of `UseTimeZone`. A changed digest time applies to the deliveries planned after it.
+
+```csharp
+assistant
+    .ConfigureAlerts(alerts =>
+    {
+        alerts.TimeZone = "Europe/Amsterdam";
+        alerts.ListUrl = "/alerts";
+    })
+    .UsePersonTimeZones<ProfileTimeZones>()
+    .AddAlertChannel<MailAlertChannel>();
+```
+
+A notification goes out through Web Push, with the assistant's browser subscriptions and the person's
+one push switch, which stops alerts as it stops proposals, showing the title only unless the kind says
+`PushShows(TitleAndText)`; through the in-app notifications of `INhUserNotificationSink`, linking to
+`ListUrl`; and through every `INhAssistantAlertChannel` the application adds with `AddAlertChannel`,
+such as e-mail, which receives an `NhAssistantAlertMessage` with the texts in the person's culture. A
+channel that fails or throws never stops the others; when every channel fails, the delivery is tried
+again a few times. Give the push worker the same list as `push.alertsUrl` and open it from
+`NhAssistantPushService.openAlerts$`, which a click on a notification of alerts emits.
+
+A person's choices live in the one preference model of the assistant (`AssistantNotificationPreference`),
+per kind: muted, the digest time and whether Web Push and the in-app notifications deliver it, as far as
+the kind's `PersonMayChange` allows. A `Required` kind is never muted, also when a stored choice says so.
+A muted kind, a delivery over the daily limit and a title that fails are withheld
+(`NhAssistantAlertDeliveryStatuses.Withheld` with `NhAssistantAlertWithholdReasons`); the alert stays in
+the person's list. People read and change only their own choices with `GET` and `PUT notifications`
+(`timeZone` and `alertKinds`, `pushEnabled` optional); a change a kind does not allow is refused with
+`400` and an `assistant-notification-*` code of `NhAssistantErrorCodes`, and changes nothing.
+
+Alerts add the `AssistantAlert`, `AssistantAlertDelivery` and `AssistantNotificationPreference` tables:
+apply the `Alerts` and `NotificationPreferences` migrations of the SQL Server or PostgreSQL assistant
+storage before raising the first alert. Everything is opt-in; an application without alert kinds sees
+no change.
 
 ## Avoid
 
@@ -89,6 +136,11 @@ an application without alert kinds sees no change.
   the subject and relying on the application to filter them later.
 - Writing parameters, titles or texts into logs or the audit.
 - Showing the text on a lock screen (`PushShows(TitleAndText)`) when it may carry confidential data.
+- Sending alerts from the application's own job or building a digest from the delivery table; add an
+  `INhAssistantAlertChannel` for the application's channel instead.
+- A channel that throws for one failed message or writes an alert's texts into its logs.
+- Keeping digest times or mutes per person in the application; they are the person's choices in the
+  assistant's preferences, which the kind bounds.
 
 ## Verification
 
@@ -99,8 +151,15 @@ it and let it expire, then move the application's clock past the retention and a
 purged it. Name a person without `Reader`, a person of another division and a person the principal
 factory no longer rebuilds, and assert they get no delivery and an `AgentAlertRecipientDropped` audit.
 Assert that an unlisted kind fails the run, that a shadow run's alerts reach nobody and that a paused
-agent raises nothing. Run the store tests on SQL Server and PostgreSQL. SPM-392 is the executable
-reference.
+agent raises nothing. For the delivery, move the application's clock to 07:30 in a person's time zone
+and assert one digest per person and digest time with its counts, an immediate alert on its own, a
+person in another zone at their own 07:30 and a digest across a change to or from daylight saving time.
+Assert that a person who lost `Reader` before the delivery gets nothing, that a muted kind is withheld
+and a required one cannot be muted, that a resolved, expired or read alert leaves a waiting digest,
+that the daily limit holds, that two dispatchers never send one delivery twice and that a failing
+channel does not stop the others. Assert that `PUT notifications` changes only the caller's choices and
+refuses what a kind does not allow. Run the store tests on SQL Server and PostgreSQL. SPM-392 is the
+executable reference.
 
 ## Optional source evidence
 

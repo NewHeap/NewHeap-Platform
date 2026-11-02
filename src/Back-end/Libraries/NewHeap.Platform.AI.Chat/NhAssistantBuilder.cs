@@ -977,6 +977,42 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Adds a channel of the application, such as e-mail, that delivers alerts next to Web Push and the
+    /// in-app notifications (FB87). Several channels may be added; each receives every notification of
+    /// alerts that goes out, a single alert or a digest, and a failing channel never stops the others.
+    /// </summary>
+    public NhAssistantBuilder AddAlertChannel<TChannel>()
+        where TChannel : class, INhAssistantAlertChannel
+    {
+        Services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAssistantAlertChannel, TChannel>());
+        return this;
+    }
+
+    /// <summary>
+    /// Gives each person's own time zone for the daily digest of alerts and their working days (FB87-4),
+    /// for example from the application's profiles. Without it, and for a person it does not know, the
+    /// application's time zone for alerts applies (<see cref="NhAssistantAlertOptions.TimeZone"/>).
+    /// </summary>
+    public NhAssistantBuilder UsePersonTimeZones<TTimeZones>()
+        where TTimeZones : class, INhAssistantPersonTimeZones
+    {
+        Services.Replace(ServiceDescriptor.Scoped<INhAssistantPersonTimeZones, TTimeZones>());
+        return this;
+    }
+
+    /// <summary>
+    /// Configures the delivery of alerts: the application's time zone for the daily digest and the
+    /// host's alert list. Applied after the <c>NewHeap:AI:Assistant:Alerts</c> configuration; the host
+    /// refuses to start with a time zone it does not know.
+    /// </summary>
+    public NhAssistantBuilder ConfigureAlerts(Action<NhAssistantAlertOptions> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        Services.PostConfigure<NhAssistantOptions>(options => configure(options.Alerts));
+        return this;
+    }
+
+    /// <summary>
     /// Adds a channel, such as e-mail or an in-app inbox, that delivers agent notifications next to
     /// Web Push.
     /// </summary>

@@ -363,6 +363,16 @@ internal sealed class NhAssistantStartupValidator(
 
         // Invalid push keys or limits fail here instead of at the first notification.
         options.Value.Push.Validate();
+        // FB87-4: a time zone for alerts the host does not know fails here instead of at the first digest.
+        options.Value.Alerts.Validate();
+        foreach (var channel in provider.GetServices<INhAssistantAlertChannel>())
+        {
+            if (!Alerts.NhAssistantAlertDispatcher.IsValidChannelId(channel.Id))
+            {
+                throw new InvalidOperationException(
+                    $"Alert channel {channel.GetType().Name} needs a dash-case Id of at most 32 characters other than web-push and in-app.");
+            }
+        }
         var forwardedTokenLifetime = options.Value.Mcp.ForwardedTokenLifetime;
         if (forwardedTokenLifetime <= TimeSpan.Zero || forwardedTokenLifetime > NhAiMcpDelegatedTokenDefaults.MaxLifetime)
         {

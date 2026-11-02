@@ -6,10 +6,41 @@ using NewHeap.Platform.AI.Chat.Entities;
 namespace NewHeap.Platform.AI.Chat.Persistence;
 
 /// <summary>
-/// Push subscriptions and notification choices. Every call uses its own short-lived context.
+/// The categories of <see cref="AssistantNotificationPreference.Category"/>.
+/// </summary>
+internal static class NhAssistantNotificationPreferenceCategories
+{
+    /// <summary>The kinds of alert registered with <c>AddAlertKind</c> (FB87).</summary>
+    public const string Alert = "alert";
+}
+
+/// <summary>
+/// One change to a person's choices about one kind: each value that is set replaces the stored one;
+/// <see cref="DigestTimeChanged"/> says whether <see cref="DigestTime"/> replaces it, so
+/// <see langword="null"/> resets it to the kind's own time.
+/// </summary>
+internal sealed record NhAssistantNotificationPreferenceChange(string KindId)
+{
+    public bool? Muted { get; init; }
+
+    public bool DigestTimeChanged { get; init; }
+
+    public TimeOnly? DigestTime { get; init; }
+
+    public bool? Push { get; init; }
+
+    public bool? InApp { get; init; }
+}
+
+/// <summary>
+/// Push subscriptions and notification choices: the global push switch and the choices per kind of
+/// notification (FB87-6). Every call uses its own short-lived context.
 /// </summary>
 internal sealed class NhAssistantNotificationStore(NhAssistantDbContextFactory contextFactory)
 {
+    /// <summary>How often saving choices is tried again after a concurrent save created a row first.</summary>
+    private const int MaxPreferenceSaveAttempts = 3;
+
     /// <summary>
     /// Claims the notice that a person's consent to background use of a server, or their connection to
     /// it, is missing: <see langword="true"/> when no notice was claimed since <paramref name="since"/>,
@@ -236,6 +267,133 @@ internal sealed class NhAssistantNotificationStore(NhAssistantDbContextFactory c
                 && !context.NotificationSettings.Any(setting =>
                     setting.ActorId == subscription.ActorId && !setting.PushEnabled))
             .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The person's choices about the kinds of <paramref name="category"/>, by kind id; a kind without
+    /// a choice is missing.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, AssistantNotificationPreference>> GetPreferencesAsync(
+        string actorId,
+        string category,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var stored = await context.NotificationPreferences
+            .AsNoTracking()
+            .Where(preference => preference.ActorId == actorId && preference.Category == category)
+            .ToListAsync(cancellationToken);
+        return stored.ToDictionary(preference => preference.KindId, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// The choices of <paramref name="actorIds"/> about the kinds of <paramref name="category"/>, by
+    /// person and kind, for a delivery that serves several people at once.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<(string ActorId, string KindId), AssistantNotificationPreference>> GetPreferencesAsync(
+        IReadOnlyCollection<string> actorIds,
+        string category,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(actorIds);
+        if (actorIds.Count == 0)
+        {
+            return new Dictionary<(string, string), AssistantNotificationPreference>();
+        }
+
+        var ids = actorIds.Distinct(StringComparer.Ordinal).ToArray();
+        await using var context = contextFactory.CreateDbContext();
+        var stored = await context.NotificationPreferences
+            .AsNoTracking()
+            .Where(preference => ids.Contains(preference.ActorId) && preference.Category == category)
+            .ToListAsync(cancellationToken);
+        return stored.ToDictionary(preference => (preference.ActorId, preference.KindId));
+    }
+
+    /// <summary>
+    /// Applies <paramref name="changes"/> to the person's choices about the kinds of
+    /// <paramref name="category"/> in one transaction: all of them or none.
+    /// </summary>
+    public async Task SavePreferencesAsync(
+        string actorId,
+        string category,
+        IReadOnlyList<NhAssistantNotificationPreferenceChange> changes,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
+        ArgumentNullException.ThrowIfNull(changes);
+        if (changes.Count == 0)
+        {
+            return;
+        }
+
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await TrySavePreferencesAsync(actorId, category, changes, now, cancellationToken);
+                return;
+            }
+            catch (DbUpdateException) when (attempt < MaxPreferenceSaveAttempts)
+            {
+                // A concurrent request of the same person created a row first; apply the changes to it.
+            }
+        }
+    }
+
+    private async Task TrySavePreferencesAsync(
+        string actorId,
+        string category,
+        IReadOnlyList<NhAssistantNotificationPreferenceChange> changes,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var kindIds = changes.Select(change => change.KindId).Distinct(StringComparer.Ordinal).ToArray();
+        await using var context = contextFactory.CreateDbContext();
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var stored = await context.NotificationPreferences
+            .Where(preference => preference.ActorId == actorId
+                && preference.Category == category
+                && kindIds.Contains(preference.KindId))
+            .ToDictionaryAsync(preference => preference.KindId, StringComparer.Ordinal, cancellationToken);
+
+        foreach (var change in changes)
+        {
+            if (!stored.TryGetValue(change.KindId, out var preference))
+            {
+                preference = new AssistantNotificationPreference
+                {
+                    ActorId = actorId,
+                    Category = category,
+                    KindId = change.KindId
+                };
+                context.NotificationPreferences.Add(preference);
+                stored[change.KindId] = preference;
+            }
+
+            if (change.Muted is { } muted)
+            {
+                preference.Muted = muted;
+            }
+            if (change.DigestTimeChanged)
+            {
+                preference.DigestTime = change.DigestTime;
+            }
+            if (change.Push is { } push)
+            {
+                preference.Push = push;
+            }
+            if (change.InApp is { } inApp)
+            {
+                preference.InApp = inApp;
+            }
+
+            preference.UpdatedAt = now;
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public static string HashEndpoint(string endpoint)

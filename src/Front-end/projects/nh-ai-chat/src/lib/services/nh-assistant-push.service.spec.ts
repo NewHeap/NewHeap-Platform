@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Subscription } from 'rxjs';
 import { provideNhAssistant } from '../provide-nh-assistant';
-import { NhAssistantPushService } from './nh-assistant-push.service';
+import { NhAssistantAlertNotificationClick, NhAssistantPushService } from './nh-assistant-push.service';
 
 describe('NhAssistantPushService', () => {
   let push: NhAssistantPushService;
@@ -63,5 +63,35 @@ describe('NhAssistantPushService', () => {
 
     expect(runs).toEqual(['run-1']);
     expect(conversations).toEqual(['conversation-2']);
+  });
+
+  it('hands a clicked notification of alerts to openAlerts$ and never opens a conversation for it', () => {
+    const clicks: NhAssistantAlertNotificationClick[] = [];
+    subscriptions.add(push.openAlerts$.subscribe(click => clicks.push(click)));
+
+    push.openAlerts({ digestId: 'digest-1' });
+    push.openAlerts({ alertId: 'alert-1' });
+
+    expect(clicks).toEqual([{ digestId: 'digest-1' }, { alertId: 'alert-1' }]);
+    expect(conversations).toEqual([]);
+  });
+
+  it('forwards a click on a notification of alerts that the bundled worker posts', () => {
+    if (!('serviceWorker' in navigator) || !globalThis.isSecureContext || !('PushManager' in globalThis) || !('Notification' in globalThis)) {
+      pending('This browser offers no Web Push.');
+      return;
+    }
+    const clicks: NhAssistantAlertNotificationClick[] = [];
+    subscriptions.add(push.openAlerts$.subscribe(click => clicks.push(click)));
+
+    navigator.serviceWorker.dispatchEvent(new MessageEvent('message', {
+      data: { type: 'nh-assistant.open-alerts', digestId: 'digest-1' }
+    }));
+    navigator.serviceWorker.dispatchEvent(new MessageEvent('message', {
+      data: { type: 'nh-assistant.open-alerts', alertId: 7 }
+    }));
+
+    expect(clicks).toEqual([{ alertId: undefined, digestId: 'digest-1' }, { alertId: undefined, digestId: undefined }]);
+    expect(conversations).toEqual([]);
   });
 });

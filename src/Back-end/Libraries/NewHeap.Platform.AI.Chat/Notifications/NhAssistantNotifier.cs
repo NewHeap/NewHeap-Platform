@@ -51,10 +51,55 @@ internal interface INhAssistantNotifier
     Task ApplicationMessageAsync(
         Guid conversationId,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Sends one notification of alerts to one person's browsers (FB87): a single alert or a digest. The
+    /// person's checks, choices and global push switch were applied before; a person who turned push off
+    /// has no browser to send to.
+    /// </summary>
+    Task<NhAssistantAlertChannelOutcome> AlertAsync(
+        NhAssistantAlertPush alert,
+        CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// What became of one notification of alerts on one channel.
+/// </summary>
+internal enum NhAssistantAlertChannelOutcome
+{
+    /// <summary>The channel had nothing to deliver to, such as a person without a browser for push.</summary>
+    Skipped = 0,
+
+    /// <summary>The channel delivered it.</summary>
+    Delivered = 1,
+
+    /// <summary>The channel tried and failed.</summary>
+    Failed = 2
+}
+
+/// <summary>
+/// One Web Push notification of alerts to one person: a single alert (<see cref="DigestId"/> is
+/// <see langword="null"/>) or a digest.
+/// </summary>
+/// <param name="Texts">Writes the title and body for a browser in its language: the person's own culture
+/// when the application knows it, otherwise the browser's. The body never carries an alert's text unless
+/// its kind shows it on a lock screen.</param>
+internal sealed record NhAssistantAlertPush(
+    string RecipientActorId,
+    Guid? AlertId,
+    Guid? DigestId,
+    bool Urgent,
+    Func<string, (string Title, string Body)> Texts);
 
 internal sealed class NhAssistantNoNotifier : INhAssistantNotifier
 {
+    public Task<NhAssistantAlertChannelOutcome> AlertAsync(
+        NhAssistantAlertPush alert,
+        CancellationToken cancellationToken)
+    {
+        return Task.FromResult(NhAssistantAlertChannelOutcome.Skipped);
+    }
+
     public Task TurnEndedAsync(NhAssistantTurnOutcome outcome, CancellationToken cancellationToken)
     {
         return Task.CompletedTask;
