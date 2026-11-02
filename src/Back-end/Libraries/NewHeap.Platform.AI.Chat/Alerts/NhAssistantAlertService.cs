@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
@@ -25,9 +26,10 @@ internal sealed record NhAssistantAlertRaiser(string? AgentId, Guid? RunId, bool
 /// chooses the recipients with the kind's selectors or the application's <see cref="INhAssistantAlertPolicy"/>,
 /// checks every one of them (<see cref="NhAssistantAlertRecipientCheck"/>), plans their deliveries
 /// (<see cref="INhAssistantAlertScheduler"/>) and lets the store deduplicate. Shadow alerts get no
-/// recipients. The audit is content-free. Every time is on the application's clock.
+/// recipients. The audit is content-free. Every time is on the application's clock. Resolving by omission
+/// and revalidation are in <c>NhAssistantAlertService.Lifecycle.cs</c>.
 /// </summary>
-internal sealed class NhAssistantAlertService(
+internal sealed partial class NhAssistantAlertService(
     NhAssistantRegistrationState registration,
     NhAssistantSubjectAccessService subjects,
     NhAssistantAlertRecipientCheck recipientCheck,
@@ -38,6 +40,7 @@ internal sealed class NhAssistantAlertService(
     NhAssistantAgentEvents events,
     NhAssistantAgentCatalog agents,
     ILogger<NhAssistantAlertService> logger,
+    IServiceScopeFactory scopes,
     TimeProvider? timeProvider = null) : INhAssistantAlerts
 {
     /// <summary>The most alerts one maintenance pass closes or purges per batch.</summary>
@@ -330,13 +333,21 @@ internal sealed class NhAssistantAlertService(
         CancellationToken cancellationToken)
     {
         var approvers = new List<NhAiSubjectMember>();
-        if (kind.Recipients.Includes(NhAssistantAlertRecipientSelector.SubjectApprovers) || policy is not NhAssistantDefaultAlertPolicy)
+        var members = new List<NhAiSubjectMember>();
+        var memberRole = kind.Recipients.MinimumMemberRole;
+        if (kind.Recipients.Includes(NhAssistantAlertRecipientSelector.SubjectApprovers)
+            || memberRole is not null
+            || policy is not NhAssistantDefaultAlertPolicy)
         {
             await foreach (var member in subjects.ListMembersAsync(subject.Subject, cancellationToken))
             {
                 if (member.Role >= NhAiSubjectRole.Approver)
                 {
                     approvers.Add(member);
+                }
+                if (memberRole is { } minimum && member.Role >= minimum)
+                {
+                    members.Add(member);
                 }
             }
         }
@@ -350,6 +361,7 @@ internal sealed class NhAssistantAlertService(
                     ? [responsible]
                     : [],
                 NhAssistantAlertRecipientSelector.Explicit => alert.Recipients,
+                NhAssistantAlertRecipientSelector.SubjectMembers => members.Select(member => member.ActorId).ToArray(),
                 _ => approvers.Select(member => member.ActorId).ToArray()
             };
             selected.AddRange(chosen.Where(actorId => !string.IsNullOrWhiteSpace(actorId)));
@@ -372,7 +384,7 @@ internal sealed class NhAssistantAlertService(
                 continue;
             }
 
-            var verdict = await recipientCheck.CheckAsync(actorId, subject, cancellationToken);
+            var verdict = await recipientCheck.CheckAsync(actorId, subject, kind, cancellationToken);
             if (!verdict.Qualifies)
             {
                 dropped.TryAdd(actorId, verdict.DropReason!);

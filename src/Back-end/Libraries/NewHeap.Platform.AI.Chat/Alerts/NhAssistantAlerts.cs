@@ -41,6 +41,12 @@ public static class NhAssistantAlertLimits
 
     /// <summary>The most alerts one rule result raises or resolves together.</summary>
     public const int MaxAlertsPerResult = 200;
+
+    /// <summary>
+    /// The most open alerts one <see cref="INhAssistantAlerts.RevalidateAsync"/> checks, the oldest first,
+    /// and the most alerts one rule run resolves by omission per kind.
+    /// </summary>
+    public const int MaxRevalidatedAlerts = 200;
 }
 
 /// <summary>
@@ -100,6 +106,20 @@ public static class NhAssistantAlertCodes
 
     /// <summary>The outcome of an open alert that was delivered again, in the audit's <c>ResultCode</c>.</summary>
     public const string Redelivered = "redelivered";
+
+    /// <summary>
+    /// Why an open alert was resolved, in the audit's <c>ResultCode</c> of
+    /// <see cref="NhAssistantAuditEventKind.AgentAlertResolved"/>: a rule run on its subject did not raise
+    /// it again, and its kind resolves by omission (<see cref="NhAssistantAlertKind.ResolveWhenNotRaised"/>).
+    /// </summary>
+    public const string NotRaised = "not-raised";
+
+    /// <summary>
+    /// Why an open alert was resolved, in the audit's <c>ResultCode</c> of
+    /// <see cref="NhAssistantAuditEventKind.AgentAlertResolved"/>: its kind's check found that it no longer
+    /// applies when the application revalidated its subject (<see cref="INhAssistantAlerts.RevalidateAsync"/>).
+    /// </summary>
+    public const string Revalidated = "revalidated";
 }
 
 /// <summary>
@@ -177,6 +197,12 @@ public static class NhAssistantAlertDropReasons
 
     /// <summary>The alert reached <see cref="NhAssistantAlertLimits.MaxRecipients"/> people before this one.</summary>
     public const string RecipientLimit = "recipient-limit";
+
+    /// <summary>
+    /// The person reads the subject, but has less than the role the kind's members selector asks for
+    /// (<see cref="NhAssistantAlertRecipients.SubjectMembers"/>), on a kind that selects only members.
+    /// </summary>
+    public const string BelowMinimumRole = "below-minimum-role";
 }
 
 /// <summary>
@@ -370,8 +396,9 @@ public sealed record NhAssistantAlertReceipt(
 
 /// <summary>
 /// Raises and resolves alerts from the application's own code, without an agent, for example when a
-/// job finds work that is late. The same checks, deduplication, limits and audit apply as for an alert
-/// a rule raises. Expected refusals are failed results with a code of <see cref="NhAssistantAlertCodes"/>.
+/// job finds work that is late, and revalidates a subject's open alerts after the application changed it.
+/// The same checks, deduplication, limits and audit apply as for an alert a rule raises. Expected
+/// refusals are failed results with a code of <see cref="NhAssistantAlertCodes"/>.
 /// </summary>
 public interface INhAssistantAlerts
 {
@@ -386,6 +413,20 @@ public interface INhAssistantAlerts
     /// not go out are taken back. Returns how many closed; resolving what is not open succeeds with 0.
     /// </summary>
     Task<TaskResult<int>> ResolveAsync(NhAssistantAlertKey key, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Revalidates the open alerts about <paramref name="subject"/> (FB87-10): for each one of a kind that
+    /// declares a check (<see cref="NhAssistantAlertKindBuilder.Revalidate{TCheck}"/>), the check says
+    /// whether it still applies, and one that no longer does is resolved, as <see cref="ResolveAsync"/>
+    /// resolves it. Alerts of kinds without a check stay as they are. Call it after the application's
+    /// change committed, as proposals are revalidated; nothing revalidates by itself. One call checks at
+    /// most <see cref="NhAssistantAlertLimits.MaxRevalidatedAlerts"/> alerts, the oldest first. A check that
+    /// fails is logged without content and leaves its alert open; the others still run. Repeating a call
+    /// changes nothing more.
+    /// </summary>
+    Task<TaskResult<NhAssistantAlertRevalidationResult>> RevalidateAsync(
+        NhAiSubjectRef subject,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>

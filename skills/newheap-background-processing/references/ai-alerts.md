@@ -27,7 +27,8 @@ whenever it shows or delivers the alert, and once when the alert is raised, whic
 fails or is empty refuses with `assistant-alert-text-invalid`. Keep the texts in the application's
 resources, as SPM-392 does, so every language follows the translations. Give the kind an
 `Urgency` (`Info`, `Warning`, `Urgent`), its recipients with `NhAssistantAlertRecipients`
-(`SubjectResponsible`, `Explicit`, `SubjectApprovers`, combined with `Or`), an optional
+(`SubjectResponsible`, `Explicit`, `SubjectApprovers` and `SubjectMembers(minRole)`, combined with
+`Or`), an optional
 `RepeatAfter` and its default `Delivery`: immediately, one `DailyDigest(time)` with
 `WorkdaysOnly()`, and `ImmediatelyFrom(urgency)` for alerts that cannot wait. Declare what a person
 may change with `PersonMayChange` (`Mute`, `DigestTime`, `Channels`), or make the kind `Required()`
@@ -69,7 +70,8 @@ run maintenance purges closed alerts after `NhAssistantLimits.AlertRetention` (3
 
 Every recipient is checked before anything reaches them, when the alert is raised, delivered and read:
 the person exists, the application's principal factory still rebuilds them for the subject in its
-division or tenant, and the subject's resolver gives them at least `Reader`. Anyone else is left out
+division or tenant, and the subject's resolver gives them at least `Reader`, or the role of a kind that
+selects only members (see below). Anyone else is left out
 with the content-free audit `AgentAlertRecipientDropped`. Replace the selectors only with an
 `INhAssistantAlertPolicy` registered through `UseAlertPolicy`; the check applies to what it returns too.
 `MaxAlertsPerRun` and `MaxAlertsPerSubjectPerDay` bound the noise. The audit kinds
@@ -127,6 +129,57 @@ apply the `Alerts` and `NotificationPreferences` migrations of the SQL Server or
 storage before raising the first alert. Everything is opt-in; an application without alert kinds sees
 no change.
 
+### The subject's members, resolving by omission and revalidation
+
+`NhAssistantAlertRecipients.SubjectMembers(minRole)` chooses the subject's members with at least that
+role, as its resolver lists them when the alert is raised, such as `SubjectMembers(NhAiSubjectRole.Participant)`
+for the people who work on it, so the rules name nobody themselves. Combine it with the other selectors
+with `Or`; two member selectors ask the lower role (`MinimumMemberRole`). The role is checked live as
+Reader is: for a kind whose selectors are only members, the check at delivery and at reading asks that
+role, so a member who dropped below it gets nothing more and no longer reads the alert
+(`NhAssistantAlertDropReasons.BelowMinimumRole`), and one who lost access gets nothing either. Combined
+with another selector, or under an `INhAssistantAlertPolicy`, the person may have been chosen for another
+reason, so the check asks Reader, as for the other recipients.
+
+A kind declared with `ResolveWhenNotRaised()` resolves by omission: when an agent's rules finish a run
+on a subject with `Done`, also without alerts, the agent's open alerts of the kind about that subject
+whose key the result did not raise are resolved, their waiting deliveries are taken back and the audit
+records `AgentAlertResolved` with `not-raised` (`NhAssistantAlertCodes.NotRaised`). Raise what applies
+now every round and let the platform close what no longer does. Only the run's own subject and the
+alerts the agent raised last count: alerts about another subject, about the whole application
+(`nh-system`, whose runs resolve only explicitly), of another agent, or that the application's code
+raised again since, are left alone, and an alert the result raised but the platform refused, such as
+over a limit, counts as raised. A run whose rules throw, raise a kind the agent does not list, hand
+over to the model or a skill, or are cancelled resolves nothing by omission, and a shadow run touches
+only shadow alerts. One run resolves at most `NhAssistantAlertLimits.MaxRevalidatedAlerts` alerts per
+kind this way.
+
+Revalidation (FB87-10) is an explicit call. A kind declares its check in code with `Revalidate<TCheck>()`:
+an `INhAssistantAlertCheck` from the application's services, resolved in a scope of its own per alert,
+that reads the alert's kind, subject, key and parameters (`NhAssistantAlertCheckContext`) and returns
+`StillValid` or `Resolve` (`NhAssistantAlertValidity`). After its change committed, the application calls
+`INhAssistantAlerts.RevalidateAsync(subject)`, as it revalidates proposals; nothing revalidates by itself,
+so a change the application does not report waits for the next round, the expiry or an explicit
+resolve. One call checks at most `MaxRevalidatedAlerts` open alerts of the subject, live before shadow
+and each the oldest first, and returns an `NhAssistantAlertRevalidationResult`: the alerts it resolved
+(`NhAssistantResolvedAlert`, audited as `AgentAlertResolved` with `revalidated`), how many it checked,
+how many checks failed and whether more were left. Alerts of kinds without a check stay as they are,
+an alert raised again while its check ran stays open with its new content, and a check that throws
+leaves its alert open and is logged with the exception's type only, while the other checks go on.
+
+```csharp
+assistant.AddAlertKind("project-due-today", kind => kind
+    .DisplayName("app.alerts.project-due-today")
+    .Title((culture, parameters) => Texts.Format("ProjectDueToday", culture, parameters["project"]))
+    .Recipients(NhAssistantAlertRecipients.SubjectResponsible
+        .Or(NhAssistantAlertRecipients.SubjectMembers(NhAiSubjectRole.Participant)))
+    .ResolveWhenNotRaised()
+    .Revalidate<ProjectDueTodayCheck>());
+
+// Where the change commits, for example in the consumer of the task's event:
+await alerts.RevalidateAsync(new NhAiSubjectRef("project", projectId.ToString("D")), cancellationToken);
+```
+
 ### A person's alerts: the API and the components
 
 `MapNewHeapAssistant` maps a person's side of alerts with the access policy of the assistant
@@ -178,6 +231,10 @@ openSubject(target: AlertSubjectTarget): void {
 - Raising a proposal, or an application message in a thread, to warn a person about an object.
 - Building the text of an alert in one language when it is raised, or putting the text into the key.
 - A key that changes every round, such as a timestamp or a count, which warns people every round.
+- Resolving every alert of a kind by hand in each round when the kind can `ResolveWhenNotRaised()`, or
+  relying on omission for alerts about another subject than the run's or that the application raises.
+- Expecting alerts to revalidate on their own after a change; call `RevalidateAsync` where it commits.
+- A check that changes data, calls slow services or writes an alert's parameters into its logs.
 - Choosing recipients by hand and skipping the platform's check, or naming people who cannot read
   the subject and relying on the application to filter them later.
 - Writing parameters, titles or texts into logs or the audit.
@@ -209,6 +266,15 @@ that the daily limit holds, that two dispatchers never send one delivery twice a
 channel does not stop the others. Assert that `PUT notifications` changes only the caller's choices and
 refuses what a kind does not allow. Run the store tests on SQL Server and PostgreSQL. SPM-392 is the
 executable reference.
+
+For the lifecycle, raise a kind with `SubjectMembers(Participant)` and assert that a member below the
+role is not chosen, and that one who dropped below it or lost access gets nothing at delivery and no
+longer reads the alert. Run the rules twice on a subject and assert that the second run resolves the
+keys it did not raise again with `not-raised`, but no alert about another subject, of a kind without
+`ResolveWhenNotRaised`, of the application's code or of a run on the whole application; that a run
+whose rules fail, hand over or are cancelled resolves nothing; and that a shadow run touches only
+shadow alerts. Revalidate a subject and assert what its check resolved, that a kind without a check
+keeps its alerts and that one failing check stops no other, on SQL Server and PostgreSQL.
 
 For a person's side, read `GET alerts` as the recipient and assert the title in their language, the
 subject's link and the groups per parent across pages; mark one read and dismiss one twice and assert
