@@ -203,12 +203,13 @@ internal sealed class NhAssistantAlertModelTool(
         IReadOnlyDictionary<string, object?> arguments,
         CancellationToken cancellationToken)
     {
-        foreach (var name in arguments.Keys.Where(name => name is not ("kind" or "parameters")))
+        var unknown = arguments.Keys.FirstOrDefault(name => name is not ("kind" or "parameters"));
+        if (unknown is not null)
         {
             // Neither the subject nor the recipients are the model's to choose.
             return NhAssistantAlertModelOutcome.Refused(
                 NhAssistantAlertCodes.ParameterInvalid,
-                Bounded(name),
+                Bounded(unknown),
                 NhAssistantAlertParameterErrors.Unknown);
         }
 
@@ -235,18 +236,19 @@ internal sealed class NhAssistantAlertModelTool(
         }
 
         var shadow = agentTurn.Thread.Shadow || mode == NhAssistantAlertModelModes.Shadow;
-        if (agentTurn.RunId is { } runId
-            && await store.CountForRunAsync(runId, shadow, cancellationToken) >= registration.Limits.MaxAlertsPerRun)
-        {
-            return NhAssistantAlertModelOutcome.Refused(NhAssistantAlertCodes.LimitReached);
-        }
-
         var subject = agentTurn.Subject.Subject;
         var alert = new NhAssistantAlert(kindId, subject)
         {
             Key = template.KeyOf(kindId, subject, values.Values!),
             Parameters = values.Values!
         };
+        if (agentTurn.RunId is { } runId
+            && await store.CountOthersForRunAsync(runId, shadow, kindId, subject, alert.Key, cancellationToken) >= registration.Limits.MaxAlertsPerRun)
+        {
+            // The run's alerts, of its rules and its model, reached the limit; raising one again is no new alert.
+            return NhAssistantAlertModelOutcome.Refused(NhAssistantAlertCodes.LimitReached);
+        }
+
         var raised = await alerts.RaiseAsync(
             alert,
             new NhAssistantAlertRaiser(agentTurn.Thread.AgentId, agentTurn.RunId, shadow) { Model = true },

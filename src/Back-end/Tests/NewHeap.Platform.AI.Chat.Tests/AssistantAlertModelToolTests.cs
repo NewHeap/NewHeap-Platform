@@ -257,9 +257,11 @@ public sealed class AssistantAlertModelToolTests(AssistantDatabaseFixture databa
         {
             model.RespondWithFunctionCall(ToolName, refusal.Arguments, refusal.CallId);
         }
-        // With a limit of one alert per run, the first valid alert is raised and the next is refused.
+        // With a limit of one alert per run, the first valid alert is raised, raising it again is no new
+        // alert, and the next one is refused.
         model
             .RespondWithFunctionCall(ToolName, new { kind = ModelKind, parameters = ValidParameters() }, "call-first")
+            .RespondWithFunctionCall(ToolName, new { kind = ModelKind, parameters = ValidParameters() }, "call-repeat")
             .RespondWithFunctionCall(ToolName, new { kind = ModelKind, parameters = ValidParameters() with { document = "Annual report" } }, "call-over-limit")
             .RespondWithText("Done.");
         await using var host = await CreateHostAsync(provider, model, limits => limits.MaxAlertsPerRun = 1);
@@ -282,6 +284,7 @@ public sealed class AssistantAlertModelToolTests(AssistantDatabaseFixture databa
             Assert.DoesNotContain("evil", result.GetRawText(), StringComparison.Ordinal);
         }
         Assert.True(ResultOf(model, "call-first").GetProperty("success").GetBoolean());
+        Assert.Equal("unchanged", ResultOf(model, "call-repeat").GetProperty("outcome").GetString());
         Assert.Equal(NhAssistantAlertCodes.LimitReached, ResultOf(model, "call-over-limit").GetProperty("code").GetString());
 
         // Only the one valid alert was stored.
