@@ -222,54 +222,6 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.ToTable("AssistantAgent", "nhai");
                 });
 
-            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentAlertModelSwitch", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("AgentId")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<DateTimeOffset>("ChangedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("ChangedBy")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("ContractHash")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<string>("KindId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<string>("Mode")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)");
-
-                    b.Property<string>("Reason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("Version")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AgentId", "KindId", "Version")
-                        .IsUnique();
-
-                    b.ToTable("AssistantAgentAlertModelSwitch", "nhai");
-                });
-
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentConsultationDefinition", b =>
                 {
                     b.Property<string>("AgentId")
@@ -1165,9 +1117,6 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.Property<DateTimeOffset>("RaisedAt")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<bool>("RaisedByModel")
-                        .HasColumnType("bit");
-
                     b.Property<int>("Revision")
                         .HasColumnType("int");
 
@@ -1212,8 +1161,6 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("RunId");
 
                     b.HasIndex("IdentityHash", "ClosedMarker")
                         .IsUnique();
@@ -3483,15 +3430,6 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                     b.HasKey("ActorId");
 
                     b.ToTable("AssistantUserPreference", "nhai");
-                });
-
-            modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentAlertModelSwitch", b =>
-                {
-                    b.HasOne("NewHeap.Platform.AI.Chat.Entities.AssistantAgent", null)
-                        .WithMany()
-                        .HasForeignKey("AgentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("NewHeap.Platform.AI.Chat.Entities.AssistantAgentConsultationDefinition", b =>
