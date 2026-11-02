@@ -171,7 +171,8 @@ const playgroundDivision = {
 /**
  * SPM-392: the deadline watch's alerts as the mock API keeps them, so the alert list, the badge and the
  * notification choices run without the assistant back-end: two projects of one division due today, one
- * of them urgent, and one of another division that was resolved once its tasks were done.
+ * of them urgent, a deliverable the deadline reviewer's model raised through its kind's template (shown
+ * as raised by AI), and one of another division that was resolved once its tasks were done.
  */
 const PLAYGROUND_ALERTS: NonNullable<NhAssistantMockScenario['alerts']> = {
   timeZone: 'Europe/Amsterdam',
@@ -203,6 +204,21 @@ const PLAYGROUND_ALERTS: NonNullable<NhAssistantMockScenario['alerts']> = {
       subjectLink: '/management/intake-reviews?project=gamma',
       parent: playgroundDivision,
       updatedAt: '2026-11-02T07:20:00Z'
+    },
+    {
+      id: 'playground-alert-gamma-deliverable',
+      kindId: 'project-deliverable-due',
+      urgency: 'warning',
+      title: 'The design of PRJ-GAMMA is due in 3 days',
+      text: 'Its work has not started yet.',
+      raisedByModel: true,
+      subjectType: 'project',
+      subjectId: 'gamma',
+      subjectDisplayName: 'Gamma analytics',
+      subjectTypeName: 'Project',
+      subjectLink: '/management/intake-reviews?project=gamma',
+      parent: playgroundDivision,
+      updatedAt: '2026-11-02T07:10:00Z'
     },
     {
       id: 'playground-alert-beta',
