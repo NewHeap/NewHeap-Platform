@@ -616,3 +616,132 @@ pre {
   color: var(--nha-text-muted);
   font-size: 12px;
 }
+
+// A compact proposals list: one row per proposal, expanded in place to its card.
+.cards.compact {
+  gap: 4px;
+}
+
+.card.compact-row {
+  gap: 0;
+  border-radius: var(--nha-radius-control);
+  padding: 0;
+}
+
+.row-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0 10px;
+
+  input[type='checkbox'] {
+    flex: none;
+  }
+}
+
+// The row's one button: what it is about, on one line where the width allows it.
+.row-toggle {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  min-width: 0;
+  border: 0;
+  border-radius: var(--nha-radius-control);
+  padding: 8px 2px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  text-align: start;
+  cursor: pointer;
+  @include tokens.focus-ring;
+}
+
+.row-subject {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.row-tool {
+  color: var(--nha-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.row-summary {
+  flex: 1 1 14rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+}
+
+// The card of an expanded row, below the row.
+.row-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  border-top: 1px solid var(--nha-border);
+  padding: 10px 14px 12px;
+}
+
+// The keys of a compact list, shown with `?`.
+.keys-help {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius-control);
+  padding: 12px 14px;
+  background: var(--nha-surface);
+  @include tokens.focus-ring;
+
+  h4 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  dl {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+
+    div {
+      display: grid;
+      grid-template-columns: minmax(110px, .5fr) minmax(0, 1fr);
+      gap: 8px;
+    }
+  }
+
+  dt {
+    font-family: var(--nha-mono);
+    font-size: 12px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+
+  dd {
+    margin: 0;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+
+  button {
+    align-self: flex-start;
+  }
+}

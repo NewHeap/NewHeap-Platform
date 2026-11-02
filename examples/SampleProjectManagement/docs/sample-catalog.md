@@ -104,7 +104,10 @@ thread offers each proposal to the approvers the server names: the lead, added a
 approver on the project members page, approves the proposal of a project the manager
 created, while the manager reads that another approver decides. The panel reaches the
 live hub over WebSockets because the portal passes its active division as `divisionId`
-through `NhAssistantConfig.getHubQueryParameters`.
+through `NhAssistantConfig.getHubQueryParameters`. With "Compact list with keyboard keys" the inbox
+shows one row per proposal (`density: 'compact'`) that expands to its card; the rows share one tab stop,
+and while the focus is in a row `a` approves and `r` rejects that row's proposal, never the selection,
+and `?` lists the keys.
 
 The project subject type describes itself where it is registered (SPM-301):
 `AddSubjectType<ProjectSubjectAccessResolver>(type => ...)` names it in English and Dutch from

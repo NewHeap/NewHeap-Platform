@@ -53677,6 +53677,7 @@
       "NhAssistantAgentInboxComponent",
       "NhAssistantAgentThreadViewComponent",
       "NhAssistantAgentProposalsComponent",
+      "NhAssistantProposalDensity",
       "NhAssistantRunTimelineComponent",
       "NhAssistantAgentMemoryComponent",
       "NhAssistantAgentArtifactsComponent",

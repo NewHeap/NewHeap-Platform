@@ -512,8 +512,8 @@ messages itself shows it too. The mock API posts one with
 and `[writingMessageId]="store.writingMessageId()"` to `nh-assistant-thread` and handles `(approvalChoice)` with
 `store.decide(choice.decision, reason, choice.approvalId)`.
 
-Rejecting an agent proposal stays one click; only afterwards may the person say what was
-wrong. `nh-assistant-proposal-feedback` asks for a category from
+Rejecting an agent proposal stays one click, or the one key `r` in a compact list; only afterwards
+may the person say what was wrong. `nh-assistant-proposal-feedback` asks for a category from
 `NH_ASSISTANT_FEEDBACK_CATEGORIES` and an optional text, sends one proposal with
 `NhAssistantAgentRunApiService.giveFeedback` and proposals rejected together with
 `giveFeedbackMany`, and can always be skipped. `nh-assistant-agent-proposals` shows it
@@ -829,6 +829,18 @@ board's per-agent proposals do, so the next visit of the whole inbox still marks
 see. `nh-assistant-agent-proposals` takes the same `groups`, `groupByRun` and `newIds` for custom
 layouts, and every proposal carries its `parent` (`AgentProposalParent`).
 
+For an inbox of many proposals pass `density: 'compact'` (`NhAssistantProposalDensity`) to
+`nh-assistant-agent-inbox`, which passes it to `nh-assistant-agent-proposals` (SPM-277). Each proposal is
+then one row: its object, kind of action, summary on one line, agent and expiry, with the markers that
+must not disappear: its status once it no longer waits (such as stale or replaced), new, waiting for
+someone else, from a consultation and the source of its rights. A row expands in place to the proposal's
+card. The rows share one tab stop: the arrow keys, Home and End move between them, Enter expands a row
+and Space selects it. While the focus is in a row, and never in a field or the feedback form, `j` and `k`
+move, `x` selects, `a` approves and `r` rejects the proposal of the focused row, never the selection, and
+`?` lists the keys; a held key decides nothing more. Rejecting stays one key with the optional question
+afterwards, and when a decision takes the focused row away, the row that takes its place gets the focus.
+The comfortable cards stay the default.
+
 Show a group of agents on a page of the application with `nh-assistant-agent-board`
 (`NhAssistantAgentBoardComponent`, `group`, optional `divisionId`) from
 `@newheap/platform-ai-chat/agent-runs`, for example a "Project management" page for the group the server
@@ -973,6 +985,9 @@ own table (SPM-371).
   page; ask for `grouped` and let "Select group" select what is shown.
 - Keeping a selection of proposals of your own across pages or filters and deciding it in one call; a
   person decides only what is shown, which is what the list's own selection sends.
+- Binding letter keys of your own to the proposals on the document or the page, or letting `a` decide
+  the selection; the compact list's letters act only while the focus is in one of its rows (WCAG 2.1.4)
+  and decide only that row's proposal.
 - Recording an inbox visit from a list that shows only part of the inbox's scope; set `recordVisit`
   to `false` there.
 - Building an agents page that reads each agent's runs and decides "new" itself; use
@@ -1156,7 +1171,13 @@ intake reviews page, start the reviewer for a project and follow its run, memory
 files, and decide a waiting proposal from the inbox. Let a manager create a project,
 add the lead as approver on the project members page, open the thread in the assistant
 panel as the lead and approve the proposal there; confirm that the hub connects over
-WebSockets (SPM-277). The feedback tests keep sending disabled until a category is chosen,
+WebSockets (SPM-277). The compact list tests keep the cards as the default, show a row's object, kind
+of action, summary, agent, expiry and markers, expand a row in place to its card, move one tab stop with
+the arrow keys, Home, End, `j` and `k`, select with Space and `x`, decide only the focused row with `a`
+and `r` and ask afterwards, give the next row the focus, keep the letters out of fields, the feedback
+form and modified keys, list the keys with `?` and return the focus with Escape, fit 375px and pass
+through the inbox; on the intake reviews page choose "Compact list with keyboard keys" and decide with
+the keys (SPM-277). The feedback tests keep sending disabled until a category is chosen,
 send one proposal through `PUT` and several through the bulk endpoint, offer the question
 after a rejection and on closed proposals the caller may comment on, and give the panel's
 approval card the question only for proposals the user rejected; the report tests load

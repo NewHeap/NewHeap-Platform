@@ -7,6 +7,7 @@ import {
   Injector,
   afterNextRender,
   computed,
+  effect,
   inject,
   input,
   linkedSignal,
@@ -33,6 +34,26 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+
+/**
+ * How a proposals list shows its proposals: `comfortable` gives each proposal its card; `compact`
+ * gives each one row that expands in place to that card, with the list's keys.
+ */
+export type NhAssistantProposalDensity = 'comfortable' | 'compact';
+
+/** A key of a compact list in the list of keys that `?` shows: what to press and what it does. */
+interface NhAssistantListKey {
+  keys: string;
+  does: string;
+}
+
+/** What a key of a compact list just did, read out by screen readers. */
+interface NhAssistantKeyStatus {
+  key: string;
+  params: Record<string, string>;
+}
+
+let nextListId = 0;
 
 /** The proposals of one run within a subject of a grouped list, in the order the list gave them. */
 interface NhAssistantRunSection {
@@ -108,6 +129,15 @@ interface NhAssistantFeedbackRequest {
  * a consultation names who asked and its route: one the person who asked decides in their own chat
  * (`asker-decides`) waits for them without actions here; one that runs with the agent's own rights
  * (`subject-agent-rights`) says so, and the person who asked reads why another approver decides.
+ *
+ * With `density: 'compact'` each proposal is one row: its object, kind of action, summary on one line,
+ * agent and expiry, with the markers that must not disappear (its status when it no longer waits, new,
+ * waiting for someone else, from a consultation and the source of its rights). Expanding a row shows its
+ * card in place. The rows share one tab stop: the arrow keys, Home and End move between them, Enter
+ * expands a row and Space selects it. While the focus is in the list, and never in a field or the
+ * feedback form, `j` and `k` move, `x` selects, `a` approves and `r` rejects the proposal of the focused
+ * row, never the selection, and `?` lists the keys. Rejecting by key asks for feedback afterwards, as a
+ * click does. The comfortable cards stay the default.
  */
 @Component({
   selector: 'nh-assistant-agent-proposals',
@@ -156,6 +186,11 @@ export class NhAssistantAgentProposalsComponent {
   readonly groupByRun = input(false);
   /** Proposals to mark as new, by approval id, for example those made since the last visit of the inbox. */
   readonly newIds = input<ReadonlySet<string> | null>(null);
+  /**
+   * `compact` shows one row per proposal that expands to its card, with the list's keys, for lists of
+   * many proposals; `comfortable`, the default, a card per proposal.
+   */
+  readonly density = input<NhAssistantProposalDensity>('comfortable');
   /** Emits after a proposal or its feedback changed, so the host reloads its list. */
   readonly changed = output<void>();
   /**
@@ -164,6 +199,8 @@ export class NhAssistantAgentProposalsComponent {
    */
   readonly openConversation = output<string>();
 
+  readonly id = `nh-assistant-agent-proposals-${nextListId++}`;
+  readonly compact = computed(() => this.density() === 'compact');
   readonly busy = signal(false);
   readonly error = signal<NhAssistantError | null>(null);
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
@@ -203,6 +240,38 @@ export class NhAssistantAgentProposalsComponent {
     const heldIds = new Set(held.map(proposal => proposal.approvalId));
     return [...held, ...this.proposals().filter(proposal => !heldIds.has(proposal.approvalId))];
   });
+  /** The rows of a compact list shown expanded to their card, by approval id. */
+  readonly expanded = signal<ReadonlySet<string>>(new Set());
+  /** Whether a compact list shows its keys. */
+  readonly keysShown = signal(false);
+  /** What a key of a compact list just did, for screen readers; `null` before the first key. */
+  readonly keyStatus = signal<NhAssistantKeyStatus | null>(null);
+  /** The keys of a compact list, as `?` lists them. */
+  readonly listKeys: readonly NhAssistantListKey[] = ['move', 'edges', 'expand', 'select', 'approve', 'reject', 'help']
+    .map(name => ({
+      keys: `nh-assistant.agent-runs.compact.keys.${name}.keys`,
+      does: `nh-assistant.agent-runs.compact.keys.${name}.does`
+    }));
+  /** The row of a compact list that had the focus last, and where it was, so its successor takes its place. */
+  private readonly activeRow = signal<{ id: string; index: number } | null>(null);
+  /**
+   * The row with the tab stop of a compact list: the row that had the focus last, or, once it left the
+   * list, the row that took its place.
+   */
+  readonly activeRowId = computed(() => {
+    const rows = this.shown();
+    if (rows.length === 0) {
+      return null;
+    }
+
+    const active = this.activeRow();
+    if (active && rows.some(proposal => proposal.approvalId === active.id)) {
+      return active.id;
+    }
+    return rows[Math.min(active?.index ?? 0, rows.length - 1)].approvalId;
+  });
+  /** Set while a decision of a compact list may take the focused row away; its successor then gets the focus. */
+  private restoreRowFocus = false;
   private readonly lookups = new Subscription();
   /**
    * The grouped list: the held closed cards stay above it; `null` for a flat list, or when the groups
@@ -230,6 +299,16 @@ export class NhAssistantAgentProposalsComponent {
     inject(DestroyRef).onDestroy(() => {
       this.subscription?.unsubscribe();
       this.lookups.unsubscribe();
+    });
+    // When a decision takes the focused row of a compact list away, the row that takes its place gets
+    // the focus, so a person deciding by key goes on where they were.
+    effect(() => {
+      const id = this.activeRowId();
+      if (!this.compact() || !this.restoreRowFocus || id === null) {
+        return;
+      }
+
+      afterNextRender(() => this.restoreFocusTo(id), { injector: this.injector });
     });
   }
 
@@ -295,12 +374,13 @@ export class NhAssistantAgentProposalsComponent {
     return !!successor && this.shown().some(item => item.approvalId === successor);
   }
 
-  /** Moves focus to the newer proposal that replaced this one. */
+  /** Moves focus to the newer proposal that replaced this one: its card, or its row in a compact list. */
   showSuccessor(proposal: AgentProposal): void {
     const card = Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('[data-approval-id]'))
       .find(element => element.dataset['approvalId'] === proposal.supersededByApprovalId);
-    card?.scrollIntoView({ block: 'nearest' });
-    card?.focus();
+    const target = card?.querySelector<HTMLElement>('[data-proposal-row]') ?? card;
+    target?.scrollIntoView({ block: 'nearest' });
+    target?.focus();
   }
 
   /** True for a closed card the list keeps until it is dismissed. */
@@ -398,16 +478,7 @@ export class NhAssistantAgentProposalsComponent {
   }
 
   decide(proposal: AgentProposal, decision: AgentProposalDecision): void {
-    this.run(this.api.decide(proposal, decision), result => {
-      if (decision === 'reject' && result.status === 'rejected' && result.canGiveFeedback === true) {
-        this.ask([proposal.approvalId], summaryOf(proposal));
-      }
-    }, code => {
-      if (code === staleCode) {
-        // The approval was refused because the proposal no longer fits; show why.
-        this.holdStale([proposal]);
-      }
-    });
+    this.decideOne(proposal, decision, false);
   }
 
   /**
@@ -499,6 +570,268 @@ export class NhAssistantAgentProposalsComponent {
         .find(item => item.dataset['feedbackApproval'] === approvalId);
       action?.focus();
     }, { injector: this.injector });
+  }
+
+  /** Whether the caller may select this proposal to decide it together with others. */
+  canSelect(proposal: AgentProposal): boolean {
+    return this.selectable() && proposal.status === 'pending' && !this.isHeld(proposal) && this.mayDecide(proposal);
+  }
+
+  /** The application's words for a proposal, falling back to its subject and tool. */
+  summaryText(proposal: AgentProposal): string {
+    return summaryOf(proposal);
+  }
+
+  /**
+   * The marker of a compact row that waits for someone else: the person who asked through a
+   * consultation, or another approver; `null` when nobody else is waited for.
+   */
+  waitingMarkerKey(proposal: AgentProposal): string | null {
+    return this.waitsForAsker(proposal) ? 'nh-assistant.approval.waiting-for-asker' : this.waitingForKey(proposal);
+  }
+
+  /** The id of the card a compact row expands to. */
+  rowDetailsId(proposal: AgentProposal): string {
+    return `${this.id}-row-${proposal.approvalId}`;
+  }
+
+  isExpanded(proposal: AgentProposal): boolean {
+    return this.expanded().has(proposal.approvalId);
+  }
+
+  /** Shows or hides the card of a compact row. */
+  toggleExpanded(proposal: AgentProposal): void {
+    const next = new Set(this.expanded());
+    if (next.has(proposal.approvalId)) {
+      next.delete(proposal.approvalId);
+    } else {
+      next.add(proposal.approvalId);
+    }
+    this.expanded.set(next);
+  }
+
+  /** Gives the tab stop of a compact list to the row that got the focus. */
+  activate(proposal: AgentProposal): void {
+    const index = this.shown().findIndex(item => item.approvalId === proposal.approvalId);
+    this.activeRow.set({ id: proposal.approvalId, index: Math.max(0, index) });
+  }
+
+  toggleKeys(): void {
+    if (this.keysShown()) {
+      this.hideKeys(false);
+    } else {
+      this.showKeys();
+    }
+  }
+
+  /** Shows the keys of a compact list and moves the focus to them. */
+  showKeys(): void {
+    this.keysShown.set(true);
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>(`#${this.id}-keys`)?.focus(), { injector: this.injector });
+  }
+
+  /** Hides the keys; from the keys themselves the focus returns to the row with the tab stop. */
+  hideKeys(returnFocus: boolean): void {
+    this.keysShown.set(false);
+    if (!returnFocus) {
+      return;
+    }
+
+    const id = this.activeRowId();
+    afterNextRender(() => {
+      const button = id === null ? undefined : this.rowButton(id);
+      if (button) {
+        this.focusRowButton(button);
+      }
+    }, { injector: this.injector });
+  }
+
+  /**
+   * The keys of a compact list. They act only while the focus is in a row of the list, and never in an
+   * input, text area, select, editable content or the feedback form, so typing never decides anything
+   * (WCAG 2.1.4). Arrow keys, Home and End act on a row itself; Space selects a row that can be selected
+   * and otherwise lets Enter's expansion happen. `a` and `r` decide the focused row's proposal, never the
+   * selection, and a held key decides nothing more.
+   */
+  onListKeydown(event: KeyboardEvent): void {
+    if (!this.compact() || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || isField(event.target)) {
+      return;
+    }
+
+    if (event.key === '?') {
+      event.preventDefault();
+      if (this.keysShown()) {
+        this.hideKeys(true);
+      } else {
+        this.showKeys();
+      }
+      return;
+    }
+
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    const approvalId = target?.closest<HTMLElement>('[data-approval-id]')?.dataset['approvalId'];
+    const proposal = approvalId ? this.shown().find(item => item.approvalId === approvalId) : undefined;
+    if (!target || !proposal) {
+      return;
+    }
+
+    const onRow = target.hasAttribute('data-proposal-row');
+    switch (event.key) {
+      case 'ArrowDown':
+      case 'ArrowUp':
+      case 'Home':
+      case 'End':
+        if (!onRow) {
+          return;
+        }
+        this.focusRow(proposal, event.key);
+        break;
+      case 'j':
+        this.focusRow(proposal, 'ArrowDown');
+        break;
+      case 'k':
+        this.focusRow(proposal, 'ArrowUp');
+        break;
+      case ' ':
+        if (!onRow || !this.canSelect(proposal)) {
+          return;
+        }
+        this.selectByKey(proposal);
+        break;
+      case 'x':
+        if (!event.repeat) {
+          this.selectByKey(proposal);
+        }
+        break;
+      case 'a':
+      case 'r':
+        if (!event.repeat) {
+          this.decideByKey(proposal, event.key === 'a' ? 'approve' : 'reject');
+        }
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+  }
+
+  /** Space selected the row on key down; the button must not also expand on key up. */
+  onRowKeyup(event: KeyboardEvent, proposal: AgentProposal): void {
+    if (event.key === ' ' && this.compact() && this.canSelect(proposal)) {
+      event.preventDefault();
+    }
+  }
+
+  private selectByKey(proposal: AgentProposal): void {
+    if (this.busy()) {
+      return;
+    }
+    if (!this.canSelect(proposal)) {
+      this.announce('not-selectable', proposal);
+      return;
+    }
+
+    this.toggle(proposal);
+    this.announce(this.selected().has(proposal.approvalId) ? 'selected' : 'deselected', proposal);
+  }
+
+  private decideByKey(proposal: AgentProposal, decision: AgentProposalDecision): void {
+    if (this.busy()) {
+      return;
+    }
+    if (proposal.status !== 'pending' || this.isHeld(proposal) || !this.mayDecide(proposal)) {
+      this.announce('not-decidable', proposal);
+      return;
+    }
+
+    this.decideOne(proposal, decision, true);
+  }
+
+  /** Decides one proposal. In a compact list, the row that takes the decided row's place gets the focus. */
+  private decideOne(proposal: AgentProposal, decision: AgentProposalDecision, byKey: boolean): void {
+    if (this.compact()) {
+      this.activate(proposal);
+      this.restoreRowFocus = true;
+    }
+
+    this.run(this.api.decide(proposal, decision), result => {
+      const asks = decision === 'reject' && result.status === 'rejected' && result.canGiveFeedback === true;
+      if (asks) {
+        this.ask([proposal.approvalId], summaryOf(proposal));
+      }
+      if (byKey) {
+        this.announce(decision === 'approve' ? 'approved' : asks ? 'rejected-feedback' : 'rejected', proposal);
+      }
+    }, code => {
+      if (code === staleCode) {
+        // The approval was refused because the proposal no longer fits; show why.
+        this.holdStale([proposal]);
+      }
+    });
+  }
+
+  /** Moves the focus from a row to the next, the previous, the first or the last row. */
+  private focusRow(from: AgentProposal, key: 'ArrowDown' | 'ArrowUp' | 'Home' | 'End'): void {
+    const rows = this.rowButtons();
+    if (rows.length === 0) {
+      return;
+    }
+
+    const index = rows.findIndex(row => row.dataset['proposalRow'] === from.approvalId);
+    const last = rows.length - 1;
+    const targets: Record<typeof key, number> = {
+      ArrowDown: Math.min(index + 1, last),
+      ArrowUp: Math.max(index - 1, 0),
+      Home: 0,
+      End: last
+    };
+    this.focusRowButton(rows[targets[key]]);
+  }
+
+  /**
+   * Focuses a row and gives it the tab stop. The tab stop does not wait for the focus event, which a
+   * browser window in the background does not fire.
+   */
+  private focusRowButton(button: HTMLElement): void {
+    const target = this.shown().find(proposal => proposal.approvalId === button.dataset['proposalRow']);
+    if (target) {
+      this.activate(target);
+    }
+    button.focus();
+  }
+
+  /**
+   * Gives the focus to the row that took a decided row's place, but only when the decision took the
+   * focus away: focus the person moved elsewhere stays there.
+   */
+  private restoreFocusTo(id: string): void {
+    if (!this.restoreRowFocus) {
+      return;
+    }
+
+    this.restoreRowFocus = false;
+    const document = this.host.nativeElement.ownerDocument;
+    if (document.activeElement !== null && document.activeElement !== document.body) {
+      return;
+    }
+
+    const button = this.rowButton(id);
+    if (button) {
+      this.focusRowButton(button);
+    }
+  }
+
+  private rowButtons(): HTMLElement[] {
+    return Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('[data-proposal-row]'));
+  }
+
+  private rowButton(id: string): HTMLElement | undefined {
+    return this.rowButtons().find(row => row.dataset['proposalRow'] === id);
+  }
+
+  private announce(status: string, proposal: AgentProposal): void {
+    this.keyStatus.set({ key: `nh-assistant.agent-runs.compact.status.${status}`, params: { summary: summaryOf(proposal) } });
   }
 
   private groupSection(group: AgentInboxGroup, members: AgentProposal[], heldIds: ReadonlySet<string>): NhAssistantGroupSection {
@@ -647,4 +980,17 @@ function runsOf(items: readonly AgentProposal[]): NhAssistantRunSection[] {
 /** True for a proposal a newer proposal for the same objects replaced. */
 function isSuperseded(proposal: AgentProposal): boolean {
   return proposal.status === 'withdrawn' && !!proposal.supersededByApprovalId;
+}
+
+/**
+ * True when a key goes to something a person types or chooses in, where the list's letters must never
+ * act: an input, text area, select, editable content or the feedback form.
+ */
+function isField(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return target.isContentEditable
+    || target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), nh-assistant-proposal-feedback') !== null;
 }

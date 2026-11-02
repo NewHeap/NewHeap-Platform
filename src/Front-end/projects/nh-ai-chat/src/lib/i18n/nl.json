@@ -961,6 +961,54 @@
         "history-empty": "Nog geen runs.",
         "history-more": "Toon meer runs",
         "history-limited": "Oudere runs staan hier niet."
+      },
+      "compact": {
+        "hint": "Voorstellen in rijen. Met de pijltoetsen ga je van rij naar rij, Enter toont een heel voorstel en het vraagteken somt de toetsen op.",
+        "select-label": "Selecteren: {{summary}}",
+        "waiting": "Iemand anders beslist",
+        "status": {
+          "selected": "Geselecteerd: {{summary}}",
+          "deselected": "Niet meer geselecteerd: {{summary}}",
+          "approved": "Goedgekeurd: {{summary}}",
+          "rejected": "Afgewezen: {{summary}}",
+          "rejected-feedback": "Afgewezen: {{summary}}. Boven de lijst kun je zeggen wat er mis was.",
+          "not-decidable": "Over dit voorstel kun je hier niet beslissen: {{summary}}",
+          "not-selectable": "Dit voorstel kan niet geselecteerd worden: {{summary}}"
+        },
+        "keys": {
+          "show": "Toetsen",
+          "title": "Toetsen van deze lijst",
+          "close": "Sluiten",
+          "note": "De letters werken alleen terwijl een voorstel van de lijst de focus heeft, nooit in een veld. a en r beslissen alleen over het voorstel met de focus, nooit over de selectie.",
+          "move": {
+            "keys": "Pijl omlaag en omhoog, j en k",
+            "does": "Naar het volgende of het vorige voorstel"
+          },
+          "edges": {
+            "keys": "Home en End",
+            "does": "Naar het eerste of het laatste voorstel"
+          },
+          "expand": {
+            "keys": "Enter",
+            "does": "Het hele voorstel tonen of verbergen"
+          },
+          "select": {
+            "keys": "Spatie of x",
+            "does": "Het voorstel selecteren, of niet meer"
+          },
+          "approve": {
+            "keys": "a",
+            "does": "Het voorstel met de focus goedkeuren"
+          },
+          "reject": {
+            "keys": "r",
+            "does": "Het voorstel met de focus afwijzen; daarna kun je zeggen wat er mis was"
+          },
+          "help": {
+            "keys": "?",
+            "does": "Deze toetsen tonen of verbergen"
+          }
+        }
       }
     },
     "subject-picker": {

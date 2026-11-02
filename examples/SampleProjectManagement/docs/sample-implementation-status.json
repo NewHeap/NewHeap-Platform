@@ -2433,7 +2433,9 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-live.service.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-live.service.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/thread/nh-assistant-thread.component.ts",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/components.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/components.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/agent-runs/src/nh-assistant-agent-proposals.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-compact-proposals.spec.ts"
     ],
     "SPM-278": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",

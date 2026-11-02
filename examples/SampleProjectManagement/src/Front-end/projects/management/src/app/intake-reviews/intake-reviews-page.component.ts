@@ -37,6 +37,10 @@ const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
  * portal's shell subscribes to) opens this page with `?run=`; the inbox then lists every proposal of
  * that run the person may decide, of any agent and object, until the person shows all again.
  *
+ * SPM-277: "Compact list" shows the inbox with `density: 'compact'`: one row per proposal that expands
+ * to its card, one tab stop with the arrow keys, and the list's letters (`j`, `k`, `x`, `a`, `r`, `?`)
+ * while the focus is in a row; `a` and `r` decide the focused row, never the selection.
+ *
  * Rejecting a proposal in either view asks, optionally and after the decision, what was wrong.
  * Assistant administrators also see the reviewer's feedback report: the server reports
  * `canAdminister` from the assistant admin policy `app.project.edit-or-admin` (manage
@@ -68,6 +72,8 @@ export class IntakeReviewsPageComponent implements OnInit {
   readonly activeDivisionId = inject(SampleAuthService).getAuthorization()?.activeDivision?.id ?? null;
   /** SPM-310: whether the inbox shows the active division's proposals only. */
   readonly activeDivisionOnly = signal(false);
+  /** SPM-277: whether the inbox shows one compact row per proposal, with the list's keys. */
+  readonly compactList = signal(false);
   /** SPM-310: the run a clicked notification is about; the inbox then lists that run's proposals. */
   readonly runId = signal<string | null>(null);
   readonly projects = signal<ProjectViewModel[]>([]);

@@ -14,3 +14,11 @@
   selection now follows the list: a refresh of the same page keeps it, another page, filter or a decision
   elsewhere drops what the list no longer shows, and "Approve selected" and "Reject selected" send only ids
   of shown proposals.
+- `nh-assistant-agent-proposals` and `nh-assistant-agent-inbox` take `density: 'compact'`
+  (`NhAssistantProposalDensity`) for lists of many proposals: one row per proposal with its object, kind of
+  action, summary on one line, agent and expiry, and the markers that must not disappear (status once it no
+  longer waits, new, waiting for someone else, from a consultation, the source of its rights). A row expands
+  in place to its card. The rows share one tab stop with the arrow keys, Home and End; Enter expands and
+  Space selects. While the focus is in a row, and never in a field or the feedback form, `j` and `k` move,
+  `x` selects, `a` approves and `r` rejects that row's proposal, never the selection, and `?` lists the keys.
+  Rejecting by key asks afterwards what was wrong, as a click does. The comfortable cards stay the default.

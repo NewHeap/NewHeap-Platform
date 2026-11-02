@@ -714,6 +714,7 @@
     "report-label": "Intake reviewer feedback report",
     "report-scope": "Assistant administrators only: what people said when they rejected the intake reviewer's proposals.",
     "active-division-only": "Only proposals of my active division",
+    "compact-list": "Compact list with keyboard keys",
     "run-only": "The proposals of the run a notification is about",
     "show-all": "Show all proposals"
   },

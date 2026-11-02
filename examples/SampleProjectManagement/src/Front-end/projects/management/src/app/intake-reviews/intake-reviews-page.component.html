@@ -17,6 +17,11 @@
           {{ 'intake-reviews.active-division-only' | translate }}
         </label>
       }
+      <!-- SPM-277: the compact list for an inbox of many proposals: rows with one tab stop and keys. -->
+      <label class="density-toggle">
+        <input type="checkbox" data-compact-list [checked]="compactList()" (change)="compactList.set(!compactList())" />
+        {{ 'intake-reviews.compact-list' | translate }}
+      </label>
       <!-- SPM-310: a clicked notification about a run's proposals opens the inbox of that run, of any
            agent and object, until the person shows every proposal again. -->
       @if (runId()) {
@@ -34,6 +39,7 @@
         [divisionId]="activeDivisionOnly() ? activeDivisionId : null"
         [grouped]="true"
         [groupByRun]="true"
+        [density]="compactList() ? 'compact' : 'comfortable'"
         (openConversation)="openConversation($event)" />
     </article>
 
