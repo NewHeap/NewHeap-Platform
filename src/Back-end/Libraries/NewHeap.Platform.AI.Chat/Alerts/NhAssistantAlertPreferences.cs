@@ -9,7 +9,8 @@ namespace NewHeap.Platform.AI.Chat.Alerts;
 
 /// <summary>
 /// What applies to one person for one alert kind: their stored choices where the kind lets them choose,
-/// otherwise the kind's declared delivery (FB87-6). A required kind is never muted.
+/// otherwise the kind's effective delivery (FB87-6): its code merged with an administrator's settings
+/// (<see cref="NhAssistantAlertKindSettings"/>). A required kind is never muted.
 /// </summary>
 /// <param name="Muted">The person does not receive the kind.</param>
 /// <param name="DigestTime">The time of day of the person's digest of the kind; <see langword="null"/> for a kind delivered immediately.</param>
@@ -23,14 +24,30 @@ internal sealed record NhAssistantAlertChoice(
     bool Push,
     bool InApp)
 {
+    /// <summary>
+    /// What applies to the person under the kind's declared delivery, without an administrator's settings.
+    /// </summary>
     public static NhAssistantAlertChoice Of(NhAssistantAlertKind kind, AssistantNotificationPreference? stored)
     {
         ArgumentNullException.ThrowIfNull(kind);
-        var chosenDigestTime = MayChangeDigestTime(kind) ? stored?.DigestTime : null;
+        return Of(kind, NhAssistantAlertEffectiveDelivery.Of(kind.Delivery), stored);
+    }
+
+    /// <summary>
+    /// What applies to the person under <paramref name="delivery"/>, the kind's effective delivery.
+    /// </summary>
+    public static NhAssistantAlertChoice Of(
+        NhAssistantAlertKind kind,
+        NhAssistantAlertEffectiveDelivery delivery,
+        AssistantNotificationPreference? stored)
+    {
+        ArgumentNullException.ThrowIfNull(kind);
+        ArgumentNullException.ThrowIfNull(delivery);
+        var chosenDigestTime = MayChangeDigestTime(kind, delivery) ? stored?.DigestTime : null;
         var channels = MayChooseChannels(kind);
         return new NhAssistantAlertChoice(
             MayMute(kind) && stored?.Muted == true,
-            kind.Delivery.Mode == NhAssistantAlertDeliveryMode.DailyDigest ? chosenDigestTime ?? kind.Delivery.DigestTime : null,
+            delivery.DigestTime is { } digestTime ? chosenDigestTime ?? digestTime : null,
             chosenDigestTime,
             !channels || stored?.Push != false,
             !channels || stored?.InApp != false);
@@ -42,10 +59,19 @@ internal sealed record NhAssistantAlertChoice(
         return !kind.Required && kind.Choices.HasFlag(NhAssistantAlertChoices.Mute);
     }
 
-    /// <summary>A person may choose the time of the kind's digest: it is delivered in one and lets them.</summary>
+    /// <summary>A person may choose the time of the kind's digest: its code delivers it in one and lets them.</summary>
     public static bool MayChangeDigestTime(NhAssistantAlertKind kind)
     {
-        return kind.Delivery.Mode == NhAssistantAlertDeliveryMode.DailyDigest
+        return MayChangeDigestTime(kind, NhAssistantAlertEffectiveDelivery.Of(kind.Delivery));
+    }
+
+    /// <summary>
+    /// A person may choose the time of the kind's digest: <paramref name="delivery"/>, its effective
+    /// delivery, delivers it in one and the kind lets them.
+    /// </summary>
+    public static bool MayChangeDigestTime(NhAssistantAlertKind kind, NhAssistantAlertEffectiveDelivery delivery)
+    {
+        return delivery.DigestTime is not null
             && kind.Choices.HasFlag(NhAssistantAlertChoices.DigestTime);
     }
 
@@ -57,13 +83,17 @@ internal sealed record NhAssistantAlertChoice(
 }
 
 /// <summary>
-/// One alert kind as a person's preferences show it: the kind, what they may change and what applies.
+/// One alert kind as a person's preferences show it: the kind, its effective delivery, what they may
+/// change and what applies.
 /// </summary>
-internal sealed record NhAssistantAlertKindPreference(NhAssistantAlertKind Kind, NhAssistantAlertChoice Choice)
+internal sealed record NhAssistantAlertKindPreference(
+    NhAssistantAlertKind Kind,
+    NhAssistantAlertEffectiveDelivery Delivery,
+    NhAssistantAlertChoice Choice)
 {
     public bool MayMute => NhAssistantAlertChoice.MayMute(Kind);
 
-    public bool MayChangeDigestTime => NhAssistantAlertChoice.MayChangeDigestTime(Kind);
+    public bool MayChangeDigestTime => NhAssistantAlertChoice.MayChangeDigestTime(Kind, Delivery);
 
     public bool MayChooseChannels => NhAssistantAlertChoice.MayChooseChannels(Kind);
 }
@@ -72,7 +102,7 @@ internal sealed record NhAssistantAlertKindPreference(NhAssistantAlertKind Kind,
 /// A person's preferences about alerts: their time zone for the digest and every registered kind.
 /// </summary>
 /// <param name="TimeZoneId">The id of the person's time zone, as the application gives it or the application's own.</param>
-/// <param name="Kinds">Every registered kind, ordered by id.</param>
+/// <param name="Kinds">Every registered kind that is on, ordered by id.</param>
 /// <param name="InAppAvailable">The host delivers in-app notifications (<see cref="INhUserNotificationSink"/>).</param>
 internal sealed record NhAssistantAlertPreferenceView(
     string TimeZoneId,
@@ -108,6 +138,7 @@ internal sealed class NhAssistantAlertPreferences(
     NhAssistantRegistrationState registration,
     NhAssistantNotificationStore notifications,
     NhAssistantAlertTimeZones timeZones,
+    NhAssistantAlertKindSettings kindSettings,
     IServiceProvider services,
     TimeProvider? timeProvider = null)
 {
@@ -123,9 +154,15 @@ internal sealed class NhAssistantAlertPreferences(
         var stored = registration.AlertKinds.Count == 0
             ? new Dictionary<string, AssistantNotificationPreference>(StringComparer.Ordinal)
             : await notifications.GetPreferencesAsync(actorId, NhAssistantNotificationPreferenceCategories.Alert, cancellationToken);
-        var kinds = registration.AlertKinds.Values
-            .OrderBy(kind => kind.Id, StringComparer.Ordinal)
-            .Select(kind => new NhAssistantAlertKindPreference(kind, NhAssistantAlertChoice.Of(kind, stored.GetValueOrDefault(kind.Id))))
+        // A kind an administrator switched off reaches nobody, so a person has nothing to choose about it.
+        var states = await kindSettings.GetAllAsync(cancellationToken);
+        var kinds = states.Values
+            .Where(state => state.Enabled)
+            .OrderBy(state => state.Kind.Id, StringComparer.Ordinal)
+            .Select(state => new NhAssistantAlertKindPreference(
+                state.Kind,
+                state.Delivery,
+                NhAssistantAlertChoice.Of(state.Kind, state.Delivery, stored.GetValueOrDefault(state.Kind.Id))))
             .ToArray();
         return new NhAssistantAlertPreferenceView(zone.Id, kinds, services.GetService<INhUserNotificationSink>() is not null);
     }
@@ -147,10 +184,11 @@ internal sealed class NhAssistantAlertPreferences(
             return TaskResult.Failed(NhAssistantAdminErrorCodes.ValidationFailed, NhAssistantErrorCodes.MessageKey(NhAssistantAdminErrorCodes.ValidationFailed));
         }
 
+        var states = await kindSettings.GetAllAsync(cancellationToken);
         var changes = new List<NhAssistantNotificationPreferenceChange>(requests.Count);
         foreach (var request in requests)
         {
-            var checkedChange = Check(request);
+            var checkedChange = Check(request, states);
             if (!checkedChange.Success)
             {
                 return checkedChange;
@@ -168,12 +206,16 @@ internal sealed class NhAssistantAlertPreferences(
         return TaskResult.Succeeded();
     }
 
-    private TaskResult<NhAssistantNotificationPreferenceChange> Check(NhAssistantAlertPreferenceRequest request)
+    private static TaskResult<NhAssistantNotificationPreferenceChange> Check(
+        NhAssistantAlertPreferenceRequest request,
+        IReadOnlyDictionary<string, NhAssistantAlertKindState> states)
     {
-        if (request.KindId is null || !registration.AlertKinds.TryGetValue(request.KindId, out var kind))
+        if (request.KindId is null || !states.TryGetValue(request.KindId, out var state))
         {
             return Refused(NhAssistantErrorCodes.NotificationKindUnknown);
         }
+
+        var kind = state.Kind;
         if (request.Muted == true && !NhAssistantAlertChoice.MayMute(kind))
         {
             return Refused(NhAssistantErrorCodes.NotificationMuteNotAllowed);
@@ -186,7 +228,7 @@ internal sealed class NhAssistantAlertPreferences(
             {
                 return Refused(NhAssistantErrorCodes.NotificationDigestTimeInvalid);
             }
-            if (!NhAssistantAlertChoice.MayChangeDigestTime(kind))
+            if (!NhAssistantAlertChoice.MayChangeDigestTime(kind, state.Delivery))
             {
                 return Refused(NhAssistantErrorCodes.NotificationDigestTimeNotAllowed);
             }

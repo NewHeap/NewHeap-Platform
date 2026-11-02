@@ -46,8 +46,8 @@ internal sealed record NhAssistantAlertListFilter(
     public IReadOnlyList<NhAssistantAlertUrgency> Urgencies { get; init; } = [];
 
     /// <summary>
-    /// Leaves out the deliveries withheld because the person muted the kind, for a badge: the list shows
-    /// them, but a muted kind never asks for the person's attention.
+    /// Leaves out the deliveries withheld because the person muted the kind or an administrator switched it
+    /// off, for a badge: the list shows them, but such a kind never asks for the person's attention.
     /// </summary>
     public bool WithoutMuted { get; init; }
 }
@@ -88,7 +88,8 @@ internal sealed partial class NhAssistantAlertStore
         if (filter.WithoutMuted)
         {
             query = query.Where(delivery => !(delivery.Status == NhAssistantAlertDeliveryStatuses.Withheld
-                && delivery.ReasonCode == NhAssistantAlertWithholdReasons.Muted));
+                && (delivery.ReasonCode == NhAssistantAlertWithholdReasons.Muted
+                    || delivery.ReasonCode == NhAssistantAlertWithholdReasons.KindOff)));
         }
 
         if (filter.KindIds.Count > 0)

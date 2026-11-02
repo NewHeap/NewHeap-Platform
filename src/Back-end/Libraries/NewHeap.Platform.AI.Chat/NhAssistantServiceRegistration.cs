@@ -199,6 +199,11 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<Alerts.NhAssistantAlertTimeZones>();
         services.TryAddScoped<Alerts.NhAssistantAlertPreferences>();
         services.TryAddScoped<Alerts.NhAssistantAlertDispatcher>();
+        // The administration of alert kinds (FB87 phase 2): an administrator's settings within the bounds
+        // of the code, the one effective state of every kind, and the numbers per kind.
+        services.TryAddScoped<NhAssistantAlertKindSettingStore>();
+        services.TryAddScoped<Alerts.NhAssistantAlertKindSettings>();
+        services.TryAddScoped<NhAssistantAlertNumbersStore>();
         return state;
     }
 

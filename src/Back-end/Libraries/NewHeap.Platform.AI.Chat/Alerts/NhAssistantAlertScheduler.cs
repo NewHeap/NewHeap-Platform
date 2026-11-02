@@ -137,12 +137,15 @@ internal static class NhAssistantAlertDigestTimes
 /// Plans the deliveries of alerts (FB87 phase 1, lane AB) in place of the immediate default: an alert of
 /// a kind delivered immediately, or of an urgency from which its kind delivers immediately, is due at
 /// once; any other is due at the next daily digest at the person's chosen digest time or the kind's, on
-/// working days only when the kind says so, in the person's time zone. A person's later change of their
-/// digest time applies to the deliveries planned after it.
+/// working days only when the kind says so, in the person's time zone. The kind's delivery is its
+/// effective one (<see cref="NhAssistantAlertKindSettings"/>), with an administrator's settings; of several
+/// digest times it plans the first of the day. A later change of a digest time applies to the deliveries
+/// planned after it.
 /// </summary>
 internal sealed class NhAssistantAlertDigestScheduler(
     NhAssistantNotificationStore notifications,
-    NhAssistantAlertTimeZones timeZones) : INhAssistantAlertScheduler
+    NhAssistantAlertTimeZones timeZones,
+    NhAssistantAlertKindSettings kindSettings) : INhAssistantAlertScheduler
 {
     private readonly Dictionary<string, IReadOnlyDictionary<string, Entities.AssistantNotificationPreference>> _preferences =
         new(StringComparer.Ordinal);
@@ -151,7 +154,8 @@ internal sealed class NhAssistantAlertDigestScheduler(
     {
         ArgumentNullException.ThrowIfNull(request);
         var kind = request.Kind;
-        if (kind.Delivery.IsImmediateFor(request.Urgency) || kind.Delivery.DigestTime is null)
+        var delivery = (await kindSettings.GetAsync(kind, cancellationToken)).Delivery;
+        if (delivery.IsImmediateFor(request.Urgency) || delivery.DigestTime is null)
         {
             return request.Now;
         }
@@ -165,8 +169,8 @@ internal sealed class NhAssistantAlertDigestScheduler(
             _preferences[request.RecipientActorId] = preferences;
         }
 
-        var choice = NhAssistantAlertChoice.Of(kind, preferences.GetValueOrDefault(kind.Id));
+        var choice = NhAssistantAlertChoice.Of(kind, delivery, preferences.GetValueOrDefault(kind.Id));
         var zone = await timeZones.OfAsync(request.RecipientActorId, cancellationToken);
-        return NhAssistantAlertDigestTimes.Next(request.Now, choice.DigestTime!.Value, kind.Delivery.WorkdaysOnly, zone);
+        return NhAssistantAlertDigestTimes.Next(request.Now, choice.DigestTime!.Value, delivery.WorkdaysOnly, zone);
     }
 }

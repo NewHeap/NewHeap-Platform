@@ -25,7 +25,8 @@ internal sealed record NhAssistantAlertRaiser(string? AgentId, Guid? RunId, bool
 /// chooses the recipients with the kind's selectors or the application's <see cref="INhAssistantAlertPolicy"/>,
 /// checks every one of them (<see cref="NhAssistantAlertRecipientCheck"/>), plans their deliveries
 /// (<see cref="INhAssistantAlertScheduler"/>) and lets the store deduplicate. Shadow alerts get no
-/// recipients. The audit is content-free. Every time is on the application's clock.
+/// recipients. A kind an administrator switched off raises nothing (<see cref="NhAssistantAlertCodes.KindOff"/>);
+/// its alerts are still resolved. The audit is content-free. Every time is on the application's clock.
 /// </summary>
 internal sealed class NhAssistantAlertService(
     NhAssistantRegistrationState registration,
@@ -35,6 +36,7 @@ internal sealed class NhAssistantAlertService(
     INhAssistantAlertScheduler scheduler,
     NhAssistantAlertStore store,
     NhAssistantAlertTexts texts,
+    NhAssistantAlertKindSettings kindSettings,
     NhAssistantAgentEvents events,
     NhAssistantAgentCatalog agents,
     ILogger<NhAssistantAlertService> logger,
@@ -157,6 +159,11 @@ internal sealed class NhAssistantAlertService(
         if (!registration.AlertKinds.TryGetValue(alert.KindId, out var kind))
         {
             return TaskResult<NhAssistantAlertReceipt>.Failed(NhAssistantAlertCodes.KindUnknown, "assistant.alert-kind-unknown");
+        }
+        if (!(await kindSettings.GetAsync(kind, cancellationToken)).Enabled)
+        {
+            // Switched off by an administrator: nothing is recorded, updated or delivered.
+            return TaskResult<NhAssistantAlertReceipt>.Failed(NhAssistantAlertCodes.KindOff, "assistant.alert-kind-off");
         }
         if (alert.Recipients.Count > 0 && !kind.Recipients.Includes(NhAssistantAlertRecipientSelector.Explicit))
         {
