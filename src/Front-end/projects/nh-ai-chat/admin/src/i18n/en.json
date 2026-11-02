@@ -1954,7 +1954,44 @@
             "contract-changed": "The tool changed since it was switched, so it asks for approval again. Try it in shadow again first.",
             "unavailable": "Asks for approval: its code does not let this agent run it without approval.",
             "not-candidate": "The numbers do not mark this kind as routine for this agent yet:"
+          },
+          "alert-model": {
+            "title": "Alerts from the model",
+            "description": "A kind of alert whose code allows it can be raised by this agent's language model, through the kind's template: the model chooses the kind and fills its typed parameters, never the subject or the recipients, and the platform refuses links, markup and values outside the template. Try it in shadow first: the model's alerts are recorded but reach nobody, and the Alerts section counts what they would have sent. Let them reach people once they are right. Only the agent's own runs on one object use it, never a person's chat, a consultation or a run on the whole application.",
+            "not-applicable": "This agent does no work of its own, so its model never raises alerts.",
+            "kind-off": "This kind of alert is switched off for everyone in the Alerts section, so nothing of it is raised.",
+            "parameters": "The model fills:",
+            "key": "key",
+            "type": {
+              "choice": "a choice",
+              "whole-number": "a whole number",
+              "date": "a date",
+              "text": "a short text"
+            },
+            "mode": {
+              "off": "Off",
+              "shadow": "In shadow",
+              "live": "Reaches people"
+            },
+            "action": {
+              "off": "Switch off",
+              "shadow": "Try in shadow",
+              "live": "Let it reach people"
+            },
+            "explain": {
+              "off": "From now on this agent's model is no longer offered {{kind}}. Its alerts that are open stay open until they are resolved or expire.",
+              "shadow": "This agent's model may raise {{kind}} in its runs, as shadow alerts that reach nobody. You see what it would have sent in the Alerts section.",
+              "live": "From now on the alerts of {{kind}} that this agent's model raises reach the people the kind chooses, checked as every alert's recipients are. They are labelled as raised by AI."
+            },
+            "confirm": {
+              "off": "Switch off",
+              "shadow": "Try in shadow",
+              "live": "Let it reach people"
+            },
+            "changed": "Version {{version}}, switched by {{user}} on {{date}}",
+            "contract-changed": "The kind's template changed since it was switched, so it is off. Try it in shadow again first."
           }
+
         },
         "activity": {
           "label": "Show",

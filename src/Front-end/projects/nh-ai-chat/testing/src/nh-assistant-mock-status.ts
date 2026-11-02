@@ -176,7 +176,9 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-mcp-authorization-not-confirmed',
     'assistant-mcp-connection-not-supported',
     'assistant-mcp-secret-unreadable',
-    'assistant-files-not-accepted'
+    'assistant-files-not-accepted',
+    'assistant-alert-model-not-allowed',
+    'assistant-alert-model-shadow-first'
   ],
   413: [
     'assistant-webhook-payload-too-large',

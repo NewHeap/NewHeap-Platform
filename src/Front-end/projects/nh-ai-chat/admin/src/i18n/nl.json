@@ -1954,7 +1954,44 @@
             "contract-changed": "De tool is veranderd sinds hij werd omgezet, dus hij vraagt weer om goedkeuring. Probeer hem eerst opnieuw in schaduw.",
             "unavailable": "Vraagt om goedkeuring: de code laat deze agent het niet zonder goedkeuring draaien.",
             "not-candidate": "De cijfers merken dit soort actie voor deze agent nog niet als routine aan:"
+          },
+          "alert-model": {
+            "title": "Attenties van het taalmodel",
+            "description": "Een soort attentie waarvan de code het toestaat, kan het taalmodel van deze agent geven via het sjabloon van het soort: het model kiest het soort en vult de getypeerde parameters in, nooit het object of de ontvangers, en het platform weigert links, opmaak en waarden buiten het sjabloon. Probeer het eerst in schaduw: de attenties van het model worden vastgelegd maar bereiken niemand, en de sectie Attenties telt wat ze zouden hebben verstuurd. Laat ze mensen bereiken zodra ze kloppen. Alleen de eigen runs van de agent op één object gebruiken het, nooit de chat van een persoon, een raadpleging of een run op de hele applicatie.",
+            "not-applicable": "Deze agent doet geen eigen werk, dus het taalmodel geeft nooit attenties.",
+            "kind-off": "Dit soort attentie staat voor iedereen uit in de sectie Attenties, dus er wordt niets van gegeven.",
+            "parameters": "Het model vult in:",
+            "key": "sleutel",
+            "type": {
+              "choice": "een keuze",
+              "whole-number": "een geheel getal",
+              "date": "een datum",
+              "text": "een korte tekst"
+            },
+            "mode": {
+              "off": "Uit",
+              "shadow": "In schaduw",
+              "live": "Bereikt mensen"
+            },
+            "action": {
+              "off": "Uitzetten",
+              "shadow": "Probeer in schaduw",
+              "live": "Laat het mensen bereiken"
+            },
+            "explain": {
+              "off": "Vanaf nu krijgt het taalmodel van deze agent {{kind}} niet meer aangeboden. Open attenties blijven open tot ze zijn opgelost of verlopen.",
+              "shadow": "Het taalmodel van deze agent mag {{kind}} geven in zijn runs, als schaduwattenties die niemand bereiken. In de sectie Attenties zie je wat het zou hebben verstuurd.",
+              "live": "Vanaf nu bereiken de attenties van {{kind}} die het taalmodel van deze agent geeft de mensen die het soort kiest, gecontroleerd zoals de ontvangers van elke attentie. Ze zijn gemarkeerd als gegeven door AI."
+            },
+            "confirm": {
+              "off": "Uitzetten",
+              "shadow": "Probeer in schaduw",
+              "live": "Laat het mensen bereiken"
+            },
+            "changed": "Versie {{version}}, omgezet door {{user}} op {{date}}",
+            "contract-changed": "Het sjabloon van het soort veranderde nadat het werd omgezet, dus het staat uit. Probeer het eerst opnieuw in schaduw."
           }
+
         },
         "activity": {
           "label": "Tonen",

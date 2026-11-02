@@ -568,7 +568,9 @@
       "assistant-alert-kind-unknown": "Dit soort attentie bestaat niet meer. Laad de soorten attenties opnieuw.",
       "assistant-alert-kind-switch-off-not-allowed": "Dit soort attentie kan niet worden uitgezet: het is verplicht, of de code staat het niet toe.",
       "assistant-alert-kind-delivery-not-allowed": "De code van dit soort attentie laat beheerders dit deel van de bezorging niet wijzigen.",
-      "assistant-alert-kind-delivery-invalid": "Controleer de bezorging: een dagelijks overzicht heeft één tot vier verschillende tijden nodig, zoals 07:30, en stille uren een begin en een einde die verschillen."
+      "assistant-alert-kind-delivery-invalid": "Controleer de bezorging: een dagelijks overzicht heeft één tot vier verschillende tijden nodig, zoals 07:30, en stille uren een begin en een einde die verschillen.",
+      "assistant-alert-model-not-allowed": "Het taalmodel van deze agent kan dit soort attentie niet geven: de code staat het niet toe, de agent noemt het niet, of de agent doet geen eigen werk.",
+      "assistant-alert-model-shadow-first": "Zet dit soort attentie eerst in schaduw. De attenties van het taalmodel gaan alleen vanuit schaduw live, ook nadat het sjabloon van het soort veranderde."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",
@@ -1163,7 +1165,9 @@
       "withheld": {
         "muted": "Gedempt",
         "other": "Niet gemeld"
-      }
+      },
+      "raised-by-model": "Door AI",
+      "raised-by-model-title": "Het taalmodel van een agent gaf deze attentie volgens het sjabloon van het soort; controleer haar voordat je ernaar handelt."
     },
     "notification-preferences": {
       "title": "Meldingen",

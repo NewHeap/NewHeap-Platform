@@ -29,6 +29,7 @@ import {
 import { NhAssistantMockRunConfiguration } from './nh-assistant-mock-run-configuration';
 import { NhAssistantMockInstructionAssets } from './nh-assistant-mock-instruction-assets';
 import { NhAssistantMockWithoutApproval } from './nh-assistant-mock-without-approval';
+import { NhAssistantMockAlertModel } from './nh-assistant-mock-alert-model';
 import { mockSystemSubjectType } from './nh-assistant-mock-works-on';
 
 export type { NhAssistantMockResult } from './nh-assistant-mock-admin-shared';
@@ -62,6 +63,8 @@ export class NhAssistantMockAdmin {
   private readonly handOffs: NhAssistantMockHandOffs;
   /** The switches that let an agent run a tool without approval (FB82). */
   private readonly withoutApproval: NhAssistantMockWithoutApproval;
+  /** The switches that let an agent's model raise alerts of a kind (FB87-9). */
+  private readonly alertModel: NhAssistantMockAlertModel;
   /** The administrator's settings per alert kind and the numbers of its alerts (FB87 phase 2). */
   private readonly alertKinds: NhAssistantMockAlertKinds;
   /** The application's text assets for instructions. */
@@ -120,6 +123,7 @@ export class NhAssistantMockAdmin {
       find: agentId => this.agents.find(agentId),
       tools: () => this.toolCatalog()
     }, now);
+    this.alertModel = new NhAssistantMockAlertModel(admin.alertModel, { find: agentId => this.agents.find(agentId) }, now);
     this.presetRunConfigurations(admin.agents ?? []);
   }
 
@@ -286,6 +290,12 @@ export class NhAssistantMockAdmin {
       case 'agents':
         if (id !== undefined && (action === 'without-approval' || (action === 'tools' && segments[5] === 'without-approval'))) {
           const switched = this.withoutApproval.handle(method, id, segments.slice(3), body);
+          if (switched) {
+            return switched;
+          }
+        }
+        if (id !== undefined && (action === 'alert-model' || (action === 'alert-kinds' && segments[5] === 'model'))) {
+          const switched = this.alertModel.handle(method, id, segments.slice(3), body);
           if (switched) {
             return switched;
           }

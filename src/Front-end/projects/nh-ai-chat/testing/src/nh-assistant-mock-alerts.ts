@@ -270,7 +270,8 @@ function withStatus(alert: Alert): Alert {
     isDismissed: alert.isDismissed ?? false,
     isResolved: alert.isResolved ?? false,
     isWithheld: alert.isWithheld ?? false,
-    withheldReason: alert.isWithheld ? alert.withheldReason ?? null : null
+    withheldReason: alert.isWithheld ? alert.withheldReason ?? null : null,
+    raisedByModel: alert.raisedByModel ?? false
   };
 }
 
