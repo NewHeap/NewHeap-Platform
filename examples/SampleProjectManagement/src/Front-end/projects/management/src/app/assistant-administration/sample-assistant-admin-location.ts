@@ -25,8 +25,9 @@ export function sampleAssistantAdminLocation(): SampleAssistantAdminLocation {
     const section = params.get('section');
     const agentId = params.get('agent');
     return {
-      // SPM-279: `?section=proposal-kinds` opens the view per kind of action over all agents.
-      tab: section === 'mcp-servers' || section === 'context' || section === 'proposal-kinds' ? section : 'agents',
+      // SPM-279: `?section=proposal-kinds` opens the view per kind of action over all agents, and
+      // SPM-392 `?section=alert-kinds` the administration of the kinds of alert.
+      tab: section === 'mcp-servers' || section === 'context' || section === 'proposal-kinds' || section === 'alert-kinds' ? section : 'agents',
       agentId,
       agentTab: agentId ? nhAssistantAgentTab(params.get('view')) : null
     };
