@@ -204,6 +204,9 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<NhAssistantAlertKindSettingStore>();
         services.TryAddScoped<Alerts.NhAssistantAlertKindSettings>();
         services.TryAddScoped<NhAssistantAlertNumbersStore>();
+        // The model tool of alerts (FB87-9): the switches per agent and kind, and the tool a run's model calls.
+        services.TryAddScoped<NhAssistantAlertModelSwitchStore>();
+        services.TryAddScoped<Alerts.NhAssistantAlertModelTool>();
         return state;
     }
 

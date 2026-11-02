@@ -158,6 +158,13 @@ public sealed record NhAssistantAlertDto(
 
     /// <summary>Why the delivery was withheld, one of <see cref="NhAssistantAlertWithholdReasons"/>; <see langword="null"/> otherwise.</summary>
     public string? WithheldReason { get; init; }
+
+    /// <summary>
+    /// An agent's language model raised or last updated the alert through its kind's template (FB87-9), so
+    /// its title and text carry values the model chose, which the platform checked as plain text. Show it
+    /// as such, and render the title and text as plain text only.
+    /// </summary>
+    public bool RaisedByModel { get; init; }
 }
 
 /// <summary>
@@ -262,4 +269,8 @@ public sealed record NhAssistantAlertUrgencyCountsDto(int Info, int Warning, int
 [JsonSerializable(typeof(NhAssistantAdminAlertKindsDto))]
 [JsonSerializable(typeof(NhAssistantAdminAlertKindDto))]
 [JsonSerializable(typeof(NhAssistantAdminAlertKindRequest))]
+[JsonSerializable(typeof(NhAssistantAlertModelListDto))]
+[JsonSerializable(typeof(NhAssistantAlertModelSwitchDto))]
+[JsonSerializable(typeof(NhAssistantAlertModelRequest))]
+[JsonSerializable(typeof(NhAssistantAlertModelVersionDto[]))]
 public sealed partial class NhAssistantAlertJsonSerializerContext : JsonSerializerContext;

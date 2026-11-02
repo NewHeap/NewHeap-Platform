@@ -132,6 +132,9 @@ internal sealed partial class NhAssistantTurnRunner
             await PrepareChatAsync(state, cancellationToken);
             return;
         }
+
+        // FB87-9: the alert kinds the run's model may raise, before its functions are offered.
+        await LoadAlertModelKindsAsync(state, cancellationToken);
         if (agentTurn.Options.Skills.Count == 0)
         {
             RefreshFunctions(state);
@@ -192,7 +195,8 @@ internal sealed partial class NhAssistantTurnRunner
 
     /// <summary>
     /// In an agent thread the working memory functions and, in a run, the hand-off tools the agent or
-    /// its skill selects; while another active skill exists and switches remain, <c>use_skill</c> with
+    /// its skill selects and <c>raise_alert</c> for the alert kinds its model may raise (FB87-9); while
+    /// another active skill exists and switches remain, <c>use_skill</c> with
     /// the catalog of the other active skills; and in a chat that allows questions,
     /// <c>ask_question</c>. A live thread or a chat offers no skill that works in shadow.
     /// </summary>
@@ -204,6 +208,10 @@ internal sealed partial class NhAssistantTurnRunner
             functions.AddRange(services.GetRequiredService<NhAssistantMemoryService>()
                 .CreateFunctions(agentTurn.Thread.ConversationId, agentTurn.Options));
             functions.AddRange(CreateHandOffFunctions(state));
+            if (IsRun(state) && state.AlertModelKinds.Count > 0)
+            {
+                functions.Add(CreateRaiseAlertFunction(state));
+            }
         }
 
         var others = state.ActiveSkills.Where(skill => skill != state.Skill && !state.ShadowSkills.Contains(skill.Id)).ToArray();

@@ -389,6 +389,13 @@ public sealed class NhAssistantAlertKind
     /// </summary>
     internal Type? CheckType { get; init; }
 
+    /// <summary>
+    /// What an agent's model fills when it raises an alert of the kind through the platform tool
+    /// <c>assistant.alert.raise</c> (FB87-9); <see langword="null"/> for a kind no model may raise. See
+    /// <see cref="NhAssistantAlertKindBuilder.RaisedByModel"/>.
+    /// </summary>
+    public NhAssistantAlertModelTemplate? ModelTemplate { get; internal init; }
+
     /// <summary>Writes the title of an alert in a culture from its parameters.</summary>
     internal Func<CultureInfo, IReadOnlyDictionary<string, string>, string> Title { get; }
 
@@ -415,6 +422,7 @@ public sealed class NhAssistantAlertKindBuilder
     private NhAssistantAlertAdminChoices _adminChoices = NhAssistantAlertAdminChoices.All;
     private bool _resolveWhenNotRaised;
     private Type? _checkType;
+    private NhAssistantAlertModelTemplate? _modelTemplate;
 
     internal NhAssistantAlertKindBuilder(string id)
     {
@@ -603,6 +611,26 @@ public sealed class NhAssistantAlertKindBuilder
         return this;
     }
 
+    /// <summary>
+    /// Lets the language model of an agent that lists the kind (<c>Alerts(...)</c>) raise it through the
+    /// platform tool <c>assistant.alert.raise</c> (FB87-2, FB87-9), as a template with typed parameters:
+    /// <paramref name="template"/> describes when the kind applies and declares each parameter as a choice,
+    /// a whole number with bounds, a date or a short plain text, and which of them form the key. The model
+    /// fills only those parameters: the subject is its run's own and the recipients are the kind's, and the
+    /// platform derives the key from the kind, the subject and the key parameters. Write the kind's
+    /// <see cref="Title"/> and <see cref="Text"/> from these parameters only. A model raises the kind only
+    /// once an administrator switched it on for the agent, first in shadow; a kind without this call is
+    /// never raised by a model.
+    /// </summary>
+    public NhAssistantAlertKindBuilder RaisedByModel(Action<NhAssistantAlertModelTemplateBuilder> template)
+    {
+        ArgumentNullException.ThrowIfNull(template);
+        var builder = new NhAssistantAlertModelTemplateBuilder(_id);
+        template(builder);
+        _modelTemplate = builder.Build();
+        return this;
+    }
+
     internal NhAssistantAlertKind Build()
     {
         if (_displayNameKey is null)
@@ -638,7 +666,8 @@ public sealed class NhAssistantAlertKindBuilder
         {
             AdministratorChoices = _adminChoices,
             ResolveWhenNotRaised = _resolveWhenNotRaised,
-            CheckType = _checkType
+            CheckType = _checkType,
+            ModelTemplate = _modelTemplate
         };
     }
 }

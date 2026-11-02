@@ -1281,7 +1281,8 @@ internal sealed class NhAssistantAgentEvents(
             AlertEvent(NhAssistantAuditEventKind.AgentAlertRaised, alert, RaiserOf(alert)) with
             {
                 ResultCode = outcome,
-                AlertRecipientCount = recipientCount
+                AlertRecipientCount = recipientCount,
+                AlertRaisedByModel = alert.RaisedByModel ? true : null
             },
             cancellationToken);
     }
@@ -1354,6 +1355,32 @@ internal sealed class NhAssistantAgentEvents(
                 AlertKind = kindId,
                 ResultCode = outcome,
                 ChangedFields = changedFields.Count == 0 ? null : string.Join(',', changedFields)
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Records that <paramref name="actorId"/> switched whether the language model of <paramref name="agentId"/>
+    /// raises alerts of <paramref name="kindId"/> (FB87-9): the new mode and version, never the reason.
+    /// </summary>
+    public Task AlertModelSwitchChangedAsync(
+        string agentId,
+        string kindId,
+        string actorId,
+        string mode,
+        int version,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(kindId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
+        return RecordAsync(
+            new NhAssistantAuditEvent(NhAssistantAuditEventKind.AdminAlertModelSwitchChanged, Guid.Empty, Guid.Empty, actorId, agentId, 0, DateTimeOffset.UtcNow)
+            {
+                ObjectId = agentId,
+                AlertKind = kindId,
+                ResultCode = mode,
+                AlertModelSwitchVersion = version
             },
             cancellationToken);
     }

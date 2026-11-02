@@ -2029,6 +2029,20 @@ public static class NhAssistantAdminErrorCodes
     /// end as <c>HH:mm</c> that differ; the field errors name the parts. Nothing was saved.
     /// </summary>
     public const string AlertKindDeliveryInvalid = "assistant-alert-kind-delivery-invalid";
+
+    /// <summary>
+    /// The agent's model cannot raise the kind (FB87-9): the kind does not allow a model in code
+    /// (<see cref="NhAssistantAlertKindBuilder.RaisedByModel"/>), the agent does not list it with
+    /// <c>Alerts(...)</c>, or the agent does no work of its own, such as a chat-only agent or a shadow
+    /// variant. Nothing was saved.
+    /// </summary>
+    public const string AlertModelNotAllowed = "assistant-alert-model-not-allowed";
+
+    /// <summary>
+    /// A switch that lets an agent's model raise alerts of a kind goes live only from shadow (FB87-9), also
+    /// after the kind's template changed. Nothing was saved.
+    /// </summary>
+    public const string AlertModelShadowFirst = "assistant-alert-model-shadow-first";
 }
 
 /// <summary>

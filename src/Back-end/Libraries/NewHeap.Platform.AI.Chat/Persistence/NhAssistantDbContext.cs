@@ -114,6 +114,9 @@ public sealed class NhAssistantDbContext : DbContext
     public DbSet<AssistantAgentPackageLink> AgentPackageLinks => Set<AssistantAgentPackageLink>();
 
     public DbSet<AssistantAgentToolSwitch> AgentToolSwitches => Set<AssistantAgentToolSwitch>();
+
+    public DbSet<AssistantAgentAlertModelSwitch> AlertModelSwitches => Set<AssistantAgentAlertModelSwitch>();
+
     public DbSet<AssistantDecisionBatch> DecisionBatches => Set<AssistantDecisionBatch>();
 
     public DbSet<AssistantAlert> Alerts => Set<AssistantAlert>();
@@ -712,6 +715,26 @@ public sealed class NhAssistantDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        // FB87-9: an administrator's switches that let one agent's model raise alerts of one kind.
+        modelBuilder.Entity<AssistantAgentAlertModelSwitch>(modelSwitch =>
+        {
+            modelSwitch.ToTable("AssistantAgentAlertModelSwitch");
+            modelSwitch.HasKey(item => item.Id);
+            modelSwitch.Property(item => item.Id).ValueGeneratedNever();
+            modelSwitch.Property(item => item.AgentId).HasMaxLength(128).IsRequired();
+            modelSwitch.Property(item => item.KindId).HasMaxLength(NhAssistantAlertLimits.MaxKindIdLength).IsRequired();
+            modelSwitch.Property(item => item.Mode).HasMaxLength(16).IsRequired();
+            modelSwitch.Property(item => item.ContractHash).HasMaxLength(128).IsRequired();
+            modelSwitch.Property(item => item.ChangedBy).HasMaxLength(256).IsRequired();
+            modelSwitch.Property(item => item.Reason).HasMaxLength(AssistantAgentAlertModelSwitch.MaxReasonLength);
+            // Append-only versions: two administrators who switch at once cannot both write the next one.
+            modelSwitch.HasIndex(item => new { item.AgentId, item.KindId, item.Version }).IsUnique();
+            modelSwitch.HasOne<AssistantAgent>()
+                .WithMany()
+                .HasForeignKey(item => item.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<AssistantAgentTriggerDefinition>(trigger =>
         {
             trigger.ToTable("AssistantAgentTriggerDefinition");
@@ -929,6 +952,8 @@ public sealed class NhAssistantDbContext : DbContext
             // The run maintenance: open alerts whose expiry passed, closed alerts past their retention.
             alert.HasIndex(item => new { item.Status, item.ExpiresAt });
             alert.HasIndex(item => new { item.Status, item.ClosedAt });
+            // FB87-9: the alerts of one run, which the limit per run of a run's model counts.
+            alert.HasIndex(item => item.RunId);
             alert.HasMany(item => item.Deliveries)
                 .WithOne(item => item.Alert)
                 .HasForeignKey(item => item.AlertId)

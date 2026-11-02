@@ -352,7 +352,8 @@ internal sealed class NhAssistantAlertList(
             IsExpired = alert.Status == NhAssistantAlertStatuses.Expired
                 || (alert.Status == NhAssistantAlertStatuses.Open && alert.ExpiresAt is { } expiresAt && expiresAt <= now),
             IsWithheld = withheld,
-            WithheldReason = withheld ? delivery.ReasonCode : null
+            WithheldReason = withheld ? delivery.ReasonCode : null,
+            RaisedByModel = alert.RaisedByModel
         };
     }
 
