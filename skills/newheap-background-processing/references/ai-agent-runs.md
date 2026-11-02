@@ -1908,6 +1908,30 @@ Forward feedback to the application's analytics with `AddProposalFeedbackSink`; 
 receives the text, the business audit sink only the category
 (`AgentProposalFeedbackGiven`). Feedback is deleted with the subject's threads.
 
+See what is routine from the numbers before anything runs without approval. Each summary row
+carries `DecisionTime` (`NhAssistantDecisionTimeDto`): the median and the 90th percentile of the
+time from a proposal to a person's approval or rejection, in whole seconds and interpolated as
+`percentile_cont` does. Expired, withdrawn and invalidated proposals do not count, nor decisions
+of agents or of the platform. The numbers are a bounded load with provider-neutral LINQ, the same
+on SQL Server and PostgreSQL: at most the newest 1,000 decisions per row, and `Sampled` says
+when there were more. A proposal's creation follows the system clock and its decision the
+application's clock, so an application whose `TimeProvider` runs ahead reads the shift in the
+times. `GET admin/proposal-kinds` (`NhAssistantProposalKindsDto`) is the administration's view
+per kind of action over all agents: per tool the counts, `ApprovalRate`, `RejectionRate`,
+`DecisionTime`, `LastRejectedAt` and the name the proposal cards show (from the newest
+proposal's presentation in the caller's culture, the tool id without one), and per agent a
+`NhAssistantRoutineCandidateDto` with `AgentId`, `ToolId`, the numbers, `Candidate` and the
+`UnmetThresholds` (`NhAssistantRoutineCandidateReasons`). A kind is a candidate for running
+without approval for an agent when the period meets every threshold of
+`NhAssistantRoutineCandidateOptions` (`NewHeap:AI:Assistant:RoutineCandidates` or
+`ConfigureRoutineCandidates`): at least `MinimumDecisions` (50), at least `MinimumApprovalRate`
+(98%) approved, no rejection within `QuietPeriod` (7 days) before the period's end and at most
+`MaximumStaleOrFailedAfterApproval` (none) approved proposals that closed as stale when they ran
+or failed. Keep the defaults in production; lower `MinimumDecisions` only for a development
+database. A candidate is a suggestion only: nothing about deciding changes, and the view is behind
+the admin policy like the rest of the administration. Filter it with `agentId` and `toolId`; the
+period defaults to 30 days and spans at most 366.
+
 Close proposals that people overtook. A proposal can wait for days while a person does the
 work by hand. Register an `INhAiProposalGuard` for the tools it knows with
 `AddProposalGuard<TGuard>(toolSelectors)`; several guards may apply to one tool and the first

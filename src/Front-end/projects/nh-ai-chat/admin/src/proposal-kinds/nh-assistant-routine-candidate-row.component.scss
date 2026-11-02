@@ -1,0 +1,52 @@
+// The cells of one agent's row in the view per kind of action.
+@use './proposal-kinds-table' as table;
+
+:host {
+  display: table-row;
+  font-size: 13px;
+}
+
+@include table.cells;
+
+tbody th,
+th {
+  font-weight: 500;
+}
+
+.agent {
+  display: grid;
+  gap: 2px;
+  padding-left: 16px;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.last-rejected {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+@container (max-width: #{table.$stack-width}) {
+  :host {
+    display: block;
+    margin: 0 0 8px 12px;
+    border: 1px solid var(--nha-border);
+    border-radius: var(--nha-radius-control);
+    padding: 6px 12px;
+    background: var(--nha-background);
+  }
+
+  @include table.stacked-cells;
+
+  .agent {
+    padding-left: 0;
+  }
+}

@@ -254,6 +254,21 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Configures the thresholds by which the administration's view per kind of action marks an
+    /// agent's kind of action as a candidate for running without approval: at least 50 decisions in
+    /// the period, at least 98% approved, no rejection in the last 7 days and none stale or failed after
+    /// approval by default. Applied after the <c>NewHeap:AI:Assistant:RoutineCandidates</c>
+    /// configuration. A candidate is a suggestion only; it changes nothing about how proposals are
+    /// decided.
+    /// </summary>
+    public NhAssistantBuilder ConfigureRoutineCandidates(Action<NhAssistantRoutineCandidateOptions> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        Services.PostConfigure<NhAssistantOptions>(options => configure(options.RoutineCandidates));
+        return this;
+    }
+
+    /// <summary>
     /// Lets owners invite colleagues directly, next to sharing an invitation link. The directory
     /// decides who the caller may invite.
     /// </summary>

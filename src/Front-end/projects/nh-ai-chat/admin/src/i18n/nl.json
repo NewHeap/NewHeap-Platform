@@ -7,7 +7,8 @@
       "tabs": {
         "context": "Context",
         "agents": "Agents",
-        "mcp-servers": "Tools en koppelingen"
+        "mcp-servers": "Tools en koppelingen",
+        "proposal-kinds": "Soorten acties"
       },
       "loading": "Laden",
       "load-failed": "De gegevens konden niet worden geladen.",
@@ -644,7 +645,9 @@
           "with-feedback": "Afgewezen met feedback",
           "invalidated": "Niet meer nodig",
           "people": "Personen",
-          "categories": "Meest gekozen"
+          "categories": "Meest gekozen",
+          "median": "Mediane beslistijd",
+          "percentile-90": "90% besloten binnen"
         },
         "version": "v{{version}}",
         "consultations": "Raadplegingen",
@@ -663,7 +666,8 @@
         "previous": "Vorige",
         "next": "Volgende",
         "page": "Pagina {{page}} van {{pages}}",
-        "pages": "Pagina's"
+        "pages": "Pagina's",
+        "decision-time-hint": "Hoe lang mensen er vanaf het voorstel over deden om het goed of af te keuren."
       },
       "evaluation": {
         "back": "Terug naar de agents",
@@ -1983,6 +1987,70 @@
         "no-steps": "Er is geen toolaanroep uitgevoerd.",
         "rounds-saved": "{{count}} modelrondes bespaard",
         "result-size": "{{count}} tekens teruggegeven aan het model"
+      },
+      "proposal-kinds": {
+        "title": "Soorten acties",
+        "description": "Hoe mensen beslissen over elke soort actie die de agents voorstellen, over alle agents: de beslissingen, het afkeurpercentage en hoe lang een beslissing duurt. Een soort die mensen bijna altijd snel goedkeuren, is misschien routine.",
+        "refresh": "Vernieuwen",
+        "suggestions-only": "Dit zijn suggesties op basis van de cijfers. Een kandidaat verandert niets aan hoe over voorstellen wordt beslist: elk voorstel wacht nog steeds op zijn goedkeurders.",
+        "audience": "Alleen de beheerders van de assistent zien dit overzicht.",
+        "period": "Periode",
+        "only-candidates": "Alleen soorten met een kandidaat",
+        "thresholds": {
+          "title": "Wanneer een soort actie kandidaat is",
+          "intro": "Een soort actie is voor een agent kandidaat om zonder goedkeuring te draaien als de cijfers in de periode aan al deze eisen voldoen:",
+          "minimum-decisions": "Minstens {{count}} beslissingen (goedgekeurd of afgekeurd), zodat de cijfers genoeg zeggen.",
+          "approval-rate": "Minstens {{rate}}% daarvan goedgekeurd.",
+          "quiet-period": "Geen afkeuring in de laatste {{days}} dagen van de periode: mensen corrigeren de agent niet meer.",
+          "none-stale-or-failed": "Geen goedgekeurd voorstel dat vlak voor het uitvoeren verouderd bleek of bij het uitvoeren mislukte.",
+          "stale-or-failed": "Hooguit {{count}} goedgekeurde voorstellen die vlak voor het uitvoeren verouderd bleken of bij het uitvoeren mislukten.",
+          "configured": "De applicatie stelt deze drempels in (NewHeap:AI:Assistant:RoutineCandidates)."
+        },
+        "empty": "Geen enkele agent deed voorstellen in deze periode.",
+        "empty-candidates": "Geen enkele soort actie is kandidaat in deze periode.",
+        "columns": {
+          "kind": "Soort actie",
+          "agent": "Agent",
+          "decisions": "Beslissingen",
+          "approved": "Goedgekeurd",
+          "rejected": "Afgekeurd",
+          "rejection-rate": "Afkeurpercentage",
+          "median": "Mediane beslistijd",
+          "percentile-90": "90% besloten binnen",
+          "candidate": "Kandidaat",
+          "actions": "Acties"
+        },
+        "median-hint": "De helft van de beslissingen duurde hooguit zo lang, van het voorstel tot het goed- of afkeuren.",
+        "percentile-90-hint": "Negen op de tien beslissingen duurden hooguit zo lang.",
+        "no-decisions": "Nog niet besloten",
+        "sampled": "nieuwste 1.000",
+        "sampled-hint": "Berekend uit de nieuwste 1.000 beslissingen per agent in de periode.",
+        "show-agents": "Toon de {{count}} agents van {{kind}}",
+        "hide-agents": "Verberg de agents van {{kind}}",
+        "candidates": "{{count}} van {{agents}} agents",
+        "no-candidates": "Geen",
+        "candidate": "Kandidaat",
+        "candidate-hint": "De cijfers halen elke drempel. Deze soort zonder goedkeuring laten draaien is een eigen beslissing.",
+        "unmet-label": "Drempels die de cijfers niet halen",
+        "last-rejected": "Laatst afgekeurd op {{date}}",
+        "reasons": {
+          "too-few-decisions": "Te weinig beslissingen",
+          "approval-rate-too-low": "Te weinig goedgekeurd",
+          "recent-rejection": "Onlangs afgekeurd",
+          "stale-or-failed-after-approval": "Verouderd of mislukt na goedkeuring"
+        },
+        "reason-hints": {
+          "too-few-decisions": "Minder dan {{count}} beslissingen in de periode.",
+          "approval-rate-too-low": "Minder dan {{rate}}% van de beslissingen waren goedkeuringen.",
+          "recent-rejection": "Iemand keurde in de laatste {{days}} dagen van de periode een voorstel af.",
+          "stale-or-failed-after-approval": "Meer dan {{maximum}} goedgekeurde voorstellen bleken voor het uitvoeren verouderd of mislukten bij het uitvoeren."
+        },
+        "duration": {
+          "seconds": "{{count}} s",
+          "minutes": "{{count}} min",
+          "hours": "{{hours}} u {{minutes}} min",
+          "days": "{{days}} d {{hours}} u"
+        }
       }
     }
   }

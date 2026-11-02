@@ -184,3 +184,19 @@ next `@newheap/platform-ai-chat`.
   QB and QU both touch the inbox component; QU merges after QB, and AE after DS. The full matrix runs once.
 - **(b) FB84 first as a fix of its own, then the train.** It ships the bug fix sooner at the cost of a second
   verification round.
+
+## Lane choices
+
+| # | Choice | Status |
+|---|---|---|
+| DS1 | FB82 decision times as a bounded load, not `percentile_cont`: per group the newest 1,000 decisions (two timestamps each) through one provider-neutral LINQ query (`CROSS APPLY` on SQL Server, `JOIN LATERAL` on PostgreSQL), with linear interpolation as `percentile_cont` computes it and `sampled` when a group has more. SQL Server's `PERCENTILE_CONT` is only a window function, and EF Core translates neither provider's percentile nor `DateTimeOffset` subtraction, so `percentile_cont` would need raw SQL per provider with every filter duplicated. | for Lars to review |
+| DS2 | No index and no migration: the view per kind of action reads the period's approvals by `CreatedAt` as the existing summary does; an index follows when a measurement asks for it, as FB78's rule says. | for Lars to review |
+| DS3 | The view is `GET admin/proposal-kinds` (outside `agents/`, so it never collides with an agent id) with the summary's period rules and the filters `agentId` and `toolId`; an unknown agent lists nothing instead of 404. | for Lars to review |
+| DS4 | The thresholds are server options (`NhAssistantRoutineCandidateOptions`, `NewHeap:AI:Assistant:RoutineCandidates` or `ConfigureRoutineCandidates`), returned with the view so it explains them; values outside their ranges count as the nearest bound, as the MCP options do. The quiet period counts back from the period's end; "stale or failed after approval" counts proposals that closed as stale at execution and failed executions, not uncertain ones. Shadow proposals, expiries, withdrawals, invalidations and decisions of agents or the platform never count as decisions. | for Lars to review |
+| DS5 | A candidate is per agent and tool, because AE's switch is; a kind shows "n of m agents". Kinds with a candidate open on load, and a check box shows only those. | for Lars to review |
+| DS6 | A kind's name is the presentation of its newest proposal in the period, in the caller's UI culture, with the tool id as fallback. | for Lars to review |
+| DS7 | The sample lowers only `MinimumDecisions` to 3, in `appsettings.Development.json` (the library keeps 50), so a development database shows a candidate after three approvals; its test host sets the same in code. | for Lars to review |
+| DS8 | Decision times subtract `CreatedAt`, which the platform records on the system clock, from `DecidedAt`, which follows the application's clock. With the system clock both agree; an application clock that runs ahead adds its shift, which the guidance says. Moving `CreatedAt` to the application's clock is a behavior change outside this lane. | for Lars to review |
+| DS9 | The section is "Kinds of action" between Agents and Tools & connections; `NhAssistantAdminTab` gets `proposal-kinds`, recorded as a breaking row for hosts that switch over the tabs exhaustively. | for Lars to review |
+| DS10 | The contract for AE: `NhAssistantRoutineCandidateDto` / `RoutineCandidate` (`agentId`, `toolId`, `numbers`, `candidate`, `unmetThresholds`); in the view, `candidateActions` (a template with `$implicit` the candidate and `kind`) and the row component `tr[nhAssistantRoutineCandidateRow]` with `withActions` and projected content; on the server `NhAssistantProposalKindReport` and its `UnmetThresholds`. | for Lars to review |
+| DS11 | The mock API answers `admin/proposal-kinds` with a fixed example over its first agents (a candidate and a kind that misses three thresholds), since it records no decisions. | for Lars to review |

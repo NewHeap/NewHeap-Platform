@@ -1,5 +1,8 @@
-/** The sections of the administration page: its agents, its connections to MCP servers and the application context. */
-export type NhAssistantAdminTab = 'context' | 'agents' | 'mcp-servers';
+/**
+ * The sections of the administration page: its agents, the kinds of action they propose over all
+ * agents, its connections to MCP servers and the application context.
+ */
+export type NhAssistantAdminTab = 'context' | 'agents' | 'proposal-kinds' | 'mcp-servers';
 
 /**
  * The tabs of one agent's page: its overview, what it is built of, what of it is not live yet and

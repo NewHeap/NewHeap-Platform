@@ -435,7 +435,112 @@ public sealed record NhAssistantFeedbackSummaryRowDto(
     /// Why proposals closed as stale, per kind and reason code, before and after approval.
     /// </summary>
     public IReadOnlyList<NhAssistantInvalidationCountDto> Invalidations { get; init; } = [];
+
+    /// <summary>
+    /// How long people took from the proposal to their decision, for the approved and rejected
+    /// proposals a person decided; <see langword="null"/> before anyone decided.
+    /// </summary>
+    public NhAssistantDecisionTimeDto? DecisionTime { get; init; }
 }
+
+/// <summary>
+/// How long people took from a proposal to their decision: the median and the 90th percentile, with
+/// linear interpolation between the nearest decisions as <c>percentile_cont</c> computes it, in whole
+/// seconds. Only proposals a person approved or rejected count, never expired, withdrawn or
+/// invalidated ones, nor decisions of agents or of the platform.
+/// </summary>
+/// <param name="SampleSize">The decisions the times are computed from.</param>
+/// <param name="Sampled">
+/// True when the group had more decisions than the sample holds (1,000): the times are those of the
+/// newest decisions of the period.
+/// </param>
+public sealed record NhAssistantDecisionTimeDto(
+    int SampleSize,
+    int MedianSeconds,
+    int Percentile90Seconds,
+    bool Sampled);
+
+/// <summary>
+/// The numbers of one kind of action (tool) in the period: what people decided and how fast.
+/// </summary>
+/// <param name="Approved">Approved proposals, including those that executed, failed, closed as stale when they ran or were resolved.</param>
+/// <param name="Decisions">Approved plus rejected.</param>
+/// <param name="Invalidated">Open proposals closed before anyone decided because they no longer fit; not part of the decisions.</param>
+/// <param name="StaleAfterApproval">Approved proposals closed right before they ran because they no longer fit; part of <paramref name="Approved"/>.</param>
+/// <param name="ExecutionFailed">Approved proposals whose execution failed; part of <paramref name="Approved"/>.</param>
+/// <param name="ApprovalRate">Approved divided by the decisions, or <see langword="null"/> before anyone decided.</param>
+/// <param name="RejectionRate">Rejected divided by the decisions, or <see langword="null"/> before anyone decided.</param>
+/// <param name="DecisionTime">How long people took to decide, or <see langword="null"/> before anyone decided.</param>
+/// <param name="LastRejectedAt">When a person last rejected a proposal of the period, or <see langword="null"/>.</param>
+public sealed record NhAssistantProposalKindNumbersDto(
+    int Pending,
+    int Approved,
+    int Rejected,
+    int Decisions,
+    int Expired,
+    int Withdrawn,
+    int Invalidated,
+    int StaleAfterApproval,
+    int ExecutionFailed,
+    double? ApprovalRate,
+    double? RejectionRate,
+    NhAssistantDecisionTimeDto? DecisionTime,
+    DateTimeOffset? LastRejectedAt);
+
+/// <summary>
+/// One agent's proposals of one kind of action in the period, and whether the numbers make the kind a
+/// candidate for running without approval for that agent. A candidate is a suggestion only: it changes
+/// nothing about how the agent's proposals are decided.
+/// </summary>
+/// <param name="AgentDisplayName">The agent's name: a translation key for an agent in code (<paramref name="AgentSource"/> <c>code</c>), the name an administrator typed otherwise; <see langword="null"/> for an agent that no longer exists.</param>
+/// <param name="AgentSource"><c>code</c> or <c>admin</c>; <see langword="null"/> for an agent that no longer exists.</param>
+/// <param name="Candidate">The numbers meet every threshold of <see cref="NhAssistantRoutineCandidateThresholdsDto"/>.</param>
+/// <param name="UnmetThresholds">The thresholds the numbers miss, as <see cref="NhAssistantRoutineCandidateReasons"/> codes; empty for a candidate.</param>
+public sealed record NhAssistantRoutineCandidateDto(
+    string AgentId,
+    string? AgentDisplayName,
+    string? AgentSource,
+    string ToolId,
+    NhAssistantProposalKindNumbersDto Numbers,
+    bool Candidate,
+    IReadOnlyList<string> UnmetThresholds);
+
+/// <summary>
+/// One kind of action over all agents: the numbers of every agent together, and per agent the numbers
+/// and whether the kind is a candidate for running without approval for it.
+/// </summary>
+/// <param name="DisplayName">The name the proposal cards show for the kind, from the presentation of its newest proposal in the caller's culture; the tool id without one.</param>
+/// <param name="Agents">Per agent, most decisions first.</param>
+public sealed record NhAssistantProposalKindDto(
+    string ToolId,
+    string DisplayName,
+    NhAssistantProposalKindNumbersDto Numbers,
+    IReadOnlyList<NhAssistantRoutineCandidateDto> Agents);
+
+/// <summary>
+/// The thresholds the view applied (<see cref="NhAssistantRoutineCandidateOptions"/>), so it can
+/// explain them.
+/// </summary>
+/// <param name="QuietPeriodDays">The quiet period in days before the period's end, which may be fractional.</param>
+public sealed record NhAssistantRoutineCandidateThresholdsDto(
+    int MinimumDecisions,
+    double MinimumApprovalRate,
+    double QuietPeriodDays,
+    int MaximumStaleOrFailedAfterApproval);
+
+/// <summary>
+/// The view per kind of action over all agents, for administrators: per kind the counts, the rejection
+/// rate and the decision times, and per agent whether the numbers make the kind a candidate for running
+/// without approval. These are suggestions from the numbers only.
+/// </summary>
+/// <param name="From">Start of the period; proposals are selected by when they were made.</param>
+/// <param name="To">End of the period, exclusive; the quiet period counts back from it.</param>
+/// <param name="Kinds">Most decisions first.</param>
+public sealed record NhAssistantProposalKindsDto(
+    DateTimeOffset From,
+    DateTimeOffset To,
+    NhAssistantRoutineCandidateThresholdsDto Thresholds,
+    IReadOnlyList<NhAssistantProposalKindDto> Kinds);
 
 /// <param name="Kind"><c>already-done</c>, <c>changed</c> or <c>not-applicable</c>.</param>
 /// <param name="ReasonCode">The application guard's reason code.</param>
@@ -1013,6 +1118,7 @@ public sealed record NhAssistantResolveExecutionRequest(
 [JsonSerializable(typeof(NhAssistantProposalFeedbackDto))]
 [JsonSerializable(typeof(NhAssistantBulkProposalFeedbackDto))]
 [JsonSerializable(typeof(NhAssistantFeedbackSummaryDto))]
+[JsonSerializable(typeof(NhAssistantProposalKindsDto))]
 [JsonSerializable(typeof(NhAssistantFeedbackListDto))]
 [JsonSerializable(typeof(NhAssistantFeedbackExportRecord))]
 [JsonSerializable(typeof(NhAssistantEvaluationDto))]

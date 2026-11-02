@@ -49,10 +49,16 @@ internal static class NhAssistantProposalFeedbackEndpoints
         admin.MapGet("agents/{id}/feedback/summary", GetSummaryAsync)
             .WithName("NhAssistantAdminGetAgentFeedbackSummary")
             .WithSummary("Summarize the feedback on an agent's proposals")
-            .WithDescription("Returns, per tool and agent version, how many proposals made in the period were approved, rejected, expired or withdrawn, the rejection rate, and how often people chose each feedback category. The period defaults to the last 30 days and spans at most 366 days.")
+            .WithDescription("Returns, per tool and agent version, how many proposals made in the period were approved, rejected, expired or withdrawn, the rejection rate, how often people chose each feedback category, and decisionTime: the median and the 90th percentile of the time from a proposal to a person's approval or rejection, in whole seconds, from at most the newest 1,000 decisions per row (sampled says when there were more). The period defaults to the last 30 days and spans at most 366 days.")
             .Produces<NhAssistantFeedbackSummaryDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        admin.MapGet("proposal-kinds", GetProposalKindsAsync)
+            .WithName("NhAssistantAdminGetProposalKinds")
+            .WithSummary("Compare the kinds of action agents propose")
+            .WithDescription("Returns per kind of action (tool) over all agents, for proposals made in the period: the counts per outcome, the approval and rejection rates, decisionTime (the median and the 90th percentile of the time to a person's approval or rejection, in whole seconds, from at most the newest 1,000 decisions per agent) and the name the proposal cards show; and per agent the same numbers with candidate: whether they meet every threshold for running the kind without approval (thresholds: at least minimumDecisions decisions, at least minimumApprovalRate approved, no rejection within quietPeriodDays before the period's end and at most maximumStaleOrFailedAfterApproval approved proposals that closed as stale when they ran or failed), with unmetThresholds naming the codes too-few-decisions, approval-rate-too-low, recent-rejection and stale-or-failed-after-approval. The thresholds come from NewHeap:AI:Assistant:RoutineCandidates and are returned with the view. A candidate is a suggestion only: nothing about deciding changes. Filters: agentId and toolId. The period defaults to the last 30 days and spans at most 366 days; an invalid period or filter answers 400.")
+            .Produces<NhAssistantProposalKindsDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest);
         admin.MapGet("agents/{id}/feedback", ListAsync)
             .WithName("NhAssistantAdminListAgentFeedback")
             .WithSummary("List the feedback on an agent's proposals")
@@ -146,6 +152,7 @@ internal static class NhAssistantProposalFeedbackEndpoints
         HttpContext httpContext,
         NhAssistantAgentCatalog agents,
         NhAssistantProposalFeedbackStore store,
+        NhAssistantDecisionNumbersStore numbers,
         DateTimeOffset? from,
         DateTimeOffset? to,
         string? scopeKey,
@@ -163,9 +170,35 @@ internal static class NhAssistantProposalFeedbackEndpoints
         }
 
         var aggregates = await store.GetAggregatesAsync(id, filter, httpContext.RequestAborted);
+        var decisionTimes = await numbers.GetDecisionTimesAsync(
+            id,
+            filter,
+            NhAssistantDecisionTimes.SamplePerGroup,
+            httpContext.RequestAborted);
         return TypedResults.Json(
-            new NhAssistantFeedbackSummaryDto(id, filter.From, filter.To, Summarize(aggregates)),
+            new NhAssistantFeedbackSummaryDto(id, filter.From, filter.To, Summarize(aggregates, decisionTimes)),
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantFeedbackSummaryDto);
+    }
+
+    private static async Task<IResult> GetProposalKindsAsync(
+        HttpContext httpContext,
+        NhAssistantProposalKindReport report,
+        DateTimeOffset? from,
+        DateTimeOffset? to,
+        string? agentId,
+        string? toolId)
+    {
+        var filter = ReadFilter(from, to, scopeKey: null, toolId, category: null, agentVersion: null);
+        // An agent id has at most 128 characters; an unknown agent lists nothing.
+        if (filter is null || agentId is { Length: 0 or > 128 })
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.MessageInvalid);
+        }
+
+        var kinds = await report.GetAsync(
+            new NhAssistantProposalKindFilter(filter.From, filter.To, agentId, toolId),
+            httpContext.RequestAborted);
+        return TypedResults.Json(kinds, NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantProposalKindsDto);
     }
 
     private static async Task<IResult> ListAsync(
@@ -297,7 +330,9 @@ internal static class NhAssistantProposalFeedbackEndpoints
         return new NhAssistantFeedbackFilter(start, end, scopeKey, toolId, category, agentVersion);
     }
 
-    private static IReadOnlyList<NhAssistantFeedbackSummaryRowDto> Summarize(NhAssistantFeedbackAggregates aggregates)
+    private static IReadOnlyList<NhAssistantFeedbackSummaryRowDto> Summarize(
+        NhAssistantFeedbackAggregates aggregates,
+        IReadOnlyList<NhAssistantDecisionTimeRow> decisionTimes)
     {
         var keys = aggregates.Statuses.Select(row => (row.ToolId, row.AgentVersion))
             .Concat(aggregates.Categories.Select(row => (row.ToolId, row.AgentVersion)))
@@ -341,6 +376,9 @@ internal static class NhAssistantProposalFeedbackEndpoints
                     NhAssistantAgentRunDtoMapper.GroupOf(row.Category),
                     row.Count))
                 .ToArray();
+            var (sample, sampled) = NhAssistantDecisionTimes.SampleOf(decisionTimes
+                .Where(row => row.ToolId == toolId && row.AgentVersion == agentVersion)
+                .ToList());
 
             rows.Add(new NhAssistantFeedbackSummaryRowDto(
                 toolId,
@@ -364,7 +402,8 @@ internal static class NhAssistantProposalFeedbackEndpoints
                     .ThenBy(row => row.Kind, StringComparer.Ordinal)
                     .ThenBy(row => row.ReasonCode, StringComparer.Ordinal)
                     .Select(row => new NhAssistantInvalidationCountDto(row.Kind, row.ReasonCode, row.AfterApproval, row.Count))
-                    .ToArray()
+                    .ToArray(),
+                DecisionTime = NhAssistantDecisionTimes.Of(sample, sampled)
             });
         }
 

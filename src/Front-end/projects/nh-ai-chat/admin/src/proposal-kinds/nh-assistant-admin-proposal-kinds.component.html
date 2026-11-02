@@ -1,0 +1,171 @@
+<section class="section proposal-kinds" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading()">
+  <header class="section-header">
+    <div>
+      <h3 [id]="id + '-title'">{{ 'nh-assistant.admin.proposal-kinds.title' | translate }}</h3>
+      <p class="muted">{{ 'nh-assistant.admin.proposal-kinds.description' | translate }}</p>
+    </div>
+    <div class="header-actions">
+      <button class="secondary" type="button" [disabled]="loading()" (click)="load()">
+        <nh-assistant-icon name="refresh" />{{ 'nh-assistant.admin.proposal-kinds.refresh' | translate }}
+      </button>
+    </div>
+  </header>
+
+  <div class="message info" role="note" data-suggestions-only>
+    <nh-assistant-icon name="lock" />
+    <span>
+      {{ 'nh-assistant.admin.proposal-kinds.suggestions-only' | translate }}
+      {{ 'nh-assistant.admin.proposal-kinds.audience' | translate }}
+    </span>
+  </div>
+
+  <div class="filters">
+    <div class="field">
+      <label [for]="id + '-period'">{{ 'nh-assistant.admin.proposal-kinds.period' | translate }}</label>
+      <select [id]="id + '-period'" (change)="onPeriod($event)">
+        @for (days of periods; track days) {
+          <option [value]="days" [selected]="period() === days">{{ 'nh-assistant.admin.feedback.periods.last-' + days + '-days' | translate }}</option>
+        }
+      </select>
+    </div>
+    <label class="check only-candidates">
+      <input type="checkbox" [checked]="onlyCandidates()" (change)="onOnlyCandidates($event)" />
+      <span>{{ 'nh-assistant.admin.proposal-kinds.only-candidates' | translate }}</span>
+    </label>
+  </div>
+
+  @if (thresholds(); as thresholds) {
+    <section class="subsection thresholds" [attr.aria-labelledby]="id + '-thresholds-title'" data-thresholds>
+      <h4 [id]="id + '-thresholds-title'">{{ 'nh-assistant.admin.proposal-kinds.thresholds.title' | translate }}</h4>
+      <p class="muted">{{ 'nh-assistant.admin.proposal-kinds.thresholds.intro' | translate }}</p>
+      <ul>
+        <li>{{ 'nh-assistant.admin.proposal-kinds.thresholds.minimum-decisions' | translate: { count: thresholds.minimumDecisions } }}</li>
+        <li>{{ 'nh-assistant.admin.proposal-kinds.thresholds.approval-rate' | translate: { rate: approvalRatePercent() } }}</li>
+        <li>{{ 'nh-assistant.admin.proposal-kinds.thresholds.quiet-period' | translate: { days: thresholds.quietPeriodDays } }}</li>
+        <li>
+          @if (thresholds.maximumStaleOrFailedAfterApproval === 0) {
+            {{ 'nh-assistant.admin.proposal-kinds.thresholds.none-stale-or-failed' | translate }}
+          } @else {
+            {{ 'nh-assistant.admin.proposal-kinds.thresholds.stale-or-failed' | translate: { count: thresholds.maximumStaleOrFailedAfterApproval } }}
+          }
+        </li>
+      </ul>
+      <p class="muted">{{ 'nh-assistant.admin.proposal-kinds.thresholds.configured' | translate }}</p>
+    </section>
+  }
+
+  @if (loading() && view() === null) {
+    <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+  } @else if (error(); as failure) {
+    <div class="state" role="alert">
+      <p>{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+      <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.admin.retry' | translate }}</button>
+    </div>
+  } @else if (kinds().length === 0) {
+    <p class="state">
+      {{ (onlyCandidates() && (view()?.kinds?.length ?? 0) > 0
+        ? 'nh-assistant.admin.proposal-kinds.empty-candidates'
+        : 'nh-assistant.admin.proposal-kinds.empty') | translate }}
+    </p>
+  } @else {
+    <div class="table-container">
+      <table class="kinds-table" [attr.aria-labelledby]="id + '-title'">
+        <thead>
+          <tr>
+            <th scope="col">{{ 'nh-assistant.admin.proposal-kinds.columns.kind' | translate }}</th>
+            <th scope="col" class="number">{{ 'nh-assistant.admin.proposal-kinds.columns.decisions' | translate }}</th>
+            <th scope="col" class="number">{{ 'nh-assistant.admin.proposal-kinds.columns.approved' | translate }}</th>
+            <th scope="col" class="number">{{ 'nh-assistant.admin.proposal-kinds.columns.rejected' | translate }}</th>
+            <th scope="col" class="number">{{ 'nh-assistant.admin.proposal-kinds.columns.rejection-rate' | translate }}</th>
+            <th scope="col" class="number" [attr.title]="'nh-assistant.admin.proposal-kinds.median-hint' | translate">
+              {{ 'nh-assistant.admin.proposal-kinds.columns.median' | translate }}
+            </th>
+            <th scope="col" class="number" [attr.title]="'nh-assistant.admin.proposal-kinds.percentile-90-hint' | translate">
+              {{ 'nh-assistant.admin.proposal-kinds.columns.percentile-90' | translate }}
+            </th>
+            <th scope="col">{{ 'nh-assistant.admin.proposal-kinds.columns.candidate' | translate }}</th>
+            @if (candidateActions()) {
+              <th scope="col">{{ 'nh-assistant.admin.proposal-kinds.columns.actions' | translate }}</th>
+            }
+          </tr>
+        </thead>
+        @for (kind of kinds(); track kind.toolId) {
+          <tbody [attr.data-kind]="kind.toolId">
+            <tr class="kind-row">
+              <th scope="row" [attr.data-label]="'nh-assistant.admin.proposal-kinds.columns.kind' | translate">
+                <button
+                  class="kind-toggle"
+                  type="button"
+                  [attr.aria-expanded]="isExpanded(kind)"
+                  [attr.aria-label]="(isExpanded(kind) ? 'nh-assistant.admin.proposal-kinds.hide-agents' : 'nh-assistant.admin.proposal-kinds.show-agents') | translate: { kind: kind.displayName, count: kind.agents.length }"
+                  (click)="toggle(kind)">
+                  <nh-assistant-icon name="chevron-down" [class.open]="isExpanded(kind)" />
+                  <span class="kind-name">
+                    <span>{{ kind.displayName }}</span>
+                    @if (kind.displayName !== kind.toolId) {
+                      <span class="mono muted">{{ kind.toolId }}</span>
+                    }
+                  </span>
+                </button>
+              </th>
+              <td class="number" [attr.data-label]="'nh-assistant.admin.proposal-kinds.columns.decisions' | translate">{{ kind.numbers.decisions }}</td>
+              <td class="number" [attr.data-label]="'nh-assistant.admin.proposal-kinds.columns.approved' | translate">{{ kind.numbers.approved }}</td>
+              <td class="number" [attr.data-label]="'nh-assistant.admin.proposal-kinds.columns.rejected' | translate">{{ kind.numbers.rejected }}</td>
+              <td class="number" [attr.data-label]="'nh-assistant.admin.proposal-kinds.columns.rejection-rate' | translate">
+                @if (kind.numbers.rejectionRate === null) {
+                  <span class="muted">{{ 'nh-assistant.admin.proposal-kinds.no-decisions' | translate }}</span>
+                } @else {
+                  {{ kind.numbers.rejectionRate | percent: '1.0-1' }}
+                }
+              </td>
+              <td class="number" [attr.data-label]="'nh-assistant.admin.proposal-kinds.columns.median' | translate">
+                @if (duration(kind.numbers.decisionTime?.medianSeconds); as text) {
+                  {{ text.key | translate: text.params }}
+                } @else {
+                  <span class="muted">{{ 'nh-assistant.admin.proposal-kinds.no-decisions' | translate }}</span>
+                }
+              </td>
+              <td class="number" [attr.data-label]="'nh-assistant.admin.proposal-kinds.columns.percentile-90' | translate">
+                @if (duration(kind.numbers.decisionTime?.percentile90Seconds); as text) {
+                  {{ text.key | translate: text.params }}
+                  @if (kind.numbers.decisionTime?.sampled) {
+                    <span class="muted sampled" [attr.title]="'nh-assistant.admin.proposal-kinds.sampled-hint' | translate">
+                      {{ 'nh-assistant.admin.proposal-kinds.sampled' | translate }}
+                    </span>
+                  }
+                } @else {
+                  <span class="muted">{{ 'nh-assistant.admin.proposal-kinds.no-decisions' | translate }}</span>
+                }
+              </td>
+              <td [attr.data-label]="'nh-assistant.admin.proposal-kinds.columns.candidate' | translate">
+                @if (candidateCount(kind) > 0) {
+                  <span class="badge success">
+                    {{ 'nh-assistant.admin.proposal-kinds.candidates' | translate: { count: candidateCount(kind), agents: kind.agents.length } }}
+                  </span>
+                } @else {
+                  <span class="muted">{{ 'nh-assistant.admin.proposal-kinds.no-candidates' | translate }}</span>
+                }
+              </td>
+              @if (candidateActions()) {
+                <td aria-hidden="true"></td>
+              }
+            </tr>
+            @if (isExpanded(kind)) {
+              @for (agent of kind.agents; track agent.agentId) {
+                <tr
+                  nhAssistantRoutineCandidateRow
+                  [candidate]="agent"
+                  [thresholds]="thresholds()!"
+                  [withActions]="candidateActions() !== null">
+                  @if (candidateActions(); as actions) {
+                    <ng-container *ngTemplateOutlet="actions; context: { $implicit: agent, kind: kind }" />
+                  }
+                </tr>
+              }
+            }
+          </tbody>
+        }
+      </table>
+    </div>
+  }
+</section>
