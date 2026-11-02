@@ -65,6 +65,45 @@ public enum NhAssistantAlertChoices
 }
 
 /// <summary>
+/// What an administrator may change about a kind in the administration (<c>PUT admin/alert-kinds/{id}</c>),
+/// within the bounds of its code; see <see cref="NhAssistantAlertKindBuilder.AdministratorMayChange"/>.
+/// The kind's recipients, texts, urgency and limits stay code.
+/// </summary>
+[Flags]
+public enum NhAssistantAlertAdminChoices
+{
+    /// <summary>Nothing: the kind is on and delivered as its code declares.</summary>
+    None = 0,
+
+    /// <summary>
+    /// The administrator may switch the kind off, so it raises nothing. Never for a kind that is
+    /// <see cref="NhAssistantAlertKind.Required"/>.
+    /// </summary>
+    SwitchOff = 1,
+
+    /// <summary>
+    /// The administrator may change how the kind is delivered by default: immediately or in digests,
+    /// and the times of day of its digests.
+    /// </summary>
+    DigestTimes = 2,
+
+    /// <summary>The administrator may change whether the kind's digests go out on working days only.</summary>
+    WorkdaysOnly = 4,
+
+    /// <summary>The administrator may change from which urgency an alert of the kind is delivered immediately.</summary>
+    ImmediatelyFrom = 8,
+
+    /// <summary>The administrator may give the kind quiet hours, in which nothing of it is delivered.</summary>
+    QuietHours = 16,
+
+    /// <summary>Everything about the kind's default delivery.</summary>
+    Delivery = DigestTimes | WorkdaysOnly | ImmediatelyFrom | QuietHours,
+
+    /// <summary>Everything an administrator may change.</summary>
+    All = SwitchOff | Delivery
+}
+
+/// <summary>
 /// One way to choose the recipients of an alert; see <see cref="NhAssistantAlertRecipients"/>.
 /// </summary>
 public enum NhAssistantAlertRecipientSelector
@@ -229,7 +268,8 @@ public sealed class NhAssistantAlertDeliveryBuilder
 /// <summary>
 /// One kind of alert, as <see cref="NhAssistantBuilder.AddAlertKind"/> declared it in code: how people
 /// see it, whom it reaches, how it repeats and when it is delivered. The assistant reads it for every
-/// alert of the kind; only a person's own delivery choices are data.
+/// alert of the kind; only delivery choices are data: a person's own, and an administrator's within
+/// <see cref="AdministratorChoices"/>.
 /// </summary>
 public sealed class NhAssistantAlertKind
 {
@@ -289,6 +329,12 @@ public sealed class NhAssistantAlertKind
     /// <summary>What a Web Push notification of the kind shows.</summary>
     public NhAssistantAlertPushContent PushShows { get; }
 
+    /// <summary>
+    /// What an administrator may change about the kind; never <see cref="NhAssistantAlertAdminChoices.SwitchOff"/>
+    /// for a kind that is <see cref="Required"/>.
+    /// </summary>
+    public NhAssistantAlertAdminChoices AdministratorChoices { get; internal init; } = NhAssistantAlertAdminChoices.All;
+
     /// <summary>Writes the title of an alert in a culture from its parameters.</summary>
     internal Func<CultureInfo, IReadOnlyDictionary<string, string>, string> Title { get; }
 
@@ -312,6 +358,7 @@ public sealed class NhAssistantAlertKindBuilder
     private NhAssistantAlertChoices _choices = NhAssistantAlertChoices.All;
     private bool _required;
     private NhAssistantAlertPushContent _pushShows = NhAssistantAlertPushContent.TitleOnly;
+    private NhAssistantAlertAdminChoices _adminChoices = NhAssistantAlertAdminChoices.All;
 
     internal NhAssistantAlertKindBuilder(string id)
     {
@@ -428,12 +475,31 @@ public sealed class NhAssistantAlertKindBuilder
     }
 
     /// <summary>
-    /// People cannot mute the kind. They keep the other choices of <see cref="PersonMayChange"/>.
+    /// People cannot mute the kind and administrators cannot switch it off. They keep the other choices
+    /// of <see cref="PersonMayChange"/> and <see cref="AdministratorMayChange"/>.
     /// </summary>
     public NhAssistantAlertKindBuilder Required()
     {
         _required = true;
         _choices &= ~NhAssistantAlertChoices.Mute;
+        _adminChoices &= ~NhAssistantAlertAdminChoices.SwitchOff;
+        return this;
+    }
+
+    /// <summary>
+    /// What an administrator may change about the kind in the administration; by default
+    /// <see cref="NhAssistantAlertAdminChoices.All"/>: switch it off, unless it is <see cref="Required"/>,
+    /// and change its default delivery. <see cref="NhAssistantAlertAdminChoices.None"/> keeps the kind as
+    /// its code declares it.
+    /// </summary>
+    public NhAssistantAlertKindBuilder AdministratorMayChange(NhAssistantAlertAdminChoices choices)
+    {
+        if ((choices & ~NhAssistantAlertAdminChoices.All) != 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(choices));
+        }
+
+        _adminChoices = choices;
         return this;
     }
 
@@ -467,6 +533,11 @@ public sealed class NhAssistantAlertKindBuilder
             throw new InvalidOperationException(
                 $"Alert kind '{_id}' is required, so people cannot mute it. Leave Mute out of PersonMayChange.");
         }
+        if (_required && _adminChoices.HasFlag(NhAssistantAlertAdminChoices.SwitchOff))
+        {
+            throw new InvalidOperationException(
+                $"Alert kind '{_id}' is required, so administrators cannot switch it off. Leave SwitchOff out of AdministratorMayChange.");
+        }
         return new NhAssistantAlertKind(
             _id,
             _displayNameKey,
@@ -478,6 +549,9 @@ public sealed class NhAssistantAlertKindBuilder
             _delivery,
             _choices,
             _required,
-            _pushShows);
+            _pushShows)
+        {
+            AdministratorChoices = _adminChoices
+        };
     }
 }
