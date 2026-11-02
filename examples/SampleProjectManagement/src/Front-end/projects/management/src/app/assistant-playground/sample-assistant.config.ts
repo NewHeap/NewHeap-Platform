@@ -130,11 +130,13 @@ export function sampleAssistantPageContext(): ClientContext | null {
 /**
  * Web Push for the portal. `angular.json` copies the bundled worker from
  * `@newheap/platform-ai-chat/push` to `/nh-assistant/`; the worker gets its own scope there and
- * opens the portal when a notification is clicked while no portal window is open.
+ * opens the portal when a notification is clicked while no portal window is open. A notification of
+ * alerts opens the portal's Alerts page (SPM-392), the server's `NewHeap:AI:Assistant:Alerts:ListUrl`.
  */
 export const SAMPLE_ASSISTANT_PUSH: NhAssistantPushConfig = {
   serviceWorkerUrl: '/nh-assistant/nh-assistant-push-worker.js',
-  openUrl: '/management'
+  openUrl: '/management',
+  alertsUrl: '/management/alerts'
 };
 
 /**

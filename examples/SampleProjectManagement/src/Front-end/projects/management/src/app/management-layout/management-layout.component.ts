@@ -34,6 +34,7 @@ export class ManagementLayoutComponent implements OnDestroy {
   private readonly auth = inject(NhAuthService);
   private readonly navigationSubscription: Subscription;
   private readonly notifiedRunSubscription: Subscription;
+  private readonly notifiedAlertsSubscription: Subscription;
   private readonly releaseAlertBadge?: () => void;
 
   readonly connectionState = inject(SampleApiConnectionStateService);
@@ -54,8 +55,14 @@ export class ManagementLayoutComponent implements OnDestroy {
     // SPM-310: a clicked notification about the proposals of a run opens the approval inbox of that
     // run, which lists every proposal of the run the person may decide, instead of one of its
     // conversations. The shell subscribes, so a notification that opens a new window finds it.
-    this.notifiedRunSubscription = inject(NhAssistantPushService).openRun$
+    const push = inject(NhAssistantPushService);
+    this.notifiedRunSubscription = push.openRun$
       .subscribe(runId => void this.router.navigate(['/management/intake-reviews'], { queryParams: { run: runId } }));
+
+    // SPM-392: a clicked notification of an alert, or of the morning overview, opens the Alerts page in
+    // the window that is open; without one the push worker opens the page itself (`alertsUrl`).
+    this.notifiedAlertsSubscription = push.openAlerts$
+      .subscribe(() => void this.router.navigate(['/management/alerts']));
 
     // SPM-392: the shell keeps the badge of the person's alerts current while it shows: on load, on
     // focus, every few minutes and after the person's own actions on the alerts page.
@@ -67,6 +74,7 @@ export class ManagementLayoutComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.navigationSubscription.unsubscribe();
     this.notifiedRunSubscription.unsubscribe();
+    this.notifiedAlertsSubscription.unsubscribe();
     this.releaseAlertBadge?.();
   }
 

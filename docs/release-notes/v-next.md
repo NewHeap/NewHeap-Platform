@@ -65,7 +65,9 @@
   parent, paged as the inbox pages, with title and text in the caller's language and the state `unread`, `read`,
   `resolved`, `expired` or `dismissed` (`NhAssistantAlertListStatuses`), filtered on status (also `open` and `closed`),
   kind, subject and urgency (`NhAssistantAlertUrgencyNames`). `GET alerts/summary` counts the unread ones in total and
-  per urgency for a badge. `POST alerts/{id}/read` and `POST alerts/{id}/dismiss` are idempotent; a read delivery that
+  per urgency for a badge; an alert withheld from the caller's channels is listed as unread with `isWithheld` and its
+  `withheldReason`, and one of a muted kind is not counted. `POST alerts/{id}/read` and `POST alerts/{id}/dismiss` are
+  idempotent; a read delivery that
   waits for a digest is not sent, and the first dismissal is audited as `AgentAlertDismissed`, with
   `ImpersonationOriginActorId` in an impersonation session. Every alert passes the recipient check again with the
   caller's tenant: an alert of another person, or about a subject the caller lost access to, is not listed or counted
@@ -85,7 +87,8 @@
 ## @newheap/platform-ai-chat: alerts (FB87)
 
 - `nh-assistant-alerts` (`NhAssistantAlertsComponent`) shows a person's own alerts, grouped by parent by default, with
-  `density: 'compact'`, a status filter, read and dismiss in place, and resolved and expired alerts shown as such. It
+  `density: 'compact'`, a status filter, read and dismiss in place, resolved and expired alerts shown as such, and an
+  alert of a muted kind labelled "Muted" (`isWithheld`, `withheldReason`). It
   emits `openSubject` (`AlertSubjectTarget`) with the subject and its link for the host to route, and never navigates.
 - `NhAssistantAlertBadgeService` gives the shell the unread counts (`unread`, `unreadByUrgency`, `highestUrgency`):
   `watch()` keeps them current on load, on focus and visibility, every five minutes while the page is visible and after

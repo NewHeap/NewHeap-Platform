@@ -133,7 +133,9 @@ recently raised first, paged as the approval inbox pages (`page`, `itemsPerPage`
 title and text written in the caller's language, the kind and its name key, the urgency (`info`,
 `warning`, `urgent`, `NhAssistantAlertUrgencyNames`), the subject with its parent and their links, and
 the caller's state as `status` (`NhAssistantAlertListStatuses`): `unread` or `read` while the alert is
-open, `resolved` or `expired` once it closed, `dismissed` once the caller dismissed it. Filter with
+open, `resolved` or `expired` once it closed, `dismissed` once the caller dismissed it. A delivery that was
+withheld from the caller's channels, such as for a kind they muted, is `unread` with `isWithheld` and its
+`withheldReason`; the badge does not count a muted one. Filter with
 `status` (one of those, or `open` and `closed`), `kind`, `subjectType` with `subjectId` and `urgency`;
 without a status the list shows every alert the caller did not dismiss. `grouped=true` groups by the
 parent the subject's resolver names, as the inbox groups. `GET alerts/summary` gives a badge its

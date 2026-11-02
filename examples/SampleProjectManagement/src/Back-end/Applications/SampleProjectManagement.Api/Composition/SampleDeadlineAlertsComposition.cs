@@ -42,6 +42,9 @@ public static class SampleDeadlineAlertsComposition
     public const string KindId = "project-due-today";
     public const string TriggerId = "project-deadline-watch";
 
+    /// <summary>The portal's Alerts page, which lists every alert of a person (SPM-392).</summary>
+    public const string AlertListUrl = "/management/alerts";
+
     /// <summary>The front-end translation key of the kind's name.</summary>
     public const string KindNameKey = "nh-assistant.alert-kinds.project-due-today.name";
 
@@ -56,8 +59,12 @@ public static class SampleDeadlineAlertsComposition
         services.TryAddSingleton<SampleAlertOutbox>();
         services.AddNewHeapAssistant(assistant => assistant
             // The digest and working days count in the application's time zone, unless the person's
-            // own division is elsewhere.
-            .ConfigureAlerts(alerts => alerts.TimeZone = TimeZone.Id)
+            // own division is elsewhere. The in-app notification of alerts links to the portal's Alerts page.
+            .ConfigureAlerts(alerts =>
+            {
+                alerts.TimeZone = TimeZone.Id;
+                alerts.ListUrl = AlertListUrl;
+            })
             .UsePersonTimeZones<SamplePersonTimeZones>()
             .AddAlertChannel<SampleAlertOutboxChannel>()
             .AddAgent(new NhAssistantAgentDefinition(
