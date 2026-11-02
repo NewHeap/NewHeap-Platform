@@ -67,6 +67,8 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-notification-digest-time-not-allowed',
   'assistant-notification-channels-not-allowed',
   'assistant-notification-digest-time-invalid',
+  'assistant-notification-quiet-hours-not-allowed',
+  'assistant-notification-quiet-hours-invalid',
   'assistant-not-allowed-while-impersonating',
   // Agent runs
   'assistant-subject-not-found',
@@ -215,6 +217,9 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   // A person's alerts
   'assistant-alert-not-found',
   'assistant-alert-filter-invalid',
+  // Muting an alert's subject on dismissing it (FB87-11)
+  'assistant-alert-subject-mute-not-allowed',
+  'assistant-alert-subject-mute-days-invalid',
   // The administration of alert kinds, within the bounds of their code
   'assistant-alert-kind-unknown',
   'assistant-alert-kind-switch-off-not-allowed',
