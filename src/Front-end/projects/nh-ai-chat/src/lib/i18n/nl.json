@@ -1155,7 +1155,11 @@
       "pages": "Pagina's van je attenties",
       "previous": "Vorige",
       "next": "Volgende",
-      "page": "Pagina {{page}} van {{pages}}"
+      "page": "Pagina {{page}} van {{pages}}",
+      "withheld": {
+        "muted": "Gedempt",
+        "other": "Niet gemeld"
+      }
     },
     "notification-preferences": {
       "title": "Meldingen",

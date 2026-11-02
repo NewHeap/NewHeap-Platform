@@ -1155,7 +1155,11 @@
       "pages": "Pages of your alerts",
       "previous": "Previous",
       "next": "Next",
-      "page": "Page {{page}} of {{pages}}"
+      "page": "Page {{page}} of {{pages}}",
+      "withheld": {
+        "muted": "Muted",
+        "other": "Not notified"
+      }
     },
     "notification-preferences": {
       "title": "Notifications",

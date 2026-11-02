@@ -69,6 +69,13 @@ export interface Alert {
   dismissedAt?: string | null;
   isResolved?: boolean;
   isExpired?: boolean;
+  /**
+   * The alert reached none of the person's channels, for example because they muted its kind; it is in
+   * the list all the same, and a muted one does not count on the badge.
+   */
+  isWithheld?: boolean;
+  /** Why: `muted`, `limit-reached`, `kind-unknown` or `text-invalid`; `null` when the alert was not withheld. */
+  withheldReason?: string | null;
 }
 
 /** One subject within a group of the grouped alert list; its name and link are those of its items. */

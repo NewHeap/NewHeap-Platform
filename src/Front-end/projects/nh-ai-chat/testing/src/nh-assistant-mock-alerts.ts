@@ -24,7 +24,8 @@ const timeOfDay = /^([01]\d|2[0-3]):[0-5]\d$/;
  * The person's alerts and their choices per kind, as the server keeps them (FB87): `GET alerts` with its
  * filters, paging and groups per parent, `GET alerts/summary`, `POST alerts/{id}/read` and
  * `POST alerts/{id}/dismiss`, and the alert kinds and time zone of `GET` and `PUT notifications`. A
- * change a kind does not allow is refused with `400 assistant-validation` and the kind's field.
+ * kind the person does not have, or a change the kind does not allow, is refused with `400` and the
+ * server's code, such as `assistant-notification-mute-not-allowed`.
  */
 export class NhAssistantMockAlerts {
   private readonly alerts = new Map<string, Alert>();
@@ -107,9 +108,13 @@ export class NhAssistantMockAlerts {
     const updated = new Map<string, NotificationAlertKind>();
     for (const change of changes as NotificationAlertKindChange[]) {
       const kind = this.kinds.get(change?.id);
-      const next = kind ? applied(updated.get(kind.id) ?? kind, change) : null;
-      if (!next) {
-        return mockFailure('assistant-validation', { [`alertKinds.${change?.id ?? ''}`]: ['not-allowed'] });
+      if (!kind) {
+        return mockFailure('assistant-notification-kind-unknown');
+      }
+
+      const next = applied(updated.get(kind.id) ?? kind, change);
+      if (typeof next === 'string') {
+        return mockFailure(next);
       }
 
       updated.set(next.id, next);
@@ -153,7 +158,9 @@ export class NhAssistantMockAlerts {
       return mockFailure('assistant-alert-filter-invalid');
     }
 
-    const unread = this.select({ ...filter, urgencies: [] }, 'unread');
+    // A kind the person muted is listed, but never asks for their attention.
+    const unread = this.select({ ...filter, urgencies: [] }, 'unread')
+      .filter(alert => !(alert.isWithheld && alert.withheldReason === 'muted'));
     const count = (urgency: AlertUrgency) => unread.filter(alert => alert.urgency === urgency).length;
     return {
       status: 200,
@@ -170,7 +177,7 @@ export class NhAssistantMockAlerts {
     const now = this.now();
     let changed = alert;
     if (action === 'read' && alert.status === 'unread') {
-      changed = withStatus({ ...alert, isRead: true, readAt: now });
+      changed = withStatus({ ...alert, isRead: true, readAt: now, isWithheld: false, withheldReason: null });
     } else if (action === 'dismiss' && alert.status !== 'dismissed') {
       changed = withStatus({ ...alert, isDismissed: true, dismissedAt: now });
     }
@@ -255,7 +262,16 @@ function withStatus(alert: Alert): Alert {
       : expired
         ? 'expired'
         : alert.isRead ? 'read' : 'unread';
-  return { ...alert, status, isExpired: expired, isRead: alert.isRead ?? false, isDismissed: alert.isDismissed ?? false, isResolved: alert.isResolved ?? false };
+  return {
+    ...alert,
+    status,
+    isExpired: expired,
+    isRead: alert.isRead ?? false,
+    isDismissed: alert.isDismissed ?? false,
+    isResolved: alert.isResolved ?? false,
+    isWithheld: alert.isWithheld ?? false,
+    withheldReason: alert.isWithheld ? alert.withheldReason ?? null : null
+  };
 }
 
 function groupOf(alert: Alert): string {
@@ -345,37 +361,38 @@ function subjectGroupsOf(ordered: Alert[], first: number, last: number, start: n
   return subjects;
 }
 
-/** A kind with one change applied, or `null` when the kind does not allow it. */
-function applied(kind: NotificationAlertKind, change: NotificationAlertKindChange): NotificationAlertKind | null {
+/**
+ * A kind with one change applied, or the server's code of what the kind does not allow: muting a kind that
+ * may not be muted, a digest time it does not let the person choose or that is no time of day, and channels
+ * it does not let the person choose or does not offer.
+ */
+function applied(kind: NotificationAlertKind, change: NotificationAlertKindChange): NotificationAlertKind | string {
   const next = structuredClone(kind);
   if (change.muted !== undefined) {
     if (!kind.mayMute || kind.required) {
-      return null;
+      return 'assistant-notification-mute-not-allowed';
     }
     next.muted = change.muted === true;
   }
   if (change.digestTime !== undefined) {
-    if (!kind.mayChangeDigestTime || (change.digestTime !== null && !timeOfDay.test(change.digestTime))) {
-      return null;
+    if (!kind.mayChangeDigestTime) {
+      return 'assistant-notification-digest-time-not-allowed';
+    }
+    if (change.digestTime !== null && !timeOfDay.test(change.digestTime)) {
+      return 'assistant-notification-digest-time-invalid';
     }
     next.digestTime = change.digestTime;
   }
   if (change.channels !== undefined) {
-    if (!kind.mayChooseChannels) {
-      return null;
+    const push = change.channels.push;
+    const inApp = change.channels.inApp;
+    if (!kind.mayChooseChannels
+      || (push !== undefined && !kind.availableChannels.includes('push'))
+      || (inApp !== undefined && !kind.availableChannels.includes('in-app'))) {
+      return 'assistant-notification-channels-not-allowed';
     }
-    if (change.channels.push !== undefined) {
-      if (!kind.availableChannels.includes('push')) {
-        return null;
-      }
-      next.channels.push = change.channels.push === true;
-    }
-    if (change.channels.inApp !== undefined) {
-      if (!kind.availableChannels.includes('in-app')) {
-        return null;
-      }
-      next.channels.inApp = change.channels.inApp === true;
-    }
+    next.channels.push = push === undefined ? next.channels.push : push === true;
+    next.channels.inApp = inApp === undefined ? next.channels.inApp : inApp === true;
   }
 
   return next;

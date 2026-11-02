@@ -172,6 +172,31 @@ describe('NhAssistantAlertsComponent', () => {
     expect(titles(element)).toEqual(['Send the invoice is due today', 'Book the room is due today', 'Write the report is due today']);
   });
 
+  it('says that an alert of a muted kind reached no channel, and leaves it off the badge', async () => {
+    const element = await render([
+      ...alerts,
+      {
+        id: 'a-claim', kindId: 'task-due-today', urgency: 'urgent', title: 'File the claim is due today', isWithheld: true, withheldReason: 'muted',
+        subjectType: 'task', subjectId: 't-4', subjectDisplayName: 'File the claim', parent: project, updatedAt: '2026-11-02T07:40:00Z'
+      }
+    ]);
+    const badge = TestBed.inject(NhAssistantAlertBadgeService);
+    const release = badge.watch();
+    await settle();
+
+    const muted = element.querySelector('[data-alert-id="a-claim"]') as HTMLElement;
+    expect(muted.getAttribute('data-status')).toBe('unread');
+    expect(muted.querySelector('[data-alert-withheld]')?.textContent?.trim()).toBe('Muted');
+    expect(element.querySelector('[data-alert-id="a-report"] [data-alert-withheld]')).toBeNull();
+    expect(badge.unread()).withContext('the muted alert does not count').toBe(2);
+
+    (muted.querySelector('[data-alert-read]') as HTMLButtonElement).click();
+    await settle();
+    expect(element.querySelector('[data-alert-id="a-claim"]')?.getAttribute('data-status')).toBe('read');
+    expect(element.querySelector('[data-alert-id="a-claim"] [data-alert-withheld]')).toBeNull();
+    release();
+  });
+
   it('shows an untitled alert by its subject, an empty list and a load failure with a retry', async () => {
     let element = await render([{ ...alerts[0], title: null }]);
     expect(titles(element)).toEqual(['An alert about Write the report']);

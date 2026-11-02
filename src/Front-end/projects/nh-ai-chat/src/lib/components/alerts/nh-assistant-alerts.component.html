@@ -92,6 +92,10 @@
                       <span class="badge" data-alert-state>{{ 'nh-assistant.alerts.status.dismissed' | translate }}</span>
                     }
                   }
+                  @if (alert.isWithheld) {
+                    <!-- It reached none of the person's channels, for example a kind they muted. -->
+                    <span class="badge" data-alert-withheld>{{ withheldKey(alert) | translate }}</span>
+                  }
                 </div>
                 @if (!compact() && alert.text) {
                   <p class="text">{{ alert.text }}</p>

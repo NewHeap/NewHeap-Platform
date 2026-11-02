@@ -205,6 +205,11 @@ export class NhAssistantAlertsComponent {
     return `nh-assistant.alerts.empty.${this.shownStatus() ?? 'active'}`;
   }
 
+  /** The text of an alert that reached none of the person's channels: a muted kind, or another reason. */
+  withheldKey(alert: Alert): string {
+    return alert.withheldReason === 'muted' ? 'nh-assistant.alerts.withheld.muted' : 'nh-assistant.alerts.withheld.other';
+  }
+
   /** A group's subject name as people see it: its name, else its type's name with its id. */
   groupName(group: AlertGroup): string {
     return group.displayName ?? group.subjectId;
