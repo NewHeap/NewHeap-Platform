@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.101",
   "backEnd": {
-    "hash": "e6675bbabe592f33afdfcf333a890a38b4fd3b728d374bdf87e38886f2c4f651",
+    "hash": "f6f2749d2164b41de6847441fef16394ec410ef9d15c6415a2362606adc56d90",
     "declarationCount": 13009,
     "declarations": [
       {
@@ -24983,7 +24983,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.Model.cs",
-        "declaration": "public async Task<int> CountForRunAsync(Guid runId, bool shadow, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<int> CountOthersForRunAsync( Guid runId, bool shadow, string kindId, NhAiSubjectRef subject, string key, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.Reading.cs",
