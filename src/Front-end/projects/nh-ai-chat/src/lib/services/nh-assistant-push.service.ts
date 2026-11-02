@@ -61,6 +61,8 @@ export class NhAssistantPushService {
   private loading?: Observable<NotificationSettings>;
   /** The activation of push for the signed-in user, which repeated calls share. */
   private activation?: Promise<void>;
+  /** One more for every activation started or stopped, so a stopped one changes nothing when it ends. */
+  private activationRevision = 0;
   private readonly onWorkerMessage = (event: MessageEvent) => {
     const data = event.data as { type?: unknown; conversationId?: unknown; runId?: unknown; alertId?: unknown; digestId?: unknown } | null;
     if (data?.type === openConversationMessage && typeof data.conversationId === 'string') {
@@ -211,12 +213,13 @@ export class NhAssistantPushService {
    */
   async activate(serverSupportsPush: boolean): Promise<void> {
     if (!serverSupportsPush || !this.isSupported()) {
+      this.activationRevision++;
       this.activation = undefined;
       this.settingsState.set(null);
       return;
     }
 
-    this.activation ??= this.runActivation(this.revision);
+    this.activation ??= this.runActivation(this.revision, ++this.activationRevision);
     return this.activation;
   }
 
@@ -269,10 +272,11 @@ export class NhAssistantPushService {
     }
   }
 
-  private async runActivation(revision: number): Promise<void> {
+  private async runActivation(revision: number, activationRevision: number): Promise<void> {
+    const current = () => revision === this.revision && activationRevision === this.activationRevision;
     try {
       const settings = this.settingsState() ?? await firstValueFrom(this.loadSettings());
-      if (revision !== this.revision) {
+      if (!current()) {
         return;
       }
       this.settingsState.set(settings);
@@ -285,7 +289,7 @@ export class NhAssistantPushService {
       }
     } catch {
       // Notifications are optional; the assistant works without them, and the next activation tries again.
-      if (revision === this.revision) {
+      if (current()) {
         this.settingsState.set(null);
         this.activation = undefined;
       }
