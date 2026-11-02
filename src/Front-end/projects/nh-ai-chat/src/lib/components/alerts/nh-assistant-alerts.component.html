@@ -126,6 +126,21 @@
                     <nh-assistant-icon name="check" />
                   </button>
                 }
+                @if (alert.status !== 'dismissed' && alert.mayMuteSubject) {
+                  <!-- FB87-11: dismiss and hear nothing more of this kind about the object for a while. -->
+                  <button
+                    class="icon-button"
+                    type="button"
+                    data-alert-mute
+                    [disabled]="busyId() !== null"
+                    [attr.aria-expanded]="muteMenuFor() === alert.id"
+                    [attr.aria-controls]="id + '-mute-' + alert.id"
+                    [attr.aria-label]="'nh-assistant.alerts.mute-subject' | translate"
+                    [attr.title]="'nh-assistant.alerts.mute-subject' | translate"
+                    (click)="toggleMuteMenu(alert)">
+                    <nh-assistant-icon name="clock" />
+                  </button>
+                }
                 @if (alert.status !== 'dismissed') {
                   <button
                     class="icon-button"
@@ -139,6 +154,19 @@
                   </button>
                 }
               </div>
+              @if (muteMenuFor() === alert.id) {
+                <div class="mute-choices" role="group" data-alert-mute-choices [id]="id + '-mute-' + alert.id">
+                  <span>{{ 'nh-assistant.alerts.mute-choices' | translate: { subject: alert.subjectDisplayName ?? alert.subjectId } }}</span>
+                  @for (days of muteDays; track days) {
+                    <button class="secondary" type="button" [attr.data-alert-mute-days]="days" [disabled]="busyId() !== null" (click)="dismissAndMute(alert, days)">
+                      {{ 'nh-assistant.alerts.mute-for-days' | translate: { days: days } }}
+                    </button>
+                  }
+                  <button class="secondary" type="button" data-alert-mute-cancel (click)="toggleMuteMenu(alert)">
+                    {{ 'nh-assistant.alerts.mute-cancel' | translate }}
+                  </button>
+                </div>
+              }
             </li>
           }
         </ul>

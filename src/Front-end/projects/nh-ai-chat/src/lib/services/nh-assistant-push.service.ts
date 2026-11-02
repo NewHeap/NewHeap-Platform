@@ -1,8 +1,8 @@
 import { DestroyRef, Injectable, PLATFORM_ID, computed, inject, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { TranslateService } from '@ngx-translate/core';
-import { Observable, Subject, firstValueFrom } from 'rxjs';
-import { NotificationSettings } from '../models/assistant-api.models';
+import { Observable, Subject, finalize, firstValueFrom, shareReplay, tap } from 'rxjs';
+import { NotificationSettings, UpdateNotificationSettingsRequest } from '../models/assistant-api.models';
 import { NH_ASSISTANT_CONFIG } from '../nh-assistant.config';
 import { NhAssistantApiService } from './nh-assistant-api.service';
 
@@ -33,6 +33,12 @@ export interface NhAssistantAlertNotificationClick {
  * by default; because browsers only ask for permission after a user action, the assistant asks
  * when the user sends a message or turns notifications on. The bundled service worker shows a
  * notification only when no window of the application is focused.
+ *
+ * It also holds the person's notification settings (`GET notifications`) for every part of the page
+ * that shows them (FB87-13): the assistant's start, `nh-assistant-notification-preferences` and the push
+ * switch share one request while it is in flight (`loadSettings`), activating push for the signed-in user
+ * reuses settings that were loaded for them already, and saving choices (`updatePreferences`) keeps
+ * `settings` current for all of them. Forgetting the user (`deactivate`) drops all of it.
  */
 @Injectable()
 export class NhAssistantPushService {
@@ -49,7 +55,12 @@ export class NhAssistantPushService {
   private readonly openRunSubject = new Subject<string>();
   private readonly openAlertsSubject = new Subject<NhAssistantAlertNotificationClick>();
   private registration?: Promise<ServiceWorkerRegistration>;
+  /** One more for every user forgotten, so nothing loaded for an earlier user is stored. */
   private revision = 0;
+  /** The `GET notifications` in flight, which every caller shares until it ends. */
+  private loading?: Observable<NotificationSettings>;
+  /** The activation of push for the signed-in user, which repeated calls share. */
+  private activation?: Promise<void>;
   private readonly onWorkerMessage = (event: MessageEvent) => {
     const data = event.data as { type?: unknown; conversationId?: unknown; runId?: unknown; alertId?: unknown; digestId?: unknown } | null;
     if (data?.type === openConversationMessage && typeof data.conversationId === 'string') {
@@ -150,32 +161,63 @@ export class NhAssistantPushService {
   }
 
   /**
+   * The person's notification settings as the server has them now (`GET notifications`), also stored in
+   * `settings`. Callers while a request is in flight share it, so a page whose parts all show the
+   * settings asks once. What arrives after the user was forgotten is never stored nor shared.
+   */
+  loadSettings(): Observable<NotificationSettings> {
+    if (this.loading) {
+      return this.loading;
+    }
+
+    const revision = this.revision;
+    const loading = this.api.getNotificationSettings().pipe(
+      tap(settings => {
+        if (revision === this.revision) {
+          this.settingsState.set(settings);
+        }
+      }),
+      finalize(() => {
+        if (this.loading === loading) {
+          this.loading = undefined;
+        }
+      }),
+      shareReplay({ bufferSize: 1, refCount: false })
+    );
+    this.loading = loading;
+    return loading;
+  }
+
+  /**
+   * Changes the person's notification choices (`PUT notifications`) and stores the settings the server
+   * answers with in `settings`, so every part of the page shows them.
+   */
+  updatePreferences(request: UpdateNotificationSettingsRequest): Observable<NotificationSettings> {
+    const revision = this.revision;
+    return this.api.updateNotificationPreferences(request).pipe(
+      tap(settings => {
+        if (revision === this.revision) {
+          this.settingsState.set(settings);
+        }
+      })
+    );
+  }
+
+  /**
    * Loads the user's choice and, when permission was granted before, renews this browser's
-   * subscription, which also moves it to the current user and to a rotated server key.
+   * subscription, which also moves it to the current user and to a rotated server key. Settings that
+   * were loaded for the user already are reused, and calls while an activation runs share it, so the
+   * assistant's start and a page that shows the notification choices ask the server once.
    */
   async activate(serverSupportsPush: boolean): Promise<void> {
-    const revision = ++this.revision;
     if (!serverSupportsPush || !this.isSupported()) {
+      this.activation = undefined;
       this.settingsState.set(null);
       return;
     }
 
-    try {
-      const settings = await firstValueFrom(this.api.getNotificationSettings());
-      if (revision !== this.revision) {
-        return;
-      }
-      this.settingsState.set(settings);
-      this.permissionState.set(Notification.permission);
-      if (settings.pushEnabled && Notification.permission === 'granted') {
-        await this.subscribe(settings);
-      }
-    } catch {
-      // Notifications are optional; the assistant works without them.
-      if (revision === this.revision) {
-        this.settingsState.set(null);
-      }
-    }
+    this.activation ??= this.runActivation(this.revision);
+    return this.activation;
   }
 
   /**
@@ -184,18 +226,10 @@ export class NhAssistantPushService {
    */
   async deactivate(): Promise<void> {
     this.revision++;
+    this.loading = undefined;
+    this.activation = undefined;
     this.settingsState.set(null);
-    this.subscribedState.set(false);
-    if (!this.isSupported()) {
-      return;
-    }
-    try {
-      const registration = await navigator.serviceWorker.getRegistration(this.scope());
-      const subscription = await registration?.pushManager.getSubscription();
-      await subscription?.unsubscribe();
-    } catch {
-      // Nothing to cancel.
-    }
+    await this.cancelBrowserSubscription();
   }
 
   /** Asks for permission once, after a user action such as sending a message. */
@@ -232,6 +266,44 @@ export class NhAssistantPushService {
       await this.unsubscribe();
     } finally {
       this.busyState.set(false);
+    }
+  }
+
+  private async runActivation(revision: number): Promise<void> {
+    try {
+      const settings = this.settingsState() ?? await firstValueFrom(this.loadSettings());
+      if (revision !== this.revision) {
+        return;
+      }
+      this.settingsState.set(settings);
+      this.permissionState.set(Notification.permission);
+      if (settings.pushEnabled && Notification.permission === 'granted') {
+        await this.subscribe(settings);
+      } else if (!settings.pushEnabled) {
+        // A person who turned notifications off gets none in this browser, also none of an earlier person.
+        await this.cancelBrowserSubscription();
+      }
+    } catch {
+      // Notifications are optional; the assistant works without them, and the next activation tries again.
+      if (revision === this.revision) {
+        this.settingsState.set(null);
+        this.activation = undefined;
+      }
+    }
+  }
+
+  /** Cancels this browser's subscription without telling the server, which drops it once it is gone. */
+  private async cancelBrowserSubscription(): Promise<void> {
+    this.subscribedState.set(false);
+    if (!this.isSupported()) {
+      return;
+    }
+    try {
+      const registration = await navigator.serviceWorker.getRegistration(this.scope());
+      const subscription = await registration?.pushManager.getSubscription();
+      await subscription?.unsubscribe();
+    } catch {
+      // Nothing to cancel.
     }
   }
 
