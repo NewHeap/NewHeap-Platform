@@ -6873,6 +6873,39 @@
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantConsultationTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDecisionContinuationTests.cs"
       ]
+    },
+    {
+      "id": "SPM-391",
+      "categoryId": "18",
+      "title": "The intake reviewer completes routine tasks without approval, after an administrator tried it in shadow",
+      "surface": "`NhAiToolAttribute.AllowWithoutApproval` and `NhAiToolDescriptor.AllowWithoutApproval` (generator diagnostic `NHAI019`, `NhAiWithoutApproval.IsAllowedBy`, `Validate` and `ApprovalCode`), `INhAiWithoutApprovalSwitches` with `NhAiWithoutApprovalMode` and `NhAiWithoutApprovalDecision`, `NhAiInvocationContext.WithoutApproval`, `NhAiAuditRecord.WithoutApprovalMode` and `WithoutApprovalSwitchVersion`; `INhAssistantWithoutApprovalSwitches` with `NhAssistantWithoutApprovalRequest`, `NhAssistantWithoutApprovalSwitchDto`, `NhAssistantWithoutApprovalListDto` and `NhAssistantWithoutApprovalVersionDto`, `GET admin/agents/{id}/without-approval`, `PUT admin/agents/{id}/tools/{toolId}/without-approval` and its `versions`, `allowWithoutApproval` on `GET admin/tools`; `AssistantAgentToolSwitch`, `NhAssistantWithoutApprovalModes`, `AssistantApproval.WithoutApprovalVersion` and `AssistantToolInvocation.WithoutApprovalVersion` with the `AgentToolWithoutApproval` migrations for SQL Server and PostgreSQL; `NhAssistantAuditEventKind.AdminAgentToolWithoutApprovalChanged`, `AgentProposalWouldRunWithoutApproval` and `AgentToolRanWithoutApproval` with `NhAssistantAuditEvent.WithoutApprovalVersion`; `assistant-without-approval-not-allowed` and `assistant-without-approval-shadow-first`; the switch on an agent's Rollout and in the view per kind of action (`NhAssistantWithoutApprovalActionComponent` as its `candidateActions`), and `getAgentWithoutApproval`, `setAgentWithoutApproval` and `getAgentWithoutApprovalVersions` of `NhAssistantAdminApiService`",
+      "outcome": "Completing a task is reversible and of low risk, so `project-tasks.complete` allows in code that an administrator lets one agent run it without approval; its contract hash changed with it. The development data switches it to shadow for the intake reviewer: asked to tick off a task, the reviewer still proposes it, the proposal waits for the project's approver as every other one, and the platform records on it and in the audit that it would have run without approval, so the numbers of the kind show how approvers decided those. The project's owner may not switch, and the switch goes live only from shadow. Once an administrator puts it live, the reviewer's own run completes the next task without a proposal, with the tool's authorization, the reviewer's grant, the task guard, the approval policy selector, open and rejected proposals and the budgets all checked as before, and the audit names the call as run without approval with the switch's version. A person's chat, a consultation, a rule turn, a shadow run and a call for another project still ask; a tool whose contract changed reads as off until it is tried in shadow again; switching off asks again at the next call, and the agent's stop still stops it. Every switch is the next version with who made it and why. In the management portal the switch is on the reviewer's Rollout and next to the numbers of the kind in the view per kind of action, which names the thresholds a kind misses before it goes live.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectTaskAiTools.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiWithoutApproval.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolInvoker.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Governance/NhAssistantWithoutApprovalSwitches.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantWithoutApprovalStore.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantWithoutApproval.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantWithoutApprovalEndpoints.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261102095115_AgentToolWithoutApproval.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261102095125_AgentToolWithoutApproval.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiWithoutApprovalTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolTests.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantWithoutApprovalTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-without-approval-switch.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-without-approval-action.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-agent-without-approval.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-without-approval.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-without-approval-admin.spec.ts"
+      ]
     }
   ]
 }
