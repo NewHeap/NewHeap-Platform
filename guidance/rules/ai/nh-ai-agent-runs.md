@@ -1758,6 +1758,14 @@ division keeps its own; with `UseFileRetention<T>()` the application's `INhAssis
 then forgets the uploads of each deleted thread, best effort (see the assistant rule). The overload without a scope key forgets the id in every scope; it is
 obsolete and safe only for ids that are unique across tenants and divisions.
 
+An agent whose run should warn people lists alert kinds with `Alerts(...)`. Its rules raise them with
+`WithAlerts`; its model raises only a kind whose code declares a template with `RaisedByModel` and whose
+switch an administrator turned on for the agent, first in shadow, through the platform tool `raise_alert`
+(`assistant.alert.raise`). The tool is offered next to the working memory and the hand-off tools in the
+agent's own runs on one subject only, never in a person's chat, a consultation or a run on the whole
+application; the model fills the template's typed parameters and never chooses the subject or the
+recipients. See the alerts rule.
+
 Let other assistants consult an agent with `AllowConsultation(subjectType, ...)` on its
 `ConfigureAgent`. It generates the governed tool `assistant.consult.{agentId}.{subjectType}`
 and, with `AllowRequests()`, `assistant.request.{agentId}.{subjectType}`; the asking agent

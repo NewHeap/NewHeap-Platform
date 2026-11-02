@@ -140,6 +140,39 @@
 | An audit sink that switches over every `NhAssistantAuditEventKind` sees `AdminAlertKindChanged`. | Handle or ignore `AdminAlertKindChanged`. |
 | A withheld delivery can carry the reason `kind-off`, and raising an alert can fail with `assistant-alert-kind-off`. | Code that switches over `NhAssistantAlertWithholdReasons` or the alert codes handles or ignores them. |
 
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql and NewHeap.Platform.AI.Chat.AspNet: the model tool of alerts (FB87 phase 2)
+
+- A kind lets an agent's language model raise it with `NhAssistantAlertKindBuilder.RaisedByModel`, a template
+  (`NhAssistantAlertModelTemplateBuilder`): `Describe` when the kind applies, and its typed parameters, each required:
+  `Choice` from a fixed list, `WholeNumber` between bounds, `Date` as `yyyy-MM-dd` and `Text` of at most
+  `MaxModelTextLength` (200) characters, with `Key` naming the parameters that form the key. A kind without it is never
+  raised by a model (`NhAssistantAlertKind.ModelTemplate` is `null`).
+- The platform tool `assistant.alert.raise` (`raise_alert`) is offered to a run's model only for the kinds its agent
+  lists with `Alerts(...)` that allow a model and whose switch for the agent is shadow or live, in a run on one subject:
+  never in a person's chat, a consultation or a run on the whole application. The model names a kind and fills its
+  parameters; the subject is the run's own, the recipients are the kind's, and the platform derives the key from the
+  kind, the subject and the key parameters. Every value is checked before anything is stored: a text with a link, a web
+  address, a word such as `example.com`, markup or a control character, a value outside its choices or bounds, an
+  unknown or missing parameter and a text that is too long are refused with `assistant-alert-parameter-invalid` and the
+  parameter and reason (`NhAssistantAlertParameterErrors`), a kind the tool does not offer with
+  `assistant-alert-kind-not-offered`. Noise limits, a kind that is off and the recipient check apply as for rules; the
+  result tells the model only whether the alert was recorded.
+- `AssistantAlert.RaisedByModel` and `NhAssistantAlertDto.RaisedByModel` mark an alert the model raised or last updated;
+  `AgentAlertRaised` carries `NhAssistantAuditEvent.AlertRaisedByModel`.
+- An administrator switches the model per agent and kind with `INhAssistantAlertModelSwitches`: `GET
+  admin/agents/{id}/alert-model`, `PUT admin/agents/{id}/alert-kinds/{kindId}/model` and its versions (admin policy),
+  off by default, then shadow, where the model's alerts are shadow alerts that reach nobody and count as "would have
+  sent", and only from shadow live (`409 assistant-alert-model-shadow-first`); a kind the model cannot raise for the
+  agent answers `409 assistant-alert-model-not-allowed`. Versions are append-only in `AssistantAgentAlertModelSwitch`, a
+  switch applies to the template it was made for, and every change is audited as `AdminAlertModelSwitchChanged` (132)
+  with `NhAssistantAuditEvent.AlertModelSwitchVersion`, never the reason.
+
+| Breaking change | Required action |
+|---|---|
+| The `AlertModelSwitches` migrations add the table `AssistantAgentAlertModelSwitch` and the column `AssistantAlert.RaisedByModel` with an index on `AssistantAlert.RunId` on SQL Server and PostgreSQL, which a host with alert kinds reads when it raises alerts and prepares a run. | Apply the assistant migrations for your provider, or keep `RunMigrations` on. |
+| An audit sink that switches over every `NhAssistantAuditEventKind` sees `AdminAlertModelSwitchChanged`. | Handle or ignore `AdminAlertModelSwitchChanged`. |
+| Raising an alert from a model can fail with `assistant-alert-kind-not-offered` and `assistant-alert-parameter-invalid`, and the administration answers `assistant-alert-model-not-allowed` and `assistant-alert-model-shadow-first`. | Code that switches over the alert or admin codes handles or ignores them. |
+
 ## @newheap/platform-ai-chat: alerts (FB87)
 
 - `nh-assistant-alerts` (`NhAssistantAlertsComponent`) shows a person's own alerts, grouped by parent by default, with
@@ -183,3 +216,15 @@
 | Breaking change | Required action |
 |---|---|
 | `NhAssistantAdminTab` gains `alert-kinds`. | Code that switches over the tabs handles or ignores it. |
+
+## @newheap/platform-ai-chat: the model tool of alerts (FB87 phase 2)
+
+- The agent's Rollout tab in `nh-assistant-admin` gains the section "Alerts from the model" ("Attenties van het
+  taalmodel") for an agent that lists alert kinds whose code lets a model raise them: per kind when it applies, the
+  parameters the model fills and its switch, which goes to shadow first and only from shadow to people, explaining each
+  step and taking a note before it applies. An agent without such a kind shows no section.
+- `NhAssistantAdminApiService` gains `getAgentAlertModel`, `setAgentAlertModel` and `getAgentAlertModelVersions`, with
+  the models `AgentAlertModel`, `AlertModelSwitch`, `AlertModelParameter`, `AlertModelRequest`, `AlertModelVersion` and
+  `AlertModelMode`; `provideNhAssistantMockApi` serves and checks them from the scenario's `admin.alertModel`.
+- `Alert` gains the optional `raisedByModel`, and `nh-assistant-alerts` labels such an alert "Raised by AI" ("Door AI"),
+  with its title and text as plain text. The texts and the new error codes are in English and Dutch.
