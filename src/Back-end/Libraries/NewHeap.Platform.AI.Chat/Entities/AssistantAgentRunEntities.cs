@@ -663,3 +663,61 @@ public sealed class AssistantBoardVisit
 
     public DateTimeOffset VisitedAt { get; set; }
 }
+
+/// <summary>
+/// The set of pending proposals one person was shown in the overview of a bulk decision of a filter
+/// (<c>POST approvals/bulk-decisions/overview</c>), which the decision with the set's id decides once:
+/// the proposals in the overview's order with the version each had then, the person and tenant it was
+/// made for, until when it may be decided, and once decided its outcome, so a repeat reports it.
+/// </summary>
+public sealed class AssistantDecisionBatch
+{
+    public Guid Id { get; set; }
+
+    /// <summary>
+    /// The person the overview was made for; only they decide the set.
+    /// </summary>
+    public string ActorId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The person's tenant when the overview was made; <see langword="null"/> for a person without one.
+    /// </summary>
+    public string? TenantId { get; set; }
+
+    /// <summary>
+    /// The proposals of the set, in the overview's order, each with its proposal hash, as JSON.
+    /// </summary>
+    public string ItemsJson { get; set; } = "[]";
+
+    public int ItemCount { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    /// <summary>
+    /// Until when the set may be decided, on the application's clock.
+    /// </summary>
+    public DateTimeOffset ExpiresAt { get; set; }
+
+    /// <summary>
+    /// <c>open</c>, <c>deciding</c> while a decision works through it, or <c>decided</c>.
+    /// </summary>
+    public string Status { get; set; } = "open";
+
+    /// <summary>
+    /// When the decision that works through the set began; a decision that stopped halfway is taken over
+    /// after a while.
+    /// </summary>
+    public DateTimeOffset? ClaimedAt { get; set; }
+
+    /// <summary>
+    /// <c>approve</c> or <c>reject</c>, once a decision began.
+    /// </summary>
+    public string? Decision { get; set; }
+
+    public DateTimeOffset? DecidedAt { get; set; }
+
+    /// <summary>
+    /// The outcome per proposal, as JSON, once decided.
+    /// </summary>
+    public string? ResultJson { get; set; }
+}
