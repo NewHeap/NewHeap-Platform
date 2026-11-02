@@ -24,7 +24,7 @@
   `Explicit` and `SubjectApprovers`, combined with `Or`), an optional `RepeatAfter`, the default delivery
   (`NhAssistantAlertDelivery`: immediately, one daily digest with `WorkdaysOnly`, `ImmediatelyFrom` an urgency), what
   a person may change (`NhAssistantAlertChoices`) or `Required()`, and `PushShows` (`TitleOnly` by default). The
-  delivery itself and a person's choices follow in a later version; the alerts are stored and planned now.
+  run maintenance delivers them, and every person chooses per kind in their notification preferences.
 - An agent lists the kinds its rules may raise with `NhAssistantAgentRunBuilder.Alerts(...)`, which startup checks.
   Rules raise them with `NhAssistantRuleResult.WithAlerts` and resolve them with `ResolveAlerts`; a kind the agent does
   not list fails the run with `assistant-alert-kind-not-listed`. A paused or stopped agent raises nothing and a shadow
@@ -38,9 +38,46 @@
   subject and they have at least `Reader` on it; `INhAssistantAlertPolicy` (`UseAlertPolicy`) replaces the selectors.
 - The content-free audit kinds `AgentAlertRaised` (127), `AgentAlertResolved` (128), `AgentAlertDismissed` (129) and
   `AgentAlertRecipientDropped` (130), with `NhAssistantAuditEvent.AlertId`, `AlertKind`, `AlertRevision` and
-  `AlertRecipientCount`. Forgetting a user also removes their alert deliveries.
+  `AlertRecipientCount`. Forgetting a user also removes their alert deliveries and their notification preferences.
+- Delivery: the run maintenance claims the deliveries that are due, so several instances never send one twice, and
+  checks every recipient again right before sending. An alert delivered immediately goes out on its own; every other
+  alert of a person goes out in one daily digest per digest time, at the kind's time or the person's, on working days
+  when the kind says so, in the person's time zone. The digest's title counts its alerts per urgency ("3 alerts, 1
+  urgent", "3 attenties, 1 urgent") and it lists at most `NhAssistantLimits.MaxAlertDigestLines` (10) alerts with "and N
+  more". `MaxAlertsPerPersonPerDay` (50) bounds what one person receives a day. A muted kind, the daily limit and a
+  title that fails withhold a delivery (`NhAssistantAlertDeliveryStatuses.Withheld` with
+  `NhAssistantAlertWithholdReasons`); the alert stays in the person's alert list.
+- Channels: Web Push with the subscriptions and the one push switch of the assistant, showing an alert's title only
+  unless its kind shows its text; the in-app notifications through `INhUserNotificationSink`, one thread per digest,
+  linking to `NhAssistantOptions.Alerts.ListUrl`; and the application's own channels, `INhAssistantAlertChannel`
+  registered with `AddAlertChannel<TChannel>()`, which receive an `NhAssistantAlertMessage`. A failing channel never
+  stops the others; when every channel fails, the delivery is tried again later.
+- Time zones (FB87-4): `NewHeap:AI:Assistant:Alerts:TimeZone` (or `ConfigureAlerts`), checked when the host starts,
+  is the application's time zone for alerts; without it the zone of `UseTimeZone` applies. `INhAssistantPersonTimeZones`
+  (`UsePersonTimeZones<T>()`) gives a person's own zone from the application's profiles.
+- One preference model (FB87-6): `AssistantNotificationPreference` keeps a person's choices per kind: muted, digest time
+  and the channels Web Push and in-app. `GET notifications` gains `timeZone` and `alertKinds`; `PUT notifications`
+  takes `pushEnabled` optionally and `alertKinds` with `muted`, `digestTime` and `channels`, and refuses an unknown kind
+  or a change the kind does not allow with `400` and `assistant-notification-kind-unknown`,
+  `assistant-notification-mute-not-allowed`, `assistant-notification-digest-time-not-allowed`,
+  `assistant-notification-channels-not-allowed` or `assistant-notification-digest-time-invalid`.
 
 | Breaking change | Required action |
 |---|---|
 | The `Alerts` migrations add the tables `AssistantAlert` and `AssistantAlertDelivery` on SQL Server and PostgreSQL. | Apply the assistant migrations for your provider, or keep `RunMigrations` on. An application without alert kinds sees no other change. |
+| The `NotificationPreferences` migrations add the table `AssistantNotificationPreference` on SQL Server and PostgreSQL. | Apply the assistant migrations for your provider, or keep `RunMigrations` on. |
+| `PUT notifications` takes `pushEnabled` optionally and `GET notifications` returns `timeZone` and `alertKinds` as well. | None: a request with `pushEnabled` alone works as before, and a request without `pushEnabled` and `alertKinds` is still refused with `400`. |
+| A delivery of an alert can end as `withheld`, a status of `NhAssistantAlertDeliveryStatuses` that is new. | Code that switches over the statuses handles or ignores `withheld`. |
 | An audit sink that switches over every `NhAssistantAuditEventKind` sees four new kinds. | Handle or ignore `AgentAlertRaised`, `AgentAlertResolved`, `AgentAlertDismissed` and `AgentAlertRecipientDropped`. |
+
+## @newheap/platform-ai-chat: notifications of alerts (FB87)
+
+- The bundled push worker shows the notifications of alerts, `alert` and `alert-digest`, which belong to no
+  conversation, and a click opens the host's alert list: in an open window through the new
+  `NhAssistantPushService.openAlerts$` (an `NhAssistantAlertNotificationClick` with the alert or digest id), or at the
+  new `push.alertsUrl` of `provideNhAssistant`, which defaults to `openUrl`. The texts of the new error codes of the
+  notification preferences are in English and Dutch.
+
+| Breaking change | Required action |
+|---|---|
+| The push worker's registration URL gains the `alerts` parameter, so browsers update the registered worker once. | Copy the new `nh-assistant-push-worker.js` into the application's assets. |
