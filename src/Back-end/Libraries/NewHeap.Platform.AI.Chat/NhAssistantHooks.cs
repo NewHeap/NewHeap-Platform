@@ -540,7 +540,9 @@ public enum NhAssistantAuditEventKind
     /// <summary>
     /// An open alert closed: <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>resolved</c> when a rule
     /// or the application resolved it and <c>expired</c> when its expiry passed
-    /// (<see cref="NhAssistantAlertStatuses"/>), with the alert, kind, revision, subject and shadow mark of
+    /// (<see cref="NhAssistantAlertStatuses"/>), <c>not-raised</c> when a rule run on its subject did not
+    /// raise it again and <c>revalidated</c> when its kind's check resolved it
+    /// (<see cref="NhAssistantAlertCodes"/>), with the alert, kind, revision, subject and shadow mark of
     /// <see cref="AgentAlertRaised"/>.
     /// </summary>
     AgentAlertResolved = 128,

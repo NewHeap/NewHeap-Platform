@@ -1287,7 +1287,8 @@ internal sealed class NhAssistantAgentEvents(
     }
 
     /// <summary>
-    /// Records that an open alert closed: <c>resolved</c> or <c>expired</c> (<see cref="NhAssistantAlertStatuses"/>).
+    /// Records that an open alert closed: <c>resolved</c> or <c>expired</c> (<see cref="NhAssistantAlertStatuses"/>),
+    /// or resolved as <c>not-raised</c> or <c>revalidated</c> (<see cref="NhAssistantAlertCodes"/>).
     /// </summary>
     public Task AlertResolvedAsync(AssistantAlert alert, string status, CancellationToken cancellationToken)
     {

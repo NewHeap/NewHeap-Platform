@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.101",
   "backEnd": {
-    "hash": "d5b43df521970f9b7481cbcf38f9b9e53f240b4cd83d7c9fd1452c48106d417a",
-    "declarationCount": 12806,
+    "hash": "20d7a0af9e908c8d39d59afba34fd8e99f6603c53ad69931a694ca4af73e5e0f",
+    "declarationCount": 12828,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -14691,7 +14691,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
-        "declaration": "public enum NhAssistantAlertRecipientSelector { SubjectResponsible = 0, Explicit = 1, SubjectApprovers = 2 }"
+        "declaration": "public enum NhAssistantAlertRecipientSelector { SubjectResponsible = 0, Explicit = 1, SubjectApprovers = 2, SubjectMembers = 3 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
@@ -14711,7 +14711,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
+        "declaration": "public static NhAssistantAlertRecipients SubjectMembers(NhAiSubjectRole minimumRole) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
         "declaration": "public IReadOnlyList<NhAssistantAlertRecipientSelector> Selectors { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
+        "declaration": "public NhAiSubjectRole? MinimumMemberRole { get; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
@@ -14799,6 +14807,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
+        "declaration": "public bool ResolveWhenNotRaised { get; internal init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
         "declaration": "public sealed class NhAssistantAlertKindBuilder {"
       },
       {
@@ -14840,6 +14852,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
         "declaration": "public NhAssistantAlertKindBuilder PushShows(NhAssistantAlertPushContent content) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
+        "declaration": "public NhAssistantAlertKindBuilder ResolveWhenNotRaised() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKinds.cs",
+        "declaration": "public NhAssistantAlertKindBuilder Revalidate<TCheck>() where TCheck : class, INhAssistantAlertCheck {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertOptions.cs",
@@ -14943,7 +14963,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertRecipientCheck.cs",
-        "declaration": "public async ValueTask<NhAssistantAlertRecipientVerdict> CheckAsync( string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken) {"
+        "declaration": "public async ValueTask<NhAssistantAlertRecipientVerdict> CheckAsync( string actorId, NhAiSubjectInfo subject, NhAssistantAlertKind? kind, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertRecipientCheck.cs",
+        "declaration": "public NhAiSubjectRole RequiredRoleOf(NhAssistantAlertKind? kind) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertRecipientCheck.cs",
@@ -14952,6 +14976,30 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertRecipientCheck.cs",
         "declaration": "public static bool IsPerson(string? actorId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertRevalidation.cs",
+        "declaration": "public enum NhAssistantAlertValidity { StillValid = 0, Resolve = 1 }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertRevalidation.cs",
+        "declaration": "public sealed record NhAssistantAlertCheckContext( Guid AlertId, string KindId, NhAiSubjectRef Subject, string Key, IReadOnlyDictionary<string, string> Parameters, DateTimeOffset RaisedAt, bool Shadow) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertRevalidation.cs",
+        "declaration": "public interface INhAssistantAlertCheck {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertRevalidation.cs",
+        "declaration": "public sealed record NhAssistantResolvedAlert(Guid AlertId, string KindId, string Key, bool Shadow) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertRevalidation.cs",
+        "declaration": "public sealed record NhAssistantAlertRevalidationResult( IReadOnlyList<NhAssistantResolvedAlert> Resolved, int Checked, int Failed, bool HasMore) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertRevalidation.cs",
+        "declaration": "public static NhAssistantAlertRevalidationResult Empty { get; } = new([], 0, 0, false);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertScheduler.cs",
@@ -14980,6 +15028,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertScheduling.cs",
         "declaration": "public ValueTask<DateTimeOffset> DueAtAsync(NhAssistantAlertScheduleRequest request, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertService.Lifecycle.cs",
+        "declaration": "public static bool ResolvesWhenNotRaised(NhAssistantAgentRunOptions options, NhAssistantRegistrationState registration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertService.Lifecycle.cs",
+        "declaration": "public async Task<int> ResolveNotRaisedAsync( NhAssistantAgentRunOptions options, NhAssistantAlertRaiser raiser, NhAiSubjectInfo subject, IReadOnlyList<NhAssistantAlert> raised, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertService.Lifecycle.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantAlertRevalidationResult>> RevalidateAsync( NhAiSubjectRef subject, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertService.cs",
@@ -15075,6 +15135,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
+        "declaration": "public const int MaxRevalidatedAlerts = 200;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
         "declaration": "public static class NhAssistantAlertCodes {"
       },
       {
@@ -15128,6 +15192,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
         "declaration": "public const string Redelivered = \"redelivered\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
+        "declaration": "public const string NotRaised = \"not-raised\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
+        "declaration": "public const string Revalidated = \"revalidated\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
@@ -15208,6 +15280,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
         "declaration": "public const string RecipientLimit = \"recipient-limit\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
+        "declaration": "public const string BelowMinimumRole = \"below-minimum-role\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
@@ -24196,6 +24272,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAgentPackageStore.cs",
         "declaration": "public static IReadOnlyDictionary<string, string> LockedValuesOf(AssistantAgentPackageLink link) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.Lifecycle.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantAlert>> ResolveNotRaisedAsync( string kindId, NhAiSubjectRef subject, string scopeKey, bool shadow, string agentId, IReadOnlySet<string> raisedKeys, DateTimeOffset now, int limit, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.Lifecycle.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantAlert>> ListOpenToRevalidateAsync( NhAiSubjectRef subject, string? scopeKey, IReadOnlyCollection<string> kindIds, DateTimeOffset now, int limit, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.Lifecycle.cs",
+        "declaration": "public async Task<AssistantAlert?> ResolveUnchangedAsync(AssistantAlert read, DateTimeOffset now, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.Reading.cs",
@@ -55375,7 +55463,23 @@
       "getAlertSummary",
       "markAlertRead",
       "dismissAlert",
-      "updateNotificationPreferences"
+      "updateNotificationPreferences",
+      "NhAssistantAlertRecipients.SubjectMembers",
+      "NhAssistantAlertRecipientSelector.SubjectMembers",
+      "MinimumMemberRole",
+      "NhAssistantAlertDropReasons.BelowMinimumRole",
+      "NhAssistantAlertKindBuilder.ResolveWhenNotRaised",
+      "NhAssistantAlertKind.ResolveWhenNotRaised",
+      "NhAssistantAlertCodes.NotRaised",
+      "NhAssistantAlertKindBuilder.Revalidate",
+      "INhAssistantAlertCheck",
+      "NhAssistantAlertCheckContext",
+      "NhAssistantAlertValidity",
+      "INhAssistantAlerts.RevalidateAsync",
+      "NhAssistantAlertRevalidationResult",
+      "NhAssistantResolvedAlert",
+      "NhAssistantAlertCodes.Revalidated",
+      "NhAssistantAlertLimits.MaxRevalidatedAlerts"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",

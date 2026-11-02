@@ -39,12 +39,18 @@ public sealed class ProjectEventConsumer : INhEventConsumer<ProjectCreatedEvent>
 /// SPM-282: a task update reaches the platform's agent triggers after the task transaction
 /// committed. The intake reviewer registers a proposal revalidation for the event, so a task that
 /// someone ticked off by hand closes the agent's proposal to complete it, live and with the reason.
+/// SPM-392: first the application revalidates the project's alerts, so the deadline warning resolves
+/// as soon as its last task is done instead of at the next round.
 /// </summary>
 [NhMessageProcessing(MessageProcessingType.PerApplication)]
-public sealed class ProjectTaskEventConsumer(INhAssistantAgentTriggers agentTriggers) : INhEventConsumer<ProjectTaskUpdatedEvent>
+public sealed class ProjectTaskEventConsumer(
+    INhAssistantAlerts alerts,
+    INhAssistantAgentTriggers agentTriggers,
+    ILogger<ProjectTaskEventConsumer> logger) : INhEventConsumer<ProjectTaskUpdatedEvent>
 {
     public async Task HandleAsync(ProjectTaskUpdatedEvent @event, CancellationToken cancellationToken)
     {
+        await ProjectAlertRevalidation.RevalidateAsync(alerts, @event.ProjectId, logger, cancellationToken);
         await agentTriggers.PublishAsync(@event, cancellationToken);
     }
 }
@@ -55,17 +61,43 @@ public sealed class ProjectTaskEventConsumer(INhAssistantAgentTriggers agentTrig
 /// as already done.
 /// SPM-308: the change then reaches the agent triggers on the status-changed event, whose filter skips
 /// an agent's own change on the project.
+/// SPM-392: the project's alerts are revalidated as well, so a completed project's deadline warning
+/// resolves at once.
 /// </summary>
 [NhMessageProcessing(MessageProcessingType.PerApplication)]
 public sealed class ProjectStatusEventConsumer(
     INhAssistantProposalRevalidation revalidation,
-    INhAssistantAgentTriggers agentTriggers)
+    INhAssistantAlerts alerts,
+    INhAssistantAgentTriggers agentTriggers,
+    ILogger<ProjectStatusEventConsumer> logger)
     : INhEventConsumer<ProjectStatusChangedEvent>
 {
     public async Task HandleAsync(ProjectStatusChangedEvent @event, CancellationToken cancellationToken)
     {
         await revalidation.RevalidateSubjectAsync(ProjectSubjects.For(@event.ProjectId), cancellationToken);
+        await ProjectAlertRevalidation.RevalidateAsync(alerts, @event.ProjectId, logger, cancellationToken);
         await agentTriggers.PublishAsync(@event, cancellationToken);
+    }
+}
+
+/// <summary>
+/// SPM-392: the explicit revalidation of a project's alerts (FB87-10). The platform runs the checks the
+/// alert kinds declare and resolves what no longer applies; nothing revalidates by itself, so the
+/// consumers call it after the change committed. A failed result is logged with its code; the event
+/// still reaches the agent triggers.
+/// </summary>
+internal static class ProjectAlertRevalidation
+{
+    public static async Task RevalidateAsync(INhAssistantAlerts alerts, Guid projectId, ILogger logger, CancellationToken cancellationToken)
+    {
+        var revalidated = await alerts.RevalidateAsync(ProjectSubjects.For(projectId), cancellationToken);
+        if (!revalidated.Success)
+        {
+            logger.LogWarning(
+                "The alerts of project {ProjectId} could not be revalidated ({Code}).",
+                projectId,
+                revalidated.GetResultItems().Select(item => item.Name).FirstOrDefault());
+        }
     }
 }
 

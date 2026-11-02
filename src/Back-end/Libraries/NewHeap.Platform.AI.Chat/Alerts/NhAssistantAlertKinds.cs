@@ -115,7 +115,13 @@ public enum NhAssistantAlertRecipientSelector
     Explicit = 1,
 
     /// <summary>The subject's approvers, as its resolver lists its members now.</summary>
-    SubjectApprovers = 2
+    SubjectApprovers = 2,
+
+    /// <summary>
+    /// The subject's members with at least a role, as its resolver lists them now
+    /// (<see cref="NhAssistantAlertRecipients.SubjectMembers"/>).
+    /// </summary>
+    SubjectMembers = 3
 }
 
 /// <summary>
@@ -128,9 +134,12 @@ public enum NhAssistantAlertRecipientSelector
 /// </summary>
 public sealed class NhAssistantAlertRecipients
 {
-    private NhAssistantAlertRecipients(IReadOnlyList<NhAssistantAlertRecipientSelector> selectors)
+    private NhAssistantAlertRecipients(
+        IReadOnlyList<NhAssistantAlertRecipientSelector> selectors,
+        NhAiSubjectRole? minimumMemberRole = null)
     {
         Selectors = selectors;
+        MinimumMemberRole = minimumMemberRole;
     }
 
     /// <summary>The person responsible for the subject.</summary>
@@ -142,8 +151,33 @@ public sealed class NhAssistantAlertRecipients
     /// <summary>The subject's approvers.</summary>
     public static NhAssistantAlertRecipients SubjectApprovers { get; } = new([NhAssistantAlertRecipientSelector.SubjectApprovers]);
 
+    /// <summary>
+    /// The subject's members with at least <paramref name="minimumRole"/>, such as
+    /// <see cref="NhAiSubjectRole.Participant"/> for the people who work on it, as its resolver lists them
+    /// now. The role is checked live as well: for a kind that selects only members, a person needs it again
+    /// when a delivery goes out and when they read the alert, so a member who lost the role or access gets
+    /// nothing more. Combined with another selector or replaced by an <see cref="INhAssistantAlertPolicy"/>,
+    /// the person may have been chosen otherwise, so the check asks <see cref="NhAiSubjectRole.Reader"/>,
+    /// as it does for the other recipients.
+    /// </summary>
+    public static NhAssistantAlertRecipients SubjectMembers(NhAiSubjectRole minimumRole)
+    {
+        if (!Enum.IsDefined(minimumRole) || minimumRole < NhAiSubjectRole.Reader)
+        {
+            throw new ArgumentOutOfRangeException(nameof(minimumRole), "A member selector asks for at least the Reader role.");
+        }
+
+        return new NhAssistantAlertRecipients([NhAssistantAlertRecipientSelector.SubjectMembers], minimumRole);
+    }
+
     /// <summary>The selectors, each once, in the order they were combined.</summary>
     public IReadOnlyList<NhAssistantAlertRecipientSelector> Selectors { get; }
+
+    /// <summary>
+    /// The role a member needs for <see cref="NhAssistantAlertRecipientSelector.SubjectMembers"/>, the lowest
+    /// of the combined member selectors; <see langword="null"/> without one.
+    /// </summary>
+    public NhAiSubjectRole? MinimumMemberRole { get; }
 
     /// <summary>Whether <paramref name="selector"/> is one of the selectors.</summary>
     public bool Includes(NhAssistantAlertRecipientSelector selector)
@@ -155,12 +189,19 @@ public sealed class NhAssistantAlertRecipients
     public NhAssistantAlertRecipients Or(NhAssistantAlertRecipients other)
     {
         ArgumentNullException.ThrowIfNull(other);
-        return new NhAssistantAlertRecipients(Selectors.Concat(other.Selectors).Distinct().ToArray());
+
+        // Members with one role or members with another are the members with the lower role.
+        var minimumMemberRole = MinimumMemberRole is { } mine && other.MinimumMemberRole is { } theirs
+            ? (mine < theirs ? mine : theirs)
+            : MinimumMemberRole ?? other.MinimumMemberRole;
+        return new NhAssistantAlertRecipients(Selectors.Concat(other.Selectors).Distinct().ToArray(), minimumMemberRole);
     }
 
     public override string ToString()
     {
-        return string.Join(" or ", Selectors);
+        return string.Join(" or ", Selectors.Select(selector => selector == NhAssistantAlertRecipientSelector.SubjectMembers
+            ? $"{selector}({MinimumMemberRole})"
+            : selector.ToString()));
     }
 }
 
@@ -335,6 +376,19 @@ public sealed class NhAssistantAlertKind
     /// </summary>
     public NhAssistantAlertAdminChoices AdministratorChoices { get; internal init; } = NhAssistantAlertAdminChoices.All;
 
+    /// <summary>
+    /// A rule run that its rules finished on a subject resolves the agent's open alerts of the kind about
+    /// that subject that the run did not raise again; see <see cref="NhAssistantAlertKindBuilder.ResolveWhenNotRaised"/>.
+    /// </summary>
+    public bool ResolveWhenNotRaised { get; internal init; }
+
+    /// <summary>
+    /// The application's check that says whether an open alert of the kind still applies when the
+    /// application revalidates its subject (<see cref="INhAssistantAlerts.RevalidateAsync"/>);
+    /// <see langword="null"/> leaves the kind's alerts alone.
+    /// </summary>
+    internal Type? CheckType { get; init; }
+
     /// <summary>Writes the title of an alert in a culture from its parameters.</summary>
     internal Func<CultureInfo, IReadOnlyDictionary<string, string>, string> Title { get; }
 
@@ -359,6 +413,8 @@ public sealed class NhAssistantAlertKindBuilder
     private bool _required;
     private NhAssistantAlertPushContent _pushShows = NhAssistantAlertPushContent.TitleOnly;
     private NhAssistantAlertAdminChoices _adminChoices = NhAssistantAlertAdminChoices.All;
+    private bool _resolveWhenNotRaised;
+    private Type? _checkType;
 
     internal NhAssistantAlertKindBuilder(string id)
     {
@@ -518,6 +574,35 @@ public sealed class NhAssistantAlertKindBuilder
         return this;
     }
 
+    /// <summary>
+    /// Resolves by omission: when an agent's rules finish a run on a subject, the agent's open alerts of
+    /// the kind about that subject whose key the run did not raise again are resolved, as
+    /// <see cref="NhAssistantRuleResult.ResolveAlerts"/> resolves them, so rules that raise what applies
+    /// now need not resolve what no longer does. Only the run's own subject: alerts about other subjects
+    /// and the whole application (<c>nh-system</c>) are resolved explicitly. A run whose rules fail, hand
+    /// over to the model or a skill, or are cancelled resolves nothing by omission, and a shadow run
+    /// touches only shadow alerts.
+    /// </summary>
+    public NhAssistantAlertKindBuilder ResolveWhenNotRaised()
+    {
+        _resolveWhenNotRaised = true;
+        return this;
+    }
+
+    /// <summary>
+    /// Declares the application's check of the kind's open alerts (FB87-10): when the application calls
+    /// <see cref="INhAssistantAlerts.RevalidateAsync"/> for a subject, <typeparamref name="TCheck"/> says
+    /// for each open alert of the kind about it whether it still applies or is resolved. The check is
+    /// resolved from the application's services, in a scope of its own per alert. Nothing revalidates
+    /// by itself: the application calls it after its change committed, as it revalidates proposals.
+    /// </summary>
+    public NhAssistantAlertKindBuilder Revalidate<TCheck>()
+        where TCheck : class, INhAssistantAlertCheck
+    {
+        _checkType = typeof(TCheck);
+        return this;
+    }
+
     internal NhAssistantAlertKind Build()
     {
         if (_displayNameKey is null)
@@ -551,7 +636,9 @@ public sealed class NhAssistantAlertKindBuilder
             _required,
             _pushShows)
         {
-            AdministratorChoices = _adminChoices
+            AdministratorChoices = _adminChoices,
+            ResolveWhenNotRaised = _resolveWhenNotRaised,
+            CheckType = _checkType
         };
     }
 }

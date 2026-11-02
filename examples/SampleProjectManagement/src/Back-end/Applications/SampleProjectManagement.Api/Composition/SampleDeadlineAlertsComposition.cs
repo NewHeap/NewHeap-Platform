@@ -28,6 +28,13 @@ namespace SampleProjectManagement.Api.Composition;
 /// through <see cref="SampleDeadlineAlerts"/>; the platform checks every recipient, so a person without
 /// a role on the project receives nothing. The sample's tasks have no due date or responsible person of
 /// their own, so the watch alerts about the project's deadline and its owner.
+/// The lifecycle (FB87 phase 2, lane AR): the kind chooses the project's members who work on it
+/// (<c>SubjectMembers(Participant)</c>), so the rules name nobody themselves. It resolves by omission
+/// (<c>ResolveWhenNotRaised</c>): a round that finds the project no longer due raises nothing, and the
+/// watch's open warning about it is resolved. The kind also declares its check
+/// (<see cref="ProjectDueTodayAlertCheck"/>), which the sample's task and status consumers run through
+/// <c>INhAssistantAlerts.RevalidateAsync</c> after a change committed, so ticking off the last task
+/// resolves the warning at once, also one the application raised, without waiting for a round.
 /// The delivery (FB87, lane AB): the morning round runs at 07:00 in the sample's time zone and the kind
 /// arrives in the 07:30 digest, one notification per person, in the person's own time zone: the time
 /// zone of the division they work in (<see cref="SamplePersonTimeZones"/>), so a colleague whose
@@ -88,9 +95,12 @@ public static class SampleDeadlineAlertsComposition
                     culture,
                     DateOnly.ParseExact(parameters["deadline"], "yyyy-MM-dd", CultureInfo.InvariantCulture).ToString("D", culture),
                     parameters["openTasks"]))
-                // The owner, as the project's resolver names its responsible person, and the people the
-                // rules or the application name; each one is checked before anything reaches them.
-                .Recipients(NhAssistantAlertRecipients.SubjectResponsible.Or(NhAssistantAlertRecipients.Explicit))
+                // The owner, as the project's resolver names its responsible person, the members who
+                // work on the project and the people the application names; each one is checked
+                // before anything reaches them.
+                .Recipients(NhAssistantAlertRecipients.SubjectResponsible
+                    .Or(NhAssistantAlertRecipients.SubjectMembers(NhAiSubjectRole.Participant))
+                    .Or(NhAssistantAlertRecipients.Explicit))
                 // A project due today is warned about once per day, however many rounds raise it.
                 .RepeatAfter(TimeSpan.FromDays(1))
                 // By default in the morning digest on working days; an urgent one comes at once.
@@ -100,7 +110,11 @@ public static class SampleDeadlineAlertsComposition
                     .ImmediatelyFrom(NhAssistantAlertUrgency.Urgent))
                 .PersonMayChange(NhAssistantAlertChoices.All)
                 // A lock screen shows the title only, never the open tasks.
-                .PushShows(NhAssistantAlertPushContent.TitleOnly))
+                .PushShows(NhAssistantAlertPushContent.TitleOnly)
+                // A round that no longer raises the warning about its project resolves the watch's own.
+                .ResolveWhenNotRaised()
+                // After a task or status change the application revalidates the project's alerts.
+                .Revalidate<ProjectDueTodayAlertCheck>())
             .ConfigureAgent(AgentId, agent => agent
                 .WorksOn(ProjectSubjects.Type)
                 .HideFromChat()
@@ -115,6 +129,18 @@ public static class SampleDeadlineAlertsComposition
                 .MaxSubjectsPerTick(100)
                 .OnBusy(NhAssistantTriggerConflict.Ignore)));
         return services;
+    }
+
+    /// <summary>
+    /// Whether a project is due on <paramref name="day"/> with work left: not completed or archived, its
+    /// deadline on that day and tasks still open. The watch's rules and its check ask the same.
+    /// </summary>
+    public static bool IsDue(ProjectStatus status, DateTimeOffset? deadline, int openTasks, DateOnly day)
+    {
+        return deadline is { } due
+            && openTasks > 0
+            && status is not (ProjectStatus.Completed or ProjectStatus.Archived)
+            && DayOf(due) == day;
     }
 
     /// <summary>
@@ -209,9 +235,10 @@ public static class SampleDeadlineAlertsComposition
 
 /// <summary>
 /// SPM-392: the deadline watch's rules. They read the project as it is now, because a round may come
-/// late or twice: a project due today with open tasks raises its alert for the people who work on it,
-/// next to its owner; anything else resolves the project's open alerts of the kind, whatever their key.
-/// The summary is the application's own text in each language.
+/// late or twice: a project due today with open tasks raises its alert, which the kind delivers to its
+/// owner and the members who work on it. Anything else raises nothing, and the kind resolves the watch's
+/// open warning about the project by omission (<c>ResolveWhenNotRaised</c>). The summary is the
+/// application's own text in each language.
 /// </summary>
 public sealed class ProjectDeadlineAlertRules(
     SampleProjectManagementDbContext dbContext,
@@ -232,33 +259,57 @@ public sealed class ProjectDeadlineAlertRules(
                     item.Key,
                     item.Status,
                     item.Deadline,
-                    OpenTasks = item.Tasks.Count(task => !task.IsCompleted),
-                    Workers = item.Members
-                        .Where(member => member.Role >= ProjectMemberRole.Participant)
-                        .OrderBy(member => member.UserId)
-                        .Select(member => member.UserId)
-                        .ToList()
+                    OpenTasks = item.Tasks.Count(task => !task.IsCompleted)
                 })
                 .SingleOrDefaultAsync(cancellationToken)
             : null;
 
-        var due = project is { Deadline: { } deadline, OpenTasks: > 0 }
-            && project.Status is not (ProjectStatus.Completed or ProjectStatus.Archived)
-            && SampleDeadlineAlertsComposition.DayOf(deadline) == today;
-        if (!due)
+        if (project is null || !SampleDeadlineAlertsComposition.IsDue(project.Status, project.Deadline, project.OpenTasks, today))
         {
-            // Done, moved or gone: the warning no longer applies, whichever day it was raised for.
-            return NhAssistantRuleResult.Done(_ => localizer["DeadlineWatchClear"].Value)
-                .ResolveAlerts(new NhAssistantAlertKey(SampleDeadlineAlertsComposition.KindId, subject, key: null));
+            // Done, moved or gone: the round raises nothing, so the kind resolves the watch's open
+            // warning about the project, whichever day it was raised for.
+            return NhAssistantRuleResult.Done(_ => localizer["DeadlineWatchClear"].Value);
         }
 
-        return NhAssistantRuleResult.Done(_ => localizer["DeadlineWatchWarned", project!.OpenTasks].Value)
+        // The kind chooses the owner and the members who work on the project; the rules name nobody.
+        return NhAssistantRuleResult.Done(_ => localizer["DeadlineWatchWarned", project.OpenTasks].Value)
             .WithAlerts(SampleDeadlineAlertsComposition.AlertFor(
                 projectId,
-                project!.Key,
+                project.Key,
                 today,
                 project.OpenTasks,
-                project.Workers.Select(userId => userId.ToString("D")).ToArray()));
+                []));
+    }
+}
+
+/// <summary>
+/// SPM-392: the check of the watch's kind (FB87-10), which the platform runs when the application
+/// revalidates a project's alerts after a task or status change committed: a warning still applies while
+/// the project is due on the warning's day, today, with tasks open; otherwise it is resolved. It reads the
+/// project as it is now and changes nothing.
+/// </summary>
+public sealed class ProjectDueTodayAlertCheck(SampleProjectManagementDbContext dbContext, TimeProvider clock) : INhAssistantAlertCheck
+{
+    public async ValueTask<NhAssistantAlertValidity> CheckAsync(NhAssistantAlertCheckContext context, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        var today = SampleDeadlineAlertsComposition.DayOf(clock.GetUtcNow());
+        if (!Guid.TryParse(context.Subject.Id, out var projectId)
+            || !context.Parameters.TryGetValue("deadline", out var deadline)
+            || !DateOnly.TryParseExact(deadline, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day)
+            || day != today)
+        {
+            return NhAssistantAlertValidity.Resolve;
+        }
+
+        var project = await dbContext.Projects
+            .AsNoTracking()
+            .Where(item => item.Id == projectId)
+            .Select(item => new { item.Status, item.Deadline, OpenTasks = item.Tasks.Count(task => !task.IsCompleted) })
+            .SingleOrDefaultAsync(cancellationToken);
+        return project is not null && SampleDeadlineAlertsComposition.IsDue(project.Status, project.Deadline, project.OpenTasks, day)
+            ? NhAssistantAlertValidity.StillValid
+            : NhAssistantAlertValidity.Resolve;
     }
 }
 
