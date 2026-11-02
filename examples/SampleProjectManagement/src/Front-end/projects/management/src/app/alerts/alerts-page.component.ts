@@ -17,9 +17,12 @@ const projectPage = '/management/intake-reviews';
  * the parent every project names, in the person's language, with nothing to approve. The person marks
  * an alert read or dismisses it, and the shell's bell, which `NhAssistantAlertBadgeService` keeps
  * current, follows. Opening an alert emits its subject: the page routes it to the project with the link
- * the server gives the project type (`OpenAt`), and the list itself never navigates. Next to the list
- * the person chooses how the alerts reach them: desktop notifications, the time of the morning overview
- * in their own time zone, its channels, and whether they receive the kind at all.
+ * the server gives the project type (`OpenAt`), and the list itself never navigates. Dismissing an alert
+ * also offers to hear nothing more about its project for 7 or 30 days. Next to the list the person
+ * chooses how the alerts reach them: desktop notifications, the times of the morning and afternoon
+ * overviews in their own time zone, their quiet hours, the channels, and whether they receive the kind
+ * at all; they also lift a project they muted there. Both parts read the person's settings once
+ * (FB87-13).
  */
 @Component({
   selector: 'app-alerts-page',
