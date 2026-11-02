@@ -482,20 +482,19 @@ export class NhAssistantAgentProposalsComponent {
   }
 
   /**
-   * Decides the selected proposals together. Only ids of proposals this list shows are sent, in the
-   * list's order: a person decides only what they see.
+   * Decides the selected proposals together. Only proposals this list shows are sent, in the list's
+   * order, each with the proposal hash the person saw, so the server refuses one that changed since: a
+   * person decides only what they see.
    */
   decideSelected(decision: AgentProposalDecision): void {
     const selected = this.selected();
-    const ids = this.pending()
-      .filter(proposal => selected.has(proposal.approvalId))
-      .map(proposal => proposal.approvalId);
-    if (ids.length === 0) {
+    const chosen = this.pending().filter(proposal => selected.has(proposal.approvalId));
+    if (chosen.length === 0) {
       return;
     }
 
     const proposals = this.proposals();
-    this.run(this.api.decideMany(ids, decision), response => {
+    this.run(this.api.decideMany(chosen, decision), response => {
       this.selected.set(new Set());
       const stale = response.results
         .filter(outcome => !outcome.succeeded && outcome.code === staleCode)

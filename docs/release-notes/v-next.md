@@ -99,8 +99,8 @@
 - The selection of `nh-assistant-agent-proposals` outlived its page: the inbox keeps the same list when it
   pages, so "Approve selected" also sent proposals selected on an earlier page without showing them. The
   selection now follows the list: a refresh of the same page keeps it, another page, filter or a decision
-  elsewhere drops what the list no longer shows, and "Approve selected" and "Reject selected" send only ids
-  of shown proposals.
+  elsewhere drops what the list no longer shows, and "Approve selected" and "Reject selected" send only the
+  shown proposals, each with the proposal hash the person saw (`decideMany`).
 - `nh-assistant-agent-proposals` and `nh-assistant-agent-inbox` take `density: 'compact'`
   (`NhAssistantProposalDensity`) for lists of many proposals: one row per proposal with its object, kind of
   action, summary on one line, agent and expiry, and the markers that must not disappear (status once it no
@@ -114,4 +114,5 @@
   count of open proposals becomes the way to them. Its new output `openInbox` (`NhAssistantBoardInboxRequest`:
   the agent and the board's division) lets the host route to its own filtered inbox; while a host listens,
   the count is that button in either density and the tile has no inline inbox. Without a listener a compact
-  tile's count opens the tile's own inbox and a comfortable tile stays as it was.
+  tile's count opens the tile's own inbox, in compact rows and without "Decide all", and a comfortable tile
+  stays as it was.

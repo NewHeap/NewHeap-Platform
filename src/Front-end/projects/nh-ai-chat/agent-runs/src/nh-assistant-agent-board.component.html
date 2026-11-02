@@ -179,12 +179,15 @@
             @case ('proposals') {
               <div class="work" [id]="id + '-' + agent.agentId + '-panel'">
                 <!-- One agent's proposals are no visit of the whole inbox; the tile already marks what is new.
-                     The board of a division shows that division's proposals only. -->
+                     The board of a division shows that division's proposals only. A compact tile lists them
+                     in rows and leaves deciding the whole filter to the full inbox. -->
                 <nh-assistant-agent-inbox
                   [agentId]="agent.agentId"
                   [divisionId]="divisionId()"
                   [markNew]="false"
                   [recordVisit]="false"
+                  [decideAll]="!compact()"
+                  [density]="compact() ? 'compact' : 'comfortable'"
                   (openConversation)="openConversation.emit($event)" />
               </div>
             }

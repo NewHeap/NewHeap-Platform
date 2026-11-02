@@ -245,7 +245,9 @@ describe('the proposals list for many proposals', () => {
       button(fixture, 'inbox.approve-selected').click();
       fixture.detectChanges();
 
-      expect(api.decideMany).toHaveBeenCalledOnceWith(['c'], 'approve');
+      // Only the proposal shown and selected goes, with the version the person saw.
+      expect(api.decideMany).toHaveBeenCalledOnceWith([proposal('c')], 'approve');
+      expect(api.decideMany.calls.mostRecent().args[0].map(item => typeof item === 'string' ? item : item.proposalHash)).toEqual(['hash-c']);
     });
 
     it('drops a selected proposal the host no longer shows, also when it comes back later', () => {
@@ -271,7 +273,7 @@ describe('the proposals list for many proposals', () => {
       expect(checkbox(element, 'a').checked).toBeFalse();
 
       button(fixture, 'inbox.approve-selected').click();
-      expect(api.decideMany).toHaveBeenCalledOnceWith(['b'], 'approve');
+      expect(api.decideMany).toHaveBeenCalledOnceWith([proposal('b')], 'approve');
     });
   });
 
@@ -572,15 +574,24 @@ describe('the proposals list for many proposals', () => {
     });
 
     it('opens the own inbox of a tile from the count of a compact tile while nobody listens, and keeps the comfortable tile as it was', () => {
-      api.getInbox.and.returnValue(of({ items: [proposal('a', { agentId: 'regional' })], total: 1 }));
+      api.getInbox.and.returnValue(of({ items: [proposal('a', { agentId: 'regional' }), proposal('b', { agentId: 'regional' })], total: 2 }));
       const fixture = TestBed.createComponent(InlineBoardHostComponent);
       fixture.detectChanges();
       const element = fixture.nativeElement as HTMLElement;
 
-      // Comfortable: the count is a badge and "Show the proposals" opens the inline inbox, as before.
+      // Comfortable: the count is a badge and "Show the proposals" opens the inline inbox, as before,
+      // with its cards and "Decide all".
       expect(element.querySelector('span[data-open-proposals]')).not.toBeNull();
       expect(element.querySelector('[data-board-open-inbox]')).toBeNull();
-      expect(element.querySelector('.card-actions [data-board-toggle-proposals]')).not.toBeNull();
+      const show = element.querySelector<HTMLButtonElement>('.card-actions [data-board-toggle-proposals]')!;
+      expect(show).not.toBeNull();
+      show.click();
+      fixture.detectChanges();
+      expect(element.querySelector('nh-assistant-agent-inbox [data-decide-all]')).not.toBeNull();
+      expect(element.querySelector('nh-assistant-agent-inbox [data-proposal-row]')).toBeNull();
+      show.click();
+      fixture.detectChanges();
+      api.getInbox.calls.reset();
 
       fixture.componentInstance.compact.set(true);
       fixture.detectChanges();
@@ -598,6 +609,9 @@ describe('the proposals list for many proposals', () => {
         agentId: 'regional',
         divisionId: '8d5c6f7e-1a2b-4c3d-9e8f-0a1b2c3d4e5f'
       }));
+      // A compact tile lists the proposals in rows and leaves deciding the whole filter to the full inbox.
+      expect(panel.querySelectorAll('[data-proposal-row]').length).toBe(2);
+      expect(panel.querySelector('[data-decide-all]')).toBeNull();
       fixture.destroy();
     });
   });

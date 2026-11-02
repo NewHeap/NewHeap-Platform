@@ -453,7 +453,9 @@ describe('agent-run components', () => {
       button(fixture, 'inbox.reject-selected')!.click();
       fixture.detectChanges();
 
-      expect(api.decideMany).toHaveBeenCalledOnceWith(['approval-1', 'approval-2', 'approval-3'], 'reject');
+      // The shown proposals go with their versions, so the server refuses one that changed since.
+      expect(api.decideMany).toHaveBeenCalledOnceWith(
+        [proposal('pending', 'approval-1'), proposal('pending', 'approval-2'), proposal('pending', 'approval-3')], 'reject');
       expect(feedbackPanels().map(panel => panel.approvalIds())).toEqual([['approval-1', 'approval-2']]);
     });
 

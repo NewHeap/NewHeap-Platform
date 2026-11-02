@@ -829,8 +829,8 @@ whether it continues on another page, and "Select group" selects only the shown 
 group that the person may decide, never those on another page. The selection of
 `nh-assistant-agent-proposals` follows the list: it keeps only the shown pending proposals the person may
 decide, so a refresh of the same page keeps it while another page, filter or a decision elsewhere drops
-what the list no longer shows, and "Approve selected" and "Reject selected" send only ids of shown
-proposals. `markNew` (on by default) marks the
+what the list no longer shows, and "Approve selected" and "Reject selected" send only the shown
+proposals, with the proposal hash the person saw, through `decideMany`. `markNew` (on by default) marks the
 proposals made since the person's last visit of the inbox in its scope, the whole application or the
 division of `divisionId`, keeps them marked while the inbox is shown and marks those that arrive live;
 `recordVisit` (on by default) records the visit once after the first read (`visitInbox`,
@@ -905,7 +905,9 @@ agent and the board's division, `null` for the whole application) and route to t
 filtered on them, with `recordVisit` off there because it shows only part of the inbox. While a host
 listens, the count is that button in either density and the tile has no inline inbox; without a
 listener the count of a compact tile opens the tile's own inbox, and a comfortable tile keeps "Show the
-proposals". The disclosures carry `aria-expanded` and `aria-controls`.
+proposals". A compact tile's own inbox lists the proposals in compact rows without "Decide all", which
+belongs in the full inbox; a comfortable tile's own inbox keeps both. The disclosures carry
+`aria-expanded` and `aria-controls`.
 
 Live updates connect to the hub path the server reports in `status.collaboration`,
 using `@microsoft/signalr`, loaded on first use, and the same `getAccessToken`. When
@@ -1310,7 +1312,8 @@ and the playground shows it on the mock API (SPM-304). The compact board tests f
 about behind its disclosure, show two lines of the result with "More", which opens the whole result,
 and fit 375px; the board routing tests emit the agent and the division from the count of open
 proposals to a host that listens, in either density, without an inline inbox, and open the tile's own
-inbox from the count of a compact tile while nobody listens. The portal's Project management board is
+inbox from the count of a compact tile while nobody listens, in rows and without "Decide all", which a
+comfortable tile's own inbox keeps. The portal's Project management board is
 compact, and the follow-up's count of open proposals opens the intake reviews inbox filtered on the
 follow-up (SPM-304).
 The inbox overview tests pass the division, run and grouping to the inbox and reload from the first

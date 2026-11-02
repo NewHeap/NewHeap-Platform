@@ -315,7 +315,7 @@ describe('the inbox overview', () => {
       expect(selectGroup.checked).toBeTrue();
 
       list.decideSelected('approve');
-      expect(api.decideMany).toHaveBeenCalledOnceWith(['one', 'two'], 'approve');
+      expect(api.decideMany).toHaveBeenCalledOnceWith([items[0], items[1]], 'approve');
 
       // Selecting again after deselecting the group leaves the other groups alone.
       list.toggle(items[3]);
