@@ -60,7 +60,10 @@ public interface INhAiWithoutApprovalSwitches
 public static class NhAiWithoutApproval
 {
     /// <summary>
-    /// The approval code of a call that an administrator's switch let run without approval.
+    /// The approval code of a call that an administrator's switch let run without approval. The invoker
+    /// then sets <see cref="NhAiInvocationContext.WithoutApproval"/> and writes
+    /// <see cref="NhAiAuditRecord.WithoutApprovalMode"/> and <see cref="NhAiAuditRecord.WithoutApprovalSwitchVersion"/>
+    /// on every audit record of the call.
     /// </summary>
     public const string ApprovalCode = "without-approval";
 
