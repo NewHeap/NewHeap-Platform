@@ -23,7 +23,7 @@
         <a class="nav-item" routerLink="/management/chat" routerLinkActive="active"><i class="ph ph-chats-circle" aria-hidden="true"></i>{{ 'project.assistant-chat-nav' | translate }}</a>
         <!-- SPM-392: the person's alerts, with the number of unread ones. -->
         <a class="nav-item" routerLink="/management/alerts" routerLinkActive="active" data-alerts-nav>
-          <i class="ph ph-bell" aria-hidden="true"></i>{{ 'alerts-page.navigation' | translate }}
+          <i class="ph ph-warning-circle" aria-hidden="true"></i>{{ 'alerts-page.navigation' | translate }}
           @if (alertBadge.unread() > 0) {
             <span class="nav-count" [attr.data-urgency]="alertBadge.highestUrgency()" aria-hidden="true">{{ alertBadge.unread() > 99 ? '99+' : alertBadge.unread() }}</span>
             <span class="visually-hidden">{{ 'alerts-page.unread' | translate: { count: alertBadge.unread() } }}</span>
@@ -76,7 +76,7 @@
             [attr.data-urgency]="alertBadge.highestUrgency()"
             [attr.aria-label]="(alertBadge.unread() > 0 ? 'alerts-page.bell-unread' : 'alerts-page.bell') | translate: { count: alertBadge.unread() }"
             [attr.title]="(alertBadge.unread() > 0 ? 'alerts-page.bell-unread' : 'alerts-page.bell') | translate: { count: alertBadge.unread() }">
-            <i class="ph ph-bell" aria-hidden="true"></i>
+            <i class="ph ph-warning-circle" aria-hidden="true"></i>
             @if (alertBadge.unread() > 0) {
               <span class="bell-count" aria-hidden="true">{{ alertBadge.unread() > 99 ? '99+' : alertBadge.unread() }}</span>
             }

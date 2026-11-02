@@ -69,6 +69,17 @@
       }
     </section>
 
+    <!-- SPM-392: the alerts of the deadline watch on the mock API, without the assistant back-end. -->
+    <section class="panel" aria-labelledby="assistant-alerts-title">
+      <h3 id="assistant-alerts-title">{{ 'project.assistant-alerts-title' | translate }}</h3>
+      <p class="hint">{{ 'project.assistant-alerts-description' | translate }}</p>
+      <div class="actions">
+        <a class="link-button" data-playground-alerts [routerLink]="alertsRoute">
+          <i class="ph ph-warning-circle" aria-hidden="true"></i>{{ 'project.assistant-alerts-open' | translate }}
+        </a>
+      </div>
+    </section>
+
     <section class="panel" aria-labelledby="assistant-page-title">
       <h3 id="assistant-page-title">{{ 'project.assistant-page-title' | translate }}</h3>
       <p class="hint">{{ 'project.assistant-page-description' | translate }}</p>

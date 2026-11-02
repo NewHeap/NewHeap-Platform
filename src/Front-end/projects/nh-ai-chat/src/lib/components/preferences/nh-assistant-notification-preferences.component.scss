@@ -64,11 +64,13 @@ h3 {
   font-size: 13px;
 }
 
+// A hint here is one line of text, sometimes with an icon, not a hint with a counter on the right.
 .hint {
-  display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-start;
   gap: 4px 6px;
+  font-size: 12px;
 }
 
 .kind {

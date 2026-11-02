@@ -414,7 +414,10 @@
     "assistant-collaboration-description": "Prompts start a new conversation while the open one still works. Use the link icon above the composer to share, and the people icon to invite colleagues or manage participants.",
     "assistant-simulate-colleague": "{{name}} continues this conversation",
     "assistant-colleague-working": "{{name}} is asking the assistant…",
-    "assistant-colleague-needs-conversation": "Open or start a conversation first."
+    "assistant-colleague-needs-conversation": "Open or start a conversation first.",
+    "assistant-alerts-title": "Alerts",
+    "assistant-alerts-description": "The deadline watch's alerts and the notification choices on the mock API, without the assistant back-end.",
+    "assistant-alerts-open": "Open the alerts"
   },
   "nh-background-operations": {
     "operation": "Background operation",

@@ -94,6 +94,8 @@ describe('NhAssistantNotificationPreferencesComponent', () => {
     expect(due.querySelector('strong')?.textContent?.trim()).toBe('Task due today');
     expect(due.querySelector('[data-kind-delivery]')?.textContent?.trim()).toBe('Delivered in the daily overview at 07:30 on working days.');
     expect((due.querySelector('[data-kind-received]') as HTMLInputElement).checked).toBeTrue();
+    expect((due.querySelector('[data-kind-digest-time]') as HTMLInputElement).value).withContext('the default shows').toBe('07:30');
+    expect(due.querySelector('[data-kind-reset]')).withContext('nothing to reset').toBeNull();
     expect(due.querySelectorAll('[data-kind-channel]').length).toBe(2);
     // A required kind is always received and offers no choices.
     const required = kind(element, 'task-escalated');

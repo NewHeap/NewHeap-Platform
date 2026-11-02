@@ -46,6 +46,13 @@ export const ASSISTANT_PLAYGROUND_ROUTES: Routes = [
         providers: [provideSampleAgentMetadataEditors()],
         loadComponent: () => import('./assistant-admin-page.component')
           .then(module => module.AssistantAdminPageComponent)
+      },
+      {
+        // SPM-392: the portal's Alerts page on the mock API's alerts and notification choices.
+        path: 'alerts',
+        title: 'Alerts lab',
+        loadComponent: () => import('../alerts/alerts-page.component')
+          .then(module => module.AlertsPageComponent)
       }
     ]
   }

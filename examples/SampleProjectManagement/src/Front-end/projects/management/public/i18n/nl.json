@@ -414,7 +414,10 @@
     "assistant-collaboration-description": "Prompts starten een nieuw gesprek terwijl het open gesprek nog bezig is. Gebruik het linkicoon boven het berichtveld om te delen en het personenicoon om collega’s toe te voegen of deelnemers te beheren.",
     "assistant-simulate-colleague": "{{name}} gaat verder in dit gesprek",
     "assistant-colleague-working": "{{name}} stelt de assistent een vraag…",
-    "assistant-colleague-needs-conversation": "Open of start eerst een gesprek."
+    "assistant-colleague-needs-conversation": "Open of start eerst een gesprek.",
+    "assistant-alerts-title": "Attenties",
+    "assistant-alerts-description": "De attenties van de deadlinewacht en de meldingskeuzes op de mock-API, zonder de back-end van de assistent.",
+    "assistant-alerts-open": "Attenties openen"
   },
   "nh-background-operations": {
     "operation": "Achtergrondtaak",

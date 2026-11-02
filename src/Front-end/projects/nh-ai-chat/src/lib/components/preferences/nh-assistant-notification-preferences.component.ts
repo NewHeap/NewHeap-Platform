@@ -115,10 +115,11 @@ export class NhAssistantNotificationPreferencesComponent {
     this.update(kind, draft => ({ ...draft, muted: !received }));
   }
 
-  /** The person's digest time; an empty field returns to the kind's default. */
+  /** The person's digest time; an empty field, or the kind's own time, returns to the kind's default. */
   setDigestTime(kind: NotificationAlertKind, event: Event): void {
-    const value = (event.target as HTMLInputElement).value.trim();
-    this.update(kind, draft => ({ ...draft, digestTime: value === '' ? null : value.slice(0, 5) }));
+    const value = (event.target as HTMLInputElement).value.trim().slice(0, 5);
+    const digestTime = value === '' || value === kind.defaultDigestTime ? null : value;
+    this.update(kind, draft => ({ ...draft, digestTime }));
   }
 
   resetDigestTime(kind: NotificationAlertKind): void {

@@ -68,7 +68,7 @@
                     step="60"
                     data-kind-digest-time
                     [id]="id + '-' + kind.id + '-time'"
-                    [value]="draft.digestTime ?? ''"
+                    [value]="draft.digestTime ?? kind.defaultDigestTime ?? ''"
                     [disabled]="draft.muted || saving()"
                     [attr.aria-invalid]="isInvalid(kind) ? true : null"
                     [attr.aria-describedby]="id + '-' + kind.id + '-time-hint'"
