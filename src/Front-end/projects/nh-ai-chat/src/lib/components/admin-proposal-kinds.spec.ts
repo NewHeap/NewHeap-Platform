@@ -121,7 +121,7 @@ describe('NhAssistantAdminProposalKindsComponent', () => {
 
     const notice = text(element.querySelector('[data-suggestions-only]'));
     expect(notice).toContain('These are suggestions from the numbers.');
-    expect(notice).toContain('changes nothing about how proposals are decided');
+    expect(notice).toContain('A candidate changes nothing by itself');
     expect(notice).toContain('Only the assistant\'s administrators see this view.');
     expect(element.querySelector('[data-suggestions-only]')?.getAttribute('role')).toBe('note');
 

@@ -1950,7 +1950,9 @@
               "live": "Zonder goedkeuring laten draaien"
             },
             "changed": "Versie {{version}}, omgezet door {{user}} op {{date}}",
-            "contract-changed": "De tool is veranderd sinds hij werd omgezet, dus hij vraagt weer om goedkeuring. Probeer hem eerst opnieuw in schaduw."
+            "contract-changed": "De tool is veranderd sinds hij werd omgezet, dus hij vraagt weer om goedkeuring. Probeer hem eerst opnieuw in schaduw.",
+            "unavailable": "Vraagt om goedkeuring: de code laat deze agent het niet zonder goedkeuring draaien.",
+            "not-candidate": "De cijfers merken dit soort actie voor deze agent nog niet als routine aan:"
           }
         },
         "activity": {
@@ -2024,7 +2026,7 @@
         "title": "Soorten acties",
         "description": "Hoe mensen beslissen over elke soort actie die de agents voorstellen, over alle agents: de beslissingen, het afkeurpercentage en hoe lang een beslissing duurt. Een soort die mensen bijna altijd snel goedkeuren, is misschien routine.",
         "refresh": "Vernieuwen",
-        "suggestions-only": "Dit zijn suggesties op basis van de cijfers. Een kandidaat verandert niets aan hoe over voorstellen wordt beslist: elk voorstel wacht nog steeds op zijn goedkeurders.",
+        "suggestions-only": "Dit zijn suggesties uit de cijfers. Een kandidaat verandert zelf niets: elk voorstel wacht op zijn goedkeurders tot een beheerder de agent een soort actie waarvan de code het toestaat zonder goedkeuring laat draaien, eerst in schaduw.",
         "audience": "Alleen de beheerders van de assistent zien dit overzicht.",
         "period": "Periode",
         "only-candidates": "Alleen soorten met een kandidaat",

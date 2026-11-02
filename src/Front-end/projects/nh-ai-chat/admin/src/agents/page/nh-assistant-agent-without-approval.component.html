@@ -42,47 +42,12 @@
               <span class="muted" data-without-approval-contract-changed>{{ 'nh-assistant.admin.agent-page.rollout.without-approval.contract-changed' | translate }}</span>
             }
           </span>
-          <span class="pill" [class]="tone(tool.mode)" data-without-approval-status>{{ 'nh-assistant.admin.agent-page.rollout.without-approval.mode.' + tool.mode | translate }}</span>
-          @if (switches()?.applies) {
-            @for (mode of modesFrom(tool); track mode) {
-              <button
-                type="button"
-                [class.secondary]="mode !== 'live'"
-                [attr.data-without-approval-action]="mode"
-                [disabled]="disabled() || busy() || change() !== null"
-                (click)="ask(tool, mode)">
-                {{ 'nh-assistant.admin.agent-page.rollout.without-approval.action.' + mode | translate }}
-              </button>
-            }
-          }
-          @if (change(); as current) {
-            @if (current.toolId === tool.toolId) {
-              <form class="change-form" [attr.data-without-approval-form]="current.mode" (submit)="$event.preventDefault(); apply(tool)">
-                <p class="muted">{{ 'nh-assistant.admin.agent-page.rollout.without-approval.explain.' + current.mode | translate: { tool: tool.toolId } }}</p>
-                <div class="field">
-                  <label [for]="id + '-' + tool.toolId + '-reason'">{{ 'nh-assistant.admin.agents.state.note-label' | translate }}</label>
-                  <input
-                    type="text"
-                    autocomplete="off"
-                    [id]="id + '-' + tool.toolId + '-reason'"
-                    [attr.aria-describedby]="id + '-' + tool.toolId + '-reason-hint'"
-                    [maxLength]="maxReason"
-                    [value]="reason()"
-                    (input)="reason.set(value($event))" />
-                  <p class="hint" [id]="id + '-' + tool.toolId + '-reason-hint'">{{ 'nh-assistant.admin.agents.state.note-hint' | translate }}</p>
-                </div>
-                <div class="card-actions">
-                  <button type="submit" class="primary" data-without-approval-confirm [disabled]="busy()">
-                    {{ 'nh-assistant.admin.agent-page.rollout.without-approval.confirm.' + current.mode | translate }}
-                  </button>
-                  <button class="secondary" type="button" (click)="cancel()">{{ 'nh-assistant.admin.cancel' | translate }}</button>
-                </div>
-                @if (error(); as failure) {
-                  <p class="form-error" role="alert" data-without-approval-error><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
-                }
-              </form>
-            }
-          }
+          <nh-assistant-without-approval-switch
+            [agentId]="agentId()"
+            [tool]="tool"
+            [applies]="switches()?.applies === true"
+            [disabled]="disabled()"
+            (changed)="onChanged($event)" />
         </li>
       }
     </ul>

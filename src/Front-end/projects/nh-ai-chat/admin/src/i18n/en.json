@@ -1950,7 +1950,9 @@
               "live": "Run without approval"
             },
             "changed": "Version {{version}}, switched by {{user}} on {{date}}",
-            "contract-changed": "The tool changed since it was switched, so it asks for approval again. Try it in shadow again first."
+            "contract-changed": "The tool changed since it was switched, so it asks for approval again. Try it in shadow again first.",
+            "unavailable": "Asks for approval: its code does not let this agent run it without approval.",
+            "not-candidate": "The numbers do not mark this kind as routine for this agent yet:"
           }
         },
         "activity": {
@@ -2024,7 +2026,7 @@
         "title": "Kinds of action",
         "description": "How people decide each kind of action the agents propose, over all agents: the decisions, the rejection rate and how long a decision takes. A kind that people almost always approve quickly may be routine.",
         "refresh": "Refresh",
-        "suggestions-only": "These are suggestions from the numbers. A candidate changes nothing about how proposals are decided: every proposal still waits for its approvers.",
+        "suggestions-only": "These are suggestions from the numbers. A candidate changes nothing by itself: every proposal waits for its approvers until an administrator lets the agent run a kind whose code allows it without approval, first in shadow.",
         "audience": "Only the assistant's administrators see this view.",
         "period": "Period",
         "only-candidates": "Only kinds with a candidate",

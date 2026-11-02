@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { NhAssistantMockBackend, NhAssistantMockScenario, provideNhAssistantMockApi } from '@newheap/platform-ai-chat/testing';
 import { firstValueFrom } from 'rxjs';
-import { NhAssistantAdminAgentsComponent } from '../../../admin/src/public-api';
+import { NhAssistantAdminAgentsComponent, NhAssistantAdminComponent } from '../../../admin/src/public-api';
 import { AgentWithoutApproval, ToolCatalogEntry, WithoutApprovalSwitch, WithoutApprovalVersion } from '../models/assistant-admin.models';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { openAdminAgent as openAgent, settleAdmin as settle } from './nh-assistant-admin-navigation';
@@ -14,7 +14,7 @@ import { openAdminAgent as openAgent, settleAdmin as settle } from './nh-assista
  * goes back to shadow or off at any time. The mock API keeps the versions and refuses what the server refuses.
  */
 
-function scenario(canAdminister = true): NhAssistantMockScenario {
+function scenario(canAdminister = true, kinds = false): NhAssistantMockScenario {
   return {
     agents: [{ id: 'chat-helper', version: 1, displayNameKey: 'Chat helper', descriptionKey: 'Helps in the chat.', canMutate: false }],
     turns: [],
@@ -23,7 +23,8 @@ function scenario(canAdminister = true): NhAssistantMockScenario {
       canAdminister,
       tools: [
         { id: 'projects.complete-task', source: 'local', effect: 'idempotent-mutation', description: 'Complete a task.', allowWithoutApproval: true },
-        { id: 'projects.change-status', source: 'local', effect: 'mutation', description: 'Change the status.' }
+        { id: 'projects.change-status', source: 'local', effect: 'mutation', description: 'Change the status.', allowWithoutApproval: kinds },
+        { id: 'projects.add-task', source: 'local', effect: 'mutation', description: 'Add a task.', allowWithoutApproval: kinds }
       ],
       agents: [
         {
@@ -43,12 +44,12 @@ function scenario(canAdminister = true): NhAssistantMockScenario {
   };
 }
 
-async function configure(canAdminister = true, language = 'en'): Promise<void> {
+async function configure(canAdminister = true, language = 'en', kinds = false): Promise<void> {
   TestBed.configureTestingModule({
     providers: [
       provideTranslateService({ fallbackLang: 'en' }),
       provideNhAssistant({ apiBaseUrl: '/api/assistant', getAccessToken: () => 'token' }),
-      provideNhAssistantMockApi(scenario(canAdminister))
+      provideNhAssistantMockApi(scenario(canAdminister, kinds))
     ]
   });
   await firstValueFrom(TestBed.inject(TranslateService).use(language));
@@ -169,6 +170,46 @@ describe('Running a kind of action without approval in the administration', () =
     expect(invalid.status).toBe(400);
     expect((shadow.body as WithoutApprovalSwitch).version).toBe(1);
     expect([stale.status, stale.body.code]).toEqual([409, 'assistant-version-conflict']);
+  });
+
+  it('offers the switch next to the numbers of the view per kind of action and warns before a kind that is no candidate goes live', async () => {
+    await configure(true, 'en', true);
+    const fixture = TestBed.createComponent(NhAssistantAdminComponent);
+    fixture.componentRef.setInput('initialTab', 'proposal-kinds');
+    await settle(fixture);
+    const element = fixture.nativeElement as HTMLElement;
+    const action = (agentId: string, toolId: string) =>
+      element.querySelector(`tr[data-agent-id="${agentId}"][data-tool-id="${toolId}"] [data-without-approval-action-for]`) as HTMLElement;
+
+    // The routine status change of the planner, a candidate: its switch sits in the row's last column.
+    const planner = () => action('planner', 'projects.change-status').querySelector('[data-without-approval-switch]') as HTMLElement;
+    expect(planner().getAttribute('data-without-approval-switch-mode')).toBe('off');
+    // The chat helper does no work of its own: its row shows the switch without changes.
+    expect(action('chat-helper', 'projects.change-status').querySelector('[data-without-approval-action]')).toBeNull();
+
+    await choose(fixture, planner(), 'shadow');
+    (planner().querySelector('[data-without-approval-action="live"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    // A candidate goes live without a warning.
+    expect(planner().querySelector('[data-without-approval-not-candidate]')).toBeNull();
+    (planner().querySelector('[data-without-approval-confirm]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(planner().getAttribute('data-without-approval-switch-mode')).toBe('live');
+
+    // The task kind misses thresholds: going live names them first, and the administrator decides.
+    (element.querySelector('tbody[data-kind="projects.add-task"] .kind-toggle') as HTMLButtonElement).click();
+    await settle(fixture);
+    const task = () => action('planner', 'projects.add-task').querySelector('[data-without-approval-switch]') as HTMLElement;
+    await choose(fixture, task(), 'shadow');
+    (task().querySelector('[data-without-approval-action="live"]') as HTMLButtonElement).click();
+    await settle(fixture);
+    const warning = task().querySelector('[data-without-approval-not-candidate]');
+    expect(warning).not.toBeNull();
+    expect(Array.from(warning!.querySelectorAll('[data-reason]')).map(item => item.getAttribute('data-reason')))
+      .toEqual(['too-few-decisions', 'approval-rate-too-low', 'recent-rejection']);
+    (task().querySelector('[data-without-approval-confirm]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(task().getAttribute('data-without-approval-switch-mode')).toBe('live');
   });
 
   it('answers 403 to someone outside the administration', async () => {
