@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.DependencyInjection;
@@ -62,7 +63,7 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
     /// <summary>
     /// Runs one call: in a person's chat with the agent builder only, with input that the tool takes.
     /// </summary>
-    public async Task<TaskResult<JsonElement>> HandleAsync(
+    public async Task<TaskResult<JsonNode>> HandleAsync(
         NhAssistantAgentBuilderTool tool,
         JsonElement value,
         NhAiInvocationContext context,
@@ -116,7 +117,7 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
 
     // ----- Reads -----
 
-    public async Task<TaskResult<JsonElement>> ReadCatalogAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
+    public async Task<TaskResult<JsonNode>> ReadCatalogAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
     {
         var query = call.Input.Text("query");
         var tools = new List<CatalogTool>();
@@ -172,7 +173,7 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         });
     }
 
-    public async Task<TaskResult<JsonElement>> ListAgentsAsync(CancellationToken cancellationToken)
+    public async Task<TaskResult<JsonNode>> ListAgentsAsync(CancellationToken cancellationToken)
     {
         var agents = await Directory.ListAsync(null, cancellationToken);
         return Ok(new
@@ -197,7 +198,7 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         });
     }
 
-    public async Task<TaskResult<JsonElement>> ReadAgentAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
+    public async Task<TaskResult<JsonNode>> ReadAgentAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
     {
         if (TargetOf(call) is not { } agentId)
         {
@@ -228,7 +229,7 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         });
     }
 
-    public async Task<TaskResult<JsonElement>> ReadRuleScriptAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
+    public async Task<TaskResult<JsonNode>> ReadRuleScriptAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
     {
         if (TargetOf(call) is not { } agentId)
         {
@@ -280,7 +281,7 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
 
     // ----- Dry runs -----
 
-    public async Task<TaskResult<JsonElement>> DryRunRuleScriptAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
+    public async Task<TaskResult<JsonNode>> DryRunRuleScriptAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
     {
         if (TargetOf(call) is not { } agentId)
         {
@@ -308,7 +309,7 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
 
     // ----- Writes, each after the administrator's approval -----
 
-    public async Task<TaskResult<JsonElement>> CreateAgentAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
+    public async Task<TaskResult<JsonNode>> CreateAgentAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
     {
         var input = call.Input;
         if (TargetOf(call) is not { } agentId)
@@ -348,7 +349,7 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
             : From(created, NhAssistantAdminErrorCodes.ValidationFailed);
     }
 
-    public async Task<TaskResult<JsonElement>> UpdateAgentAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
+    public async Task<TaskResult<JsonNode>> UpdateAgentAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
     {
         var input = call.Input;
         if (TargetOf(call) is not { } agentId)
@@ -393,7 +394,7 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         return updated.Success ? Ok(new { agentId, updated = true, agent = updated.Data }) : From(updated, NhAssistantAdminErrorCodes.ValidationFailed);
     }
 
-    public async Task<TaskResult<JsonElement>> SaveRunSettingsAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
+    public async Task<TaskResult<JsonNode>> SaveRunSettingsAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
     {
         var input = call.Input;
         if (TargetOf(call) is not { } agentId)
@@ -431,7 +432,7 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         return saved.Success ? Ok(new { agentId, runSettings = saved.Data }) : From(saved, NhAssistantAdminErrorCodes.ValidationFailed);
     }
 
-    public async Task<TaskResult<JsonElement>> SaveSkillAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
+    public async Task<TaskResult<JsonNode>> SaveSkillAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
     {
         var input = call.Input;
         if (TargetOf(call) is not { } agentId)
@@ -474,7 +475,7 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         return saved.Success ? Ok(new { agentId, skill = saved.Data }) : From(saved, NhAssistantAdminErrorCodes.ValidationFailed);
     }
 
-    public async Task<TaskResult<JsonElement>> SaveTriggerAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
+    public async Task<TaskResult<JsonNode>> SaveTriggerAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
     {
         var input = call.Input;
         if (TargetOf(call) is not { } agentId)
@@ -506,7 +507,7 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         return saved.Success ? Ok(new { agentId, trigger = saved.Data }) : From(saved, NhAssistantAdminErrorCodes.ValidationFailed);
     }
 
-    public async Task<TaskResult<JsonElement>> SaveRuleScriptAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
+    public async Task<TaskResult<JsonNode>> SaveRuleScriptAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
     {
         var input = call.Input;
         if (TargetOf(call) is not { } agentId)
@@ -533,7 +534,7 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         return saved.Success ? Ok(new { agentId, version = saved.Data }) : From(saved, NhAssistantAdminErrorCodes.ValidationFailed);
     }
 
-    public async Task<TaskResult<JsonElement>> SetLiveAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
+    public async Task<TaskResult<JsonNode>> SetLiveAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
     {
         var input = call.Input;
         if (TargetOf(call) is not { } agentId)
@@ -584,7 +585,7 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         }
     }
 
-    public async Task<TaskResult<JsonElement>> SetShadowAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
+    public async Task<TaskResult<JsonNode>> SetShadowAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
     {
         var input = call.Input;
         if (TargetOf(call) is not { } agentId)
@@ -686,14 +687,14 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         return agentId is null || NhAssistantAgentBuilderIds.IsAgentBuilder(agentId) ? null : agentId;
     }
 
-    private static TaskResult<JsonElement> TargetRefused(NhAssistantAgentBuilderCall call)
+    private static TaskResult<JsonNode> TargetRefused(NhAssistantAgentBuilderCall call)
     {
         return call.Input.Text("agentId") is null
             ? Missing("agentId")
             : Refused(NhAssistantAdminErrorCodes.Forbidden, "The agent builder never changes or reads itself; name another agent.");
     }
 
-    private static (NhAiAutonomyLevel? Value, TaskResult<JsonElement>? Refused) AutonomyOf(NhAssistantAgentBuilderInput input)
+    private static (NhAiAutonomyLevel? Value, TaskResult<JsonNode>? Refused) AutonomyOf(NhAssistantAgentBuilderInput input)
     {
         return input.Text("autonomy") switch
         {
@@ -707,7 +708,7 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         };
     }
 
-    private static TaskResult<JsonElement>? Required(NhAssistantAgentBuilderInput input, params string[] names)
+    private static TaskResult<JsonNode>? Required(NhAssistantAgentBuilderInput input, params string[] names)
     {
         var missing = names.Where(name => !input.Has(name)).ToArray();
         return missing.Length == 0
@@ -730,25 +731,25 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         return input.Given(name) ? input.Text(name) : current;
     }
 
-    private static TaskResult<JsonElement> Missing(string name)
+    private static TaskResult<JsonNode> Missing(string name)
     {
         return Refused(NhAiToolFailureCodes.InputInvalid, $"Give {name}.");
     }
 
-    private static TaskResult<JsonElement> Invalid(string name)
+    private static TaskResult<JsonNode> Invalid(string name)
     {
         return Refused(NhAiToolFailureCodes.InputInvalid, $"'{name}' is not one of the values its schema names.");
     }
 
-    private static TaskResult<JsonElement> Refused(string code, string message)
+    private static TaskResult<JsonNode> Refused(string code, string message)
     {
-        return TaskResult<JsonElement>.Failed(code, message);
+        return TaskResult<JsonNode>.Failed(code, message);
     }
 
     /// <summary>
     /// A failure of a service as the model reads it: its code, its message and its field errors.
     /// </summary>
-    private static TaskResult<JsonElement> From(TaskResult result, string fallback)
+    private static TaskResult<JsonNode> From(TaskResult result, string fallback)
     {
         var code = NhAssistantResults.CodeOf(result, fallback);
         var message = result.GetResultItems()
@@ -765,9 +766,9 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         return Refused(code, message);
     }
 
-    private static TaskResult<JsonElement> Ok(object value)
+    private static TaskResult<JsonNode> Ok(object value)
     {
-        return TaskResult<JsonElement>.Succeeded(JsonSerializer.SerializeToElement(value, value.GetType(), ResultOptions));
+        return TaskResult<JsonNode>.Succeeded(JsonSerializer.SerializeToNode(value, value.GetType(), ResultOptions)!);
     }
 
     private static string EffectName(NhAiToolEffect effect)

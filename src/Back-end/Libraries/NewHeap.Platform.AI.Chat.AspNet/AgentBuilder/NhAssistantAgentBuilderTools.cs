@@ -250,7 +250,7 @@ internal static class NhAssistantAgentBuilderTools
         string exportName,
         string description,
         (JsonObject Schema, string[] Properties) schema,
-        Func<NhAssistantAgentBuilderToolHandler, NhAssistantAgentBuilderCall, CancellationToken, Task<TaskResult<System.Text.Json.JsonElement>>> handle)
+        Func<NhAssistantAgentBuilderToolHandler, NhAssistantAgentBuilderCall, CancellationToken, Task<TaskResult<System.Text.Json.Nodes.JsonNode>>> handle)
     {
         return new NhAssistantAgentBuilderTool(id, exportName, description, NhAiToolEffect.ReadOnly, NhAiApprovalRequirement.NotRequired, schema, handle);
     }
@@ -260,7 +260,7 @@ internal static class NhAssistantAgentBuilderTools
         string exportName,
         string description,
         (JsonObject Schema, string[] Properties) schema,
-        Func<NhAssistantAgentBuilderToolHandler, NhAssistantAgentBuilderCall, CancellationToken, Task<TaskResult<System.Text.Json.JsonElement>>> handle)
+        Func<NhAssistantAgentBuilderToolHandler, NhAssistantAgentBuilderCall, CancellationToken, Task<TaskResult<System.Text.Json.Nodes.JsonNode>>> handle)
     {
         return new NhAssistantAgentBuilderTool(id, exportName, description, NhAiToolEffect.Mutation, NhAiApprovalRequirement.Required, schema, handle);
     }
@@ -363,4 +363,4 @@ internal sealed record NhAssistantAgentBuilderTool(
     NhAiToolEffect Effect,
     NhAiApprovalRequirement Approval,
     (JsonObject Schema, string[] Properties) Input,
-    Func<NhAssistantAgentBuilderToolHandler, NhAssistantAgentBuilderCall, CancellationToken, Task<TaskResult<System.Text.Json.JsonElement>>> Handle);
+    Func<NhAssistantAgentBuilderToolHandler, NhAssistantAgentBuilderCall, CancellationToken, Task<TaskResult<System.Text.Json.Nodes.JsonNode>>> Handle);

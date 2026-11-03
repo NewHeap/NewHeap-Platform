@@ -73,7 +73,7 @@ internal sealed class NhAssistantAgentBuilderToolCatalog : INhAiAttestedToolCata
                 Name = descriptor.ExportName,
                 Description = descriptor.Description,
                 ExcludeResultSchema = true,
-                MarshalResult = NhAiToolResult.CreateMarshaller<JsonElement>(NhAssistantAgentBuilderToolHandler.ResultOptions)
+                MarshalResult = NhAiToolResult.CreateMarshaller<JsonNode>(NhAssistantAgentBuilderToolHandler.ResultOptions)
             });
         return NhAiGovernedAIFunction.Create(
             descriptor,
@@ -81,7 +81,7 @@ internal sealed class NhAssistantAgentBuilderToolCatalog : INhAiAttestedToolCata
             services);
     }
 
-    private static Task<TaskResult<JsonElement>> InvokeAsync(
+    private static Task<TaskResult<JsonNode>> InvokeAsync(
         NhAiToolDescriptor descriptor,
         NhAssistantAgentBuilderTool tool,
         IServiceProvider services,
@@ -129,7 +129,8 @@ internal sealed class NhAssistantAgentBuilderToolCatalog : INhAiAttestedToolCata
                 outputSchema,
                 string.Join(",", policies))),
             Approval = tool.Approval,
-            Idempotency = NhAiIdempotencySupport.None,
+            // A retried call of the same invocation runs once: every effect needs an idempotency lease.
+            Idempotency = tool.Effect == NhAiToolEffect.ReadOnly ? NhAiIdempotencySupport.None : NhAiIdempotencySupport.Required,
             // A dry run runs a script on up to twenty subjects.
             Timeout = TimeSpan.FromSeconds(tool.Id == NhAssistantAgentBuilderTools.DryRunRuleScript ? 120 : 60),
             MaxConcurrency = 4,
