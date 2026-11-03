@@ -1406,11 +1406,15 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-094",
     "title": "Module translations",
     "category": "Localization, configuration, and HTTP infrastructure",
-    "surface": "browser translate loader",
-    "outcome": "project.<dash-case-key> resolves correctly.",
+    "surface": "browser translate loader (NhTranslateBrowserLoader, nhTranslateBrowserLoaderFactory) with the regional fallback",
+    "outcome": "project.<dash-case-key> resolves correctly. A regional language whose file does not exist, such as nl-BE, gets the texts of nl.json, as the libraries' own texts do; a regional file that exists is used as it is.",
     "implementation": "implemented",
     "evidence": [
-      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts"
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html",
+      "../../src/Front-end/projects/nh-common/src/lib/miscellaneous/translate-loaders/translate-browser.loader.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/miscellaneous/translate-loaders/translate-browser.loader.spec.ts"
     ]
   },
   {
@@ -3978,7 +3982,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Assistant Web Push notifications for longer turns",
     "category": "AI tools and generated catalogs",
     "surface": "NhAssistantBuilder.ConfigurePush, NhAssistantPushOptions (NewHeap:AI:Assistant:Push: PublicKey, PrivateKey, Subject, AllowedEndpointHosts, MinimumTurnDuration, IncludeConversationTitle, TimeToLive), NhAssistantWebPushKeys.Generate, GET/PUT notifications, PUT/DELETE notifications/push-subscription (403 assistant-not-allowed-while-impersonating for a registration in an impersonation session), the bundled @newheap/platform-ai-chat/push/nh-assistant-push-worker.js and NhAssistantConfig.push",
-    "outcome": "With VAPID keys the server offers Web Push; the sample creates a key pair per run in Development and reads keys from configuration elsewhere. Notifications are on by default and each user can turn them off for all devices. A browser registers a subscription only for an allowed push service over https, so the server never posts to an address a client chose. An impersonation session registers no browser for the person it acts as, because the browser would keep receiving the person's notifications after the session ended (`403 assistant-not-allowed-while-impersonating`); removing a subscription stays allowed. When a turn that ran at least the minimum duration finishes or fails, the owner and participants get an RFC 8291 encrypted, VAPID-signed notification with the conversation title and a short localized status; an approval notifies only the person who decides it, and cancelled or quick turns stay silent. Notifications never contain messages or tool data. A notification reaches only the people the conversation's read rule admits when it is sent, and nobody the platform no longer resolves, such as a deleted, blocked or locked-out account. Deleting a person through NewHeap Identity removes their browser subscriptions, notification choice, MCP connection notices and conversation rows through the assistant's retention participant. The worker shows a notification only while no window of the application is focused and opens the conversation on click. Subscriptions the push service reports as gone are removed.",
+    "outcome": "With VAPID keys the server offers Web Push; the sample creates a key pair per run in Development and reads keys from configuration elsewhere. Notifications are on by default and each user can turn them off for all devices. A browser registers a subscription only for an allowed push service over https, so the server never posts to an address a client chose. An impersonation session registers no browser for the person it acts as, because the browser would keep receiving the person's notifications after the session ended (`403 assistant-not-allowed-while-impersonating`); removing a subscription stays allowed. When a turn that ran at least the minimum duration finishes or fails, the owner and participants get an RFC 8291 encrypted, VAPID-signed notification with the conversation title and a short localized status; an approval notifies only the person who decides it, and cancelled or quick turns stay silent. Notifications never contain messages or tool data. A notification reaches only the people the conversation's read rule admits when it is sent, and nobody the platform no longer resolves, such as a deleted, blocked or locked-out account; each such person is logged once an hour as a content-free warning without the actor id that names `INhAiPrincipalFactory`, for an application whose actor ids are its own. Deleting a person through NewHeap Identity removes their browser subscriptions, notification choice, MCP connection notices and conversation rows through the assistant's retention participant. The worker shows a notification only while no window of the application is focused and opens the conversation on click. Subscriptions the push service reports as gone are removed.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCollaboration.cs",
@@ -3998,6 +4002,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantRecipientRules.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantNotificationReadRuleTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantUnresolvedPeopleTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantUnrebuiltRecipientWarnings.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantUnrebuiltRecipientWarningTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs"
     ]
   },

@@ -1467,11 +1467,15 @@
       "id": "SPM-094",
       "categoryId": "7",
       "title": "Module translations",
-      "surface": "browser translate loader",
-      "outcome": "project.<dash-case-key> resolves correctly.",
+      "surface": "browser translate loader (`NhTranslateBrowserLoader`, `nhTranslateBrowserLoaderFactory`) with the regional fallback",
+      "outcome": "project.<dash-case-key> resolves correctly. A regional language whose file does not exist, such as nl-BE, gets the texts of nl.json, as the libraries' own texts do; a regional file that exists is used as it is.",
       "implementation": "implemented",
       "evidence": [
-        "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts"
+        "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html",
+        "../../src/Front-end/projects/nh-common/src/lib/miscellaneous/translate-loaders/translate-browser.loader.ts",
+        "../../src/Front-end/projects/nh-common/src/lib/miscellaneous/translate-loaders/translate-browser.loader.spec.ts"
       ]
     },
     {
