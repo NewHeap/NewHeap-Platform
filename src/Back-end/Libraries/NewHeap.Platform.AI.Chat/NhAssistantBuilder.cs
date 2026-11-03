@@ -24,6 +24,12 @@ public sealed class NhAssistantBuilder
     public IServiceCollection Services { get; }
 
     /// <summary>
+    /// The registration the builder configures, for the extensions of the ASP.NET integration, such as
+    /// <c>AddAgentBuilder</c>.
+    /// </summary>
+    internal NhAssistantRegistrationState State => _state;
+
+    /// <summary>
     /// Sets the authorization policy every assistant endpoint requires. Overrides
     /// <c>NewHeap:AI:Assistant:AccessPolicy</c>; the default is <c>app.assistant.access</c>.
     /// </summary>

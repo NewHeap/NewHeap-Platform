@@ -7094,6 +7094,35 @@
         "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-rule-scripts-admin.spec.ts",
         "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-rule-scripts.ts"
       ]
+    },
+    {
+      "id": "SPM-394",
+      "categoryId": "18",
+      "title": "The agent builder turns an administrator's wish into the document check's rule script: it reads what the script may call, saves it, dry-runs it and sets it live, each change after the approval in the chat, and four eyes hold for what it saved",
+      "surface": "The agent builder (RB-7 to RB-9): `NhAssistantAgentBuilderExtensions.AddAgentBuilder` with `NhAssistantAgentBuilderOptions` (`ProfileName`) in NewHeap.Platform.AI.Chat.AspNet, `NhAssistantAgentBuilderIds` (`AgentId`, `ToolIdPrefix`, `Policy`, `IsAgentBuilder`, `IsAgentBuilderTool`) in NewHeap.Platform.AI.Chat; its governed tools `assistant.agent-builder.*`: `builder_read_catalog`, `builder_list_agents`, `builder_read_agent`, `builder_read_rule_script` and `builder_dry_run_rule_script` without approval, and `builder_create_agent`, `builder_update_agent`, `builder_save_run_settings`, `builder_save_skill`, `builder_save_trigger`, `builder_save_rule_script`, `builder_set_live` and `builder_set_shadow` after the inline approval, with their approval cards in English and Dutch; the reserved id refused by the administration; in @newheap/platform-ai-chat the \"Build with help\" chat on the agent's Build tab and \"New agent with help\" in the list of agents of nh-assistant-admin, the texts nh-assistant.agent-builder.* and nh-assistant.admin.agent-builder.*, and `NhAssistantStore.setPageContextOverride`",
+      "outcome": "The sample registers the agent builder with `AddSampleAgentBuilder` (`SampleAgentBuilderComposition`) on the assistant's chat profile, after the document check of SPM-393, and its discovery policy (`ProjectAiToolDiscoveryPolicy`) lets the builder's tools through, whose own policy requires the administration. The sample test proves that a participant cannot start a chat with the builder, and that an administrator asks it \"warn me when a project has no document three days before its deadline\": the builder reads the building blocks and what the document check's rule script may call, proposes to save `DocumentCheckScript` with the review request opted in, and nothing is saved until the administrator approves the card, which names the agent and the write. The approved version records the administrator as author and the builder as the agent that wrote it; the builder dry-runs it on a project due within three days without effects (the alert and the write it would make, and the review board not asked) and proposes to set it live. Under the document check's four eyes the administrator's own approval does not set it live (`assistant-rule-script-four-eyes`); another administrator sets it live in their own chat with the builder, after their approval. The scripted model answers people's chats only (`SwitchableChatClient.UseForChats`), so no run takes its steps. The sample's assistant administration shows \"Build with help\" on an agent's Build tab and \"New agent with help\" in the list of agents, which continues on the page of the agent the builder created. The assistant lab offers the builder on the mock API as well: on the document check's Build tab its chat reads what the rule script may call and proposes a new version on an approval card that names the agent and the write.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentBuilderComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentBuilderSamplesTests.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SwitchableChatClientTests.cs",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentBuilderIds.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilder.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolCatalog.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderInstructions.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentBuilderTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/builder/nh-assistant-agent-builder-chat.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/builder/nh-assistant-agent-builder-chat.component.html",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/builder/agent-builder.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-builder.spec.ts"
+      ]
     }
   ]
 }

@@ -2057,6 +2057,17 @@
         },
         "reset-locked": "Pakket {{package}} vergrendelt velden van de definitie. Ontkoppel ze eerst om de agent terug te zetten."
       },
+      "agent-builder": {
+        "new": "Nieuwe agent met hulp",
+        "title": "Bouwen met hulp",
+        "description": "De agentbouwer wijzigt deze agent samen met jou in gewone taal: de instructies, tools, vaardigheden, triggers, run-instellingen en regelscripts. Hij leest wat de applicatie aanbiedt, en elke wijziging en elke stap naar live wacht op jouw goedkeuring in de chat.",
+        "new-title": "Nieuwe agent met hulp",
+        "new-description": "Beschrijf wat de agent moet doen. De agentbouwer stelt de agent voor en maakt hem aan na jouw goedkeuring; daarna ga je verder op zijn pagina met dezelfde chat.",
+        "new-context": "Nieuwe agent",
+        "open": "Open de agentbouwer",
+        "close": "Sluit de chat",
+        "rights": "De agentbouwer werkt met jouw eigen rechten. Hij wijzigt nooit rechten, technische accounts, MCP-servers of wat de code toestaat, en verwijdert nooit iets."
+      },
       "agent-page": {
         "back": "Alle agents",
         "tabs-label": "Onderdelen van {{name}}",

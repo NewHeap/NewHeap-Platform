@@ -666,18 +666,28 @@ public sealed class FakeProjects : IProjectAiReadService, IProjectAiMutationServ
 /// Lets each test install its own scripted model on the shared host. A script installed with
 /// <see cref="UseFor"/> answers only the turns of that agent, so a run another agent starts on its own,
 /// such as the intake reviewer on every new project once the outbox delivers the event, never takes
-/// the test's scripted answers; those turns get the client <see cref="Use"/> installed.
+/// the test's scripted answers; those turns get the client <see cref="Use"/> installed. A script installed
+/// with <see cref="UseForChats"/> answers only people's chats, such as a chat with the agent builder
+/// (SPM-394), which has no agent scope of its own; runs keep the other client.
 /// </summary>
 public sealed class SwitchableChatClient : IChatClient
 {
     private IChatClient _current = new NhAiScriptedChatClient();
     private (string AgentId, IChatClient Client)? _agent;
+    private IChatClient? _chats;
 
-    /// <summary>Installs <paramref name="client"/> for every turn and forgets a script of one agent.</summary>
+    /// <summary>Installs <paramref name="client"/> for every turn and forgets a script of one agent or of chats.</summary>
     public void Use(IChatClient client)
     {
         _agent = null;
+        _chats = null;
         _current = client;
+    }
+
+    /// <summary>Installs <paramref name="client"/> for people's chats only: turns without an agent scope.</summary>
+    public void UseForChats(IChatClient client)
+    {
+        _chats = client;
     }
 
     /// <summary>Installs <paramref name="client"/> for the turns of <paramref name="agentId"/> only.</summary>
@@ -705,9 +715,17 @@ public sealed class SwitchableChatClient : IChatClient
         }
     }
 
-    /// <summary>The client of the agent whose turn calls, by the turn's ambient agent scope.</summary>
+    /// <summary>
+    /// The client of the agent whose turn calls, by the turn's ambient agent scope, or of a person's chat,
+    /// which has none.
+    /// </summary>
     private IChatClient Client()
     {
+        if (_chats is { } chats && NhAiAgentInvocationScopes.Current is null)
+        {
+            return chats;
+        }
+
         return _agent is { } agent
                && string.Equals(NhAiAgentInvocationScopes.Current?.AgentId, agent.AgentId, StringComparison.Ordinal)
             ? agent.Client

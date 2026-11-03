@@ -63,6 +63,7 @@ import { NhAssistantAgentRolloutComponent, RolloutReview } from './nh-assistant-
 import { NhAssistantAgentStateControlComponent } from './nh-assistant-agent-state-control.component';
 import { NhAssistantAgentRuleScriptsComponent } from '../rule-scripts/nh-assistant-agent-rule-scripts.component';
 import { startNhAssistantAdminTranslations } from '../../i18n/nh-assistant-admin-translations';
+import { NhAssistantAgentBuilderChatComponent } from '../builder/nh-assistant-agent-builder-chat.component';
 
 /** A section of Build, which its index scrolls to. */
 export type AgentBuildSection = 'profile' | 'tools' | 'work' | 'skills' | 'triggers' | 'connected' | 'guardrails';
@@ -109,6 +110,7 @@ let nextId = 0;
     NhAssistantAgentRolloutComponent,
     NhAssistantAgentStateControlComponent,
     NhAssistantAgentMetadataComponent,
+    NhAssistantAgentBuilderChatComponent,
     NhAssistantAgentRuleScriptsComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

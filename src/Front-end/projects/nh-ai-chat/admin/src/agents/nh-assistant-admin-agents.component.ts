@@ -37,6 +37,8 @@ import { NhAssistantAgentPackageImportDialogComponent } from './agent-packages/n
 import { NhAssistantAgentListComponent } from './page/nh-assistant-agent-list.component';
 import { NhAssistantAgentPageComponent } from './page/nh-assistant-agent-page.component';
 import { startNhAssistantAdminTranslations } from '../i18n/nh-assistant-admin-translations';
+import { nhAssistantBuildsWithHelp } from './builder/agent-builder';
+import { NhAssistantAgentBuilderChatComponent } from './builder/nh-assistant-agent-builder-chat.component';
 
 let nextId = 0;
 
@@ -46,10 +48,14 @@ interface CatalogRead {
   error: NhAssistantError | null;
 }
 
-/** What the agents section shows: the list, the first step of a new agent, or one agent's page. */
+/**
+ * What the agents section shows: the list, the first step of a new agent, a new agent with the agent
+ * builder's help, or one agent's page.
+ */
 type AgentsView =
   | { kind: 'list' }
   | { kind: 'new' }
+  | { kind: 'new-with-help' }
   | { kind: 'agent'; agentId: string; tab: NhAssistantAgentTab; setup: boolean };
 
 /** Where the agents section is, for a host that keeps it in its URL. */
@@ -67,7 +73,9 @@ export interface NhAssistantAgentsLocation {
  * (`nh-assistant-agent-page`), where everything about the agent is: its status and what an
  * administrator does with it now in the header, and the tabs Overview, Build, Rollout and Activity.
  * "New agent" asks first for what the agent is (its profile) and continues on its page, with the
- * guided setup for an agent meant to work on its own. "Import package" opens the import dialog of
+ * guided setup for an agent meant to work on its own. "New agent with help", while the application
+ * switched the agent builder on, opens the builder's chat for a new agent and continues on the page of
+ * the agent it created, with the same chat in Build. "Import package" opens the import dialog of
  * agent packages; "Export as package" on an agent's page the export dialog with that agent chosen.
  * When the run catalog cannot be read, the list says why with its code and offers to read it again;
  * until then nothing that depends on it is offered.
@@ -88,7 +96,8 @@ export interface NhAssistantAgentsLocation {
     NhAssistantAgentPackageExportDialogComponent,
     NhAssistantAgentPackageImportDialogComponent,
     NhAssistantAgentListComponent,
-    NhAssistantAgentPageComponent
+    NhAssistantAgentPageComponent,
+    NhAssistantAgentBuilderChatComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-admin-agents.component.html',
@@ -141,6 +150,8 @@ export class NhAssistantAdminAgentsComponent {
   readonly exporting = signal<AdminAgent | null>(null);
   /** Whether the import dialog of agent packages is open. */
   readonly importing = signal(false);
+  /** The application switched the agent builder on: "New agent with help" opens its chat. */
+  readonly buildsWithHelp = computed(() => nhAssistantBuildsWithHelp(this.agents()));
   /** A new agent asks first for its profile; its tools and access follow on its page. */
   readonly createSections: NhAssistantAgentEditorSection[] = ['profile'];
 
@@ -202,6 +213,30 @@ export class NhAssistantAdminAgentsComponent {
   create(): void {
     this.navigate({ kind: 'new' });
     this.focus('nh-assistant-admin-agent-editor input:not([disabled])');
+  }
+
+  /** Opens the agent builder's chat for a new agent. */
+  createWithHelp(): void {
+    this.navigate({ kind: 'new-with-help' });
+    this.focus('[data-agent-builder] h4');
+  }
+
+  /**
+   * The agent builder created an agent after the administrator's approval: once the agents are read
+   * again its page opens at Build, where the same chat continues.
+   */
+  onCreatedWithHelp(agentId: string): void {
+    this.subscription?.unsubscribe();
+    this.subscription = this.admin.getAgents().subscribe({
+      next: agents => {
+        this.agents.set(agents);
+        this.loadAccountNames(agents);
+        this.open(agentId, 'build');
+      },
+      // The page says the agent is missing when it cannot be read.
+      error: () => this.open(agentId, 'build')
+    });
+    this.refreshChat();
   }
 
   /** Opens an agent's page on its overview, or on another tab. */

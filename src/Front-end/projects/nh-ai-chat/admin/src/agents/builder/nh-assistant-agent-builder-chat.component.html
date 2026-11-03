@@ -1,0 +1,26 @@
+@if (available()) {
+  <section class="build-section agent-builder" data-agent-builder [attr.aria-labelledby]="id + '-title'">
+    <header>
+      <div>
+        <h4 [id]="id + '-title'">{{ (agent() ? 'nh-assistant.admin.agent-builder.title' : 'nh-assistant.admin.agent-builder.new-title') | translate }}</h4>
+        <p class="muted">{{ (agent() ? 'nh-assistant.admin.agent-builder.description' : 'nh-assistant.admin.agent-builder.new-description') | translate }}</p>
+      </div>
+      @if (open()) {
+        <button class="secondary" type="button" data-agent-builder-close [attr.aria-controls]="id + '-chat'" (click)="hide()">
+          {{ 'nh-assistant.admin.agent-builder.close' | translate }}
+        </button>
+      } @else {
+        <button class="secondary" type="button" data-agent-builder-open [attr.aria-controls]="id + '-chat'" (click)="show()">
+          <nh-assistant-icon name="assistant" />{{ 'nh-assistant.admin.agent-builder.open' | translate }}
+        </button>
+      }
+    </header>
+    @if (open()) {
+      <!-- The assistant's own chat in page mode: the builder's changes wait on its approval cards. -->
+      <div class="agent-builder-chat" [id]="id + '-chat'" data-agent-builder-chat>
+        <nh-assistant-panel mode="page" conversationList="none" />
+      </div>
+      <p class="muted" data-agent-builder-rights>{{ 'nh-assistant.admin.agent-builder.rights' | translate }}</p>
+    }
+  </section>
+}

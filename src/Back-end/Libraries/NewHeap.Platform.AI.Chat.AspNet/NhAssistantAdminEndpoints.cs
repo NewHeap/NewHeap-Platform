@@ -415,6 +415,8 @@ internal static class NhAssistantAdminEndpoints
             var source = listed is INhAiAttestedToolCatalog ? "bridge" : "local";
             entries.AddRange(catalog.Descriptors
                 .Where(descriptor => (descriptor.Exposure & NhAiToolExposure.Agent) != 0)
+                // The agent builder's tools are the builder's alone: no agent an administrator edits gets them.
+                .Where(descriptor => !NhAssistantAgentBuilderIds.IsAgentBuilderTool(descriptor.Id))
                 .Select(descriptor => new NhAssistantToolCatalogEntryDto(descriptor.Id, source, EffectName(descriptor.Effect), descriptor.Description)
                 {
                     SubjectType = descriptor.Subject?.Type,

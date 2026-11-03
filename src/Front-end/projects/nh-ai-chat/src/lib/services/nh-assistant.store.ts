@@ -331,6 +331,8 @@ export class NhAssistantStore {
   private readonly restoredDraftState = signal<string | NhAssistantComposerDraft | null>(null);
   private readonly pageContextState = signal<ClientContext | null>(null);
   private readonly pageContextExcludedState = signal(false);
+  /** The page context a component gives in place of `getPageContext` (`setPageContextOverride`). */
+  private readonly pageContextOverrideState = signal<ClientContext | null>(null);
   private readonly restorePanelOpenState = signal(false);
   /** The host's own surface, as `setViewing` reports it. */
   private readonly viewingState = signal(false);
@@ -1663,6 +1665,18 @@ export class NhAssistantStore {
   }
 
   /**
+   * Gives the page context of the messages sent from now on in place of the config's `getPageContext`,
+   * for a component that shows the chat about one object, such as the agent builder on an agent's page.
+   * The context is validated and truncated as the getter's is, and the chip shows it; the person can
+   * still leave it out of one message. `null` gives the page context back to `getPageContext`. The
+   * component that sets it clears it when it goes, so another page never sends it.
+   */
+  setPageContextOverride(context: ClientContext | null): void {
+    this.pageContextOverrideState.set(context);
+    void this.refreshPageContext();
+  }
+
+  /**
    * Puts a prepared message in the composer without sending it, for example a brief that the person
    * reviews and then sends. The text is trimmed and capped at the server's `maxMessageChars`. The
    * composer keeps what the person already typed unless `replace` is set: the open conversation's
@@ -1986,7 +2000,7 @@ export class NhAssistantStore {
    * invalid shape), `null` sends an explicit "none" (no context or left out by the user).
    */
   private async contextForMessage(): Promise<ClientContext | null | undefined> {
-    if (!this.config.getPageContext) {
+    if (!this.config.getPageContext && this.pageContextOverrideState() === null) {
       return undefined;
     }
 
@@ -2004,6 +2018,12 @@ export class NhAssistantStore {
   }
 
   private async readPageContext(): Promise<ClientContext | null | undefined> {
+    // A component that shows the chat for one object gives its context in place of the host's.
+    const override = this.pageContextOverrideState();
+    if (override !== null) {
+      return normalizeNhAssistantClientContext(override) ?? undefined;
+    }
+
     const getter = this.config.getPageContext;
     if (!getter) {
       return undefined;

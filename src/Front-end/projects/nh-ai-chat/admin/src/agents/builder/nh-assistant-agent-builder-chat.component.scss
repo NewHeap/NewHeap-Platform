@@ -1,0 +1,20 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+// The chat fills a bounded area of the page, so the approval cards and the composer stay in view.
+.agent-builder-chat {
+  display: flex;
+  min-width: 0;
+  height: min(70vh, 640px);
+  min-height: 360px;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius);
+  overflow: hidden;
+
+  > nh-assistant-panel {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}

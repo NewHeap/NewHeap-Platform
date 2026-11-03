@@ -11,12 +11,24 @@ public sealed class ProjectAiToolDiscoveryPolicy : INhAiToolDiscoveryPolicy
     /// </summary>
     private static readonly string[] ConsultationToolPrefixes = ["assistant.consult.", "assistant.request."];
 
+    /// <summary>
+    /// SPM-394: the tools of the agent builder (<c>NhAssistantAgentBuilderIds.ToolIdPrefix</c> in
+    /// NewHeap.Platform.AI.Chat). Only the builder is offered them, their policy requires the assistant's
+    /// administration, and every change waits for the administrator's approval; they need no division.
+    /// </summary>
+    private const string AgentBuilderToolPrefix = "assistant.agent-builder.";
+
     public ValueTask<bool> CanDiscoverAsync(
         NhAiToolDescriptor descriptor,
         NhAiInvocationContext context,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (descriptor.Id.StartsWith(AgentBuilderToolPrefix, StringComparison.Ordinal))
+        {
+            return ValueTask.FromResult(descriptor.RequiresAuthorization);
+        }
+
         var hasAuthorizedDivision = context.TryGetScopeValue(
                 ProjectAiTools.DivisionScopeKey,
                 out var divisionValue)

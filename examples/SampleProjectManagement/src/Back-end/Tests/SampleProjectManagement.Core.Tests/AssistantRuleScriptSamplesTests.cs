@@ -133,7 +133,7 @@ public sealed class AssistantRuleScriptSamplesTests(AssistantRuleScriptSampleHos
 /// SPM-393: the agent-runs host with the document check of Program.cs. The documents tool comes with the
 /// sample's files in Program.cs; this host registers it over a project store that keeps no document.
 /// </summary>
-public sealed class AssistantRuleScriptSampleHost(SamplePostgreSqlServer postgreSql) : AssistantAgentRunSampleHost(postgreSql)
+public class AssistantRuleScriptSampleHost(SamplePostgreSqlServer postgreSql) : AssistantAgentRunSampleHost(postgreSql)
 {
     protected override void ConfigureAssistant(IServiceCollection services)
     {

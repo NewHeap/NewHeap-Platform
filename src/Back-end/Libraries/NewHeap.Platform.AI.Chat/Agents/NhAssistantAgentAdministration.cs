@@ -479,6 +479,9 @@ internal sealed class NhAssistantAgentAdministration(
     {
         var errors = new NhAssistantValidationErrors()
             .Require(NhAssistantNames.IsSegment(input.Id), "id", NhAssistantFieldErrors.Invalid)
+            // The agent builder is the platform's: no agent created here takes its id, and its own
+            // definition never changes here, also not through an agent package.
+            .Require(!NhAssistantAgentBuilderIds.IsAgentBuilder(input.Id), "id", NhAssistantFieldErrors.NotAllowed)
             .Require(!string.IsNullOrWhiteSpace(input.DisplayName), "displayName", NhAssistantFieldErrors.Required)
             .Require(input.DisplayName is not { Length: > 256 }, "displayName", NhAssistantFieldErrors.TooLong)
             .Require(!string.IsNullOrWhiteSpace(input.Description), "description", NhAssistantFieldErrors.Required)

@@ -760,6 +760,8 @@ internal sealed class NhAssistantRuleScriptService(
             .Select(NhAiToolCatalogViews.Of)
             .SelectMany(catalog => catalog.Descriptors)
             .Where(descriptor => (descriptor.Exposure & NhAiToolExposure.Agent) != 0)
+            // The agent builder's tools are never a rule's: no turn but the builder's offers them.
+            .Where(descriptor => NhAssistantAgentBuilderIds.MayOffer(definition.Id, descriptor.Id))
             .Where(descriptor => definition.ToolSelectors.Any(selector => NhAssistantTurnRunner.IsSelected(selector, descriptor.Id)))
             .Where(descriptor => descriptor.Effect == NhAiToolEffect.ReadOnly || NhAssistantTurnRunner.OffersEffectsToRules(definition))
             .GroupBy(descriptor => descriptor.Id, StringComparer.Ordinal)

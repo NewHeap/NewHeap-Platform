@@ -3578,10 +3578,16 @@ internal sealed partial class NhAssistantTurnRunner(
 
     /// <summary>
     /// Whether the agent's selectors select the tool. The script tool needs no selector: code allowing
-    /// the agent scripts is its opt-in, and a script calls only the tools its turn offers.
+    /// the agent scripts is its opt-in, and a script calls only the tools its turn offers. The agent
+    /// builder's tools are offered to the agent builder alone, whatever another agent's selectors say.
     /// </summary>
     private static bool IsSelectedForAgent(NhAssistantAgentDefinition agent, NhAiToolDescriptor descriptor)
     {
+        if (!NhAssistantAgentBuilderIds.MayOffer(agent.Id, descriptor.Id))
+        {
+            return false;
+        }
+
         return descriptor.CompositionFeature == NhAiCompositionFeature.Scripts
             || agent.ToolSelectors.Any(selector => IsSelected(selector, descriptor.Id));
     }
