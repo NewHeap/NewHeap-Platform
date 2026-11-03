@@ -56,7 +56,9 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-notification-quiet-hours-invalid',
     'assistant-alert-kind-switch-off-not-allowed',
     'assistant-alert-kind-delivery-not-allowed',
-    'assistant-alert-kind-delivery-invalid'
+    'assistant-alert-kind-delivery-invalid',
+    'assistant-rule-script-write-not-allowed',
+    'assistant-rule-script-subjects-invalid'
   ],
   401: [
     'assistant-webhook-signature-invalid'
@@ -111,7 +113,8 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-mcp-tool-not-found',
     'assistant-files-unavailable',
     'assistant-file-not-found',
-    'assistant-bulk-decision-not-found'
+    'assistant-bulk-decision-not-found',
+    'assistant-rule-script-version-not-found'
   ],
   409: [
     'assistant-conversation-busy',
@@ -182,7 +185,11 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-mcp-secret-unreadable',
     'assistant-files-not-accepted',
     'assistant-alert-model-not-allowed',
-    'assistant-alert-model-shadow-first'
+    'assistant-alert-model-shadow-first',
+    'assistant-rule-scripts-not-allowed',
+    'assistant-rule-script-not-candidate',
+    'assistant-rule-script-four-eyes',
+    'assistant-rule-script-dry-run'
   ],
   413: [
     'assistant-webhook-payload-too-large',

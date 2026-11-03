@@ -10,6 +10,7 @@ export * from './lib/models/assistant-hand-off.models';
 export * from './lib/models/assistant-agent-package.models';
 export * from './lib/models/assistant-document.models';
 export * from './lib/models/assistant-alert.models';
+export * from './lib/models/assistant-rule-script.models';
 export * from './lib/nh-assistant.config';
 export * from './lib/provide-nh-assistant';
 export { NH_ASSISTANT_TRANSLATIONS, NhAssistantTranslationMerger } from './lib/i18n/nh-assistant-translations';

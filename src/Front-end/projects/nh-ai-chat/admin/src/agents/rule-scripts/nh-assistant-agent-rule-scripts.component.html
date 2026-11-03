@@ -1,0 +1,299 @@
+@if (visible()) {
+  @let agentId = agent().id;
+  <section class="build-section rule-scripts" data-build-section="rule-scripts" [attr.aria-labelledby]="id + '-title'" [attr.aria-busy]="loading()" data-rule-scripts>
+    <header>
+      <div>
+        <h4 [id]="id + '-title'">{{ 'nh-assistant.admin.rule-scripts.title' | translate }}</h4>
+        <p class="muted">{{ 'nh-assistant.admin.rule-scripts.description' | translate }}</p>
+      </div>
+    </header>
+
+    @if (scopes().length > 1) {
+      <div class="segments" role="group" [attr.aria-label]="'nh-assistant.admin.rule-scripts.scopes' | translate" (keydown)="onScopeKeydown($event)">
+        @for (option of scopes(); track scopeKey(option)) {
+          <button
+            type="button"
+            [attr.data-rule-script-scope]="scopeKey(option)"
+            [attr.aria-pressed]="scope() === option"
+            [attr.tabindex]="scope() === option ? 0 : -1"
+            [disabled]="busy()"
+            (click)="selectScope(option)">
+            @if (option === null) {
+              {{ 'nh-assistant.admin.rule-scripts.agent-rules' | translate }}
+            } @else {
+              {{ skillNameKeys(agentId, option) | nhAssistantTranslate: readableId(option) }}
+            }
+          </button>
+        }
+      </div>
+    }
+
+    @if (loadFailed()) {
+      <div class="state" role="alert" data-rule-scripts-load-failed>
+        <p>{{ 'nh-assistant.admin.load-failed' | translate }}</p>
+        <button class="secondary" type="button" (click)="load()">{{ 'nh-assistant.admin.retry' | translate }}</button>
+      </div>
+    } @else if (ruleScript(); as current) {
+      <dl class="facts" data-rule-script-summary>
+        <dt>{{ 'nh-assistant.admin.rule-scripts.summary.in-effect' | translate }}</dt>
+        <dd data-rule-script-in-effect>
+          @if (live(); as inEffect) {
+            <span class="pill success">{{ 'nh-assistant.admin.rule-scripts.version' | translate: { version: inEffect.version } }}</span>
+            @if (current.codeRule) {
+              <span class="muted block">{{ 'nh-assistant.admin.rule-scripts.summary.replaces' | translate: { rule: current.codeRule } }}</span>
+            }
+          } @else if (current.codeRule) {
+            {{ 'nh-assistant.admin.rule-scripts.summary.code-rule' | translate: { rule: current.codeRule } }}
+          } @else {
+            {{ 'nh-assistant.admin.rule-scripts.summary.none' | translate }}
+          }
+        </dd>
+        <dt>{{ 'nh-assistant.admin.rule-scripts.summary.candidate' | translate }}</dt>
+        <dd data-rule-script-candidate>
+          @if (candidate(); as waiting) {
+            <span class="pill warning" [class.info]="current.candidateShadow">{{ 'nh-assistant.admin.rule-scripts.version' | translate: { version: waiting.version } }}</span>
+            <span class="muted">{{ (current.candidateShadow ? 'nh-assistant.admin.rule-scripts.summary.in-shadow' : 'nh-assistant.admin.rule-scripts.summary.waiting') | translate }}</span>
+          } @else {
+            {{ 'nh-assistant.admin.rule-scripts.summary.no-candidate' | translate }}
+          }
+        </dd>
+        <dt>{{ 'nh-assistant.admin.rule-scripts.summary.ceiling' | translate }}</dt>
+        <dd data-rule-script-ceiling>
+          @if (current.ceiling.writes.length > 0) {
+            <span class="mono">{{ current.ceiling.writes.join(', ') }}</span>
+            <span class="muted block">{{ 'nh-assistant.admin.rule-scripts.summary.writes-per-run' | translate: { count: current.ceiling.maxWritesPerRun } }}</span>
+          } @else {
+            {{ 'nh-assistant.admin.rule-scripts.summary.no-writes' | translate }}
+          }
+          @if (current.ceiling.requireFourEyes) {
+            <span class="muted block" data-rule-script-four-eyes>{{ 'nh-assistant.admin.rule-scripts.four-eyes-hint' | translate }}</span>
+          }
+        </dd>
+      </dl>
+
+      @if (notice(); as shown) {
+        <p class="message success" role="status" tabindex="-1" data-rule-script-notice>
+          <nh-assistant-icon name="check" />{{ shown.key | translate: { version: shown.version } }}
+        </p>
+      }
+
+      @if (editing(); as open) {
+        <div class="subsection">
+          <h5 class="part-title">
+            {{ (open.base ? 'nh-assistant.admin.rule-scripts.editor.title-from' : 'nh-assistant.admin.rule-scripts.editor.title') | translate: { version: open.base?.version } }}
+          </h5>
+          <nh-assistant-rule-script-editor
+            [agentId]="agentId"
+            [skillId]="scope()"
+            [ruleScript]="current"
+            [base]="open.base"
+            (saved)="onSaved($event)"
+            (cancelled)="editing.set(null)"
+            (reloadRequested)="load()" />
+        </div>
+      } @else {
+        <div class="card-actions">
+          <button class="primary" type="button" data-rule-script-new [disabled]="disabled() || busy()" (click)="write(live())">
+            <nh-assistant-icon name="plus" />{{ (live() ? 'nh-assistant.admin.rule-scripts.new-from-live' : 'nh-assistant.admin.rule-scripts.new') | translate }}
+          </button>
+        </div>
+      }
+
+      <div class="subsection">
+        <h5 class="part-title">{{ 'nh-assistant.admin.rule-scripts.versions.title' | translate }}</h5>
+        @if (current.versions.length === 0) {
+          <p class="state" data-rule-script-no-versions>
+            {{ (current.codeRule ? 'nh-assistant.admin.rule-scripts.versions.empty-code-rule' : 'nh-assistant.admin.rule-scripts.versions.empty') | translate: { rule: current.codeRule } }}
+          </p>
+        } @else {
+          <ul class="not-live versions">
+            @for (version of current.versions; track version.version) {
+              <li [attr.data-rule-script-version]="version.version" [attr.data-rule-script-status]="version.status">
+                <div class="version-head">
+                  <span class="grow">
+                    <strong>{{ 'nh-assistant.admin.rule-scripts.version' | translate: { version: version.version } }}</strong>
+                    <span class="badge" [class]="statusTone(version.status)" data-rule-script-version-status>{{ 'nh-assistant.admin.run-config.status.' + version.status | translate }}</span>
+                    @if (version.shadow) {
+                      <span class="pill info" data-rule-script-version-shadow>{{ 'nh-assistant.admin.rule-scripts.versions.shadow' | translate }}</span>
+                    }
+                    <br />
+                    <span class="muted" data-rule-script-version-author [attr.title]="accountTitle(version.authorActorId)">
+                      {{ authorKey(version) | translate: { user: accountName(version.authorActorId), agent: agentName(version.authorAgentId), date: (version.createdAt | date: 'medium') } }}
+                    </span>
+                    @if (version.reason) {
+                      <br />
+                      <span class="muted" data-rule-script-version-reason>{{ 'nh-assistant.admin.agents.state.reason' | translate: { reason: version.reason } }}</span>
+                    }
+                    @if (version.liveAt) {
+                      <br />
+                      <span class="muted" [attr.title]="accountTitle(version.liveBy)">{{ 'nh-assistant.admin.rule-scripts.versions.live-at' | translate: { user: accountName(version.liveBy), date: (version.liveAt | date: 'medium') } }}</span>
+                    }
+                    @if (version.endedAt) {
+                      <br />
+                      <span class="muted" [attr.title]="accountTitle(version.endedBy)">{{ 'nh-assistant.admin.rule-scripts.versions.ended-' + version.status | translate: { user: accountName(version.endedBy), date: (version.endedAt | date: 'medium') } }}</span>
+                    }
+                    <br />
+                    <span class="muted" data-rule-script-version-writes>
+                      @if (version.writes.length > 0) {
+                        {{ 'nh-assistant.admin.rule-scripts.versions.writes' | translate: { writes: version.writes.join(', ') } }}
+                      } @else {
+                        {{ 'nh-assistant.admin.rule-scripts.versions.no-writes' | translate }}
+                      }
+                    </span>
+                  </span>
+                </div>
+
+                <div class="card-actions" [attr.data-rule-script-actions]="version.version">
+                  <button class="secondary" type="button" data-rule-script-action="script" [attr.aria-expanded]="isOpen(version, 'script')" (click)="toggle(version, 'script')">
+                    {{ 'nh-assistant.admin.rule-scripts.actions.script' | translate }}
+                  </button>
+                  <button class="secondary" type="button" data-rule-script-action="dry-run" [attr.aria-expanded]="isOpen(version, 'dry-run')" (click)="toggle(version, 'dry-run')">
+                    {{ 'nh-assistant.admin.rule-scripts.actions.dry-run' | translate }}
+                  </button>
+                  @if (current.versions.length > 1) {
+                    <button class="secondary" type="button" data-rule-script-action="compare" [attr.aria-expanded]="isOpen(version, 'compare')" (click)="toggle(version, 'compare')">
+                      <nh-assistant-icon name="list" />{{ 'nh-assistant.admin.rule-scripts.actions.compare' | translate }}
+                    </button>
+                  }
+                  @if (version.status === 'candidate') {
+                    <button class="primary" type="button" data-rule-script-action="live" [disabled]="disabled() || busy()" [attr.aria-expanded]="isOpen(version, 'live')" (click)="toggle(version, 'live')">
+                      {{ 'nh-assistant.admin.rule-scripts.actions.live' | translate }}
+                    </button>
+                    <button class="secondary" type="button" [attr.data-rule-script-action]="version.shadow ? 'shadow-off' : 'shadow-on'" [disabled]="disabled() || busy()" (click)="setShadow(version, !version.shadow)">
+                      {{ (version.shadow ? 'nh-assistant.admin.rule-scripts.actions.shadow-off' : 'nh-assistant.admin.rule-scripts.actions.shadow-on') | translate }}
+                    </button>
+                    <button class="secondary" type="button" data-rule-script-action="shadow-runs" [attr.aria-expanded]="isOpen(version, 'shadow-runs')" (click)="toggle(version, 'shadow-runs')">
+                      {{ 'nh-assistant.admin.rule-scripts.actions.shadow-runs' | translate }}
+                    </button>
+                    <button class="danger" type="button" data-rule-script-action="discard" [disabled]="disabled() || busy()" [attr.aria-expanded]="isOpen(version, 'discard')" (click)="toggle(version, 'discard')">
+                      <nh-assistant-icon name="trash" />{{ 'nh-assistant.admin.rule-scripts.actions.discard' | translate }}
+                    </button>
+                  }
+                  @if (!editing()) {
+                    <button class="secondary" type="button" data-rule-script-action="edit" [disabled]="disabled() || busy()" (click)="write(version)">
+                      <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.rule-scripts.actions.edit' | translate }}
+                    </button>
+                  }
+                </div>
+
+                @if (error(); as failure) {
+                  @if (failure.version === version.version && panel() === null) {
+                    <p class="form-error" role="alert" data-rule-script-error><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.error.code }}</p>
+                  }
+                }
+
+                @if (panel(); as open) {
+                  @if (open.version === version.version) {
+                    <div class="version-panel" [attr.data-rule-script-panel]="open.kind">
+                      @switch (open.kind) {
+                        @case ('script') {
+                          <pre class="mono script-view" [attr.aria-label]="'nh-assistant.admin.rule-scripts.versions.script-of' | translate: { version: version.version }" tabindex="0" data-rule-script-view>{{ version.script }}</pre>
+                          <p class="muted mono" [attr.title]="version.scriptHash">{{ 'nh-assistant.admin.rule-scripts.versions.hash' | translate: { hash: version.scriptHash.slice(0, 12) } }}</p>
+                        }
+                        @case ('dry-run') {
+                          <nh-assistant-rule-script-dry-run [agent]="agent()" [skillId]="scope()" [version]="version.version" [subjectTypes]="subjectTypes()" [names]="names()" />
+                        }
+                        @case ('compare') {
+                          <nh-assistant-rule-script-comparison [agentId]="agentId" [skillId]="scope()" [version]="version.version" [versions]="current.versions" [names]="names()" />
+                        }
+                        @case ('shadow-runs') {
+                          @if (shadowRuns(); as shown) {
+                            @if (shown.failed) {
+                              <p class="message error" role="alert">{{ 'nh-assistant.admin.load-failed' | translate }}</p>
+                            } @else if (shown.records; as records) {
+                              @if (records.length === 0) {
+                                <p class="state" data-rule-script-no-shadow-runs>
+                                  {{ (version.shadow ? 'nh-assistant.admin.rule-scripts.shadow-runs.none-yet' : 'nh-assistant.admin.rule-scripts.shadow-runs.none-off') | translate }}
+                                </p>
+                              } @else {
+                                <p class="muted">{{ 'nh-assistant.admin.rule-scripts.shadow-runs.explain' | translate: { count: records.length } }}</p>
+                                <ul class="stack shadow-runs" data-rule-script-shadow-runs>
+                                  @for (record of records; track record.id) {
+                                    <li><nh-assistant-rule-script-run-record [record]="record" [names]="names()" /></li>
+                                  }
+                                </ul>
+                              }
+                            } @else {
+                              <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+                            }
+                          }
+                        }
+                        @case ('live') {
+                          <div class="change-form stack" data-rule-script-confirm-form="live" (keydown.escape)="close()">
+                            <p class="muted" data-rule-script-live-explain>
+                              @if (live(); as replaced) {
+                                {{ 'nh-assistant.admin.rule-scripts.live.replaces' | translate: { version: version.version, live: replaced.version } }}
+                              } @else if (current.codeRule) {
+                                {{ 'nh-assistant.admin.rule-scripts.live.code-rule' | translate: { version: version.version, rule: current.codeRule } }}
+                              } @else {
+                                {{ 'nh-assistant.admin.rule-scripts.live.first' | translate: { version: version.version } }}
+                              }
+                            </p>
+                            @if (current.ceiling.requireFourEyes) {
+                              <p class="message info" data-rule-script-live-four-eyes><nh-assistant-icon name="users" />{{ 'nh-assistant.admin.rule-scripts.live.four-eyes' | translate }}</p>
+                            }
+                            @if (liveReview(); as review) {
+                              <div class="stack tight" data-rule-script-live-dry-run aria-live="polite">
+                                @if (review.loading) {
+                                  <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+                                } @else if (review.failed) {
+                                  <p class="message warning" role="status"><nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.rule-scripts.live.dry-run-failed' | translate }}</p>
+                                } @else if (review.record; as record) {
+                                  <h6>{{ 'nh-assistant.admin.rule-scripts.live.latest-dry-run' | translate }}</h6>
+                                  <nh-assistant-rule-script-run-record [record]="record" [names]="names()" />
+                                } @else {
+                                  <p class="message warning" role="status" data-rule-script-live-no-dry-run>
+                                    <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.rule-scripts.live.no-dry-run' | translate }}
+                                  </p>
+                                }
+                              </div>
+                            }
+                            <details class="live-dry-run">
+                              <summary>{{ (liveReview()?.record ? 'nh-assistant.admin.rule-scripts.live.dry-run-again' : 'nh-assistant.admin.rule-scripts.live.dry-run-now') | translate }}</summary>
+                              <nh-assistant-rule-script-dry-run [agent]="agent()" [skillId]="scope()" [version]="version.version" [subjectTypes]="subjectTypes()" [names]="names()" (ran)="onDryRun($event)" />
+                            </details>
+                            <div class="field">
+                              <label [for]="id + '-live-reason'">{{ 'nh-assistant.admin.agents.state.note-label' | translate }}</label>
+                              <input type="text" autocomplete="off" [id]="id + '-live-reason'" [maxLength]="maxReason" [value]="reason()" (input)="reason.set(value($event))" />
+                            </div>
+                            <div class="card-actions">
+                              <button class="primary" type="button" data-rule-script-confirm="live" [disabled]="busy() || liveReview()?.loading" (click)="setLive(version)">
+                                {{ 'nh-assistant.admin.rule-scripts.live.confirm' | translate: { version: version.version } }}
+                              </button>
+                              <button class="secondary" type="button" (click)="close()">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                            </div>
+                            @if (error(); as failure) {
+                              <p class="form-error" role="alert" data-rule-script-error><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.error.code }}</p>
+                            }
+                          </div>
+                        }
+                        @case ('discard') {
+                          <form class="change-form stack" data-rule-script-confirm-form="discard" (submit)="$event.preventDefault(); discard(version)" (keydown.escape)="close()">
+                            <p class="muted">{{ 'nh-assistant.admin.rule-scripts.discard.explain' | translate: { version: version.version } }}</p>
+                            <div class="field">
+                              <label [for]="id + '-discard-reason'">{{ 'nh-assistant.admin.agents.state.note-label' | translate }}</label>
+                              <input type="text" autocomplete="off" [id]="id + '-discard-reason'" [maxLength]="maxReason" [value]="reason()" (input)="reason.set(value($event))" />
+                            </div>
+                            <div class="card-actions">
+                              <button class="danger" type="submit" data-rule-script-confirm="discard" [disabled]="busy()">{{ 'nh-assistant.admin.rule-scripts.discard.confirm' | translate: { version: version.version } }}</button>
+                              <button class="secondary" type="button" (click)="close()">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+                            </div>
+                            @if (error(); as failure) {
+                              <p class="form-error" role="alert" data-rule-script-error><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.error.code }}</p>
+                            }
+                          </form>
+                        }
+                      }
+                    </div>
+                  }
+                }
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    } @else {
+      <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+    }
+  </section>
+}

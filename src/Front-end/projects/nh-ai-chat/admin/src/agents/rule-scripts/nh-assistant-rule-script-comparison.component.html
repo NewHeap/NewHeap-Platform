@@ -1,0 +1,88 @@
+<div class="stack" [attr.data-rule-script-comparison]="version()" [attr.aria-busy]="loading()">
+  @if (others().length > 0) {
+    <div class="field compare-with">
+      <label [for]="id + '-other'">{{ 'nh-assistant.admin.rule-scripts.compare.with' | translate }}</label>
+      <select [id]="id + '-other'" data-rule-script-compare-with (change)="chooseOther($event)">
+        @for (other of others(); track other.version) {
+          <option [value]="other.version" [selected]="comparison()?.otherVersion === other.version">
+            {{ 'nh-assistant.admin.rule-scripts.version-status' | translate: { version: other.version, status: ('nh-assistant.admin.run-config.status.' + other.status | translate) } }}
+          </option>
+        }
+      </select>
+    </div>
+  }
+
+  @if (error(); as failure) {
+    <div class="state" role="alert">
+      <p>{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+      <button class="secondary" type="button" (click)="load(null)">{{ 'nh-assistant.admin.retry' | translate }}</button>
+    </div>
+  } @else if (comparison(); as shown) {
+    <p class="muted" data-rule-script-compare-summary>
+      @if (shown.otherVersion === 0) {
+        {{ 'nh-assistant.admin.rule-scripts.compare.first' | translate: { version: shown.version } }}
+      } @else {
+        {{ 'nh-assistant.admin.rule-scripts.compare.summary' | translate: { version: shown.version, other: shown.otherVersion, count: changed() } }}
+      }
+    </p>
+
+    <div class="diff-scroll">
+      <table class="diff" data-rule-script-diff>
+        <caption class="visually-hidden">{{ 'nh-assistant.admin.rule-scripts.compare.lines' | translate: { version: shown.version, other: shown.otherVersion } }}</caption>
+        <thead class="visually-hidden">
+          <tr>
+            <th scope="col">{{ 'nh-assistant.admin.rule-scripts.compare.other-line' | translate: { version: shown.otherVersion } }}</th>
+            <th scope="col">{{ 'nh-assistant.admin.rule-scripts.compare.line' | translate: { version: shown.version } }}</th>
+            <th scope="col">{{ 'nh-assistant.admin.rule-scripts.compare.change' | translate }}</th>
+            <th scope="col">{{ 'nh-assistant.admin.rule-scripts.compare.text' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (line of shown.lines; track $index) {
+            <tr [class.added]="line.change === 'added'" [class.removed]="line.change === 'removed'" [attr.data-rule-script-diff-line]="line.change">
+              <td class="diff-number">{{ line.otherLine ?? '' }}</td>
+              <td class="diff-number">{{ line.line ?? '' }}</td>
+              <td class="diff-mark">
+                @switch (line.change) {
+                  @case ('added') { <span aria-hidden="true">+</span><span class="visually-hidden">{{ 'nh-assistant.admin.rule-scripts.compare.added' | translate }}</span> }
+                  @case ('removed') { <span aria-hidden="true">-</span><span class="visually-hidden">{{ 'nh-assistant.admin.rule-scripts.compare.removed' | translate }}</span> }
+                }
+              </td>
+              <td class="diff-text"><code>{{ line.text }}</code></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <dl class="facts" data-rule-script-compare-writes>
+      <dt>{{ 'nh-assistant.admin.rule-scripts.compare.writes-added' | translate }}</dt>
+      <dd class="mono" data-rule-script-writes-added>{{ shown.writesAdded.length > 0 ? shown.writesAdded.join(', ') : ('nh-assistant.admin.rule-scripts.compare.no-writes' | translate) }}</dd>
+      <dt>{{ 'nh-assistant.admin.rule-scripts.compare.writes-removed' | translate }}</dt>
+      <dd class="mono" data-rule-script-writes-removed>{{ shown.writesRemoved.length > 0 ? shown.writesRemoved.join(', ') : ('nh-assistant.admin.rule-scripts.compare.no-writes' | translate) }}</dd>
+    </dl>
+
+    <div class="compare-runs">
+      <div class="stack" data-rule-script-compare-dry-run>
+        <h6>{{ 'nh-assistant.admin.rule-scripts.compare.dry-run-of' | translate: { version: shown.version } }}</h6>
+        @if (shown.dryRun; as record) {
+          <nh-assistant-rule-script-run-record [record]="record" [names]="names()" />
+        } @else {
+          <p class="muted">{{ 'nh-assistant.admin.rule-scripts.dry-run.never' | translate }}</p>
+        }
+      </div>
+      @if (shown.otherVersion > 0) {
+        <div class="stack" data-rule-script-compare-other-dry-run>
+          <h6>{{ 'nh-assistant.admin.rule-scripts.compare.dry-run-of' | translate: { version: shown.otherVersion } }}</h6>
+          @if (shown.otherDryRun; as record) {
+            <nh-assistant-rule-script-run-record [record]="record" [names]="names()" />
+          } @else {
+            <p class="muted">{{ 'nh-assistant.admin.rule-scripts.dry-run.never' | translate }}</p>
+          }
+        </div>
+      }
+    </div>
+  } @else {
+    <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+  }
+</div>

@@ -336,6 +336,7 @@
             </section>
 
             @if (hasRunConfiguration()) {
+              <nh-assistant-agent-rule-scripts [agent]="current" [agents]="agents()" [subjectTypes]="catalog()?.subjectTypes ?? []" [names]="names()" [disabled]="busy()" />
               <nh-assistant-agent-run-configuration
                 #buildConfiguration
                 [agent]="current"

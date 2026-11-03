@@ -228,6 +228,14 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   // The switches of the model tool of alerts
   'assistant-alert-model-not-allowed',
   'assistant-alert-model-shadow-first',
+  // Rule scripts stored as data, within the code's ceiling
+  'assistant-rule-scripts-not-allowed',
+  'assistant-rule-script-write-not-allowed',
+  'assistant-rule-script-version-not-found',
+  'assistant-rule-script-not-candidate',
+  'assistant-rule-script-four-eyes',
+  'assistant-rule-script-subjects-invalid',
+  'assistant-rule-script-dry-run',
   // Preferences and administration
   'assistant-validation',
   'assistant-instructions-too-long',
