@@ -561,10 +561,78 @@ export interface NhAssistantMockAdminScenario {
    * switched it start as given, off by default. An agent without an entry lists no kinds.
    */
   alertModel?: Record<string, NhAssistantMockAlertModelKind[]>;
+  /**
+   * The code's ceiling of rule scripts (RB-1 to RB-6), as `UseRuleScriptsAsData` sets it: the agents that may
+   * have rule scripts, what a version may write and what their scripts see, with versions that exist before the
+   * mock starts. `admin/agents/{id}/rule-script` and its skills' routes then keep versions as the server does. An
+   * agent without an entry answers `allowed: false`. Default: no agent has rule scripts.
+   */
+  ruleScripts?: NhAssistantMockRuleScriptCeiling;
 }
 
 /** A kind an agent of the mock lists whose code lets its model raise it. */
 export type NhAssistantMockAlertModelKind = Pick<AlertModelSwitch, 'kindId' | 'description' | 'parameters'> & Partial<AlertModelSwitch>;
+
+/** The code's ceiling of rule scripts in the mock, as `UseRuleScriptsAsData` sets it. */
+export interface NhAssistantMockRuleScriptCeiling {
+  /** Another administrator than a version's author sets it live (`RequireFourEyes`); nobody saves straight live. */
+  requireFourEyes?: boolean;
+  /** The agents that may have rule scripts, by id (`ForAgent`). */
+  agents: Record<string, NhAssistantMockRuleScriptAgent>;
+}
+
+/** What the ceiling allows one agent's rule scripts, and what they see. */
+export interface NhAssistantMockRuleScriptAgent {
+  /** The writing tools a version may opt in to, by tool id (`AllowWrites`). Default none. */
+  writes?: string[];
+  /** The most writes one run makes (`MaxWritesPerRun`). Default 1. */
+  maxWritesPerRun?: number;
+  /** The destructive tools among `writes` that may run in a script (`AllowDestructive`). Default none. */
+  destructive?: string[];
+  /** The tools the agent's rules may use, as the catalog lists them. */
+  tools?: NhAssistantMockRuleScriptTool[];
+  /** The alert kinds the agent lists with `Alerts(...)`. */
+  alertKinds?: string[];
+  /** The code rule of the agent's own rules, by its handler's name, which a live version takes the place of. */
+  codeRule?: string | null;
+  /** The code rule of each skill, by skill id. */
+  skillCodeRules?: Record<string, string | null>;
+  /** Versions saved before the mock starts, oldest first, through the same rules as a save. */
+  versions?: NhAssistantMockRuleScriptVersion[];
+}
+
+/** A tool a rule script of the mock sees. */
+export interface NhAssistantMockRuleScriptTool {
+  /** The function name, the property of `tools`. */
+  name: string;
+  toolId: string;
+  /** Whether it changes something. Default `false`. */
+  write?: boolean;
+  destructive?: boolean;
+  /** Its TypeScript-style declaration; by default a generic one. */
+  signature?: string;
+  /** For a write, whether it needs approval, so a dry run records it as `would-propose`. Default `true`. */
+  needsApproval?: boolean;
+}
+
+/** A version of a rule script that exists before the mock starts. */
+export interface NhAssistantMockRuleScriptVersion {
+  /** The skill whose rules it is; `null` or missing for the agent's own rules. */
+  skillId?: string | null;
+  script: string;
+  writes?: string[];
+  status: 'live' | 'candidate';
+  /** For a candidate: whether it runs in shadow. */
+  shadow?: boolean;
+  /** Who wrote it. Default `current-user`, the signed-in administrator, whom four eyes refuses. */
+  authorActorId?: string;
+  /** The agent that wrote it for the person, such as the agent builder. */
+  authorAgentId?: string | null;
+  reason?: string | null;
+  createdAt?: string;
+  /** The subjects of the shadow runs it made, one run each, newest last. */
+  shadowRunsOn?: { type: string; id: string }[];
+}
 
 /** An agent package the mock's host imported, with the options of its import. */
 export interface NhAssistantMockAgentPackage {

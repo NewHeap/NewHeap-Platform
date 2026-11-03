@@ -30,6 +30,7 @@ import { NhAssistantMockRunConfiguration } from './nh-assistant-mock-run-configu
 import { NhAssistantMockInstructionAssets } from './nh-assistant-mock-instruction-assets';
 import { NhAssistantMockWithoutApproval } from './nh-assistant-mock-without-approval';
 import { NhAssistantMockAlertModel } from './nh-assistant-mock-alert-model';
+import { NhAssistantMockRuleScripts } from './nh-assistant-mock-rule-scripts';
 import { mockSystemSubjectType } from './nh-assistant-mock-works-on';
 
 export type { NhAssistantMockResult } from './nh-assistant-mock-admin-shared';
@@ -67,6 +68,8 @@ export class NhAssistantMockAdmin {
   private readonly alertModel: NhAssistantMockAlertModel;
   /** The administrator's settings per alert kind and the numbers of its alerts (FB87 phase 2). */
   private readonly alertKinds: NhAssistantMockAlertKinds;
+  /** The rule scripts of agents and their skills within the code's ceiling (RB-1 to RB-6). */
+  private readonly ruleScripts: NhAssistantMockRuleScripts;
   /** The application's text assets for instructions. */
   readonly instructionAssets: NhAssistantMockInstructionAssets;
   private readonly contextVersions: (ApplicationContextVersion & { text: string })[] = [];
@@ -124,6 +127,10 @@ export class NhAssistantMockAdmin {
       tools: () => this.toolCatalog()
     }, now);
     this.alertModel = new NhAssistantMockAlertModel(admin.alertModel, { find: agentId => this.agents.find(agentId) }, now);
+    this.ruleScripts = new NhAssistantMockRuleScripts(admin.ruleScripts, {
+      find: agentId => this.agents.find(agentId),
+      subjectTypes: () => scenario.subjectTypes ?? []
+    }, now);
     this.presetRunConfigurations(admin.agents ?? []);
   }
 
@@ -298,6 +305,12 @@ export class NhAssistantMockAdmin {
           const switched = this.alertModel.handle(method, id, segments.slice(3), body);
           if (switched) {
             return switched;
+          }
+        }
+        if (id !== undefined && (action === 'rule-script' || (action === 'skills' && segments[5] === 'rule-script'))) {
+          const scripted = this.ruleScripts.handle(method, id, segments.slice(3), body, query);
+          if (scripted) {
+            return scripted;
           }
         }
         if (id !== undefined && action === 'compositions' && child === 'activity' && segments.length === 5) {
