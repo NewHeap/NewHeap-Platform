@@ -18,10 +18,31 @@ Call `provideNhToastr(...)` in root application composition and render one
 typed success, error, warning, or info methods. The package supports Angular
 20.3.28 through 22 and `@ngx-translate/core` 17 or 18.
 
+A toast is visible only while a container is rendered. In development mode
+(`isDevMode()`) the service warns once in the console when a toast is shown
+while no `NhToastrContainerComponent` is on the page, and names the fix; in
+production nothing is logged.
+
+## Migrate from ngx-toastr
+
+Replace `ToastrModule.forRoot(config)` or `provideToastr(config)` with
+`provideNhToastr(config)`; the options `NhToastrConfig` keeps, such as
+`timeOut`, `positionClass`, `closeButton` and `preventDuplicates`, keep their
+names. Inject `NhToastrService` instead of `ToastrService`: `success`, `error`,
+`info`, `warning`, `show`, `clear` and `remove` keep their arguments, and the
+returned `NhActiveToast` offers `onShown`, `onHidden`, `onTap` and `onAction`.
+Render one `<nh-toastr-container>` in the root template, because
+`ngx-toastr` attached its container itself and `NhToastrService` does not.
+Remove the `ngx-toastr` package and stylesheet, and rebuild a custom toast
+component or an option outside `NhToastrConfig` with the `--nh-toastr-*` CSS
+custom properties.
+
 ## Avoid
 
 - Registering separate toast defaults in lazy features.
 - Rendering a container per page or modal.
+- Showing toasts without a rendered container; the service keeps them, but
+  nobody sees them.
 - Passing raw server errors, HTML, or stack traces to a toast.
 - Expanding the Angular peer range beyond versions exercised by the package
   compatibility check.
@@ -33,3 +54,5 @@ compile consumers against Angular 20, 21, and 22 with
 `npm --prefix src/Front-end run nh-toastr:test:compatibility`. In the sample,
 verify that each application root owns exactly one container and that the
 notification playground emits localized feedback through `NhToastrService`.
+In development, check that the console shows no warning about a missing toast
+container.

@@ -4,8 +4,8 @@ title: "Root configuration with compatible opt-ins"
 area: frontend
 reference: frontend-root-configuration
 summary: "Register NhCommonModule once at the root and explicitly enable recommended optimizations without changing library defaults for existing consumers."
-sample-cases: ["SPM-112", "SPM-121", "SPM-215", "SPM-106"]
-public-symbols: ["NhCommonModule", "NhHttpNhCommonModuleConfig", "NhFormDropDownNhCommonModuleConfig", "NhCommonModuleConfig", "AuthenticationNhCommonModuleConfig"]
+sample-cases: ["SPM-112", "SPM-121", "SPM-215", "SPM-106", "SPM-094"]
+public-symbols: ["NhCommonModule", "NhHttpNhCommonModuleConfig", "NhFormDropDownNhCommonModuleConfig", "NhCommonModuleConfig", "AuthenticationNhCommonModuleConfig", "NhTranslateBrowserLoader", "nhTranslateBrowserLoaderFactory"]
 skills: ["newheap-frontend-development"]
 providers: ["frontend"]
 risk: critical
@@ -17,6 +17,8 @@ Call `NhCommonModule.forRoot(...)` exactly once at the application root and impo
 The package supports Angular 20.3.28+, 21 and 22. Choose peer dependency versions compatible with the consumer's Angular version, including the datatable and cookie service.
 
 Collection and mutate bases expose `NhToastrService` through their protected `toastrService`. Register `provideNhToastr(...)` from `@newheap/nh-toastr` in the root providers and render one `NhToastrContainerComponent` in the shell. When upgrading from `ngx-toastr`, replace its module registration and direct service injections, remove its stylesheet, and adapt custom toast components or options outside `NhToastrConfig`.
+
+Load the application's texts with `nhTranslateBrowserLoaderFactory`, which reads `{browserLoaderPrefix}/{language}.json`. A regional language such as `nl-NL`, `nl_BE` or `en-GB` whose file does not exist gets the texts of its base language (`nl.json`, `en.json`), as the libraries' own texts already do, so keep one file per language and add a regional file only for texts that differ; a regional file that exists is used as it is, without merging. Only a `404` counts as a missing file: serve the translation folder so that a missing file answers `404`, not the application's `index.html`.
 
 GET deduplication remains GET-only, ends when the source request finalizes, and distinguishes authorization, cookie, language, and active-division headers. The library defaults for these opt-ins remain `false` for upgrade compatibility.
 
@@ -32,6 +34,6 @@ Set `apiBaseUrl` and `authApiBaseUrl` explicitly to where the API is, such as `/
 
 ## Verification
 
-Test with the opt-ins enabled in the consumer and test the library defaults separately as `false`. Verify request deduplication with different authorization, division, and language headers, and test a deferred dropdown with a preselected value. Verify that an API request carries the access token and active division, and that another origin, a longer host name that starts with the API's host and a path beside the base receive neither.
+Test with the opt-ins enabled in the consumer and test the library defaults separately as `false`. Verify request deduplication with different authorization, division, and language headers, and test a deferred dropdown with a preselected value. Verify that a regional language without its own translation file shows the texts of its base language. Verify that an API request carries the access token and active division, and that another origin, a longer host name that starts with the API's host and a path beside the base receive neither.
 
 Build the package on the oldest supported Angular baseline and compile consumers on Angular 20, 21 and 22 using `npm --prefix src/Front-end run nh-common:test:compatibility`.

@@ -113,6 +113,17 @@ jobs:
           dotnet test src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NewHeap.Platform.AspNet.Common.Tests.csproj
           --configuration Release --filter FieldSelectionTests
           -p:RestoreConfigFile="$GITHUB_WORKSPACE/release/nuget.public.config"
+      - name: Install the EF Core tools for the schema scripts
+        if: inputs.component == 'nuget-common'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The preview artifacts carry the idempotent SQL scripts of the assistant schema too.
+          dotnet tool install dotnet-ef \
+            --version "$(node tools/release/sql-scripts.mjs --tool-version)" \
+            --tool-path "$RUNNER_TEMP/dotnet-tools" \
+            --configfile "$RUNNER_TEMP/nuget.public.config"
+          echo "$RUNNER_TEMP/dotnet-tools" >> "$GITHUB_PATH"
       - name: Pack preview artifacts
         shell: bash
         run: |

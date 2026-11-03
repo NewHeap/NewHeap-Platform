@@ -43,6 +43,15 @@ services.AddNewHeapAssistant(assistant => assistant
 endpoints.MapNewHeapAssistant("/api/assistant");
 ```
 
+The storage package holds the migrations of the assistant schema. Let the host apply them
+(`RunMigrations`), or apply the schema yourself as a deployment step: every `nuget-common` GitHub
+Release carries `newheap-assistant-schema-sqlserver-<version>.sql` and
+`newheap-assistant-schema-postgresql-<version>.sql`, idempotent scripts for the default `nhai` schema
+that `dotnet ef migrations script --idempotent` writes from an empty database. Each brings a database
+of any earlier version up to that release and changes nothing when it runs again; run the SQL Server
+script with a tool that understands `GO`. For another schema, write the scripts from a Platform
+checkout of the release's tag with `npm run release:sql-scripts -- --out <directory> --schema <name>`.
+
 `NhAiTextAsset.FromEmbeddedResource` is a static extension member of
 `NewHeap.Platform.AI.Chat`; keep that namespace in scope. The chat profile must
 declare chat, function calling and streaming and permit the assistant execution
@@ -666,7 +675,12 @@ the people the conversation's read rule admits, as the live hub does. No notific
 notifications included, reaches a person the platform no longer resolves: one for whom the
 principal factory, as the MCP owner sweep selects it, rebuilds nobody, such as a deleted, blocked
 or locked-out account. A host whose factory cannot tell, without the NewHeap user manager or with
-an access source (`UsePrincipalsFromAccessSource`), keeps delivering. The assistant registers an
+an access source (`UsePrincipalsFromAccessSource`), keeps delivering. Each person a delivery skips
+because the factory rebuilds nobody for them is logged as one content-free warning per person per
+hour, without the actor id, naming `INhAiPrincipalFactory`; the warning changes nobody's deliveries.
+Expect it for deleted or locked-out accounts. When it appears for people who do sign in, the
+application's actor ids are its own and the built-in factory does not know them: register an
+`INhAiPrincipalFactory` of the application's own that rebuilds those people. The assistant registers an
 `INhRetentionParticipant`: when the application forgets a user (`INhRetention.ForgetUserAsync`,
 which `NhUserManager.DeleteAsync` calls), it removes the person's push subscriptions,
 notification choice, MCP connection notices and participant rows, so no browser of theirs is
@@ -1837,8 +1851,10 @@ a verifiable VAPID token, the endpoint allow-list, the notification rules, an
 encrypted delivery without message content, the opt-out and the removal of a gone
 subscription (SPM-264), and on both providers that Web Push and in-app notifications skip a
 participant whose role ended, who fails the agent's policy or whom the platform no longer
-resolves, and that forgetting a user removes their subscriptions, notification choice, notices
-and participant rows (`AssistantNotificationReadRuleTests`, `AssistantUnresolvedPeopleTests`). For the MCP context, read `_meta` in the server's call handler
+resolves, with one content-free warning per such person per hour and none for a person who is
+rebuilt, and that forgetting a user removes their subscriptions, notification choice, notices
+and participant rows (`AssistantNotificationReadRuleTests`, `AssistantUnresolvedPeopleTests`,
+`AssistantUnrebuiltRecipientWarningTests`). For the MCP context, read `_meta` in the server's call handler
 over the official transport: the reviewed tool receives the identities and snapshot, the
 same tool under another server id or URL receives nothing, an approved call carries its
 approval, and the snapshot refuses another person, another invocation or run, a stale
@@ -1871,7 +1887,8 @@ the connection card in the person's turn and none in a headless run, that a fail
 its file with `assistant-file-reader-failed` without a second reader, that the reader's text counts
 against `MaxFileTokensPerTurn`, and that audit and logs hold the reader id, file id and hash, never
 the content or the text. Prove a migration that moves data, such as `McpReaders`, on both providers
-from the earlier schema up and back down.
+from the earlier schema up and back down, and that the idempotent script of a release applies to an
+empty database twice, without a schema placeholder, also for another schema (`AssistantSchemaScriptTests`).
 
 For retrieved context, assert that the sample's assistant reads the project descriptions of the
 person's active division that match the question, after the situation, never those of another

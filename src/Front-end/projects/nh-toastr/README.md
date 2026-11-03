@@ -51,6 +51,9 @@ Add the toast container once to the root application template:
 <nh-toastr-container></nh-toastr-container>
 ```
 
+Toasts are visible only while a container is rendered. In development mode the
+service warns once in the console when a toast is shown without one.
+
 Inject the service where a notification is needed:
 
 ```typescript

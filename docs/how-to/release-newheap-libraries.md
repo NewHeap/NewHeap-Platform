@@ -23,6 +23,8 @@ The release pipeline publishes NuGet packages to nuget.org, scoped npm packages 
 | `npm-ai-chat` | `@newheap/platform-ai-chat` | `npm-ai-chat-v<version>` |
 | `newheap-platform-plugin` | Installable NewHeap Platform plugin and consumer skill suite | `newheap-platform-plugin-v<version>` |
 
+The `nuget-common` release also carries the idempotent SQL scripts of the assistant schema, `newheap-assistant-schema-sqlserver-<version>.sql` and `newheap-assistant-schema-postgresql-<version>.sql`, for applications that apply migrations themselves. `package-release.mjs` writes them after packing with `dotnet ef migrations script --idempotent`, from the Release build and the design-time factory of each provider project (`tools/release/sql-scripts.mjs` lists them), and the artifact validation requires both, without a schema placeholder, before `SHA256SUMS` is written. The publishing workflows install `dotnet-ef` at the repository's EF Core version (`node tools/release/sql-scripts.mjs --tool-version`) for that step.
+
 Versions remain independent. The `all` option applies the selected SemVer bump to every unit but preserves separate versions, tags, artifacts, and GitHub Releases. In an all-unit release, Common is packed first and exposed as a temporary local NuGet source for dependent Media packages.
 
 ## Established release configuration
@@ -87,6 +89,17 @@ Use the selected unit's version from `release/manifest.json`. For `all`, group r
 
 Releases without applicable notes leave the notes unchanged. Preview publishing and finalization retries do not rotate release notes.
 
+### Breaking changes between two versions
+
+An upgrade across several versions needs every required action in between. List them per release unit:
+
+```text
+npm run release:breaking -- --unit nuget-common --from 8.0.0 --to 32.0.0
+npm run release:breaking -- --unit npm-ai-chat --from 0.20.0 --next --json
+```
+
+The command reads `docs/release-notes/v*.md`, takes the versions after `--from` up to and including `--to` (every later version without it), and prints each `Breaking change | Required action` row, and the `Behavior change | Required action` rows of older notes, grouped by version and package section, oldest first, as Markdown or with `--json` as data. `--next` adds the unreleased rows of `v-next.md` last. Release units share the note files but not their versions, so a section counts for the unit of the packages its heading names; `--unit` selects one, and without it the command refuses a range that holds rows of several units instead of mixing them.
+
 ## Local verification
 
 ```text
@@ -95,6 +108,10 @@ node tools/release/prepare-release.mjs --component nuget-common --bump patch --d
 node tools/release/prepare-release.mjs --component all --bump patch --dry-run
 node tools/release/package-release.mjs --component nuget-common --dry-run
 node tools/release/package-release.mjs --component npm-platform-common --dry-run
+npm run release:breaking -- --unit nuget-common --from 31.0.0
+npm run release:sql-scripts -- --out <directory>
 ```
+
+`release:sql-scripts` builds the assistant's provider projects and writes the scripts of the current `nuget-common` version into the directory; `--version` names another version in the file names and `--schema <name>` writes the scripts for another schema than `nhai`. It needs `dotnet-ef` (`dotnet tool install --global dotnet-ef --version <the output of --tool-version>`); generated scripts are release artifacts and are never committed.
 
 Local commands pack and validate only. Registry publication belongs to the protected GitHub workflow.

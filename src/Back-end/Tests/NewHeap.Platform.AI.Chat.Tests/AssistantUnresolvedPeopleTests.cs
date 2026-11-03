@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using NewHeap.Platform.AI.Chat.AspNet.Notifications;
 using NewHeap.Platform.AI.Chat.Collaboration;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Notifications;
@@ -27,7 +29,8 @@ public sealed class AssistantUnresolvedPeopleTests(AssistantDatabaseFixture data
     [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task Notifications_skip_people_the_platform_no_longer_resolves(AssistantTestProvider provider)
     {
-        var host = await NotificationHost.StartAsync(database, provider);
+        var logs = new CapturingLoggerProvider();
+        var host = await NotificationHost.StartAsync(database, provider, services => services.AddSingleton<ILoggerProvider>(logs));
         await using var app = host.App;
         var owner = Guid.NewGuid().ToString("D");
         var pat = Guid.NewGuid().ToString("D");
@@ -74,6 +77,13 @@ public sealed class AssistantUnresolvedPeopleTests(AssistantDatabaseFixture data
         Assert.Equal(
             new[] { Guid.Parse(owner), Guid.Parse(quinn) }.Order(),
             host.Inbox.Requests.Select(request => request.UserId).Order());
+        // Every delivery asked about Pat and Alice; each of them is warned about once, without their id.
+        var warnings = logs.Entries
+            .Where(entry => entry.Category == typeof(NhAssistantUnrebuiltRecipientWarnings).FullName && entry.Level == LogLevel.Warning)
+            .ToArray();
+        Assert.Equal(2, warnings.Length);
+        Assert.All(warnings, warning => Assert.DoesNotContain(pat, warning.Message, StringComparison.Ordinal));
+        Assert.All(warnings, warning => Assert.DoesNotContain(alice, warning.Message, StringComparison.Ordinal));
     }
 
     [Theory]

@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Component, ErrorHandler, inject, signal } from '@angular/core';
+import { Component, ErrorHandler, inject, signal, TransferState } from '@angular/core';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRouteSnapshot, Router } from '@angular/router';
 import {
@@ -31,6 +31,7 @@ import {
   NhPageSettings,
   NhRouterService,
   NhTitleService,
+  nhTranslateBrowserLoaderFactory,
   PreConnectUrlItem,
   PreLoadUrlItem,
   REVIEW_AGGREGATE_RATING_KEY,
@@ -65,6 +66,7 @@ export class PlatformPlaygroundComponent {
   private readonly errorHandler = inject(ErrorHandler);
   private readonly frontendErrorState = inject(SampleFrontendErrorState);
   private readonly moduleConfig = inject(NhCommonModuleConfig);
+  private readonly translationLoader = nhTranslateBrowserLoaderFactory(this.http, inject(TransferState));
   private readonly endpoint = '/api/library-samples/http';
   private readonly cacheDivisionId = '11111111-1111-1111-1111-111111111111';
   private readonly cacheEndpoint = `/api/library-samples/cache/project-summary/${this.cacheDivisionId}`;
@@ -114,6 +116,7 @@ export class PlatformPlaygroundComponent {
   readonly navigationPreview = signal('{}');
   readonly pageStatePreview = signal('{}');
   readonly frontendErrorPreview = signal('{}');
+  readonly regionalTextsPreview = signal('{}');
 
   loadCachedProjectSummary(): void {
     const options = new HttpRequestOptions();
@@ -418,6 +421,17 @@ export class PlatformPlaygroundComponent {
     const languageCode = current.languageCode === 'nl' ? 'en' : 'nl';
     await this.configService.changeLanguage(languageCode);
     this.result.set(`Runtime configuration changed to ${languageCode}; NhTranslateBrowserLoader uses TransferState and HTTP fallback.`);
+  }
+
+  loadRegionalTexts(): void {
+    // nl-BE.json does not exist, so the loader answers with the texts of nl.json.
+    this.translationLoader.getTranslation('nl-BE').subscribe({
+      next: texts => this.regionalTextsPreview.set(JSON.stringify({
+        language: 'nl-BE',
+        'project.platform-playground-title': texts?.project?.['platform-playground-title'] ?? null
+      }, null, 2)),
+      error: error => this.regionalTextsPreview.set(this.errorText(error))
+    });
   }
 
   toggleControl(): void {

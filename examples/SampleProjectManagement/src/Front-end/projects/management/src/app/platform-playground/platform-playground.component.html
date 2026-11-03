@@ -98,6 +98,13 @@
     </article>
 
     <article>
+      <h3>Regional languages</h3>
+      <p>The sample ships <code>en.json</code> and <code>nl.json</code> only. <code>NhTranslateBrowserLoader</code> answers a regional language such as <code>nl-BE</code>, whose file does not exist, with the texts of its base language; a regional file that exists would be used as it is.</p>
+      <button type="button" (click)="loadRegionalTexts()">Load nl-BE texts</button>
+      <pre>{{ regionalTextsPreview() }}</pre>
+    </article>
+
+    <article>
       <h3>Breadcrumb and sitemap from one route configuration</h3>
       <p>The environment initializer registers multilingual <code>NhRegisterRoute</code> metadata and supplies the same tree to the router, breadcrumb, and sitemap.</p>
       <button type="button" (click)="inspectNavigationModel()">Inspect navigation model</button>

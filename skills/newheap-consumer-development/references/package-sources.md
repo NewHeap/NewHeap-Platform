@@ -23,6 +23,8 @@ NewHeap mapping consumers reference `NewHeap.Platform.Mapping` and import the `N
 
 Change the package source, declared package version, central version file, and lockfile in one reviewed change. Restore from a clean cache, build the consumer, run focused tests, and verify resolved URLs point to the public registries. Keep SQL Server/PostgreSQL provider packages aligned where the feature requires both.
 
+Across several versions, act on every breaking change in between, not only on those of the target version. With a Platform checkout, list them per release unit, for example `npm run release:breaking -- --unit nuget-common --from 8.0.0 --to 32.0.0` and the same for each npm unit with its own versions; otherwise read every `Breaking change | Required action` table of the release notes `v<version>.md` after the installed version, for the sections that name the installed packages.
+
 For exact `.npmrc`, `nuget.config`, and AI-plugin commands, use `docs/how-to/consume-public-packages.md` when a Platform checkout is available.
 
 ## Gate an empty-repository bootstrap

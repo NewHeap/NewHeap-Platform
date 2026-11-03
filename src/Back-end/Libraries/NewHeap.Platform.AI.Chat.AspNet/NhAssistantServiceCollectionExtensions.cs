@@ -109,6 +109,8 @@ public static class NhAssistantServiceCollectionExtensions
             // Live updates and notifications rebuild their recipients with the application's principal
             // factory, as headless runs do, to check the agent's policy at send time.
             services.Replace(ServiceDescriptor.Scoped<INhAssistantRecipientRules, NhAssistantPrincipalRecipientRules>());
+            // One content-free warning per person and hour when the factory rebuilds nobody for them (FB89).
+            services.TryAddSingleton<NhAssistantUnrebuiltRecipientWarnings>();
             services.AddHttpClient(NhAssistantWebPushNotifier.HttpClientName)
                 .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
                 {

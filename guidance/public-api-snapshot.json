@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.104",
   "backEnd": {
-    "hash": "59022552b30379444a8c80b79c57c47e6bf9613829ec936326e42fc5999c0a2c",
-    "declarationCount": 13091,
+    "hash": "e6123d10a46ec1bfab7bb2248b209cc5de32a72f90766e90c40bd009df2b9f8b",
+    "declarationCount": 13094,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -9328,6 +9328,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantRecipientRules.cs",
         "declaration": "public async ValueTask<bool> IsResolvedForAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantUnrebuiltRecipientWarnings.cs",
+        "declaration": "public static readonly TimeSpan Window = TimeSpan.FromHours(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantUnrebuiltRecipientWarnings.cs",
+        "declaration": "public const int MaxPeople = 1024;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantUnrebuiltRecipientWarnings.cs",
+        "declaration": "public void Skipped(string actorId) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantWebPushNotifier.cs",
@@ -57363,7 +57375,9 @@
       "NhHttpNhCommonModuleConfig",
       "NhFormDropDownNhCommonModuleConfig",
       "NhCommonModuleConfig",
-      "AuthenticationNhCommonModuleConfig"
+      "AuthenticationNhCommonModuleConfig",
+      "NhTranslateBrowserLoader",
+      "nhTranslateBrowserLoaderFactory"
     ],
     "nh-frontend-toast-notifications": [
       "provideNhToastr",
