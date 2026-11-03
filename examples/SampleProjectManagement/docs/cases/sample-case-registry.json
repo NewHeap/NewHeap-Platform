@@ -3112,7 +3112,7 @@
       "categoryId": "6",
       "title": "Toast notifications",
       "surface": "`provideNhToastr`, `NhToastrService`, and `NhToastrContainerComponent`",
-      "outcome": "Both application roots host one toast container; the notification playground and inherited collection/mutate toast service use the same NH notification provider without ngx-toastr. In development mode a toast shown while no container is rendered warns once in the console, naming the container and the provider; production logs nothing.",
+      "outcome": "Both application roots host one toast container; the notification playground and inherited collection/mutate toast service use the same NH notification provider without ngx-toastr. In development mode a toast shown while no container is rendered warns once in the console, naming the container and the provider; production logs nothing. The common and toast packages install together within their declared peer range, including toast 0.0.7 and 0.0.8; packaged consumers compile on Angular 20, 21 and 22 without bypassing peer checks.",
       "implementation": "implemented",
       "evidence": [
         "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",

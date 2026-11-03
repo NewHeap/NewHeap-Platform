@@ -1,5 +1,10 @@
 # v-next
 
+## @newheap/platform-common: installing the toast update
+
+- The toast peer range accepts both `@newheap/nh-toastr` 0.0.7 and 0.0.8. The previous
+  `^0.0.7` range refused an installation with 0.0.8 even though the toast update is compatible.
+
 ## @newheap/platform-common: regional languages fall back to their base language (FB88)
 
 - `NhTranslateBrowserLoader` loads `nl.json` when the file of a regional language such as `nl-NL` or `nl_BE`

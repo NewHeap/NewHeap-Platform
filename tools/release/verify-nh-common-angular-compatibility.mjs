@@ -55,6 +55,14 @@ const tempRoot = await mkdtemp(join(tmpdir(), 'nh-common-angular-'));
 try {
   runNodeTool(angularCli, ['build', 'nh-toastr', '--configuration=production'], workspace);
   runNodeTool(angularCli, ['build', 'nh-common', '--configuration=production'], workspace);
+  // Install both release artifacts together, so a toast release cannot be hidden by a pinned older peer.
+  const packedToastr = JSON.parse(runNodeTool(
+    npmCli,
+    ['pack', '--json', '--pack-destination', tempRoot],
+    resolve(workspace, 'dist/nh-toastr'),
+    'pipe'
+  ))[0];
+  const toastrPackagePath = resolve(tempRoot, packedToastr.filename);
   const packed = JSON.parse(runNodeTool(
     npmCli,
     ['pack', '--json', '--pack-destination', tempRoot],
@@ -157,7 +165,7 @@ bootstrapApplication(AppComponent, {
       `@ngx-translate/core@${target.translate}`,
       `@swimlane/ngx-datatable@${target.datatable}`,
       `ngx-cookie-service@${target.cookie}`,
-      '@newheap/nh-toastr@0.0.7',
+      toastrPackagePath,
       '--@newheap:registry=https://registry.npmjs.org/',
       'ngx-bootstrap-multiselect@4.0.0',
       '@microsoft/signalr@10.0.11',

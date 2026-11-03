@@ -9,6 +9,15 @@ when it:
 3. explains in the UI why and when to use the pattern;
 4. has a small, focused test where that adds value.
 
+## Toast package compatibility (SPM-218)
+
+Both application roots compose the same NewHeap toast provider and container.
+The common package accepts toast 0.0.7 and 0.0.8 without bypassing npm's peer checks.
+From the repository root, `npm --prefix src/Front-end run nh-common:test:compatibility`
+installs both locally packed artifacts and compiles the consumer on Angular 20, 21
+and 22, so a new toast package cannot be masked by an older pinned dependency.
+The same consumer check runs before either package is published.
+
 ## Available workbenches
 
 | Workbench | Examples | Main NewHeap mechanisms |

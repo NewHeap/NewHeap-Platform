@@ -138,7 +138,7 @@ jobs:
       - name: Validate sample repository structure
         run: npm run sample:structure
       - name: Verify platform-common on Angular 20, 21 and 22
-        if: inputs.component == '' || inputs.component == 'all' || inputs.component == 'npm-platform-common'
+        if: inputs.component == '' || inputs.component == 'all' || inputs.component == 'npm-platform-common' || inputs.component == 'npm-nh-toastr'
         run: |
           npm --prefix src/Front-end ci
           npm --prefix src/Front-end run nh-common:test:compatibility
