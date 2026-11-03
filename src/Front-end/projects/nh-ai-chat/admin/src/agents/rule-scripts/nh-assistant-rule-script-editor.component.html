@@ -54,7 +54,7 @@
               <span class="grow">
                 {{ codeKeys(result.code) | nhAssistantTranslate: (result.code ?? '') }}
                 @if (result.line !== null) {
-                  <button type="button" class="link" data-rule-script-go-to (click)="goTo({ line: result.line, column: result.column ?? 1 })">
+                  <button type="button" class="secondary compact" data-rule-script-go-to (click)="goTo({ line: result.line, column: result.column ?? 1 })">
                     {{ 'nh-assistant.admin.rule-scripts.editor.go-to' | translate: { line: result.line, column: result.column ?? 1 } }}
                   </button>
                 }
@@ -175,7 +175,7 @@
           <span class="grow">
             {{ errorKeys() | nhAssistantTranslate: failure.code }}
             @if (conflict()) {
-              <button type="button" class="link" data-rule-script-reload (click)="reload()">{{ 'nh-assistant.admin.rule-scripts.editor.reload' | translate }}</button>
+              <button type="button" class="secondary compact" data-rule-script-reload (click)="reload()">{{ 'nh-assistant.admin.rule-scripts.editor.reload' | translate }}</button>
             }
           </span>
         </div>
@@ -219,12 +219,12 @@
                 }
                 <button
                   type="button"
-                  class="link"
+                  class="secondary compact"
                   data-rule-script-insert-tool
                   [disabled]="saving()"
                   [attr.aria-label]="'nh-assistant.admin.rule-scripts.catalog.insert-call' | translate: { name: tool.name }"
                   (click)="insertTool(tool)">
-                  {{ 'nh-assistant.admin.rule-scripts.catalog.insert' | translate }}
+                  <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.rule-scripts.catalog.insert' | translate }}
                 </button>
               </li>
             }
@@ -244,12 +244,12 @@
                 </div>
                 <button
                   type="button"
-                  class="link"
+                  class="secondary compact"
                   data-rule-script-insert-alert
                   [disabled]="saving()"
                   [attr.aria-label]="'nh-assistant.admin.rule-scripts.catalog.insert-alert' | translate: { kind: kind }"
                   (click)="insertAlert(kind)">
-                  {{ 'nh-assistant.admin.rule-scripts.catalog.insert' | translate }}
+                  <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.rule-scripts.catalog.insert' | translate }}
                 </button>
               </li>
             }

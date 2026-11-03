@@ -72,7 +72,7 @@
       </dl>
 
       @if (notice(); as shown) {
-        <p class="message success" role="status" data-rule-script-notice>
+        <p class="message success" role="status" tabindex="-1" data-rule-script-notice>
           <nh-assistant-icon name="check" />{{ shown.key | translate: { version: shown.version } }}
         </p>
       }
@@ -249,7 +249,7 @@
                               </div>
                             }
                             <details class="live-dry-run">
-                              <summary>{{ 'nh-assistant.admin.rule-scripts.live.dry-run-now' | translate }}</summary>
+                              <summary>{{ (liveReview()?.record ? 'nh-assistant.admin.rule-scripts.live.dry-run-again' : 'nh-assistant.admin.rule-scripts.live.dry-run-now') | translate }}</summary>
                               <nh-assistant-rule-script-dry-run [agent]="agent()" [skillId]="scope()" [version]="version.version" [subjectTypes]="subjectTypes()" [names]="names()" (ran)="onDryRun($event)" />
                             </details>
                             <div class="field">

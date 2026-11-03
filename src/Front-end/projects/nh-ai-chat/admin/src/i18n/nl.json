@@ -1523,6 +1523,7 @@
           "latest-dry-run": "De laatste proefrun",
           "no-dry-run": "Deze versie heeft geen proefrun. Een proefrun is niet verplicht, maar laat zien wat de versie zou doen voordat ze live gaat.",
           "dry-run-now": "Doe eerst een proefrun",
+          "dry-run-again": "Doe een nieuwe proefrun",
           "confirm": "Zet versie {{version}} live"
         },
         "discard": {

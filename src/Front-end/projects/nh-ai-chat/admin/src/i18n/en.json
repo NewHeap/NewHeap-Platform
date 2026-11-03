@@ -1523,6 +1523,7 @@
           "latest-dry-run": "Its latest dry run",
           "no-dry-run": "This version has no dry run. A dry run is not required, but it shows what the version would do before it goes live.",
           "dry-run-now": "Run a dry run first",
+          "dry-run-again": "Run a new dry run",
           "confirm": "Set version {{version}} live"
         },
         "discard": {

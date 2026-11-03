@@ -635,7 +635,10 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       { id: 'projects.portfolio-report', source: 'local', effect: 'read-only', description: 'Summarizes the project portfolio.' },
       // SPM-298: the status tool names its project ([NhAiSubject("project")]), so the flow view says that a
       // run's proposal of it waits at that project.
-      { id: 'projects.change-status', source: 'local', effect: 'mutation', description: 'Changes the status of one project after approval.', subjectType: 'project' }
+      { id: 'projects.change-status', source: 'local', effect: 'mutation', description: 'Changes the status of one project after approval.', subjectType: 'project' },
+      // SPM-393: the document check's read and its one write, which its rule script calls.
+      { id: 'project-documents.read', source: 'local', effect: 'read-only', description: 'Reads the documents of one project.', subjectType: 'project' },
+      { id: 'projects.request-review', source: 'local', effect: 'mutation', description: 'Asks the review board to review one project after approval.', subjectType: 'project' }
     ],
     agents: [
       {

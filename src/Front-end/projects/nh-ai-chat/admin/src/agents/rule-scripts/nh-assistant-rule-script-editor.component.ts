@@ -154,7 +154,19 @@ export class NhAssistantRuleScriptEditorComponent implements OnInit {
     const allowed = new Set(this.ceiling().writes);
     this.writes.set(new Set((base?.writes ?? []).filter(write => allowed.has(write))));
     this.loadCatalog();
-    afterNextRender(() => this.textarea()?.nativeElement.focus(), { injector: this.injector });
+    // The script opens at its first line, with the caret there, not scrolled to its end.
+    afterNextRender(() => {
+      const element = this.textarea()?.nativeElement;
+      if (!element) {
+        return;
+      }
+
+      element.setSelectionRange(0, 0);
+      element.scrollTop = 0;
+      element.scrollLeft = 0;
+      element.focus({ preventScroll: true });
+      this.track(element);
+    }, { injector: this.injector });
   }
 
   /** Reads what a version with the chosen writes sees. */

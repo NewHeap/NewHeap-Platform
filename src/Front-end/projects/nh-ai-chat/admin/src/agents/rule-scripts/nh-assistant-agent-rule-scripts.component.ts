@@ -229,6 +229,8 @@ export class NhAssistantAgentRuleScriptsComponent implements OnInit {
   onSaved(version: RuleScriptVersion): void {
     this.editing.set(null);
     this.notice.set({ key: `nh-assistant.admin.rule-scripts.notice.saved-${version.status === 'live' ? 'live' : version.shadow ? 'shadow' : 'candidate'}`, version: version.version });
+    // The editor and its button are gone: the focus goes to what happened.
+    this.focusIn('[data-rule-script-notice]');
     this.load();
   }
 
@@ -346,6 +348,8 @@ export class NhAssistantAgentRuleScriptsComponent implements OnInit {
         this.busy.set(false);
         this.close();
         this.notice.set({ key: `nh-assistant.admin.rule-scripts.notice.${notice}`, version: version.version });
+        // The confirmation and its button are gone: the focus goes to what happened.
+        this.focusIn('[data-rule-script-notice]');
         this.load();
       },
       error: (error: unknown) => {
