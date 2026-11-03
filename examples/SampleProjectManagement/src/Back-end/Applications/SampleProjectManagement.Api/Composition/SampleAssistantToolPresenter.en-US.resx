@@ -59,6 +59,8 @@
   <data name="FollowUpOnProject" xml:space="preserve"><value>On one project there is nothing to count; the model answers here.</value></data>
   <data name="FollowUpWholeApplication" xml:space="preserve"><value>A run for the whole application counts the open projects.</value></data>
   <data name="AlertProjectDueTodayTitle" xml:space="preserve"><value>{0} is due today</value></data>
+  <data name="AlertProjectMissingDocumentTitle" xml:space="preserve"><value>{0} has no document while its deadline is near</value></data>
+  <data name="AlertProjectMissingDocumentText" xml:space="preserve"><value>The deadline falls within three days and the project keeps no document yet, such as its plan.</value></data>
   <data name="AlertProjectDueTodayText" xml:space="preserve"><value>{1} tasks are still open; the deadline is today, {0}.</value></data>
   <data name="DeadlineWatchWarned" xml:space="preserve"><value>The project is due today with {0} open tasks; its owner and the people working on it are warned.</value></data>
   <data name="DeadlineWatchClear" xml:space="preserve"><value>The project is not due today with open tasks; there is nothing to warn about.</value></data>

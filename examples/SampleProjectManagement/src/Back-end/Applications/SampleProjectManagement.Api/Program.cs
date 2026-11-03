@@ -374,6 +374,8 @@ builder.Services.AddSamplePlanningMilestones(builder.Configuration);
 builder.Services.AddSampleProjectDeadlines();
 // SPM-392: the deadline watch's rules warn people about a project due today, as an alert of a kind in code.
 builder.Services.AddSampleDeadlineAlerts();
+// SPM-393: the document check's rules are a rule script an administrator writes, dry-runs and sets live.
+builder.Services.AddSampleRuleScripts();
 if (builder.Environment.IsDevelopment())
 {
     // After the assistant's own start-up work: its schema exists when the project starter is created.
