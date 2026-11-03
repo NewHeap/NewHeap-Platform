@@ -32,8 +32,12 @@ Not as advised:
 - a new version may go live without a mandatory shadow period;
 - the builder may also set things live, after an approval in the chat.
 
-Lars asked for writes and for the builder's help with whole agents from the start, instead of later. Not built
-yet.
+Lars asked for writes and for the builder's help with whole agents from the start, instead of later.
+
+Built on 2026-11-03 in train 36 and verified together: lane RS first, then RU and BA in parallel (lane FX of
+`platform-feedback-32-plan.md` ran in the same train). The verification added skill evals for the two new
+guidance rules, and two sample tests that read work the dispatcher or another agent finishes a moment later now
+wait for it. The choices of the lanes are RS1–RS11, RU1–RU10 and BA1–BA10, all for Lars to review.
 
 ## Decisions
 

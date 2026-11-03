@@ -24,7 +24,8 @@ cases are authoritative.
 ## Status
 
 Decided by Lars on 2026-11-03, all as advised. Built in train 36 by lane FX, next to the rule scripts of
-`rule-scripts-and-agent-builder-plan.md`.
+`rule-scripts-and-agent-builder-plan.md`, and verified with it. The choices of the lane are FX1–FX6, for Lars to
+review.
 
 ## Decisions
 
