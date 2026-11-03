@@ -117,6 +117,12 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantAgentAlertModelSwitch> AlertModelSwitches => Set<AssistantAgentAlertModelSwitch>();
 
+    public DbSet<AssistantRuleScript> RuleScripts => Set<AssistantRuleScript>();
+
+    public DbSet<AssistantRuleScriptVersion> RuleScriptVersions => Set<AssistantRuleScriptVersion>();
+
+    public DbSet<AssistantRuleScriptRunRecord> RuleScriptRunRecords => Set<AssistantRuleScriptRunRecord>();
+
     public DbSet<AssistantDecisionBatch> DecisionBatches => Set<AssistantDecisionBatch>();
 
     public DbSet<AssistantAlert> Alerts => Set<AssistantAlert>();
@@ -716,6 +722,67 @@ public sealed class NhAssistantDbContext : DbContext
             toolSwitch.HasOne<AssistantAgent>()
                 .WithMany()
                 .HasForeignKey(item => item.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // RB-2: the rule script of an agent or of one of its skills, its versions and its runs without effects.
+        modelBuilder.Entity<AssistantRuleScript>(ruleScript =>
+        {
+            ruleScript.ToTable("AssistantRuleScript");
+            ruleScript.HasKey(item => item.Id);
+            ruleScript.Property(item => item.Id).ValueGeneratedNever();
+            ruleScript.Property(item => item.AgentId).HasMaxLength(128).IsRequired();
+            ruleScript.Property(item => item.SkillId).HasMaxLength(64).IsRequired();
+            ruleScript.Property(item => item.ChangedBy).HasMaxLength(256).IsRequired();
+            // Every change of the rule script expects the revision it read.
+            ruleScript.Property(item => item.Revision).IsConcurrencyToken();
+            ruleScript.HasIndex(item => new { item.AgentId, item.SkillId }).IsUnique();
+            ruleScript.HasOne<AssistantAgent>()
+                .WithMany()
+                .HasForeignKey(item => item.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            ruleScript.HasMany(item => item.Versions)
+                .WithOne(item => item.RuleScript)
+                .HasForeignKey(item => item.RuleScriptId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantRuleScriptVersion>(version =>
+        {
+            version.ToTable("AssistantRuleScriptVersion");
+            version.HasKey(item => item.Id);
+            version.Property(item => item.Id).ValueGeneratedNever();
+            version.Property(item => item.AgentId).HasMaxLength(128).IsRequired();
+            version.Property(item => item.SkillId).HasMaxLength(64).IsRequired();
+            version.Property(item => item.Status).HasMaxLength(16).IsRequired();
+            version.Property(item => item.Script).HasMaxLength(NhAssistantRuleScriptLimits.MaxScriptLength).IsRequired();
+            version.Property(item => item.ScriptHash).HasMaxLength(64).IsRequired();
+            version.Property(item => item.WritesJson).HasMaxLength(NhAssistantLimits.MaxStoredToolSelectorCharacters).IsRequired();
+            version.Property(item => item.AuthorActorId).HasMaxLength(256).IsRequired();
+            version.Property(item => item.AuthorAgentId).HasMaxLength(128);
+            version.Property(item => item.Reason).HasMaxLength(NhAssistantRuleScriptLimits.MaxReasonLength);
+            version.Property(item => item.LiveBy).HasMaxLength(256);
+            version.Property(item => item.EndedBy).HasMaxLength(256);
+            // Append-only versions per agent and skill.
+            version.HasIndex(item => new { item.RuleScriptId, item.Version }).IsUnique();
+            version.HasIndex(item => new { item.AgentId, item.SkillId, item.Status });
+        });
+
+        modelBuilder.Entity<AssistantRuleScriptRunRecord>(record =>
+        {
+            record.ToTable("AssistantRuleScriptRunRecord");
+            record.HasKey(item => item.Id);
+            record.Property(item => item.Id).ValueGeneratedNever();
+            record.Property(item => item.AgentId).HasMaxLength(128).IsRequired();
+            record.Property(item => item.SkillId).HasMaxLength(64).IsRequired();
+            record.Property(item => item.Kind).HasMaxLength(16).IsRequired();
+            record.Property(item => item.RanBy).HasMaxLength(256).IsRequired();
+            record.Property(item => item.RecordJson).IsRequired();
+            // The latest dry run of a version and its newest shadow runs.
+            record.HasIndex(item => new { item.VersionId, item.Kind, item.RanAt });
+            record.HasOne<AssistantRuleScriptVersion>()
+                .WithMany()
+                .HasForeignKey(item => item.VersionId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
