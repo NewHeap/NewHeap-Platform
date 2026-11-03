@@ -162,6 +162,89 @@ internal sealed class NhAssistantRuleScriptStore(NhAssistantDbContextFactory con
     }
 
     /// <summary>
+    /// Adds <paramref name="version"/> in the transaction of an agent package's import when the rule
+    /// script's revision is still <paramref name="expectedRevision"/>: live, superseding the live version,
+    /// or as the candidate, discarding the one that waited. <see langword="false"/> on a conflict.
+    /// </summary>
+    public static async Task<bool> AddImportedVersionAsync(
+        NhAssistantDbContext context,
+        AssistantRuleScriptVersion version,
+        int expectedRevision,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(version);
+        var ruleScript = await context.RuleScripts
+            .Include(item => item.Versions)
+            .AsSplitQuery()
+            .SingleOrDefaultAsync(item => item.AgentId == version.AgentId && item.SkillId == version.SkillId, cancellationToken);
+        if ((ruleScript?.Revision ?? 0) != expectedRevision)
+        {
+            return false;
+        }
+
+        if (ruleScript is null)
+        {
+            ruleScript = new AssistantRuleScript
+            {
+                Id = Guid.NewGuid(),
+                AgentId = version.AgentId,
+                SkillId = version.SkillId
+            };
+            context.RuleScripts.Add(ruleScript);
+        }
+
+        var ended = version.Status == NhAssistantRuleScriptStatuses.Live
+            ? ruleScript.Versions.Where(item => item.Status is NhAssistantRuleScriptStatuses.Live or NhAssistantRuleScriptStatuses.Candidate)
+            : ruleScript.Versions.Where(item => item.Status == NhAssistantRuleScriptStatuses.Candidate);
+        foreach (var item in ended)
+        {
+            item.Status = item.Status == NhAssistantRuleScriptStatuses.Live
+                ? NhAssistantRuleScriptStatuses.Superseded
+                : NhAssistantRuleScriptStatuses.Discarded;
+            item.EndedAt = version.CreatedAt;
+            item.EndedBy = version.AuthorActorId;
+        }
+
+        version.RuleScriptId = ruleScript.Id;
+        version.Version = ruleScript.LatestVersion + 1;
+        ruleScript.Versions.Add(version);
+        ruleScript.LatestVersion = version.Version;
+        ruleScript.CandidateVersion = version.Status == NhAssistantRuleScriptStatuses.Candidate ? version.Version : null;
+        ruleScript.CandidateShadow = false;
+        if (version.Status == NhAssistantRuleScriptStatuses.Live)
+        {
+            ruleScript.LiveVersion = version.Version;
+        }
+
+        ruleScript.Revision = expectedRevision + 1;
+        ruleScript.ChangedAt = version.CreatedAt;
+        ruleScript.ChangedBy = version.AuthorActorId;
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The live versions of the agent's rule scripts, of its own rules and of every skill.
+    /// </summary>
+    public async Task<IReadOnlyList<AssistantRuleScriptVersion>> GetLiveOfAgentAsync(string agentId, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.RuleScriptVersions
+            .AsNoTracking()
+            .Where(item => item.AgentId == agentId && item.Status == NhAssistantRuleScriptStatuses.Live)
+            .OrderBy(item => item.SkillId)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Stores the record of a dry run or shadow run and keeps only the newest <paramref name="keep"/> of
     /// the version of that kind.
     /// </summary>

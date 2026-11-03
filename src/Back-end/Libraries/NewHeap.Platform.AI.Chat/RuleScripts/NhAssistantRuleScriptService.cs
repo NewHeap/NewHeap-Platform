@@ -180,7 +180,11 @@ internal sealed class NhAssistantRuleScriptService(
             return TaskResult<NhAssistantRuleScriptVersionDto>.Failed(errors.ToResult());
         }
 
-        var writes = (request.Writes ?? []).Select(write => write?.Trim() ?? string.Empty).Distinct(StringComparer.Ordinal).ToArray();
+        var writes = (request.Writes ?? [])
+            .Select(write => write?.Trim() ?? string.Empty)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
         var writeErrors = new NhAssistantValidationErrors();
         writeErrors.Require(writes.Length <= NhAssistantRuleScriptLimits.MaxWritesPerVersion, "writes", NhAssistantFieldErrors.TooLong);
         foreach (var write in writes)
@@ -196,6 +200,10 @@ internal sealed class NhAssistantRuleScriptService(
         if (request.Live && registration.RuleScriptsAsData!.RequireFourEyes)
         {
             return TaskResult<NhAssistantRuleScriptVersionDto>.Failed(FourEyes());
+        }
+        if (await LockedAsync(agentId, skillId, NhAssistantAgentCatalog.ComputeHash(script), JsonSerializer.Serialize(writes, Json), cancellationToken) is { } locked)
+        {
+            return TaskResult<NhAssistantRuleScriptVersionDto>.Failed(locked);
         }
 
         var now = _applicationClock.GetUtcNow();
@@ -273,6 +281,12 @@ internal sealed class NhAssistantRuleScriptService(
         if (!prepared.Success)
         {
             return TaskResult<NhAssistantRuleScriptLiveDto>.Failed(prepared);
+        }
+
+        if (await store.FindVersionAsync(agentId, KeyOf(skillId), version, cancellationToken) is { } going
+            && await LockedAsync(agentId, skillId, going.ScriptHash, going.WritesJson, cancellationToken) is { } locked)
+        {
+            return TaskResult<NhAssistantRuleScriptLiveDto>.Failed(locked);
         }
 
         var now = _applicationClock.GetUtcNow();
@@ -766,6 +780,90 @@ internal sealed class NhAssistantRuleScriptService(
             : agent;
     }
 
+    /// <summary>
+    /// Prepares the live version of a rule script an agent package carries (PK8), within the importing
+    /// host's ceiling: the version to add, live or, under four eyes, as the candidate another administrator
+    /// sets live; the live version it replaces; and the revision the import expects.
+    /// </summary>
+    internal async Task<TaskResult<NhAssistantRuleScriptImport>> PrepareImportAsync(
+        string agentId,
+        string agentSource,
+        string? skillId,
+        string? script,
+        IReadOnlyList<string>? writes,
+        string actorId,
+        string? reason,
+        CancellationToken cancellationToken)
+    {
+        var ceiling = NhAssistantRuleScriptRuntime.CeilingOf(registration, agentId, agentSource);
+        if (ceiling is null || services.GetService<INhAssistantRuleScriptEngine>() is not { } engine)
+        {
+            return TaskResult<NhAssistantRuleScriptImport>.Failed(NotAllowed());
+        }
+        if (string.IsNullOrWhiteSpace(script)
+            || script.Length > NhAssistantRuleScriptLimits.MaxScriptLength
+            || engine.Check(agentId, script) is not null)
+        {
+            return TaskResult<NhAssistantRuleScriptImport>.Failed(NhAssistantValidationErrors.Failed("script", NhAssistantFieldErrors.Invalid));
+        }
+
+        var sorted = (writes ?? []).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        if (sorted.Length > NhAssistantRuleScriptLimits.MaxWritesPerVersion || sorted.Any(write => !ceiling.Writes.Contains(write)))
+        {
+            return TaskResult<NhAssistantRuleScriptImport>.Failed(new NhAssistantValidationErrors()
+                .Add("writes", NhAssistantFieldErrors.NotAllowed)
+                .ToResult(NhAssistantRuleScriptCodes.WriteNotAllowed, "A write is not one the code's ceiling allows for the agent's rule scripts."));
+        }
+
+        var ruleScript = await store.FindAsync(agentId, KeyOf(skillId), cancellationToken);
+        var current = ruleScript?.Versions.FirstOrDefault(item => item.Status == NhAssistantRuleScriptStatuses.Live);
+        var live = !registration.RuleScriptsAsData!.RequireFourEyes;
+        var now = _applicationClock.GetUtcNow();
+        var row = new AssistantRuleScriptVersion
+        {
+            Id = Guid.NewGuid(),
+            AgentId = agentId,
+            SkillId = KeyOf(skillId),
+            Status = live ? NhAssistantRuleScriptStatuses.Live : NhAssistantRuleScriptStatuses.Candidate,
+            Script = script,
+            ScriptHash = NhAssistantAgentCatalog.ComputeHash(script),
+            WritesJson = JsonSerializer.Serialize(sorted, Json),
+            AuthorActorId = actorId,
+            Reason = Trimmed(reason) is { Length: <= NhAssistantRuleScriptLimits.MaxReasonLength } kept ? kept : null,
+            CreatedAt = now,
+            LiveAt = live ? now : null,
+            LiveBy = live ? actorId : null
+        };
+        return TaskResult<NhAssistantRuleScriptImport>.Succeeded(new NhAssistantRuleScriptImport(row, current, ruleScript?.Revision ?? 0));
+    }
+
+    /// <summary>
+    /// The field errors of a version whose script or writes would differ from what an agent package locks
+    /// (PK9), or <see langword="null"/>.
+    /// </summary>
+    private async Task<TaskResult?> LockedAsync(
+        string agentId,
+        string? skillId,
+        string scriptHash,
+        string writesJson,
+        CancellationToken cancellationToken)
+    {
+        if (services.GetService<NhAssistantPackageLockCheck>() is not { } locks)
+        {
+            return null;
+        }
+
+        var (live, _) = await store.FindInEffectAsync(agentId, KeyOf(skillId), cancellationToken);
+        var next = new AssistantRuleScriptVersion { ScriptHash = scriptHash, WritesJson = writesJson };
+        return await locks.CheckChangeAsync(
+            agentId,
+            NhAssistantPackagePartKinds.RuleScript,
+            KeyOf(skillId),
+            live is null ? null : NhAssistantPackageFields.Of(live),
+            NhAssistantPackageFields.Of(next),
+            cancellationToken);
+    }
+
     private async Task<TaskResult<(NhAssistantAgent Agent, NhAssistantAgentRunOptions Options)>> ResolveAsync(
         string agentId,
         string? skillId,
@@ -1026,3 +1124,12 @@ internal static class NhAssistantRuleScriptLines
         return script.Length == 0 ? [] : script.ReplaceLineEndings("\n").Split('\n');
     }
 }
+
+/// <summary>
+/// The live version of a rule script an agent package's import adds: the version, the live version it
+/// replaces and the rule script's revision the import expects.
+/// </summary>
+internal sealed record NhAssistantRuleScriptImport(
+    AssistantRuleScriptVersion Row,
+    AssistantRuleScriptVersion? Current,
+    int ExpectedRevision);

@@ -291,6 +291,7 @@ internal sealed partial class NhAssistantAgentPackageService
                 AssistantAgentTriggerDefinition row => NhAssistantAgentPackageFormat.HashOf(NhAssistantAgentPackageParts.TriggerOf(row)),
                 AssistantAgentConsultationDefinition row => NhAssistantAgentPackageFormat.HashOf(NhAssistantAgentPackageParts.ConsultationOf(row)),
                 AssistantAgentHandOffDefinition row => NhAssistantAgentPackageFormat.HashOf(NhAssistantAgentPackageParts.HandOffOf(row)),
+                AssistantRuleScriptVersion row => NhAssistantAgentPackageFormat.HashOf(NhAssistantAgentPackageParts.RuleScriptOf(row)),
                 NhAssistantAgentMetadataCheck check when check.Json is not null => NhAssistantAgentPackageFormat.HashOf(NhAssistantAgentPackageParts.MetadataOf(check.Json)),
                 _ => null
             };
@@ -497,6 +498,15 @@ internal sealed partial class NhAssistantAgentPackageService
                     }
 
                     part.SavedVersion = savedHandOff.Value!.Version;
+                    break;
+                case AssistantRuleScriptVersion ruleScript:
+                    // The next version of the rule script, live or as the candidate, after the skills it may belong to.
+                    if (!await NhAssistantRuleScriptStore.AddImportedVersionAsync(context, ruleScript, part.ExpectedVersion ?? 0, cancellationToken))
+                    {
+                        return false;
+                    }
+
+                    part.SavedVersion = ruleScript.Version;
                     break;
             }
         }

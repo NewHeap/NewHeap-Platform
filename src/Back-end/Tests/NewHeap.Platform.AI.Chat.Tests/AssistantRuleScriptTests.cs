@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NewHeap.Platform.AI.AspNet;
+using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
@@ -310,6 +311,49 @@ public sealed class AssistantRuleScriptTests(AssistantDatabaseFixture database) 
         Assert.Equal(System.Net.HttpStatusCode.NotFound, outside.StatusCode);
         using var dryRunNone = await admin.GetAsync(route + "/versions/1/dry-run");
         Assert.Equal(System.Net.HttpStatusCode.NoContent, dryRunNone.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_live_rule_script_travels_in_an_agent_package_and_its_lock_holds(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider);
+        await SaveAsync(host, "done('One.');", [TagRisk], live: true);
+        await SaveAsync(host, "done('Candidate.');", [], live: false, revision: 1);
+        await using var scope = host.Services.CreateAsyncScope();
+        var packages = scope.ServiceProvider.GetRequiredService<INhAssistantAgentPackages>();
+        var locks = new Dictionary<string, IReadOnlyDictionary<string, IReadOnlyList<string>>>(StringComparer.Ordinal)
+        {
+            [AgentId] = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal) { [NhAssistantPackagePartKinds.RuleScript] = ["script"] }
+        };
+
+        // Only the live version travels, with its writes and the hash of its part.
+        var exported = await packages.ExportAsync([AgentId], new NhAssistantAgentPackageExportOptions(Locks: locks), Administrator);
+        Assert.True(exported.Success, string.Join(",", exported.GetResultItems().Select(item => item.Name)));
+        var agent = Assert.Single(exported.Data!.Package.Agents);
+        var carried = Assert.Single(agent.RuleScripts!);
+        Assert.Equal((null, "done('One.');"), (carried.Skill, carried.Script));
+        Assert.Equal([TagRisk], carried.Writes);
+        Assert.True(agent.Hashes!.ContainsKey(NhAssistantPackagePartKinds.RuleScript));
+        var read = NhAssistantAgentPackageFormat.Read(NhAssistantAgentPackageFormat.Write(exported.Data.Package));
+        Assert.True(read.Success);
+
+        // A local change, then the import: the package's version is the next live version, linked and locked.
+        await SaveAsync(host, "done('Two.');", [], live: true, revision: 2);
+        var imported = await packages.ImportAsync(read.Data!, new NhAssistantAgentPackageImportOptions(), Administrator);
+        Assert.True(imported.Success, string.Join(",", imported.GetResultItems().Select(item => item.Name)));
+        var part = Assert.Single(imported.Data!.Parts, item => item.Part == NhAssistantPackagePartKinds.RuleScript);
+        Assert.Equal(NhAssistantPackagePartOutcomes.Changed, part.Outcome);
+        var listed = (await scope.ServiceProvider.GetRequiredService<INhAssistantRuleScripts>().GetAsync(AgentId, null))!;
+        Assert.Equal(4, listed.LiveVersion);
+        Assert.Equal(("done('One.');", NhAssistantRuleScriptStatuses.Live), (listed.Versions[0].Script, listed.Versions[0].Status));
+
+        // The lock: another script is refused, the package's own one with other writes is not.
+        var other = await SaveAsync(host, "done('Three.');", [], live: true, revision: listed.Revision);
+        var same = await SaveAsync(host, "done('One.');", [], live: true, revision: listed.Revision);
+        Assert.Contains(other.GetResultItems(), item => item.Name == "field:script");
+        Assert.True(same.Success, string.Join(",", same.GetResultItems().Select(item => item.Name)));
     }
 
     private static async Task<JsonElement> ReadJsonAsync(HttpResponseMessage response)
