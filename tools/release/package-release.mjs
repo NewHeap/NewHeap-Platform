@@ -12,6 +12,7 @@ import {
   resolveRepositoryPath,
   writeJson
 } from './lib.mjs';
+import { schemaScriptCommand, schemaScriptsOf } from './sql-scripts.mjs';
 import { validatePackageArtifacts } from './validate-package-artifacts.mjs';
 
 const options = parseArguments(process.argv.slice(2));
@@ -87,6 +88,13 @@ if (unit.kind === 'nuget') {
       ...(options['nuget-config'] ? ['--no-restore'] : []),
       ...propertyArguments
     ]);
+  }
+
+  // Applications that apply migrations themselves take the idempotent scripts of the library-owned
+  // schemas from the release; the EF tools reuse the Release build of the packed provider projects.
+  for (const script of schemaScriptsOf(unit)) {
+    const { command, arguments: argumentsList } = schemaScriptCommand(script, { version, outputDirectory, noBuild: true });
+    run(command, argumentsList);
   }
 }
 

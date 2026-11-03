@@ -1406,11 +1406,15 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-094",
     "title": "Module translations",
     "category": "Localization, configuration, and HTTP infrastructure",
-    "surface": "browser translate loader",
-    "outcome": "project.<dash-case-key> resolves correctly.",
+    "surface": "browser translate loader (NhTranslateBrowserLoader, nhTranslateBrowserLoaderFactory) with the regional fallback",
+    "outcome": "project.<dash-case-key> resolves correctly. A regional language whose file does not exist, such as nl-BE, gets the texts of nl.json, as the libraries' own texts do; a regional file that exists is used as it is.",
     "implementation": "implemented",
     "evidence": [
-      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts"
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html",
+      "../../src/Front-end/projects/nh-common/src/lib/miscellaneous/translate-loaders/translate-browser.loader.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/miscellaneous/translate-loaders/translate-browser.loader.spec.ts"
     ]
   },
   {
@@ -3047,7 +3051,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Toast notifications",
     "category": "Events, jobs, email, and notifications",
     "surface": "provideNhToastr, NhToastrService, and NhToastrContainerComponent",
-    "outcome": "Both application roots host one toast container; the notification playground and inherited collection/mutate toast service use the same NH notification provider without ngx-toastr.",
+    "outcome": "Both application roots host one toast container; the notification playground and inherited collection/mutate toast service use the same NH notification provider without ngx-toastr. In development mode a toast shown while no container is rendered warns once in the console, naming the container and the provider; production logs nothing.",
     "implementation": "implemented",
     "evidence": [
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
@@ -3058,6 +3062,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Front-end/scripts/verify-frontend-integrity.mjs",
       "../../src/Front-end/projects/nh-toastr/src/services/nh-toastr.service.ts",
       "../../src/Front-end/projects/nh-toastr/src/components/component.ts",
+      "../../src/Front-end/projects/nh-toastr/src/services/nh-toastr-containers.ts",
+      "../../src/Front-end/projects/nh-toastr/src/services/nh-toastr.service.spec.ts",
       "../../src/Front-end/projects/nh-common/src/lib/components/nh-base-toastr.spec.ts"
     ]
   },
@@ -3569,8 +3575,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-247",
     "title": "Durable assistant budget and idempotency ledgers",
     "category": "AI tools and generated catalogs",
-    "surface": "Durable INhAiBudgetManager on AssistantBudgetLedger and INhAiIdempotencyManager on AssistantIdempotencyLease in the library-owned nhai schema, NhAssistantLimits.DailyToolCallBudgetPerActor, NhAssistantBuilder.UseApplicationBudgetInTurns with AgentId, SkillId, RunId and Purpose on NhAiBudgetRequest and NhAiBudgetPurposes, NhAssistantDbContextOptions (Schema, RunMigrations), provider migrations in NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql",
-    "outcome": "Assistant tool calls are booked atomically per accountable user and UTC day in PostgreSQL; the approved status change takes a durable idempotency lease keyed by its proposal and completes it. When the daily tool budget is exhausted, the next turn ends with the stable `assistant-budget-exhausted` error. Library tests prove the same ledgers, lease expiry takeover with fencing, concurrent reservations that never exceed the budget, the migrations and a configured schema on both SQL Server and PostgreSQL. Outside assistant turns the budget and evidence requests keep using the managers the application registered first. The sample also lets its own budget manager reserve the calls of assistant turns: it reads them as a person's chat with the project assistant, apart from agents' work and MCP clients, counts them per purpose and agent, and keeps bounding the application's own and MCP calls per invocation.",
+    "surface": "Durable INhAiBudgetManager on AssistantBudgetLedger and INhAiIdempotencyManager on AssistantIdempotencyLease in the library-owned nhai schema, NhAssistantLimits.DailyToolCallBudgetPerActor, NhAssistantBuilder.UseApplicationBudgetInTurns with AgentId, SkillId, RunId and Purpose on NhAiBudgetRequest and NhAiBudgetPurposes, NhAssistantDbContextOptions (Schema, RunMigrations), provider migrations in NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql, and the idempotent newheap-assistant-schema-<provider>-<version>.sql scripts of each release (npm run release:sql-scripts)",
+    "outcome": "Assistant tool calls are booked atomically per accountable user and UTC day in PostgreSQL; the approved status change takes a durable idempotency lease keyed by its proposal and completes it. When the daily tool budget is exhausted, the next turn ends with the stable `assistant-budget-exhausted` error. Library tests prove the same ledgers, lease expiry takeover with fencing, concurrent reservations that never exceed the budget, the migrations and a configured schema on both SQL Server and PostgreSQL, and that the idempotent script a release publishes, written by the provider's design-time factory, creates the schema in an empty database and changes nothing when it runs again. Outside assistant turns the budget and evidence requests keep using the managers the application registered first. The sample also lets its own budget manager reserve the calls of assistant turns: it reads them as a person's chat with the project assistant, apart from agents' work and MCP clients, counts them per purpose and agent, and keeps bounding the application's own and MCP calls per invocation.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
@@ -3585,7 +3591,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/NhAssistantSqlServer.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/NhAssistantPostgreSql.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDurableManagerTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPersistenceTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPersistenceTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantSchemaScriptTests.cs"
     ]
   },
   {
@@ -3978,7 +3985,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Assistant Web Push notifications for longer turns",
     "category": "AI tools and generated catalogs",
     "surface": "NhAssistantBuilder.ConfigurePush, NhAssistantPushOptions (NewHeap:AI:Assistant:Push: PublicKey, PrivateKey, Subject, AllowedEndpointHosts, MinimumTurnDuration, IncludeConversationTitle, TimeToLive), NhAssistantWebPushKeys.Generate, GET/PUT notifications, PUT/DELETE notifications/push-subscription (403 assistant-not-allowed-while-impersonating for a registration in an impersonation session), the bundled @newheap/platform-ai-chat/push/nh-assistant-push-worker.js and NhAssistantConfig.push",
-    "outcome": "With VAPID keys the server offers Web Push; the sample creates a key pair per run in Development and reads keys from configuration elsewhere. Notifications are on by default and each user can turn them off for all devices. A browser registers a subscription only for an allowed push service over https, so the server never posts to an address a client chose. An impersonation session registers no browser for the person it acts as, because the browser would keep receiving the person's notifications after the session ended (`403 assistant-not-allowed-while-impersonating`); removing a subscription stays allowed. When a turn that ran at least the minimum duration finishes or fails, the owner and participants get an RFC 8291 encrypted, VAPID-signed notification with the conversation title and a short localized status; an approval notifies only the person who decides it, and cancelled or quick turns stay silent. Notifications never contain messages or tool data. A notification reaches only the people the conversation's read rule admits when it is sent, and nobody the platform no longer resolves, such as a deleted, blocked or locked-out account. Deleting a person through NewHeap Identity removes their browser subscriptions, notification choice, MCP connection notices and conversation rows through the assistant's retention participant. The worker shows a notification only while no window of the application is focused and opens the conversation on click. Subscriptions the push service reports as gone are removed.",
+    "outcome": "With VAPID keys the server offers Web Push; the sample creates a key pair per run in Development and reads keys from configuration elsewhere. Notifications are on by default and each user can turn them off for all devices. A browser registers a subscription only for an allowed push service over https, so the server never posts to an address a client chose. An impersonation session registers no browser for the person it acts as, because the browser would keep receiving the person's notifications after the session ended (`403 assistant-not-allowed-while-impersonating`); removing a subscription stays allowed. When a turn that ran at least the minimum duration finishes or fails, the owner and participants get an RFC 8291 encrypted, VAPID-signed notification with the conversation title and a short localized status; an approval notifies only the person who decides it, and cancelled or quick turns stay silent. Notifications never contain messages or tool data. A notification reaches only the people the conversation's read rule admits when it is sent, and nobody the platform no longer resolves, such as a deleted, blocked or locked-out account; each such person is logged once an hour as a content-free warning without the actor id that names `INhAiPrincipalFactory`, for an application whose actor ids are its own. Deleting a person through NewHeap Identity removes their browser subscriptions, notification choice, MCP connection notices and conversation rows through the assistant's retention participant. The worker shows a notification only while no window of the application is focused and opens the conversation on click. Subscriptions the push service reports as gone are removed.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCollaboration.cs",
@@ -3998,6 +4005,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantRecipientRules.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantNotificationReadRuleTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantUnresolvedPeopleTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantUnrebuiltRecipientWarnings.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantUnrebuiltRecipientWarningTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs"
     ]
   },

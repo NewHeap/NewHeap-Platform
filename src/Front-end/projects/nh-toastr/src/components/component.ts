@@ -1,5 +1,6 @@
 import { DatePipe } from '@angular/common';
-import { Component, input, output } from '@angular/core';
+import { Component, DestroyRef, inject, input, output } from '@angular/core';
+import { NhToastrContainers } from '../services/nh-toastr-containers';
 import { NhActiveToast, NhToastrPosition, NhToastrService, NH_TOASTR_POSITIONS } from '../services/nh-toastr.service';
 
 @Component({
@@ -183,6 +184,10 @@ export class NhToastrContainerComponent {
     public readonly positions: readonly NhToastrPosition[] = NH_TOASTR_POSITIONS;
 
     public constructor(public readonly toastr: NhToastrService) {
+        // While it exists, the container tells the service that toasts are visible.
+        const containers = inject(NhToastrContainers);
+        containers.attach();
+        inject(DestroyRef).onDestroy(() => containers.detach());
     }
 
     protected toastsAt(position: NhToastrPosition): NhActiveToast[] {

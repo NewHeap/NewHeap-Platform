@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -52,11 +53,13 @@ internal static class NhAssistantPlatformPrincipals
 /// person is unknown or may no longer sign in, such as a deleted, blocked or locked-out account, so they
 /// pass nothing and are not resolved. A host whose factory cannot tell, or an access source without a
 /// fresh context of the person, keeps delivering as before. A failing lookup passes nothing for that
-/// person and is logged.
+/// person and is logged. A person the factory rebuilds nobody for is reported to
+/// <see cref="NhAssistantUnrebuiltRecipientWarnings"/>, which warns about them at most once an hour.
 /// </summary>
 internal sealed partial class NhAssistantPrincipalRecipientRules(
     IServiceProvider services,
     IAuthorizationService authorization,
+    NhAssistantUnrebuiltRecipientWarnings warnings,
     ILogger<NhAssistantPrincipalRecipientRules> logger) : INhAssistantRecipientRules
 {
     /// <summary>The subject a person is resolved for, as the MCP owner sweep resolves them.</summary>
@@ -82,7 +85,13 @@ internal sealed partial class NhAssistantPrincipalRecipientRules(
             var principal = await principals.CreateAsync(actorId, subject, cancellationToken);
             if (principal is null)
             {
-                return principals is NhAiAccessSourcePrincipalFactory;
+                if (principals is NhAiAccessSourcePrincipalFactory)
+                {
+                    return true;
+                }
+
+                warnings.Skipped(actorId);
+                return false;
             }
 
             return (await authorization.AuthorizeAsync(principal, policy)).Succeeded;
@@ -111,7 +120,7 @@ internal sealed partial class NhAssistantPrincipalRecipientRules(
 
         try
         {
-            return await principals.CreateAsync(actorId, WholeApplication, cancellationToken) is not null;
+            return Rebuilt(actorId, await principals.CreateAsync(actorId, WholeApplication, cancellationToken));
         }
         catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
         {
@@ -137,13 +146,28 @@ internal sealed partial class NhAssistantPrincipalRecipientRules(
 
         try
         {
-            return await principals.CreateAsync(actorId, subject, cancellationToken) is not null;
+            return Rebuilt(actorId, await principals.CreateAsync(actorId, subject, cancellationToken));
         }
         catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
         {
             LogLookupFailed(logger, exception);
             return false;
         }
+    }
+
+    /// <summary>
+    /// Whether the factory rebuilt <paramref name="principal"/> for the person; a person it rebuilds
+    /// nobody for is reported to the warnings.
+    /// </summary>
+    private bool Rebuilt(string actorId, ClaimsPrincipal? principal)
+    {
+        if (principal is not null)
+        {
+            return true;
+        }
+
+        warnings.Skipped(actorId);
+        return false;
     }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The assistant could not rebuild a recipient; nothing is delivered to that person this time.")]

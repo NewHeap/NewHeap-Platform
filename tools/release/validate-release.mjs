@@ -161,6 +161,9 @@ if (Object.values(manifest.units).some(unit => unit.kind === 'nuget' && !unit.in
 if (!packageReleaseTool.includes('validatePackageArtifacts')) {
   failures.push('NuGet packaging must validate produced artifacts before checksums and publication.');
 }
+if (!packageReleaseTool.includes('schemaScriptsOf(unit)')) {
+  failures.push('NuGet packaging must write the idempotent scripts of the library-owned schemas it releases.');
+}
 const centralBuildProperties = await readFile(
   resolveRepositoryPath('src/Back-end/Directory.Build.props'),
   'utf8');
@@ -277,6 +280,9 @@ for (const workflowPath of workflowPaths) {
     if (!workflow.includes('https://api.nuget.org/v3/index.json')) failures.push(`${workflowPath}: NuGet publication must target nuget.org.`);
     if (!workflow.includes('id-token: write') || !workflow.includes('NuGet/login@d22cc5f58ff5b88bf9bd452535b4335137e24544')) {
       failures.push(`${workflowPath}: public publication must use pinned OIDC trusted publishing for NuGet.`);
+    }
+    if (!workflow.includes('dotnet tool install dotnet-ef') || !workflow.includes('sql-scripts.mjs --tool-version')) {
+      failures.push(`${workflowPath}: packing must install the EF Core tools of the repository's EF Core version for the schema scripts.`);
     }
   }
   if (workflowPath.endsWith('prepare-release.yml')) {

@@ -23,7 +23,15 @@ import {
   syncLinkedPackageLock,
   validateReleaseNoteSections
 } from './lib.mjs';
-import { validateNpmArtifactEntries, validateNugetArtifactEntries } from './validate-package-artifacts.mjs';
+import {
+  efToolVersion,
+  schemaScriptCommand,
+  schemaScriptFileName,
+  schemaScripts,
+  schemaScriptsOf,
+  validateSchemaScript
+} from './sql-scripts.mjs';
+import { validateNpmArtifactEntries, validateNugetArtifactEntries, validatePackageArtifacts } from './validate-package-artifacts.mjs';
 
 const validNuspec = Buffer.from(`<?xml version="1.0"?><package><metadata>
   <id>NewHeap.Platform.Example</id><version>1.2.3</version>
@@ -112,6 +120,66 @@ assert.match(validateNpmArtifactEntries({
 }).join('\n'), /contains a nested package archive/);
 
 const manifest = await loadReleaseManifest();
+
+// The idempotent scripts of the assistant schema belong to the unit that releases its provider
+// packages, one per provider, named with the version (FB92).
+const commonUnit = manifest.units['nuget-common'];
+assert.deepEqual(schemaScriptsOf(commonUnit).map(script => script.provider), ['sqlserver', 'postgresql']);
+for (const [id, unit] of Object.entries(manifest.units)) {
+  if (id !== 'nuget-common') assert.deepEqual(schemaScriptsOf(unit), [], `${id} releases no schema scripts.`);
+}
+for (const script of schemaScripts) {
+  assert.ok(commonUnit.projects.some(project => project.packageId === script.packageId && project.path === script.project),
+    `${script.packageId}: the script's project must be the released provider project.`);
+}
+assert.equal(schemaScriptFileName(schemaScripts[0], '32.0.0'), 'newheap-assistant-schema-sqlserver-32.0.0.sql');
+assert.equal(schemaScriptFileName(schemaScripts[1], '32.1.0-ci.7.abc1234', 'app_ai'), 'newheap-assistant-schema-postgresql-32.1.0-ci.7.abc1234-app_ai.sql');
+const scriptOutput = resolve(tmpdir(), 'newheap-schema-scripts');
+const sqlServerProject = resolve(repositoryRoot, schemaScripts[0].project);
+assert.deepEqual(schemaScriptCommand(schemaScripts[0], { version: '32.0.0', outputDirectory: scriptOutput, schema: 'app_ai' }), {
+  command: 'dotnet',
+  arguments: ['ef', 'migrations', 'script', '--idempotent',
+    '--project', sqlServerProject, '--startup-project', sqlServerProject,
+    '--context', 'NhAssistantDbContext', '--configuration', 'Release',
+    '--output', resolve(scriptOutput, 'newheap-assistant-schema-sqlserver-32.0.0-app_ai.sql'),
+    '--', '--schema', 'app_ai']
+});
+assert.throws(() => schemaScriptCommand(schemaScripts[0], { version: '32.0.0', outputDirectory: scriptOutput, schema: 'app; drop' }), /--schema must contain only/);
+assert.throws(() => schemaScriptCommand(schemaScripts[0], { version: 'latest', outputDirectory: scriptOutput }), /Invalid package version/);
+assert.match(await readFile(resolve(repositoryRoot, 'src/Back-end/Directory.Packages.props'), 'utf8'),
+  new RegExp(`Include="Microsoft\\.EntityFrameworkCore\\.Design" Version="${(await efToolVersion()).replaceAll('.', '\\.')}"`));
+
+const idempotentSqlServer = "IF NOT EXISTS (\n    SELECT * FROM [nhai].[__EFMigrationsHistory]\n    WHERE [MigrationId] = N'20260101000000_Initial'\n)\nBEGIN\n    CREATE TABLE [nhai].[AssistantConversation] ([Id] uniqueidentifier NOT NULL);\nEND;\nGO\n";
+assert.deepEqual(validateSchemaScript({ fileName: 'a.sql', content: idempotentSqlServer }), []);
+assert.match(validateSchemaScript({ fileName: 'a.sql', content: idempotentSqlServer.replace('[nhai].[AssistantConversation]', '{nhai}.[AssistantConversation]') }).join('\n'), /unrouted schema placeholder/);
+assert.match(validateSchemaScript({ fileName: 'a.sql', content: 'CREATE TABLE [nhai].[AssistantConversation] ([Id] int);' }).join('\n'), /not an idempotent migrations script/);
+assert.match(validateSchemaScript({ fileName: 'a.sql', content: ' ' }).join('\n'), /empty/);
+assert.match(validateSchemaScript({ fileName: 'a.sql', content: `${idempotentSqlServer}-- C:\\Users\\maintainer\\source\n` }).join('\n'), /local user path/);
+
+// The artifacts of the unit include both scripts, and a script that still holds the placeholder fails.
+const artifactDirectory = await mkdtemp(resolve(tmpdir(), 'newheap-release-artifacts-'));
+try {
+  for (const script of schemaScriptsOf(commonUnit)) {
+    await writeFile(resolve(artifactDirectory, schemaScriptFileName(script, '9.9.9')), idempotentSqlServer.replace('[nhai].[AssistantConversation]', '{nhai}.[AssistantConversation]'));
+  }
+  await assert.rejects(
+    validatePackageArtifacts({ component: 'nuget-common', unit: commonUnit, version: '9.9.9', outputDirectory: artifactDirectory }),
+    error => /newheap-assistant-schema-postgresql-9\.9\.9\.sql, newheap-assistant-schema-sqlserver-9\.9\.9\.sql/.test(error.message)
+      && /newheap-assistant-schema-sqlserver-9\.9\.9\.sql: contains the unrouted schema placeholder/.test(error.message));
+} finally {
+  await rm(artifactDirectory, { recursive: true, force: true });
+}
+
+// The local command writes the same scripts for a version and a schema of the caller's choice.
+const localScripts = spawnSync(process.execPath, [resolve(repositoryRoot, 'tools/release/sql-scripts.mjs'),
+  '--out', scriptOutput, '--version', '9.9.9', '--schema', 'app_ai', '--dry-run'], { cwd: repositoryRoot, encoding: 'utf8' });
+assert.equal(localScripts.status, 0, localScripts.stderr);
+const localPlan = JSON.parse(localScripts.stdout.trim());
+assert.equal(localPlan.component, 'nuget-common');
+assert.deepEqual(localPlan.files, ['newheap-assistant-schema-sqlserver-9.9.9-app_ai.sql', 'newheap-assistant-schema-postgresql-9.9.9-app_ai.sql']);
+assert.ok(localPlan.commands.every(command => !command.arguments.includes('--no-build') && command.arguments.slice(-3).join(' ') === '-- --schema app_ai'));
+const toolVersion = spawnSync(process.execPath, [resolve(repositoryRoot, 'tools/release/sql-scripts.mjs'), '--tool-version'], { cwd: repositoryRoot, encoding: 'utf8' });
+assert.equal(toolVersion.stdout.trim(), await efToolVersion());
 
 /**
  * A package lock as npm writes it for the sample front end: its own package, the linked release
@@ -361,6 +429,19 @@ for (const [component, unit] of Object.entries(manifest.units)) {
     if (includesSymbols !== unit.includeSymbols || usesSnupkg !== unit.includeSymbols) {
       throw new Error(`${component}: symbol-package behavior differs from the release manifest.`);
     }
+
+    // A unit with a library-owned schema writes its idempotent scripts after packing, from the Release
+    // build of each provider project, with that project's design-time factory.
+    const scriptCommands = packaged.commands.filter(command => command.command === 'dotnet' && command.arguments[0] === 'ef');
+    const lastPack = packaged.commands.findLastIndex(command => command.command === 'dotnet' && command.arguments.includes('pack'));
+    assert.deepEqual(scriptCommands.map(command => command.arguments), schemaScriptsOf(unit).map(script => {
+      const project = resolve(repositoryRoot, script.project);
+      return ['ef', 'migrations', 'script', '--idempotent',
+        '--project', project, '--startup-project', project,
+        '--context', script.context, '--configuration', 'Release', '--no-build',
+        '--output', resolve(repositoryRoot, 'release-artifacts', schemaScriptFileName(script, unit.version))];
+    }), `${component}: schema script commands`);
+    assert.ok(scriptCommands.every(command => packaged.commands.indexOf(command) > lastPack), `${component}: scripts must follow the packs.`);
   }
   if (unit.kind === 'plugin') {
     const archiveCommand = packaged.commands.find(command => command.command === 'tar');

@@ -8,6 +8,7 @@ import {
   releaseUnit,
   resolveRepositoryPath
 } from './lib.mjs';
+import { schemaScriptFileName, schemaScriptsOf, validateSchemaScript } from './sql-scripts.mjs';
 
 const localOrSensitivePatterns = [
   ['Sentry project-directory metadata', /Sentry\.ProjectDirectory/i],
@@ -207,12 +208,24 @@ export async function validatePackageArtifacts({ component, unit, version, outpu
   if (unit.kind !== 'nuget') return;
   const failures = [];
   const names = (await readdir(outputDirectory)).filter(name => name !== 'SHA256SUMS').sort();
-  const expectedNames = unit.projects.flatMap(project => [
-    `${project.packageId}.${version}.nupkg`,
-    ...(unit.includeSymbols ? [`${project.packageId}.${version}.snupkg`] : [])
-  ]).sort();
+  const scriptNames = schemaScriptsOf(unit).map(script => schemaScriptFileName(script, version));
+  const expectedNames = [
+    ...unit.projects.flatMap(project => [
+      `${project.packageId}.${version}.nupkg`,
+      ...(unit.includeSymbols ? [`${project.packageId}.${version}.snupkg`] : [])
+    ]),
+    ...scriptNames
+  ].sort();
   if (names.join('\n') !== expectedNames.join('\n')) {
     failures.push(`${component}: expected artifacts ${expectedNames.join(', ')}, found ${names.join(', ')}.`);
+  }
+
+  for (const fileName of scriptNames) {
+    try {
+      failures.push(...validateSchemaScript({ fileName, content: await readFile(resolve(outputDirectory, fileName), 'utf8') }));
+    } catch (error) {
+      failures.push(`${fileName}: ${error.message}`);
+    }
   }
 
   for (const project of unit.projects) {

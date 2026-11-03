@@ -1031,7 +1031,11 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TranslationContractTests.cs"
     ],
     "SPM-094": [
-      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts"
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html",
+      "../../src/Front-end/projects/nh-common/src/lib/miscellaneous/translate-loaders/translate-browser.loader.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/miscellaneous/translate-loaders/translate-browser.loader.spec.ts"
     ],
     "SPM-095": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CommonUtilitySamplesTests.cs",
@@ -1681,6 +1685,8 @@
       "src/Front-end/scripts/verify-frontend-integrity.mjs",
       "../../src/Front-end/projects/nh-toastr/src/services/nh-toastr.service.ts",
       "../../src/Front-end/projects/nh-toastr/src/components/component.ts",
+      "../../src/Front-end/projects/nh-toastr/src/services/nh-toastr-containers.ts",
+      "../../src/Front-end/projects/nh-toastr/src/services/nh-toastr.service.spec.ts",
       "../../src/Front-end/projects/nh-common/src/lib/components/nh-base-toastr.spec.ts"
     ],
     "SPM-219": [
@@ -1976,7 +1982,8 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/NhAssistantSqlServer.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/NhAssistantPostgreSql.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDurableManagerTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPersistenceTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantPersistenceTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantSchemaScriptTests.cs"
     ],
     "SPM-248": [
       "src/Front-end/projects/management/src/app/assistant-playground/sample-assistant.config.ts",
@@ -2253,6 +2260,8 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantRecipientRules.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantNotificationReadRuleTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantUnresolvedPeopleTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantUnrebuiltRecipientWarnings.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantUnrebuiltRecipientWarningTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs"
     ],
     "SPM-265": [

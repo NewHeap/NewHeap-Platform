@@ -89,6 +89,12 @@ internal sealed class NhAssistantSqlServerMigrationsSqlGenerator(
 }
 #pragma warning restore EF1001
 
+/// <summary>
+/// The context the EF tools create to add migrations and to write scripts. It generates SQL as a host
+/// does, with the schema routing of <see cref="NhAssistantSqlServerMigrationsSqlGenerator"/>, so a script
+/// carries no schema placeholder; <c>-- --schema &lt;name&gt;</c> writes a script for another schema
+/// (<see cref="NhAssistantStorage.DesignTimeOptions"/>).
+/// </summary>
 internal sealed class NhAssistantSqlServerDesignTimeDbContextFactory :
     IDesignTimeDbContextFactory<NhAssistantDbContext>
 {
@@ -96,8 +102,9 @@ internal sealed class NhAssistantSqlServerDesignTimeDbContextFactory :
     {
         var connectionString = Environment.GetEnvironmentVariable("NH_ASSISTANT_SQLSERVER_CONNECTION")
             ?? "Server=localhost;Database=nh_assistant;Trusted_Connection=True;TrustServerCertificate=True";
-        var storageOptions = new NhAssistantDbContextOptions();
+        var storageOptions = NhAssistantStorage.DesignTimeOptions(args);
         var options = new DbContextOptionsBuilder<NhAssistantDbContext>()
+            .ReplaceService<IMigrationsSqlGenerator, NhAssistantSqlServerMigrationsSqlGenerator>()
             .UseSqlServer(connectionString, sqlServer =>
             {
                 sqlServer.MigrationsAssembly(typeof(NhAssistantSqlServerDesignTimeDbContextFactory).Assembly.FullName);

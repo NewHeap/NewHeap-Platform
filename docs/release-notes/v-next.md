@@ -1,5 +1,40 @@
 # v-next
 
+## NewHeap.Platform.AI.Chat.AspNet: a warning when a delivery skips a person the principal factory cannot rebuild (FB89)
+
+- A live update, Web Push or in-app notification, agent notification or alert that skips a person because the
+  application's `INhAiPrincipalFactory` rebuilds nobody for them now logs one content-free warning per person per
+  hour, without the actor id. It names `INhAiPrincipalFactory`: when people who do sign in are skipped, the
+  application's actor ids are its own and need a principal factory of its own. Who receives what does not change.
+
+## @newheap/platform-common: regional languages fall back to their base language (FB88)
+
+- `NhTranslateBrowserLoader` loads `nl.json` when the file of a regional language such as `nl-NL` or `nl_BE`
+  does not exist (`404`), and `en.json` for `en-GB`, so the application's texts follow the libraries' own texts,
+  which already did. A regional file that exists is used as it is; other errors propagate as before. An
+  application that relied on a regional language showing no texts of its own now shows those of its base language.
+
+## @newheap/nh-toastr: a development warning for a toast without a container (FB90)
+
+- In development mode `NhToastrService` warns once in the console when a toast is shown while no
+  `NhToastrContainerComponent` is rendered, and names the fix: one `<nh-toastr-container>` in the root template and
+  `provideNhToastr(...)` in the root providers. Production builds log nothing, and the toasts behave as before.
+
+## newheap-platform: upgrades across several versions (FB91)
+
+- The consumer skill's package-sources reference asks to act on every breaking change between the installed and the
+  target version, and names `npm run release:breaking`, which lists every `Breaking change | Required action` row of
+  the release notes between two versions per release unit, grouped by version and package.
+
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: idempotent SQL scripts of the assistant schema (FB92)
+
+- Every release now carries `newheap-assistant-schema-sqlserver-<version>.sql` and
+  `newheap-assistant-schema-postgresql-<version>.sql`, the idempotent scripts of the assistant migrations for the
+  default `nhai` schema, for applications that apply the schema themselves instead of `RunMigrations`.
+- The provider projects' design-time factories now generate SQL as a host does. A script written with
+  `dotnet ef migrations script` used to keep the schema placeholder of the `McpReaders` migration, which no database
+  accepts; `-- --schema <name>` now writes the script for another schema.
+
 ## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer, NewHeap.Platform.AI.Chat.PostgreSql, NewHeap.Platform.AI.Chat.AspNet, NewHeap.Platform.AI.Scripting and NewHeap.Platform.AI.Common: rule scripts
 
 - `NhAssistantBuilder.UseRuleScriptsAsData` lets administrators write the rules of an agent, or of one of its
