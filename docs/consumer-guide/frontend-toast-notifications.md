@@ -20,6 +20,10 @@ Call `provideNhToastr(...)` in root application composition and render one
 typed success, error, warning, or info methods. The package supports Angular
 20.3.28 through 22 and `@ngx-translate/core` 17 or 18.
 
+`@newheap/platform-common` accepts `@newheap/nh-toastr` 0.0.7 and 0.0.8.
+Install a toast version within its peer range; do not bypass npm's peer checks
+with `--force` or `--legacy-peer-deps`.
+
 A toast is visible only while a container is rendered. In development mode
 (`isDevMode()`) the service warns once in the console when a toast is shown
 while no `NhToastrContainerComponent` is on the page, and names the fix; in
@@ -58,6 +62,13 @@ verify that each application root owns exactly one container and that the
 notification playground emits localized feedback through `NhToastrService`.
 In development, check that the console shows no warning about a missing toast
 container.
+
+Run `npm --prefix src/Front-end run nh-common:test:compatibility` as well.
+It installs the locally packed common and toast artifacts together and compiles
+the consumer on each supported Angular version, so it exercises the pair being
+released rather than a pinned older toast package.
+Release validation runs this consumer check before publishing either the common
+package or its toast dependency.
 
 ## Executable evidence
 
