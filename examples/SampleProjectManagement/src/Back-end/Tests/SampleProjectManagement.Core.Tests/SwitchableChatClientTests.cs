@@ -30,6 +30,20 @@ public sealed class SwitchableChatClientTests
         Assert.Equal("again", await AnswerAsync(model, "status-advisor"));
     }
 
+    [Fact]
+    public async Task A_script_for_chats_answers_only_turns_without_an_agent_scope()
+    {
+        var model = new SwitchableChatClient();
+        model.Use(new NhAiScriptedChatClient(loop: true).RespondWithText("host"));
+        var script = new NhAiScriptedChatClient().RespondWithText("builder");
+        model.UseForChats(script);
+
+        // A run, such as the intake reviewer's, keeps the host's client; a person's chat takes the script.
+        Assert.Equal("host", await AnswerAsync(model, "intake-reviewer"));
+        Assert.Empty(script.Requests);
+        Assert.Equal("builder", await AnswerAsync(model, agentId: null));
+    }
+
     private static async Task<string> AnswerAsync(SwitchableChatClient model, string? agentId)
     {
         using var scope = agentId is null ? null : NhAiAgentInvocationScopes.Begin(Scope(agentId));
