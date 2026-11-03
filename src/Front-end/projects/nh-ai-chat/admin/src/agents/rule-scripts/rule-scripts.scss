@@ -1,0 +1,339 @@
+// Styles of the rule scripts on an agent's Build tab: the editor with what the script sees next to it,
+// the versions, a dry run with its subjects, a run record and a comparison. Every selector is scoped to the
+// component that includes this stylesheet next to the administration's shared styles and the agent page's.
+@use '../../../../src/lib/styles/tokens';
+
+:host {
+  container-type: inline-size;
+}
+
+h6 {
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.block {
+  display: block;
+}
+
+.stack.tight {
+  gap: 8px;
+}
+
+// The parser's or the script's own description of a problem, for the script's author.
+.detail {
+  margin-top: 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+// The editor: the script and its settings, with what the script sees next to it.
+.editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 340px);
+  gap: 16px;
+  align-items: start;
+}
+
+textarea.script {
+  min-height: 320px;
+  font-family: var(--nha-mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  tab-size: 2;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.editor-catalog {
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius-control);
+  padding: 12px;
+  background: var(--nha-surface);
+  max-height: 720px;
+  overflow: auto;
+}
+
+.catalog-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  > li {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
+  }
+}
+
+.catalog-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+pre.signature {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: var(--nha-background);
+  font-size: 11.5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+pre.platform {
+  max-height: 260px;
+  overflow: auto;
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+// The versions: one card per version with its actions and the panel it opened.
+.versions > li {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.version-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+
+  strong {
+    margin-right: 6px;
+  }
+}
+
+.version-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  border-top: 1px solid var(--nha-border);
+  padding-top: 10px;
+}
+
+pre.script-view {
+  box-sizing: border-box;
+  max-height: 420px;
+  margin: 0;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius-control);
+  padding: 10px 12px;
+  background: var(--nha-surface);
+  overflow: auto;
+  white-space: pre;
+  @include tokens.focus-ring;
+}
+
+details.live-dry-run > summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+// A dry run: the subjects chosen, then what the version would do.
+.dry-run-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dry-run-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+
+  > .field {
+    flex: 0 1 220px;
+  }
+
+  > .field.grow {
+    flex: 1 1 260px;
+  }
+
+  > .add {
+    flex: none;
+  }
+}
+
+// A run record: per subject what it would do, in order.
+.run-record {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.record-subjects {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  details {
+    border: 1px solid var(--nha-border);
+    border-radius: var(--nha-radius-control);
+    padding: 8px 10px;
+  }
+
+  summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+    @include tokens.focus-ring;
+  }
+}
+
+.record-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  min-width: 0;
+
+  p {
+    margin: 0;
+  }
+}
+
+.record-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+
+  > li {
+    overflow-wrap: anywhere;
+  }
+
+  .tag,
+  .badge {
+    margin-left: 4px;
+  }
+}
+
+code.input {
+  display: block;
+  margin-top: 2px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+pre.log {
+  margin: 0;
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: var(--nha-surface);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.shadow-runs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// A comparison: the line diff, the writes and both dry runs.
+.compare-with {
+  max-width: 320px;
+}
+
+.diff-scroll {
+  max-height: 420px;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius-control);
+  overflow: auto;
+}
+
+table.diff {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--nha-mono);
+  font-size: 12px;
+
+  td {
+    padding: 1px 6px;
+    vertical-align: top;
+  }
+
+  .diff-number {
+    width: 1%;
+    color: var(--nha-text-muted);
+    text-align: right;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  .diff-mark {
+    width: 1%;
+    font-weight: 700;
+  }
+
+  .diff-text code {
+    font: inherit;
+    white-space: pre;
+  }
+
+  tr.added {
+    background: var(--nha-success-soft);
+
+    .diff-mark { color: var(--nha-success); }
+  }
+
+  tr.removed {
+    background: var(--nha-danger-soft);
+
+    .diff-mark { color: var(--nha-danger); }
+  }
+}
+
+.compare-runs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 12px;
+}
+
+@container (max-width: 760px) {
+  .editor-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .editor-catalog {
+    max-height: none;
+  }
+}

@@ -1,0 +1,279 @@
+@let current = ruleScript();
+<form class="rule-script-editor" novalidate data-rule-script-editor (submit)="$event.preventDefault(); save()">
+  <div class="editor-layout">
+    <div class="editor-main stack">
+      <div class="field">
+        <label [for]="id + '-script'">{{ 'nh-assistant.admin.rule-scripts.editor.script' | translate }}</label>
+        <p class="hint" [id]="id + '-script-hint'">{{ 'nh-assistant.admin.rule-scripts.editor.script-hint' | translate }}</p>
+        <textarea
+          #scriptField
+          class="mono script"
+          rows="18"
+          wrap="off"
+          spellcheck="false"
+          autocomplete="off"
+          autocapitalize="off"
+          data-rule-script-text
+          [id]="id + '-script'"
+          [value]="script()"
+          [attr.aria-invalid]="tooLong() || scriptErrors().length > 0 || checkCurrent()?.valid === false ? true : null"
+          [attr.aria-describedby]="id + '-script-hint ' + id + '-script-status'"
+          (input)="onInput($event)"
+          (keydown)="onKeydown($event)"
+          (keyup)="track($any($event.target))"
+          (click)="track($any($event.target))"
+          (select)="track($any($event.target))"></textarea>
+        <p class="hint" [id]="id + '-script-status'">
+          <span data-rule-script-caret>{{ 'nh-assistant.admin.rule-scripts.position' | translate: caret() }}</span>
+          @if (tabLeaves()) {
+            <span data-rule-script-tab-leaves>{{ 'nh-assistant.admin.rule-scripts.editor.tab-leaves' | translate }}</span>
+          }
+          <span class="counter" [class.error-text]="tooLong()" data-rule-script-length>{{ 'nh-assistant.admin.characters' | translate: { count: length(), max: maxLength } }}</span>
+        </p>
+        @for (code of scriptErrors(); track code) {
+          <p class="field-error" [attr.data-rule-script-field-error]="'script-' + code">
+            <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.rule-scripts.editor.script-errors.' + code | translate }}
+          </p>
+        }
+      </div>
+
+      <div class="card-actions">
+        <button class="secondary" type="button" data-rule-script-check [disabled]="empty() || checking() || saving()" (click)="runCheck()">
+          <nh-assistant-icon name="check" />{{ (checking() ? 'nh-assistant.admin.rule-scripts.editor.checking' : 'nh-assistant.admin.rule-scripts.editor.check') | translate }}
+        </button>
+      </div>
+      <div aria-live="polite">
+        @if (checkCurrent(); as result) {
+          @if (result.valid) {
+            <p class="message success" data-rule-script-check-result="valid">
+              <nh-assistant-icon name="check" />{{ 'nh-assistant.admin.rule-scripts.editor.valid' | translate }}
+            </p>
+          } @else {
+            <div class="message error" data-rule-script-check-result="invalid">
+              <nh-assistant-icon name="warning" />
+              <span class="grow">
+                {{ codeKeys(result.code) | nhAssistantTranslate: (result.code ?? '') }}
+                @if (result.line !== null) {
+                  <button type="button" class="link" data-rule-script-go-to (click)="goTo({ line: result.line, column: result.column ?? 1 })">
+                    {{ 'nh-assistant.admin.rule-scripts.editor.go-to' | translate: { line: result.line, column: result.column ?? 1 } }}
+                  </button>
+                }
+                @if (result.message) {
+                  <span class="block mono detail" data-rule-script-check-message>{{ result.message }}</span>
+                }
+              </span>
+            </div>
+          }
+        }
+      </div>
+
+      <fieldset class="stack tight" data-rule-script-writes>
+        <legend>{{ 'nh-assistant.admin.rule-scripts.editor.writes' | translate }}</legend>
+        <p class="hint">{{ 'nh-assistant.admin.rule-scripts.editor.writes-hint' | translate: { count: ceiling().maxWritesPerRun } }}</p>
+        @if (writeChoices().length === 0) {
+          <p class="muted" data-rule-script-no-writes>{{ 'nh-assistant.admin.rule-scripts.editor.no-writes' | translate }}</p>
+        } @else {
+          <div class="checks">
+            @for (choice of writeChoices(); track choice.toolId) {
+              <label class="check described" [attr.data-rule-script-write-choice]="choice.toolId">
+                <input
+                  type="checkbox"
+                  [checked]="writes().has(choice.toolId)"
+                  [disabled]="saving() || (choice.blocked && !writes().has(choice.toolId))"
+                  (change)="toggleWrite(choice.toolId, checked($event))" />
+                <span>
+                  <span>
+                    <span class="mono">{{ choice.tool?.name ?? choice.toolId }}</span>
+                    @if (choice.destructive) {
+                      <span class="badge danger">{{ 'nh-assistant.admin.rule-scripts.catalog.destructive' | translate }}</span>
+                    }
+                  </span>
+                  <span class="muted mono">{{ choice.toolId }}</span>
+                  @if (choice.blocked) {
+                    <span class="muted" data-rule-script-write-blocked>{{ 'nh-assistant.admin.rule-scripts.editor.destructive-blocked' | translate }}</span>
+                  }
+                </span>
+              </label>
+            }
+          </div>
+        }
+        @for (code of writeErrors(); track code) {
+          <p class="field-error" [attr.data-rule-script-field-error]="'writes-' + code">
+            <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.rule-scripts.editor.write-errors.' + code | translate }}
+          </p>
+        }
+      </fieldset>
+
+      <fieldset class="stack tight" data-rule-script-save-mode>
+        <legend>{{ 'nh-assistant.admin.rule-scripts.editor.mode' | translate }}</legend>
+        <div class="choices" role="radiogroup" [attr.aria-describedby]="id + '-mode-explain'">
+          @for (option of ['candidate', 'shadow', 'live']; track option) {
+            <label class="choice" [attr.data-rule-script-save-option]="option">
+              <input
+                type="radio"
+                [name]="id + '-mode'"
+                [value]="option"
+                [checked]="mode() === option"
+                [disabled]="saving() || (option === 'live' && fourEyes())"
+                (change)="chooseMode($any(option))" />
+              <span>{{ 'nh-assistant.admin.rule-scripts.editor.modes.' + option | translate }}</span>
+            </label>
+          }
+        </div>
+        <p class="muted" [id]="id + '-mode-explain'" data-rule-script-save-explain>
+          @switch (mode()) {
+            @case ('live') {
+              @if (live(); as replaced) {
+                {{ 'nh-assistant.admin.rule-scripts.editor.explain.live-replaces' | translate: { version: replaced.version } }}
+              } @else if (current.codeRule) {
+                {{ 'nh-assistant.admin.rule-scripts.editor.explain.live-code-rule' | translate: { rule: current.codeRule } }}
+              } @else {
+                {{ 'nh-assistant.admin.rule-scripts.editor.explain.live' | translate }}
+              }
+              {{ 'nh-assistant.admin.rule-scripts.editor.explain.live-no-dry-run' | translate }}
+            }
+            @case ('shadow') {
+              {{ 'nh-assistant.admin.rule-scripts.editor.explain.shadow' | translate }}
+            }
+            @default {
+              {{ 'nh-assistant.admin.rule-scripts.editor.explain.candidate' | translate }}
+            }
+          }
+          @if (candidate(); as waiting) {
+            {{ 'nh-assistant.admin.rule-scripts.editor.explain.discards-candidate' | translate: { version: waiting.version } }}
+          }
+        </p>
+        @if (fourEyes()) {
+          <p class="muted" data-rule-script-four-eyes-hint>{{ 'nh-assistant.admin.rule-scripts.four-eyes-hint' | translate }}</p>
+        }
+      </fieldset>
+
+      <div class="field">
+        <label [for]="id + '-reason'">{{ 'nh-assistant.admin.rule-scripts.editor.reason' | translate }}</label>
+        <input
+          type="text"
+          autocomplete="off"
+          data-rule-script-reason
+          [id]="id + '-reason'"
+          [maxLength]="maxReason"
+          [value]="reason()"
+          [attr.aria-describedby]="id + '-reason-hint'"
+          [attr.aria-invalid]="reasonErrors().length > 0 ? true : null"
+          (input)="reason.set(value($event))" />
+        <p class="hint" [id]="id + '-reason-hint'">{{ 'nh-assistant.admin.rule-scripts.editor.reason-hint' | translate }}</p>
+      </div>
+
+      <div class="card-actions">
+        <button class="primary" type="submit" data-rule-script-save [disabled]="empty() || tooLong() || saving()">
+          {{ (saving() ? 'nh-assistant.admin.saving' : 'nh-assistant.admin.rule-scripts.editor.save.' + mode()) | translate }}
+        </button>
+        <button class="secondary" type="button" data-rule-script-cancel [disabled]="saving()" (click)="cancelled.emit()">{{ 'nh-assistant.admin.cancel' | translate }}</button>
+      </div>
+      @if (error(); as failure) {
+        <div class="form-error" role="alert" data-rule-script-save-error>
+          <nh-assistant-icon name="warning" />
+          <span class="grow">
+            {{ errorKeys() | nhAssistantTranslate: failure.code }}
+            @if (conflict()) {
+              <button type="button" class="link" data-rule-script-reload (click)="reload()">{{ 'nh-assistant.admin.rule-scripts.editor.reload' | translate }}</button>
+            }
+          </span>
+        </div>
+      }
+    </div>
+
+    <aside class="editor-catalog stack tight" [attr.aria-labelledby]="id + '-catalog-title'" data-rule-script-catalog>
+      <h5 class="part-title" [id]="id + '-catalog-title'">{{ 'nh-assistant.admin.rule-scripts.catalog.title' | translate }}</h5>
+      @if (catalogFailed()) {
+        <div class="state" role="alert">
+          <p>{{ 'nh-assistant.admin.load-failed' | translate }}</p>
+          <button class="secondary" type="button" (click)="loadCatalog()">{{ 'nh-assistant.admin.retry' | translate }}</button>
+        </div>
+      } @else if (catalog(); as seen) {
+        <h6>{{ 'nh-assistant.admin.rule-scripts.catalog.tools' | translate }}</h6>
+        @if (seen.tools.length === 0) {
+          <p class="muted">{{ 'nh-assistant.admin.rule-scripts.catalog.no-tools' | translate }}</p>
+        } @else {
+          <ul class="catalog-list">
+            @for (tool of readTools().concat(writeTools()); track tool.toolId) {
+              <li [attr.data-rule-script-tool]="tool.name" [attr.data-rule-script-tool-callable]="tool.callable">
+                <div class="catalog-head">
+                  <code class="mono">tools.{{ tool.name }}</code>
+                  @if (tool.write) {
+                    <span class="badge warning" data-rule-script-tool-write>{{ 'nh-assistant.admin.rule-scripts.catalog.write' | translate }}</span>
+                  } @else {
+                    <span class="badge">{{ 'nh-assistant.admin.rule-scripts.catalog.read' | translate }}</span>
+                  }
+                  @if (tool.destructive) {
+                    <span class="badge danger" data-rule-script-tool-destructive>{{ 'nh-assistant.admin.rule-scripts.catalog.destructive' | translate }}</span>
+                  }
+                  @if (!tool.callable) {
+                    <span class="badge danger" data-rule-script-tool-refused>{{ 'nh-assistant.admin.rule-scripts.catalog.refused' | translate }}</span>
+                  }
+                </div>
+                <pre class="mono signature">{{ tool.signature }}</pre>
+                @if (tool.refusal) {
+                  <p class="muted" data-rule-script-tool-refusal>{{ 'nh-assistant.admin.rule-scripts.catalog.refusal' | translate: { reason: tool.refusal } }}</p>
+                } @else if (tool.write && !tool.callable) {
+                  <p class="muted">{{ 'nh-assistant.admin.rule-scripts.catalog.not-opted-in' | translate }}</p>
+                }
+                <button
+                  type="button"
+                  class="link"
+                  data-rule-script-insert-tool
+                  [disabled]="saving()"
+                  [attr.aria-label]="'nh-assistant.admin.rule-scripts.catalog.insert-call' | translate: { name: tool.name }"
+                  (click)="insertTool(tool)">
+                  {{ 'nh-assistant.admin.rule-scripts.catalog.insert' | translate }}
+                </button>
+              </li>
+            }
+          </ul>
+        }
+
+        <h6>{{ 'nh-assistant.admin.rule-scripts.catalog.alert-kinds' | translate }}</h6>
+        @if (seen.alertKinds.length === 0) {
+          <p class="muted">{{ 'nh-assistant.admin.rule-scripts.catalog.no-alert-kinds' | translate }}</p>
+        } @else {
+          <ul class="catalog-list">
+            @for (kind of seen.alertKinds; track kind) {
+              <li [attr.data-rule-script-alert-kind]="kind">
+                <div class="catalog-head">
+                  <strong>{{ ['nh-assistant.alert-kinds.' + kind + '.name'] | nhAssistantTranslate: kind }}</strong>
+                  <code class="mono muted">{{ kind }}</code>
+                </div>
+                <button
+                  type="button"
+                  class="link"
+                  data-rule-script-insert-alert
+                  [disabled]="saving()"
+                  [attr.aria-label]="'nh-assistant.admin.rule-scripts.catalog.insert-alert' | translate: { kind: kind }"
+                  (click)="insertAlert(kind)">
+                  {{ 'nh-assistant.admin.rule-scripts.catalog.insert' | translate }}
+                </button>
+              </li>
+            }
+          </ul>
+        }
+
+        <h6>{{ 'nh-assistant.admin.rule-scripts.catalog.platform' | translate }}</h6>
+        <p class="muted">{{ 'nh-assistant.admin.rule-scripts.catalog.platform-hint' | translate }}</p>
+        <pre class="mono signature platform" data-rule-script-platform>{{ seen.platformFunctions }}</pre>
+
+        <h6>{{ 'nh-assistant.admin.rule-scripts.catalog.limits' | translate }}</h6>
+        <dl class="facts" data-rule-script-limits>
+          <dt>{{ 'nh-assistant.admin.rule-scripts.catalog.max-tool-calls' | translate }}</dt>
+          <dd>{{ seen.maxToolCalls }}</dd>
+          <dt>{{ 'nh-assistant.admin.rule-scripts.catalog.timeout' | translate }}</dt>
+          <dd>{{ 'nh-assistant.admin.rule-scripts.catalog.seconds' | translate: { count: seen.timeoutSeconds } }}</dd>
+          <dt>{{ 'nh-assistant.admin.rule-scripts.catalog.max-length' | translate }}</dt>
+          <dd>{{ seen.maxScriptLength }}</dd>
+          <dt>{{ 'nh-assistant.admin.rule-scripts.catalog.max-writes' | translate }}</dt>
+          <dd>{{ seen.maxWritesPerRun }}</dd>
+        </dl>
+      } @else {
+        <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+      }
+    </aside>
+  </div>
+</form>
