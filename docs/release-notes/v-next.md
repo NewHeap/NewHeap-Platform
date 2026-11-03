@@ -19,3 +19,9 @@
 - In development mode `NhToastrService` warns once in the console when a toast is shown while no
   `NhToastrContainerComponent` is rendered, and names the fix: one `<nh-toastr-container>` in the root template and
   `provideNhToastr(...)` in the root providers. Production builds log nothing, and the toasts behave as before.
+
+## newheap-platform: upgrades across several versions (FB91)
+
+- The consumer skill's package-sources reference asks to act on every breaking change between the installed and the
+  target version, and names `npm run release:breaking`, which lists every `Breaking change | Required action` row of
+  the release notes between two versions per release unit, grouped by version and package.

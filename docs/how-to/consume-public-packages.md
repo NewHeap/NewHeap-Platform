@@ -47,6 +47,10 @@ Download `newheap-platform-<version>.tar.gz` and `SHA256SUMS` from the immutable
 
 For every upgrade, verify that package versions, plugin version, and `distribution.json` compatibility metadata agree. Change registry source, declared versions, central version files, and lockfiles in one reviewed change.
 
+## Upgrade across several versions
+
+Act on every breaking change between the installed and the new version, not only on those of the new one. In a Platform checkout, list them per release unit with `npm run release:breaking -- --unit nuget-common --from 8.0.0 --to 32.0.0`, and again for each npm unit with its own versions, such as `--unit npm-platform-common`. The command prints every `Breaking change | Required action` row of the release notes after `--from` up to `--to`, grouped by version and package; see [Breaking changes between two versions](release-newheap-libraries.md#breaking-changes-between-two-versions).
+
 ## Empty repository sequence
 
 1. Download the immutable plugin release asset and verify its checksum.

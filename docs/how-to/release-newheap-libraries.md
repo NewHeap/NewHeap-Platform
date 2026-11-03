@@ -87,6 +87,17 @@ Use the selected unit's version from `release/manifest.json`. For `all`, group r
 
 Releases without applicable notes leave the notes unchanged. Preview publishing and finalization retries do not rotate release notes.
 
+### Breaking changes between two versions
+
+An upgrade across several versions needs every required action in between. List them per release unit:
+
+```text
+npm run release:breaking -- --unit nuget-common --from 8.0.0 --to 32.0.0
+npm run release:breaking -- --unit npm-ai-chat --from 0.20.0 --next --json
+```
+
+The command reads `docs/release-notes/v*.md`, takes the versions after `--from` up to and including `--to` (every later version without it), and prints each `Breaking change | Required action` row, and the `Behavior change | Required action` rows of older notes, grouped by version and package section, oldest first, as Markdown or with `--json` as data. `--next` adds the unreleased rows of `v-next.md` last. Release units share the note files but not their versions, so a section counts for the unit of the packages its heading names; `--unit` selects one, and without it the command refuses a range that holds rows of several units instead of mixing them.
+
 ## Local verification
 
 ```text
@@ -95,6 +106,7 @@ node tools/release/prepare-release.mjs --component nuget-common --bump patch --d
 node tools/release/prepare-release.mjs --component all --bump patch --dry-run
 node tools/release/package-release.mjs --component nuget-common --dry-run
 node tools/release/package-release.mjs --component npm-platform-common --dry-run
+npm run release:breaking -- --unit nuget-common --from 31.0.0
 ```
 
 Local commands pack and validate only. Registry publication belongs to the protected GitHub workflow.
