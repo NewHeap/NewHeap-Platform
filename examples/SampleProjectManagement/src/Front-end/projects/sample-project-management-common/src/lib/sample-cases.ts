@@ -3051,7 +3051,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Toast notifications",
     "category": "Events, jobs, email, and notifications",
     "surface": "provideNhToastr, NhToastrService, and NhToastrContainerComponent",
-    "outcome": "Both application roots host one toast container; the notification playground and inherited collection/mutate toast service use the same NH notification provider without ngx-toastr.",
+    "outcome": "Both application roots host one toast container; the notification playground and inherited collection/mutate toast service use the same NH notification provider without ngx-toastr. In development mode a toast shown while no container is rendered warns once in the console, naming the container and the provider; production logs nothing.",
     "implementation": "implemented",
     "evidence": [
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
@@ -3062,6 +3062,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Front-end/scripts/verify-frontend-integrity.mjs",
       "../../src/Front-end/projects/nh-toastr/src/services/nh-toastr.service.ts",
       "../../src/Front-end/projects/nh-toastr/src/components/component.ts",
+      "../../src/Front-end/projects/nh-toastr/src/services/nh-toastr-containers.ts",
+      "../../src/Front-end/projects/nh-toastr/src/services/nh-toastr.service.spec.ts",
       "../../src/Front-end/projects/nh-common/src/lib/components/nh-base-toastr.spec.ts"
     ]
   },

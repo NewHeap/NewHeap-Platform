@@ -1,6 +1,7 @@
-import { inject, Injectable, InjectionToken, Provider, signal } from '@angular/core';
+import { afterNextRender, inject, Injectable, InjectionToken, Injector, Provider, signal } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 import { Observable, Subject } from 'rxjs';
+import { NH_TOASTR_DEVELOPMENT_MODE, NhToastrContainers } from './nh-toastr-containers';
 
 export type NhToastrType = 'success' | 'error' | 'info' | 'warning';
 export type NhToastrPosition =
@@ -89,6 +90,10 @@ const defaultToastrConfig: NhToastrConfig = {
     includeTitleDuplicates: false
 };
 
+const missingContainerWarning = 'NhToastrService showed a toast, but no toast container is rendered, so the toast is not visible. '
+    + 'Render one <nh-toastr-container> (NhToastrContainerComponent from @newheap/nh-toastr) in the root application template '
+    + 'and register provideNhToastr(...) in the root providers. This warning appears once, in development mode only.';
+
 @Injectable({ providedIn: 'root' })
 export class NhToastrService {
     /** Application-wide defaults for newly created toasts. */
@@ -99,8 +104,13 @@ export class NhToastrService {
 
     private readonly lifecycles = new Map<number, ToastLifecycle>();
     private readonly applicationConfig = inject(NH_TOASTR_CONFIG, { optional: true });
+    private readonly containers = inject(NhToastrContainers);
+    private readonly developmentMode = inject(NH_TOASTR_DEVELOPMENT_MODE);
+    private readonly injector = inject(Injector);
     private nextToastId = 0;
     private readonly leaveAnimationDuration = 160;
+    private containerCheckPending = false;
+    private warnedWithoutContainer = false;
 
     public constructor(private readonly translationService: TranslateService) {
         this.toastrConfig = { ...defaultToastrConfig, ...this.applicationConfig };
@@ -165,6 +175,7 @@ export class NhToastrService {
         this.currentlyActive = this.toasts().length;
         this.scheduleDismissal(toast, config.timeOut, 'timeOut');
         queueMicrotask(() => lifecycle.onShown.next());
+        this.checkContainerInDevelopment();
         return toast;
     }
 
@@ -262,6 +273,27 @@ export class NhToastrService {
             clearTimeout(lifecycle.timeout);
         }
         lifecycle.timeout = setTimeout(() => this.remove(toast.toastId), timeout);
+    }
+
+    /**
+     * In development mode, warns once in the console when a toast is shown while no toast container is
+     * rendered. It checks after the next render, so a container that the same render creates counts.
+     */
+    private checkContainerInDevelopment(): void {
+        if (!this.developmentMode || this.warnedWithoutContainer || this.containerCheckPending || this.containers.anyRendered) {
+            return;
+        }
+
+        this.containerCheckPending = true;
+        afterNextRender(() => {
+            this.containerCheckPending = false;
+            if (this.warnedWithoutContainer || this.containers.anyRendered) {
+                return;
+            }
+
+            this.warnedWithoutContainer = true;
+            console.warn(missingContainerWarning);
+        }, { injector: this.injector });
     }
 
     private getPosition(positionClass: string | undefined): NhToastrPosition {
