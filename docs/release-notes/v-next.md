@@ -63,3 +63,22 @@
 | An audit sink that switches over every `NhAssistantAuditEventKind` sees `AdminRuleScriptSaved` (133), `AdminRuleScriptLive` (134), `AdminRuleScriptShadowChanged` (135), `AdminRuleScriptDiscarded` (136) and `AdminRuleScriptDryRun` (137), with `NhAssistantAuditEvent.RuleScriptVersion` and `RuleScriptHash`. | Handle or ignore the new kinds. |
 | The administration answers `assistant-rule-scripts-not-allowed`, `assistant-rule-script-write-not-allowed`, `assistant-rule-script-version-not-found`, `assistant-rule-script-not-candidate`, `assistant-rule-script-four-eyes` and `assistant-rule-script-subjects-invalid`, and a package part can be `ruleScript`. | Code that switches over the admin codes or package part kinds handles or ignores them. |
 | `UseRuleScriptsAsData` without `AddNewHeapPlatformAIScripting` fails at startup. | Add the scripting package and call `AddNewHeapPlatformAIScripting()`. |
+
+## @newheap/platform-ai-chat: rule scripts in the administration
+
+- The agent's Build tab of `nh-assistant-admin` has a "Rule script" section for the agent's own rules and each
+  skill, shown only when the code's ceiling allows the agent rule scripts. Administrators write a version in a
+  plain text editor next to what the script sees (tools with their signatures, alert kinds, platform functions
+  and limits), check it with the line and column of a problem, choose its writes within the ceiling and save it
+  as the candidate, in shadow or straight live (not under four eyes). Every version shows its author, reason and
+  times, and opens a dry run on up to twenty chosen subjects, a comparison with another version, and for the
+  candidate shadow on or off, its shadow runs, discarding and going live after its latest dry run is shown.
+- `NhAssistantAdminApiService` gains `getRuleScript`, `getRuleScriptCatalog`, `checkRuleScript`,
+  `saveRuleScriptVersion`, `dryRunRuleScriptVersion`, `getRuleScriptDryRun` (`null` without one),
+  `getRuleScriptShadowRuns`, `setRuleScriptVersionLive`, `setRuleScriptVersionShadow`, `discardRuleScriptVersion`
+  and `compareRuleScriptVersions`, each with a `skillId` that is `null` for the agent's own rules, and the
+  `RuleScript*` models. `NH_ASSISTANT_SERVER_ERROR_CODES` lists the `assistant-rule-script*` codes with English and
+  Dutch texts.
+- The mock API of `@newheap/platform-ai-chat/testing` serves the same routes from a scenario's `admin.ruleScripts`
+  (`NhAssistantMockRuleScriptCeiling`), with versions that exist before it starts, dry runs from the tools and
+  alert kinds a script names, shadow runs, four eyes and the server's refusals.

@@ -3,9 +3,9 @@ id: nh-ai-rule-scripts
 title: "Let administrators write an agent's rules as a script stored as data"
 area: backend
 reference: ai-scripting
-summary: "Set the ceiling of rule scripts in code, let a live version replace a code rule without a model, opt writes in per version within the ceiling, dry-run versions and go live with the administration policy and optional four eyes."
+summary: "Set the ceiling of rule scripts in code, let a live version replace a code rule without a model, opt writes in per version within the ceiling, dry-run versions and go live with the administration policy and optional four eyes; administrators write, check, dry-run, compare and set versions live in the rule script section of the agent's Build tab in nh-assistant-admin."
 sample-cases: ["SPM-393"]
-public-symbols: ["UseRuleScriptsAsData", "NhAssistantRuleScriptCeiling", "NhAssistantRuleScriptAgentCeiling", "NhAssistantRuleScriptCeilingBuilder", "NhAssistantRuleScriptAgentCeilingBuilder", "NhAssistantRuleScriptLimits", "NhAssistantRuleScriptStatuses", "NhAssistantRuleScriptAuthor", "INhAssistantRuleScriptEngine", "NhAssistantRuleScriptMode", "NhAssistantRuleScriptRun", "NhAssistantRuleScriptProblem", "NhAssistantRuleScriptEndKind", "NhAssistantRuleScriptEnd", "NhAssistantRuleScriptCall", "NhAssistantRuleScriptOutcome", "NhAssistantRuleScriptDeclarations", "NhAssistantRuleScriptToolSignature", "NhAssistantRuleScriptTool", "NhAssistantRuleScriptCallInput", "INhAssistantRuleScripts", "NhAssistantRuleScriptCodes", "NhAssistantRuleScriptWouldOutcomes", "NhAssistantRuleScriptDto", "NhAssistantRuleScriptCeilingDto", "NhAssistantRuleScriptVersionDto", "NhAssistantRuleScriptSaveRequest", "NhAssistantRuleScriptChangeRequest", "NhAssistantRuleScriptShadowRequest", "NhAssistantRuleScriptDryRunRequest", "NhAssistantRuleScriptSubjectDto", "NhAssistantRuleScriptLiveDto", "NhAssistantRuleScriptCheckDto", "NhAssistantRuleScriptCatalogDto", "NhAssistantRuleScriptToolDto", "NhAssistantRuleScriptRunRecordDto", "NhAssistantRuleScriptSubjectRunDto", "NhAssistantRuleScriptEndDto", "NhAssistantRuleScriptCallDto", "NhAssistantRuleScriptWriteDto", "NhAssistantRuleScriptProposalDto", "NhAssistantRuleScriptAlertDto", "NhAssistantRuleScriptAlertKeyDto", "NhAssistantRuleScriptComparisonDto", "NhAssistantRuleScriptLineDto", "NhAssistantRuleScriptCheckRequest", "AssistantRuleScript", "AssistantRuleScriptVersion", "AssistantRuleScriptRunRecord", "NhAssistantRuleScriptRunKinds", "NhAssistantPackageRuleScript", "ConfigureRuleScripts", "RuleScriptLimitsOf"]
+public-symbols: ["UseRuleScriptsAsData", "NhAssistantRuleScriptCeiling", "NhAssistantRuleScriptAgentCeiling", "NhAssistantRuleScriptCeilingBuilder", "NhAssistantRuleScriptAgentCeilingBuilder", "NhAssistantRuleScriptLimits", "NhAssistantRuleScriptStatuses", "NhAssistantRuleScriptAuthor", "INhAssistantRuleScriptEngine", "NhAssistantRuleScriptMode", "NhAssistantRuleScriptRun", "NhAssistantRuleScriptProblem", "NhAssistantRuleScriptEndKind", "NhAssistantRuleScriptEnd", "NhAssistantRuleScriptCall", "NhAssistantRuleScriptOutcome", "NhAssistantRuleScriptDeclarations", "NhAssistantRuleScriptToolSignature", "NhAssistantRuleScriptTool", "NhAssistantRuleScriptCallInput", "INhAssistantRuleScripts", "NhAssistantRuleScriptCodes", "NhAssistantRuleScriptWouldOutcomes", "NhAssistantRuleScriptDto", "NhAssistantRuleScriptCeilingDto", "NhAssistantRuleScriptVersionDto", "NhAssistantRuleScriptSaveRequest", "NhAssistantRuleScriptChangeRequest", "NhAssistantRuleScriptShadowRequest", "NhAssistantRuleScriptDryRunRequest", "NhAssistantRuleScriptSubjectDto", "NhAssistantRuleScriptLiveDto", "NhAssistantRuleScriptCheckDto", "NhAssistantRuleScriptCatalogDto", "NhAssistantRuleScriptToolDto", "NhAssistantRuleScriptRunRecordDto", "NhAssistantRuleScriptSubjectRunDto", "NhAssistantRuleScriptEndDto", "NhAssistantRuleScriptCallDto", "NhAssistantRuleScriptWriteDto", "NhAssistantRuleScriptProposalDto", "NhAssistantRuleScriptAlertDto", "NhAssistantRuleScriptAlertKeyDto", "NhAssistantRuleScriptComparisonDto", "NhAssistantRuleScriptLineDto", "NhAssistantRuleScriptCheckRequest", "AssistantRuleScript", "AssistantRuleScriptVersion", "AssistantRuleScriptRunRecord", "NhAssistantRuleScriptRunKinds", "NhAssistantPackageRuleScript", "ConfigureRuleScripts", "RuleScriptLimitsOf", "getRuleScript", "getRuleScriptCatalog", "checkRuleScript", "saveRuleScriptVersion", "dryRunRuleScriptVersion", "getRuleScriptDryRun", "getRuleScriptShadowRuns", "setRuleScriptVersionLive", "setRuleScriptVersionShadow", "discardRuleScriptVersion", "compareRuleScriptVersions", "RuleScript", "RuleScriptStatus", "RuleScriptCeiling", "RuleScriptVersion", "RuleScriptSaveRequest", "RuleScriptChangeRequest", "RuleScriptShadowRequest", "RuleScriptSubject", "RuleScriptDryRunRequest", "RuleScriptCheck", "RuleScriptTool", "RuleScriptCatalog", "RuleScriptRunKind", "RuleScriptSubjectRunStatus", "RuleScriptEnd", "RuleScriptCall", "RuleScriptWouldOutcome", "RuleScriptWrite", "RuleScriptProposal", "RuleScriptAlert", "RuleScriptAlertKey", "RuleScriptSubjectRun", "RuleScriptRunRecord", "RuleScriptLive", "RuleScriptLine", "RuleScriptComparison", "NH_ASSISTANT_RULE_SCRIPT_MAX_DRY_RUN_SUBJECTS", "NH_ASSISTANT_RULE_SCRIPT_MAX_LENGTH", "NH_ASSISTANT_RULE_SCRIPT_MAX_REASON", "NhAssistantMockRuleScriptCeiling", "NhAssistantMockRuleScriptAgent", "NhAssistantMockRuleScriptTool", "NhAssistantMockRuleScriptVersion"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -66,6 +66,28 @@ proposals and alerts are recorded with what they would become and never happen. 
 version's latest dry run, or says there is none; a dry run is not required. A version's live script
 travels in agent packages (part `ruleScript` or `ruleScript:{skillId}`) with the package's locks.
 
+In `@newheap/platform-ai-chat` the agent's Build tab of `nh-assistant-admin` holds a "Rule script" section
+for the agent's own rules and, one at a time, for each of its skills. It shows only when the ceiling
+allows the agent rule scripts (`allowed`), so an application without `UseRuleScriptsAsData` sees no
+change. It names the version in effect, the candidate and whether it runs in shadow, the code rule a live
+version takes the place of and what the ceiling allows. The editor is a plain text area (Tab indents,
+Escape and then Tab leaves it) with the caret's line and column, next to what the script sees from
+`GET .../catalog?writes=` for the writes chosen now: the tools with their signatures, writes and destructive
+tools marked and the reason a tool cannot be called, the alert kinds, the platform functions and the limits,
+each with a helper that inserts its call. "Check" (`POST .../check`) names the line and column of a problem
+and moves the caret there. The writes are chosen only within the ceiling, with its writes per run; a version
+is saved as the candidate, as the candidate in shadow or, unless four eyes applies, straight live, with an
+optional reason and the rule script's revision. Every version lists with its author (a person, or an agent
+such as the builder for a person), reason and times, and opens its script, a dry run on up to twenty
+subjects chosen with the subject picker of "Run now", a comparison with another version (line diff, writes
+added and removed and both latest dry runs) and, for the candidate, shadow on or off, its shadow runs,
+discarding and going live. Going live first shows the version's latest dry run or says it has none, and
+explains four eyes; a dry run there replaces what it shows. Each record shows per subject its status, end,
+calls in order, writes with what they would become and their input, proposals, alerts raised and resolved
+and its log. The calls are `NhAssistantAdminApiService` methods (`getRuleScript` to `compareRuleScriptVersions`)
+with the `RuleScript*` models; the mock API of `@newheap/platform-ai-chat/testing` serves the same routes from
+a scenario's `admin.ruleScripts`.
+
 ## Avoid
 
 - Granting rule scripts to every agent instead of the agents whose rules administrators own.
@@ -73,6 +95,8 @@ travels in agent packages (part `ruleScript` or `ruleScript:{skillId}`) with the
 - Treating a write that became a proposal as done, or a dry run's `would-run` as a promise.
 - Letting an application-wide script stand in for per-subject runs over large sets.
 - Writing a script that relies on a code rule running next to it: a live script replaces the code rule.
+- Hiding a dry run's stopped subjects or showing a write's `would-run` as something that happened; the
+  administration shows every subject and says that nothing of a record happened.
 
 ## Verification
 
@@ -84,4 +108,9 @@ write without approval runs and its write that needs approval records a proposal
 records no proposal and delivers nothing; a candidate in shadow runs next to the code rule without
 effects; four eyes refuses the author; an application-wide script resolves nothing by omission; a
 version without the administration policy cannot be saved or set live; a live script round-trips an agent
-package with its lock. SPM-393 is the executable reference.
+package with its lock. In the administration, an Angular spec on the mock API proves that the section
+shows only within the ceiling, the editor's catalog, Tab, the check's line and column and the writes within
+the ceiling, saving as candidate and in shadow, a dry run per subject with its calls, writes and alerts, a
+dry run stopped at a write not opted in, the latest dry run before going live, four eyes refusing the author,
+shadow runs, comparing, discarding and a stale revision that keeps the editor's text. SPM-393 is the
+executable reference.
