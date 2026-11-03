@@ -17,6 +17,15 @@
         (cancelled)="backToList()" />
     </div>
   }
+  @case ('new-with-help') {
+    <!-- The agent builder makes the new agent with the administrator; its page follows once it exists. -->
+    <div class="page" data-new-agent-with-help-page>
+      <button class="secondary back" type="button" data-back (click)="backToList()">
+        <nh-assistant-icon name="chevron-down" />{{ 'nh-assistant.admin.agent-page.back' | translate }}
+      </button>
+      <nh-assistant-agent-builder-chat [agent]="null" [startOpen]="true" (agentCreated)="onCreatedWithHelp($event)" />
+    </div>
+  }
   @case ('agent') {
     @if (openedAgent(); as agent) {
       <nh-assistant-agent-page
@@ -60,6 +69,11 @@
           <button class="secondary" type="button" aria-haspopup="dialog" data-import-package [disabled]="loading() || loadFailed()" (click)="importPackage()">
             <nh-assistant-icon name="file" />{{ 'nh-assistant.admin.packages.import' | translate }}
           </button>
+          @if (buildsWithHelp()) {
+            <button class="secondary" type="button" data-new-agent-with-help [disabled]="loading() || loadFailed()" (click)="createWithHelp()">
+              <nh-assistant-icon name="assistant" />{{ 'nh-assistant.admin.agent-builder.new' | translate }}
+            </button>
+          }
           <button class="primary" type="button" data-new-agent [disabled]="loading() || loadFailed()" (click)="create()">
             <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.agents.new' | translate }}
           </button>

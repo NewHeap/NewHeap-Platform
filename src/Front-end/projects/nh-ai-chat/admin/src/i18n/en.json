@@ -1809,6 +1809,17 @@
         },
         "reset-locked": "Package {{package}} locks fields of the definition. Unlink them first to reset the agent."
       },
+      "agent-builder": {
+        "new": "New agent with help",
+        "title": "Build with help",
+        "description": "The agent builder changes this agent with you in plain language: its instructions, tools, skills, triggers, run settings and rule scripts. It reads what the application offers, and every save and every step live waits for your approval in the chat.",
+        "new-title": "New agent with help",
+        "new-description": "Describe what the agent should do. The agent builder proposes the agent and creates it after your approval; you then continue on its page with the same chat.",
+        "new-context": "New agent",
+        "open": "Open the agent builder",
+        "close": "Close the chat",
+        "rights": "The agent builder works with your own rights. It never changes grants, technical accounts, MCP servers or what the code allows, and it never deletes anything."
+      },
       "agent-page": {
         "back": "All agents",
         "tabs-label": "Sections of {{name}}",

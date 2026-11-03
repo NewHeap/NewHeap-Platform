@@ -44,6 +44,10 @@
       "can-mutate": "Can propose changes",
       "read-only": "Read only"
     },
+    "agent-builder": {
+      "name": "Agent builder",
+      "description": "Helps administrators build agents: instructions, tools, skills, triggers, run settings and rule scripts. Every change waits for your approval."
+    },
     "conversation-list": {
       "title": "Conversations",
       "loading": "Loading conversations",

@@ -44,6 +44,10 @@
       "can-mutate": "Kan wijzigingen voorstellen",
       "read-only": "Alleen lezen"
     },
+    "agent-builder": {
+      "name": "Agentbouwer",
+      "description": "Helpt beheerders agents te bouwen: instructies, tools, vaardigheden, triggers, run-instellingen en regelscripts. Elke wijziging wacht op jouw goedkeuring."
+    },
     "conversation-list": {
       "title": "Gesprekken",
       "loading": "Gesprekken laden",
