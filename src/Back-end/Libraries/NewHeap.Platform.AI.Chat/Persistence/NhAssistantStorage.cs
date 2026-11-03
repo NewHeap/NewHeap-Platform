@@ -140,6 +140,31 @@ internal static class NhAssistantStorage
                 nameof(schema));
         }
     }
+
+    /// <summary>
+    /// The storage options of a provider's design-time factory: the default schema, or the schema that
+    /// the EF tools pass after <c>--</c> as <c>--schema &lt;name&gt;</c>, so that
+    /// <c>dotnet ef migrations script</c> writes the SQL that a host with that schema applies. Only scripts
+    /// take another schema; migrations are always added for the default one.
+    /// </summary>
+    internal static NhAssistantDbContextOptions DesignTimeOptions(string[] args)
+    {
+        ArgumentNullException.ThrowIfNull(args);
+        var options = new NhAssistantDbContextOptions();
+        var index = Array.IndexOf(args, "--schema");
+        if (index >= 0)
+        {
+            if (index + 1 >= args.Length)
+            {
+                throw new ArgumentException("--schema needs the name of the assistant schema.", nameof(args));
+            }
+
+            options.Schema = args[index + 1];
+        }
+
+        ValidateSchema(options.Schema);
+        return options;
+    }
 }
 
 /// <summary>

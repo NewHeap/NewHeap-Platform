@@ -41,6 +41,15 @@ services.AddNewHeapAssistant(assistant => assistant
 endpoints.MapNewHeapAssistant("/api/assistant");
 ```
 
+The storage package holds the migrations of the assistant schema. Let the host apply them
+(`RunMigrations`), or apply the schema yourself as a deployment step: every `nuget-common` GitHub
+Release carries `newheap-assistant-schema-sqlserver-<version>.sql` and
+`newheap-assistant-schema-postgresql-<version>.sql`, idempotent scripts for the default `nhai` schema
+that `dotnet ef migrations script --idempotent` writes from an empty database. Each brings a database
+of any earlier version up to that release and changes nothing when it runs again; run the SQL Server
+script with a tool that understands `GO`. For another schema, write the scripts from a Platform
+checkout of the release's tag with `npm run release:sql-scripts -- --out <directory> --schema <name>`.
+
 `NhAiTextAsset.FromEmbeddedResource` is a static extension member of
 `NewHeap.Platform.AI.Chat`; keep that namespace in scope. The chat profile must
 declare chat, function calling and streaming and permit the assistant execution
@@ -1876,7 +1885,8 @@ the connection card in the person's turn and none in a headless run, that a fail
 its file with `assistant-file-reader-failed` without a second reader, that the reader's text counts
 against `MaxFileTokensPerTurn`, and that audit and logs hold the reader id, file id and hash, never
 the content or the text. Prove a migration that moves data, such as `McpReaders`, on both providers
-from the earlier schema up and back down.
+from the earlier schema up and back down, and that the idempotent script of a release applies to an
+empty database twice, without a schema placeholder, also for another schema (`AssistantSchemaScriptTests`).
 
 For retrieved context, assert that the sample's assistant reads the project descriptions of the
 person's active division that match the question, after the situation, never those of another

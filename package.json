@@ -34,6 +34,7 @@
     "release:test": "node tools/licensing/validate-licensing.mjs && node tools/security/validate-public-source.mjs && node tools/security/test-validate-public-source.mjs && node tools/release/validate-release.mjs && node tools/release/test-release-tooling.mjs && node tools/release/test-verify-public-release-targets.mjs && node tools/release/test-breaking-changes.mjs",
     "release:prepare": "node tools/release/prepare-release.mjs",
     "release:package": "node tools/release/package-release.mjs",
-    "release:breaking": "node tools/release/breaking-changes.mjs"
+    "release:breaking": "node tools/release/breaking-changes.mjs",
+    "release:sql-scripts": "node tools/release/sql-scripts.mjs"
   }
 }

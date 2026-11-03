@@ -25,3 +25,12 @@
 - The consumer skill's package-sources reference asks to act on every breaking change between the installed and the
   target version, and names `npm run release:breaking`, which lists every `Breaking change | Required action` row of
   the release notes between two versions per release unit, grouped by version and package.
+
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.SqlServer and NewHeap.Platform.AI.Chat.PostgreSql: idempotent SQL scripts of the assistant schema (FB92)
+
+- Every release now carries `newheap-assistant-schema-sqlserver-<version>.sql` and
+  `newheap-assistant-schema-postgresql-<version>.sql`, the idempotent scripts of the assistant migrations for the
+  default `nhai` schema, for applications that apply the schema themselves instead of `RunMigrations`.
+- The provider projects' design-time factories now generate SQL as a host does. A script written with
+  `dotnet ef migrations script` used to keep the schema placeholder of the `McpReaders` migration, which no database
+  accepts; `-- --schema <name>` now writes the script for another schema.

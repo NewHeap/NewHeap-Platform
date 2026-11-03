@@ -23,6 +23,8 @@ The release pipeline publishes NuGet packages to nuget.org, scoped npm packages 
 | `npm-ai-chat` | `@newheap/platform-ai-chat` | `npm-ai-chat-v<version>` |
 | `newheap-platform-plugin` | Installable NewHeap Platform plugin and consumer skill suite | `newheap-platform-plugin-v<version>` |
 
+The `nuget-common` release also carries the idempotent SQL scripts of the assistant schema, `newheap-assistant-schema-sqlserver-<version>.sql` and `newheap-assistant-schema-postgresql-<version>.sql`, for applications that apply migrations themselves. `package-release.mjs` writes them after packing with `dotnet ef migrations script --idempotent`, from the Release build and the design-time factory of each provider project (`tools/release/sql-scripts.mjs` lists them), and the artifact validation requires both, without a schema placeholder, before `SHA256SUMS` is written. The publishing workflows install `dotnet-ef` at the repository's EF Core version (`node tools/release/sql-scripts.mjs --tool-version`) for that step.
+
 Versions remain independent. The `all` option applies the selected SemVer bump to every unit but preserves separate versions, tags, artifacts, and GitHub Releases. In an all-unit release, Common is packed first and exposed as a temporary local NuGet source for dependent Media packages.
 
 ## Established release configuration
@@ -107,6 +109,9 @@ node tools/release/prepare-release.mjs --component all --bump patch --dry-run
 node tools/release/package-release.mjs --component nuget-common --dry-run
 node tools/release/package-release.mjs --component npm-platform-common --dry-run
 npm run release:breaking -- --unit nuget-common --from 31.0.0
+npm run release:sql-scripts -- --out <directory>
 ```
+
+`release:sql-scripts` builds the assistant's provider projects and writes the scripts of the current `nuget-common` version into the directory; `--version` names another version in the file names and `--schema <name>` writes the scripts for another schema than `nhai`. It needs `dotnet-ef` (`dotnet tool install --global dotnet-ef --version <the output of --tool-version>`); generated scripts are release artifacts and are never committed.
 
 Local commands pack and validate only. Registry publication belongs to the protected GitHub workflow.

@@ -108,6 +108,17 @@ jobs:
         run: |
           dotnet test src/Back-end/Tests/NewHeap.Platform.Common.Tests/NewHeap.Platform.Common.Tests.csproj --configuration Release /p:RestoreConfigFile="$RUNNER_TEMP/nuget.public.config"
           dotnet test src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NewHeap.Platform.AspNet.Common.Tests.csproj --configuration Release /p:RestoreConfigFile="$RUNNER_TEMP/nuget.public.config"
+      - name: Install the EF Core tools for the schema scripts
+        if: inputs.component == 'all' || inputs.component == 'nuget-common'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The release publishes idempotent SQL scripts of the assistant schema next to its packages.
+          dotnet tool install dotnet-ef \
+            --version "$(node tools/release/sql-scripts.mjs --tool-version)" \
+            --tool-path "$RUNNER_TEMP/dotnet-tools" \
+            --configfile "$RUNNER_TEMP/nuget.public.config"
+          echo "$RUNNER_TEMP/dotnet-tools" >> "$GITHUB_PATH"
       - name: Pack immutable release artifacts
         env:
           SELECTED_COMPONENT: ${{ inputs.component }}

@@ -90,6 +90,12 @@ internal sealed class NhAssistantPostgreSqlMigrationsSqlGenerator(
 }
 #pragma warning restore EF1001
 
+/// <summary>
+/// The context the EF tools create to add migrations and to write scripts. It generates SQL as a host
+/// does, with the schema routing of <see cref="NhAssistantPostgreSqlMigrationsSqlGenerator"/>, so a script
+/// carries no schema placeholder; <c>-- --schema &lt;name&gt;</c> writes a script for another schema
+/// (<see cref="NhAssistantStorage.DesignTimeOptions"/>).
+/// </summary>
 internal sealed class NhAssistantPostgreSqlDesignTimeDbContextFactory :
     IDesignTimeDbContextFactory<NhAssistantDbContext>
 {
@@ -97,8 +103,9 @@ internal sealed class NhAssistantPostgreSqlDesignTimeDbContextFactory :
     {
         var connectionString = Environment.GetEnvironmentVariable("NH_ASSISTANT_POSTGRESQL_CONNECTION")
             ?? "Host=localhost;Database=nh_assistant;Username=postgres;Password=postgres";
-        var storageOptions = new NhAssistantDbContextOptions();
+        var storageOptions = NhAssistantStorage.DesignTimeOptions(args);
         var options = new DbContextOptionsBuilder<NhAssistantDbContext>()
+            .ReplaceService<IMigrationsSqlGenerator, NhAssistantPostgreSqlMigrationsSqlGenerator>()
             .UseNpgsql(connectionString, postgreSql =>
             {
                 postgreSql.MigrationsAssembly(typeof(NhAssistantPostgreSqlDesignTimeDbContextFactory).Assembly.FullName);
