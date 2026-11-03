@@ -82,3 +82,33 @@
 - The mock API of `@newheap/platform-ai-chat/testing` serves the same routes from a scenario's `admin.ruleScripts`
   (`NhAssistantMockRuleScriptCeiling`), with versions that exist before it starts, dry runs from the tools and
   alert kinds a script names, shadow runs, four eyes and the server's refusals.
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: the agent builder
+
+- `AddAgentBuilder(builder => builder.ProfileName = ...)` (`NhAssistantAgentBuilderExtensions`,
+  `NhAssistantAgentBuilderOptions`) switches on the agent builder, `nh-agent-builder`: an assistant agent that helps
+  an administrator build a whole agent in a chat, with the policy `NhAssistantAgentBuilderIds.Policy`, which requires
+  the access and administration policies. It reads the catalog, the agents and what a rule script may call, dry-runs
+  rule scripts without effects, and creates and changes agents, run settings, data skills, data triggers and rule
+  scripts and sets versions live or in shadow, each save and step live after the administrator's approval on an
+  inline card. It works with the administrator's own rights through `INhAssistantAgentConfiguration`,
+  `INhAssistantAgentDefinitions`, `INhAssistantAgentControl` and `INhAssistantRuleScripts`, so their checks, ceilings
+  and four eyes apply, and it has no tool for grants, technical accounts, MCP servers, the code's ceilings or
+  deletions. Without the call nothing changes.
+- Its tools, `assistant.agent-builder.*` (`NhAssistantAgentBuilderIds.ToolIdPrefix`), are offered to the builder
+  alone, whatever another agent's selectors say, never to MCP clients, and `GET admin/tools` leaves them out. An
+  application whose discovery policy allow-lists tools lets the prefix through.
+
+| Breaking change | Required action |
+|---|---|
+| The administration refuses an agent with the id `nh-agent-builder`, which the platform reserves for the agent builder, as `id: not-allowed`, also when the builder is not switched on. | Rename an agent created in the administration with that id, for example through an agent package, before you change it. |
+
+## @newheap/platform-ai-chat: the agent builder in the administration
+
+- The Build tab of an agent's page in `nh-assistant-admin` has "Build with help", the assistant's chat panel in page
+  mode with the agent builder about that agent, and the list of agents has "New agent with help", which continues on
+  the page of the agent the builder created with the same chat. Both show only when the person may chat with the
+  builder, never on the builder's own page. The texts are `nh-assistant.agent-builder.*` and
+  `nh-assistant.admin.agent-builder.*` in English and Dutch.
+- `NhAssistantStore.setPageContextOverride(context)` gives the page context of the messages a component sends in
+  place of the config's `getPageContext`, as the builder's chat does with the agent it works on; `null` gives it back.
