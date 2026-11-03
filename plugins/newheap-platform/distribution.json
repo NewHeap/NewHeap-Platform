@@ -29,7 +29,7 @@
     "newheap-testing": "testing"
   },
   "compatiblePackages": {
-    "@newheap/nh-toastr": "0.0.7",
+    "@newheap/nh-toastr": "0.0.8",
     "@newheap/platform-ai-chat": "0.30.0",
     "@newheap/platform-common": "5.0.2",
     "NewHeap.Platform.AI.AgentFramework": "33.0.0",
