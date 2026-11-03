@@ -578,7 +578,14 @@
       "assistant-alert-kind-delivery-not-allowed": "The code of this kind of alert does not let administrators change this part of its delivery.",
       "assistant-alert-kind-delivery-invalid": "Check the delivery: a daily digest needs one to four different times such as 07:30, and quiet hours need a start and an end that differ.",
       "assistant-alert-model-not-allowed": "The model of this agent cannot raise this kind of alert: its code does not allow it, the agent does not list it, or the agent does no work of its own.",
-      "assistant-alert-model-shadow-first": "Switch this kind of alert to shadow first. The model's alerts go live only from shadow, also after the kind's template changed."
+      "assistant-alert-model-shadow-first": "Switch this kind of alert to shadow first. The model's alerts go live only from shadow, also after the kind's template changed.",
+      "assistant-rule-scripts-not-allowed": "The application's code does not let this agent have rule scripts, so nothing was saved or run.",
+      "assistant-rule-script-write-not-allowed": "A chosen write is not one the application's code allows for this agent's rule scripts. Choose only writes the list offers.",
+      "assistant-rule-script-version-not-found": "This version of the rule script no longer exists. Reload the rule script.",
+      "assistant-rule-script-not-candidate": "Only the candidate can go live, run in shadow or be discarded. Reload the rule script to see where its versions stand.",
+      "assistant-rule-script-four-eyes": "The application requires four eyes: the person who saved this version cannot set it live. Ask another administrator to set it live.",
+      "assistant-rule-script-subjects-invalid": "Choose one to twenty subjects the agent works on for the dry run.",
+      "assistant-rule-script-dry-run": "A write of a rule script in shadow or in a dry run was recorded and did not happen."
     },
     "notices": {
       "no-answer": "The assistant finished without an answer. Try again or rephrase your question.",

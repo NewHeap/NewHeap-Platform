@@ -61,6 +61,7 @@ import { NhAssistantAgentAccountControlComponent } from './nh-assistant-agent-ac
 import { NhAssistantAgentCompositionsComponent } from './nh-assistant-agent-compositions.component';
 import { NhAssistantAgentRolloutComponent, RolloutReview } from './nh-assistant-agent-rollout.component';
 import { NhAssistantAgentStateControlComponent } from './nh-assistant-agent-state-control.component';
+import { NhAssistantAgentRuleScriptsComponent } from '../rule-scripts/nh-assistant-agent-rule-scripts.component';
 import { startNhAssistantAdminTranslations } from '../../i18n/nh-assistant-admin-translations';
 import { NhAssistantAgentBuilderChatComponent } from '../builder/nh-assistant-agent-builder-chat.component';
 
@@ -109,7 +110,8 @@ let nextId = 0;
     NhAssistantAgentRolloutComponent,
     NhAssistantAgentStateControlComponent,
     NhAssistantAgentMetadataComponent,
-    NhAssistantAgentBuilderChatComponent
+    NhAssistantAgentBuilderChatComponent,
+    NhAssistantAgentRuleScriptsComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-page.component.html',

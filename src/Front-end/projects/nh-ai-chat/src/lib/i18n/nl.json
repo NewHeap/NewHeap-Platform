@@ -578,7 +578,14 @@
       "assistant-alert-kind-delivery-not-allowed": "De code van dit soort attentie laat beheerders dit deel van de bezorging niet wijzigen.",
       "assistant-alert-kind-delivery-invalid": "Controleer de bezorging: een dagelijks overzicht heeft één tot vier verschillende tijden nodig, zoals 07:30, en stille uren een begin en een einde die verschillen.",
       "assistant-alert-model-not-allowed": "Het taalmodel van deze agent kan dit soort attentie niet geven: de code staat het niet toe, de agent noemt het niet, of de agent doet geen eigen werk.",
-      "assistant-alert-model-shadow-first": "Zet dit soort attentie eerst in schaduw. De attenties van het taalmodel gaan alleen vanuit schaduw live, ook nadat het sjabloon van het soort veranderde."
+      "assistant-alert-model-shadow-first": "Zet dit soort attentie eerst in schaduw. De attenties van het taalmodel gaan alleen vanuit schaduw live, ook nadat het sjabloon van het soort veranderde.",
+      "assistant-rule-scripts-not-allowed": "De code van de applicatie staat geen regelscripts toe voor deze agent, dus er is niets opgeslagen of uitgevoerd.",
+      "assistant-rule-script-write-not-allowed": "Een gekozen wijziging is niet een die de code van de applicatie toestaat voor de regelscripts van deze agent. Kies alleen wijzigingen die de lijst aanbiedt.",
+      "assistant-rule-script-version-not-found": "Deze versie van het regelscript bestaat niet meer. Laad het regelscript opnieuw.",
+      "assistant-rule-script-not-candidate": "Alleen de kandidaat kan live gaan, in schaduw draaien of worden verworpen. Laad het regelscript opnieuw om te zien waar de versies staan.",
+      "assistant-rule-script-four-eyes": "De applicatie vraagt om vier ogen: wie deze versie opsloeg, kan haar niet live zetten. Vraag een andere beheerder om haar live te zetten.",
+      "assistant-rule-script-subjects-invalid": "Kies voor de proefrun één tot twintig onderwerpen waar de agent aan werkt.",
+      "assistant-rule-script-dry-run": "Een wijziging van een regelscript in schaduw of in een proefrun is vastgelegd en niet uitgevoerd."
     },
     "notices": {
       "no-answer": "De assistent is klaar zonder antwoord. Probeer het opnieuw of stel je vraag anders.",

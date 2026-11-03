@@ -1,0 +1,147 @@
+@let current = record();
+<div class="run-record" [attr.data-rule-script-record]="current.id" [attr.data-rule-script-record-kind]="current.kind">
+  <p class="meta" data-rule-script-record-summary>
+    <span class="pill" [class.success]="completed()" [class.warning]="!completed()">
+      {{ 'nh-assistant.admin.rule-scripts.record.completed' | translate: { completed: current.completedCount, count: current.subjectCount } }}
+    </span>
+    @if (current.kind === 'dry-run') {
+      <span [attr.title]="accountTitle(current.ranBy)">{{ 'nh-assistant.admin.rule-scripts.record.dry-run-by' | translate: { user: accountName(current.ranBy), date: (current.ranAt | date: 'medium') } }}</span>
+    } @else {
+      <span>{{ 'nh-assistant.admin.rule-scripts.record.shadow-at' | translate: { date: (current.ranAt | date: 'medium') } }}</span>
+      @if (current.runId) {
+        <span class="mono" data-rule-script-record-run>{{ 'nh-assistant.admin.rule-scripts.record.run' | translate: { run: current.runId } }}</span>
+      }
+    }
+  </p>
+  <p class="muted">{{ 'nh-assistant.admin.rule-scripts.record.nothing-happened' | translate }}</p>
+
+  <ul class="record-subjects">
+    @for (subject of current.subjects; track subject.subjectType + '/' + subject.subjectId; let index = $index) {
+      <li [attr.data-rule-script-subject]="subject.subjectType + '/' + subject.subjectId" [attr.data-rule-script-subject-status]="subject.status">
+        <details [open]="opens(subject, index)">
+          <summary>
+            <span class="pill" [class]="toneOf(subject.status)">{{ 'nh-assistant.admin.rule-scripts.record.status.' + subject.status | translate }}</span>
+            <strong>{{ subjectName(subject) }}</strong>
+            <span class="mono muted">{{ subject.subjectType }}/{{ subject.subjectId }}</span>
+          </summary>
+
+          <div class="record-body">
+            @if (subject.code) {
+              <p class="message" [class.warning]="subject.status === 'stopped'" [class.error]="subject.status === 'failed'" data-rule-script-subject-code>
+                <span>
+                  {{ codeKeys(subject.code) | nhAssistantTranslate: subject.code }}
+                  @if (subject.line !== null) {
+                    <span class="mono">{{ 'nh-assistant.admin.rule-scripts.position' | translate: { line: subject.line, column: subject.column ?? 1 } }}</span>
+                  }
+                  @if (subject.message) {
+                    <span class="block mono detail">{{ subject.message }}</span>
+                  }
+                </span>
+              </p>
+            }
+
+            @if (subject.end; as end) {
+              <p data-rule-script-subject-end>
+                <span class="tag">{{ 'nh-assistant.admin.rule-scripts.record.end.' + end.kind | translate: { skill: end.skillId } }}</span>
+                {{ end.text }}
+              </p>
+            }
+
+            <h6>{{ 'nh-assistant.admin.rule-scripts.record.calls' | translate }}</h6>
+            @if (subject.calls.length === 0) {
+              <p class="muted">{{ 'nh-assistant.admin.rule-scripts.record.no-calls' | translate }}</p>
+            } @else {
+              <ol class="record-list" data-rule-script-calls>
+                @for (call of subject.calls; track call.call) {
+                  <li [attr.data-rule-script-call]="call.tool" [attr.data-rule-script-call-outcome]="call.outcome">
+                    <span class="mono">{{ call.tool }}</span>
+                    @if (call.write) {
+                      <span class="badge warning">{{ 'nh-assistant.admin.rule-scripts.catalog.write' | translate }}</span>
+                    }
+                    @if (call.code === dryRunWrite) {
+                      <!-- A write without effects: recorded with what it would become, below. -->
+                      <span class="tag">{{ 'nh-assistant.admin.rule-scripts.record.outcome.recorded' | translate }}</span>
+                    } @else {
+                      <span class="tag">{{ ['nh-assistant.admin.rule-scripts.record.outcome.' + call.outcome] | nhAssistantTranslate: call.outcome }}</span>
+                    }
+                    @if (call.code && call.code !== dryRunWrite) {
+                      <span class="muted">{{ codeKeys(call.code) | nhAssistantTranslate: call.code }}</span>
+                    }
+                  </li>
+                }
+              </ol>
+            }
+
+            @if (subject.writes.length > 0) {
+              <h6>{{ 'nh-assistant.admin.rule-scripts.record.writes' | translate }}</h6>
+              <ul class="record-list" data-rule-script-writes>
+                @for (write of subject.writes; track write.call) {
+                  <li [attr.data-rule-script-write]="write.tool" [attr.data-rule-script-write-outcome]="write.outcome">
+                    <span class="mono">{{ write.tool }}</span>
+                    <span class="badge" [class.warning]="write.outcome !== 'would-run'">{{ 'nh-assistant.admin.rule-scripts.record.would.' + write.outcome | translate }}</span>
+                    <code class="mono input">{{ write.input }}</code>
+                  </li>
+                }
+              </ul>
+            }
+
+            @if (subject.proposals.length > 0) {
+              <h6>{{ 'nh-assistant.admin.rule-scripts.record.proposals' | translate }}</h6>
+              <ul class="record-list" data-rule-script-proposals>
+                @for (proposal of subject.proposals; track $index) {
+                  <li>
+                    <span class="mono">{{ proposal.tool }}</span>
+                    <code class="mono input">{{ proposal.input }}</code>
+                    @if (proposal.rationale) {
+                      <span class="muted block">{{ proposal.rationale }}</span>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+
+            @if (subject.alerts.length > 0) {
+              <h6>{{ 'nh-assistant.admin.rule-scripts.record.alerts' | translate }}</h6>
+              <ul class="record-list" data-rule-script-alerts>
+                @for (alert of subject.alerts; track alert.kind + '/' + alert.key) {
+                  <li [attr.data-rule-script-alert]="alert.kind">
+                    <strong>{{ ['nh-assistant.alert-kinds.' + alert.kind + '.name'] | nhAssistantTranslate: alert.kind }}</strong>
+                    <span class="mono muted">{{ 'nh-assistant.admin.rule-scripts.record.key' | translate: { key: alert.key } }}</span>
+                    @if (alert.urgency) {
+                      <span class="tag">{{ alert.urgency }}</span>
+                    }
+                    @for (parameter of alert.parameters | keyvalue; track parameter.key) {
+                      <span class="tag mono">{{ parameter.key }}: {{ parameter.value }}</span>
+                    }
+                    @if (alert.recipients.length > 0) {
+                      <span class="muted block">{{ 'nh-assistant.admin.rule-scripts.record.recipients' | translate: { count: alert.recipients.length } }}</span>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+
+            @if (subject.resolves.length > 0) {
+              <h6>{{ 'nh-assistant.admin.rule-scripts.record.resolves' | translate }}</h6>
+              <ul class="record-list" data-rule-script-resolves>
+                @for (resolve of subject.resolves; track resolve.kind + '/' + (resolve.key ?? '')) {
+                  <li>
+                    <strong>{{ ['nh-assistant.alert-kinds.' + resolve.kind + '.name'] | nhAssistantTranslate: resolve.kind }}</strong>
+                    <span class="mono muted">
+                      {{ resolve.key === null ? ('nh-assistant.admin.rule-scripts.record.every-key' | translate) : ('nh-assistant.admin.rule-scripts.record.key' | translate: { key: resolve.key }) }}
+                    </span>
+                  </li>
+                }
+              </ul>
+            }
+
+            @if (subject.logs.length > 0) {
+              <h6>{{ 'nh-assistant.admin.rule-scripts.record.logs' | translate }}</h6>
+              <pre class="mono log" data-rule-script-logs>{{ subject.logs.join('\n') }}</pre>
+            }
+          </div>
+        </details>
+      </li>
+    }
+  </ul>
+</div>

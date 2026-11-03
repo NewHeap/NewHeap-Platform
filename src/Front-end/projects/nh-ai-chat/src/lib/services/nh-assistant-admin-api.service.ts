@@ -97,6 +97,19 @@ import {
 } from '../models/assistant-agent-package.models';
 import { AgentRunFilter, AgentRunHistory } from '../models/assistant-agent-run.models';
 import {
+  RuleScript,
+  RuleScriptCatalog,
+  RuleScriptChangeRequest,
+  RuleScriptCheck,
+  RuleScriptComparison,
+  RuleScriptDryRunRequest,
+  RuleScriptLive,
+  RuleScriptRunRecord,
+  RuleScriptSaveRequest,
+  RuleScriptShadowRequest,
+  RuleScriptVersion
+} from '../models/assistant-rule-script.models';
+import {
   AgentHandOffs,
   AgentShadowVariants,
   DataHandOff,
@@ -264,6 +277,113 @@ export class NhAssistantAdminApiService {
     return this.request<AlertModelVersion[]>(
       'GET',
       `admin/agents/${encodeURIComponent(agentId)}/alert-kinds/${encodeURIComponent(kindId)}/model/versions`);
+  }
+
+  /**
+   * The rule script of the agent's own rules, or with `skillId` of one skill (RB-1 to RB-6): whether the
+   * code's ceiling allows it (`allowed`), its revision, the live version and the candidate, the code rule
+   * a live version takes the place of, the ceiling and every version, newest first. An unknown agent or
+   * skill fails with `assistant-agent-not-found` or `assistant-skill-not-found`.
+   */
+  getRuleScript(agentId: string, skillId: string | null): Observable<RuleScript> {
+    return this.request<RuleScript>('GET', ruleScriptPath(agentId, skillId));
+  }
+
+  /**
+   * What a script of the agent or skill sees: its tools with their signatures, which are writes, which
+   * the ceiling allows and which a version with `writes` may call, the alert kinds, the platform
+   * functions and the limits. Without `writes` the server assumes every write of the ceiling; `[]` asks
+   * for a version without writes. Outside the ceiling `assistant-rule-scripts-not-allowed`.
+   */
+  getRuleScriptCatalog(agentId: string, skillId: string | null, writes?: readonly string[]): Observable<RuleScriptCatalog> {
+    const path = `${ruleScriptPath(agentId, skillId)}/catalog`;
+    // An empty list is a question of its own, so it goes as an empty value rather than none.
+    const query = writes === undefined ? '' : `?${new URLSearchParams({ writes: writes.join(',') }).toString()}`;
+    return this.request<RuleScriptCatalog>('GET', path + query);
+  }
+
+  /** Whether a script parses and fits the length, with the line and column of a problem; nothing is saved. */
+  checkRuleScript(agentId: string, skillId: string | null, script: string): Observable<RuleScriptCheck> {
+    return this.request<RuleScriptCheck>('POST', `${ruleScriptPath(agentId, skillId)}/check`, { script });
+  }
+
+  /**
+   * Saves the next version: a candidate, which may run in shadow at once, or with `live` straight live
+   * (RB-3), which supersedes the live version. A newer version discards the candidate that waited. Fails
+   * with the field error `script` for a script that does not parse, `assistant-rule-script-write-not-allowed`
+   * for a write outside the ceiling, `assistant-rule-script-four-eyes` for live under four eyes and
+   * `assistant-version-conflict` for a stale `expectedRevision`.
+   */
+  saveRuleScriptVersion(agentId: string, skillId: string | null, request: RuleScriptSaveRequest): Observable<RuleScriptVersion> {
+    return this.request<RuleScriptVersion>('POST', `${ruleScriptPath(agentId, skillId)}/versions`, request);
+  }
+
+  /**
+   * Runs a version on one to twenty subjects without effects (RB-5): writes, proposals and alerts are
+   * recorded with what would become of them and never happen. The record is kept as the version's latest
+   * dry run. Too many, no or invalid subjects fail with `assistant-rule-script-subjects-invalid`.
+   */
+  dryRunRuleScriptVersion(
+    agentId: string,
+    skillId: string | null,
+    version: number,
+    request: RuleScriptDryRunRequest
+  ): Observable<RuleScriptRunRecord> {
+    return this.request<RuleScriptRunRecord>('POST', `${ruleScriptVersionPath(agentId, skillId, version)}/dry-run`, request);
+  }
+
+  /** The latest dry run of a version, or `null` when it has none (the server answers 204). */
+  getRuleScriptDryRun(agentId: string, skillId: string | null, version: number): Observable<RuleScriptRunRecord | null> {
+    return this.request<RuleScriptRunRecord | undefined>('GET', `${ruleScriptVersionPath(agentId, skillId, version)}/dry-run`).pipe(
+      map(record => record ?? null));
+  }
+
+  /** The newest shadow runs of a version, newest first, each with the run it went along with. */
+  getRuleScriptShadowRuns(agentId: string, skillId: string | null, version: number): Observable<RuleScriptRunRecord[]> {
+    return this.request<RuleScriptRunRecord[]>('GET', `${ruleScriptVersionPath(agentId, skillId, version)}/shadow-runs`);
+  }
+
+  /**
+   * Sets a candidate live; the live version is superseded and the next rule turn runs it instead of the
+   * code rule. Answers it with its latest dry run, or none. Under four eyes the version's author fails
+   * with `assistant-rule-script-four-eyes`; a version that is no candidate with
+   * `assistant-rule-script-not-candidate`.
+   */
+  setRuleScriptVersionLive(
+    agentId: string,
+    skillId: string | null,
+    version: number,
+    request: RuleScriptChangeRequest
+  ): Observable<RuleScriptLive> {
+    return this.request<RuleScriptLive>('POST', `${ruleScriptVersionPath(agentId, skillId, version)}/live`, request);
+  }
+
+  /** Lets a candidate run in shadow next to the live rules, or stop. */
+  setRuleScriptVersionShadow(
+    agentId: string,
+    skillId: string | null,
+    version: number,
+    request: RuleScriptShadowRequest
+  ): Observable<RuleScriptVersion> {
+    return this.request<RuleScriptVersion>('POST', `${ruleScriptVersionPath(agentId, skillId, version)}/shadow`, request);
+  }
+
+  /** Discards a candidate; it stays as history. The live version is replaced by another, never discarded. */
+  discardRuleScriptVersion(
+    agentId: string,
+    skillId: string | null,
+    version: number,
+    request: RuleScriptChangeRequest
+  ): Observable<RuleScriptVersion> {
+    return this.request<RuleScriptVersion>('POST', `${ruleScriptVersionPath(agentId, skillId, version)}/discard`, request);
+  }
+
+  /**
+   * Compares `version` with `otherVersion`, by default the live version or, for the live version, the one
+   * before: the script line by line, the writes added and removed and the latest dry run of both.
+   */
+  compareRuleScriptVersions(agentId: string, skillId: string | null, version: number, otherVersion?: number | null): Observable<RuleScriptComparison> {
+    return this.request<RuleScriptComparison>('GET', withQuery(`${ruleScriptPath(agentId, skillId)}/compare`, { version, with: otherVersion }));
   }
 
   /** Puts one skill of an agent in shadow, live, or back to the mode in code. */
@@ -896,6 +1016,15 @@ function handOffPath(agentId: string, subjectType: string): string {
 
 function metadataPath(agentId: string, name: string): string {
   return `${agentPath(agentId)}/metadata/${encodeURIComponent(name)}`;
+}
+
+/** The rule script of the agent's own rules, or of one of its skills. */
+function ruleScriptPath(agentId: string, skillId: string | null): string {
+  return skillId === null ? `${agentPath(agentId)}/rule-script` : `${skillPath(agentId, skillId)}/rule-script`;
+}
+
+function ruleScriptVersionPath(agentId: string, skillId: string | null, version: number): string {
+  return `${ruleScriptPath(agentId, skillId)}/versions/${encodeURIComponent(String(version))}`;
 }
 
 /**

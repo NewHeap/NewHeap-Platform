@@ -1,0 +1,83 @@
+<div class="stack" [attr.data-rule-script-dry-run]="version()">
+  <p class="muted">{{ 'nh-assistant.admin.rule-scripts.dry-run.explain' | translate: { count: maxSubjects } }}</p>
+
+  @if (targets().length === 0) {
+    <p class="message warning" role="status" data-rule-script-dry-run-no-target>
+      <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.rule-scripts.dry-run.no-target' | translate }}
+    </p>
+  } @else {
+    <form class="dry-run-form" novalidate (submit)="$event.preventDefault(); run()">
+      <div class="dry-run-pick">
+        @if (targets().length > 1) {
+          <div class="field">
+            <label [for]="id + '-type'">{{ 'nh-assistant.admin.rule-scripts.dry-run.type' | translate }}</label>
+            <select [id]="id + '-type'" data-rule-script-dry-run-type (change)="chooseTarget(value($event))">
+              @for (item of targets(); track item.key) {
+                <option [value]="item.key" [selected]="target()?.key === item.key">{{ item.type.isSystem ? item.type.name : (item.type.pluralName ?? item.type.name) }}</option>
+              }
+            </select>
+          </div>
+        }
+        @if (target(); as current) {
+          <div class="field grow" data-rule-script-dry-run-subject>
+            <label [for]="id + '-subject'">{{ 'nh-assistant.admin.rule-scripts.dry-run.subject' | translate: { type: current.type.name } }}</label>
+            @for (round of [pickerRound()]; track 'picker-' + round) {
+              <nh-assistant-subject-picker
+                [inputId]="id + '-subject'"
+                [subjectType]="current.type"
+                [perDivision]="current.perDivision"
+                [disabled]="full() || running()"
+                (subjectChange)="picked.set($event)" />
+            }
+          </div>
+        }
+        <button class="secondary add" type="button" data-rule-script-dry-run-add [disabled]="!picked() || full() || running()" (click)="add()">
+          <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.rule-scripts.dry-run.add' | translate }}
+        </button>
+      </div>
+
+      @if (chosen().length > 0) {
+        <ul class="chips" [attr.aria-label]="'nh-assistant.admin.rule-scripts.dry-run.chosen' | translate: { count: chosen().length, max: maxSubjects }" data-rule-script-dry-run-chosen>
+          @for (subject of chosen(); track subject.type + '/' + subject.id) {
+            <li class="chip" [attr.data-rule-script-dry-run-chosen-subject]="subject.type + '/' + subject.id">
+              <span>{{ subject.displayName ?? subject.id }}</span>
+              <button
+                type="button"
+                [attr.aria-label]="'nh-assistant.admin.rule-scripts.dry-run.remove' | translate: { subject: subject.displayName ?? subject.id }"
+                [attr.title]="'nh-assistant.admin.rule-scripts.dry-run.remove' | translate: { subject: subject.displayName ?? subject.id }"
+                [disabled]="running()"
+                (click)="remove(subject)">
+                <nh-assistant-icon name="close" />
+              </button>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="muted" data-rule-script-dry-run-empty>{{ 'nh-assistant.admin.rule-scripts.dry-run.none-chosen' | translate }}</p>
+      }
+      @if (full()) {
+        <p class="muted" data-rule-script-dry-run-full>{{ 'nh-assistant.admin.rule-scripts.dry-run.full' | translate: { count: maxSubjects } }}</p>
+      }
+
+      <div class="card-actions">
+        <button class="primary" type="submit" data-rule-script-dry-run-start [disabled]="chosen().length === 0 || running()">
+          {{ (running() ? 'nh-assistant.admin.rule-scripts.dry-run.running' : 'nh-assistant.admin.rule-scripts.dry-run.start') | translate: { count: chosen().length } }}
+        </button>
+      </div>
+      @if (error(); as failure) {
+        <p class="form-error" role="alert" data-rule-script-dry-run-error><nh-assistant-icon name="warning" />{{ errorKeys() | nhAssistantTranslate: failure.code }}</p>
+      }
+    </form>
+  }
+
+  <div aria-live="polite">
+    @if (loading()) {
+      <p class="state" role="status">{{ 'nh-assistant.admin.loading' | translate }}</p>
+    } @else if (latest(); as record) {
+      <h6>{{ 'nh-assistant.admin.rule-scripts.dry-run.latest' | translate }}</h6>
+      <nh-assistant-rule-script-run-record [record]="record" [names]="names()" />
+    } @else {
+      <p class="muted" data-rule-script-dry-run-never>{{ 'nh-assistant.admin.rule-scripts.dry-run.never' | translate }}</p>
+    }
+  </div>
+</div>
