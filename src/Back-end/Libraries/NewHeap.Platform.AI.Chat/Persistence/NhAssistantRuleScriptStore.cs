@@ -173,11 +173,12 @@ internal sealed class NhAssistantRuleScriptStore(NhAssistantDbContextFactory con
         context.RuleScriptRunRecords.Add(record);
         await context.SaveChangesAsync(cancellationToken);
 
+        // The record just stored is always kept, also when an older one has the same time.
         var older = await context.RuleScriptRunRecords
-            .Where(item => item.VersionId == record.VersionId && item.Kind == record.Kind)
+            .Where(item => item.VersionId == record.VersionId && item.Kind == record.Kind && item.Id != record.Id)
             .OrderByDescending(item => item.RanAt)
             .ThenByDescending(item => item.Id)
-            .Skip(keep)
+            .Skip(keep - 1)
             .Select(item => item.Id)
             .ToListAsync(cancellationToken);
         if (older.Count > 0)

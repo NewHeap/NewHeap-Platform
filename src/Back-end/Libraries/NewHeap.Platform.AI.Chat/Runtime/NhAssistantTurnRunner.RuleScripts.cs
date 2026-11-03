@@ -171,7 +171,7 @@ internal sealed partial class NhAssistantTurnRunner
                 ParentInvocationId = Guid.NewGuid(),
                 RuleScriptVersion = version.Version
             };
-            var host = new NhAssistantRuleScriptDryHost(tools, recording, state.Scope.Agent, IsShadowRunTurn(agentTurn), services, logger);
+            var host = new NhAssistantRuleScriptDryHost(tools, recording, state.Scope.Agent, agentTurn.Options.Accountability, IsShadowRunTurn(agentTurn), services, logger);
             var run = new NhAssistantRuleScriptRun((tool, input, rationale, _) =>
             {
                 recording.AddProposal(tool, ToolIdOf(tools, tool), input, rationale);

@@ -659,7 +659,7 @@ internal sealed class NhAssistantRuleScriptService(
                 request,
                 origin,
                 callable,
-                new NhAssistantRuleScriptDryHost(functions, recording, definition, false, services, logger));
+                new NhAssistantRuleScriptDryHost(functions, recording, definition, options.Accountability, false, services, logger));
             var run = new NhAssistantRuleScriptRun((tool, input, rationale, _) =>
             {
                 var toolId = functions.ContainsKey(tool)

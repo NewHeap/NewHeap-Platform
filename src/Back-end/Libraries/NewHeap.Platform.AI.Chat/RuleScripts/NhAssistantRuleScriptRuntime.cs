@@ -72,12 +72,13 @@ internal static class NhAssistantRuleScriptRuntime
     }
 
     /// <summary>
-    /// What a write would become without effects: run when it needs no approval and the agent executes,
-    /// a proposal when it needs one or the agent only proposes, otherwise the approval policy decides.
+    /// What a write would become without effects: run when it needs no approval and the agent executes
+    /// with a person or account answering for it, a proposal when it needs one, the agent only proposes or
+    /// answers for itself, otherwise the approval policy decides.
     /// </summary>
-    public static string Would(NhAiToolDescriptor descriptor, NhAssistantAgentDefinition agent, bool shadowThread)
+    public static string Would(NhAiToolDescriptor descriptor, NhAssistantAgentDefinition agent, NhAiAgentAccountability accountability, bool shadowThread)
     {
-        if (!agent.CanMutate || shadowThread)
+        if (!agent.CanMutate || shadowThread || accountability == NhAiAgentAccountability.Agent)
         {
             return NhAssistantRuleScriptWouldOutcomes.Propose;
         }
@@ -353,6 +354,7 @@ internal sealed class NhAssistantRuleScriptDryHost(
     IReadOnlyDictionary<string, AIFunction> functions,
     NhAssistantRuleScriptRecording recording,
     NhAssistantAgentDefinition agent,
+    NhAiAgentAccountability accountability,
     bool shadowThread,
     IServiceProvider services,
     ILogger? logger) : INhAssistantStepHost
@@ -365,7 +367,7 @@ internal sealed class NhAssistantRuleScriptDryHost(
     {
         if (descriptor.Effect != NhAiToolEffect.ReadOnly)
         {
-            recording.AddWrite(step.Index + 1, descriptor, NhAssistantRuleScriptRuntime.Would(descriptor, agent, shadowThread), arguments);
+            recording.AddWrite(step.Index + 1, descriptor, NhAssistantRuleScriptRuntime.Would(descriptor, agent, accountability, shadowThread), arguments);
             return new NhAssistantCallOutcome(NhAssistantRuleScriptRuntime.DryRunWriteResult(), NhAssistantToolStepStatus.Failed)
             {
                 Code = NhAssistantRuleScriptCodes.DryRunWrite
