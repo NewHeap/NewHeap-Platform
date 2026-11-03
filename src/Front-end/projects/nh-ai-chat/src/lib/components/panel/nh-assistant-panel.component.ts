@@ -179,6 +179,20 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
    * store do not pass it. Left unset, every message goes at once.
    */
   readonly beforeSubmit = input<NhAssistantBeforeSubmit | null>(null);
+  /** The panel's heading, translated by the host; the assistant's own title when unset. */
+  readonly title = input<string | null>(null);
+  /**
+   * The ids of the only agents the composer's agent picker offers, for a panel that chats with one agent
+   * of a page, such as the agent builder; the picker hides when one remains. Unset, it offers every agent
+   * the person may choose.
+   */
+  readonly agents = input<readonly string[] | null>(null);
+  /** The agents of the composer's picker: the store's, within `agents` when the host set them. */
+  readonly pickerAgents = computed(() => {
+    const ids = this.agents();
+    const agents = this.store.pickerAgents();
+    return ids === null ? agents : agents.filter(agent => ids.includes(agent.id));
+  });
   /** True while the conversation list shows over the thread. */
   readonly listOpen = computed(() => this.conversationsOpen() && this.conversationList() === 'panel');
   /** True while the conversations are listed beside the thread: in a page with its own list. */

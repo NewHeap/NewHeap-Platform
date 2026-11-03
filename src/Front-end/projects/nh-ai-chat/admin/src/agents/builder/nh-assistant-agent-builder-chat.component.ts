@@ -49,7 +49,14 @@ export class NhAssistantAgentBuilderChatComponent {
   readonly agentCreated = output<string>();
 
   readonly id = `nh-assistant-agent-builder-${nextId++}`;
+  /** The panel's picker offers the builder only: this chat is with the builder. */
+  readonly builderOnly: readonly string[] = [NH_ASSISTANT_AGENT_BUILDER_ID];
   readonly open = signal(false);
+  /**
+   * What the assistant's chat showed before the builder took it over, which it shows again once the
+   * builder's chat closes, so the chat elsewhere in the application does not stay with the builder.
+   */
+  private before: { agentId: string | null; conversationId: string | null } | null = null;
   /** The administrator closed the chat: it no longer opens by itself. */
   private readonly closed = signal(false);
   /** The person may chat with the builder, and this is not the builder's own page. */
@@ -64,6 +71,7 @@ export class NhAssistantAgentBuilderChatComponent {
     inject(DestroyRef).onDestroy(() => {
       if (this.open()) {
         this.store.setPageContextOverride(null);
+        this.restore();
       }
     });
 
@@ -116,6 +124,9 @@ export class NhAssistantAgentBuilderChatComponent {
   /** Opens the chat: the one about the agent when there is one, otherwise a new chat with the builder. */
   show(): void {
     const agent = this.agent();
+    if (this.before === null && this.store.selectedAgentId() !== NH_ASSISTANT_AGENT_BUILDER_ID) {
+      this.before = { agentId: this.store.selectedAgentId(), conversationId: this.store.activeConversation()?.id ?? null };
+    }
     this.open.set(true);
     this.store.setPageContextOverride(this.contextOf(agent));
     const conversationId = this.chats.conversationOf(agent?.id ?? null);
@@ -133,6 +144,33 @@ export class NhAssistantAgentBuilderChatComponent {
     this.closed.set(true);
     this.open.set(false);
     this.store.setPageContextOverride(null);
+    this.restore();
+  }
+
+  /**
+   * Shows the chat the assistant showed before the builder's again, or a new chat with the agent chosen
+   * then (or the first other agent), while the builder's chat is still the one open.
+   */
+  private restore(): void {
+    const before = this.before;
+    this.before = null;
+    if (this.store.selectedAgentId() !== NH_ASSISTANT_AGENT_BUILDER_ID
+        && this.store.activeConversation()?.agentId !== NH_ASSISTANT_AGENT_BUILDER_ID) {
+      return;
+    }
+
+    if (before?.conversationId) {
+      void this.store.openConversation(before.conversationId);
+      return;
+    }
+
+    this.store.startNewConversation();
+    const agentId = before?.agentId && before.agentId !== NH_ASSISTANT_AGENT_BUILDER_ID
+      ? before.agentId
+      : this.store.chatAgents().find(agent => agent.id !== NH_ASSISTANT_AGENT_BUILDER_ID)?.id;
+    if (agentId) {
+      this.store.selectAgent(agentId);
+    }
   }
 
   private contextOf(agent: AdminAgent | null) {

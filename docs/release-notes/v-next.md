@@ -112,3 +112,8 @@
   `nh-assistant.admin.agent-builder.*` in English and Dutch.
 - `NhAssistantStore.setPageContextOverride(context)` gives the page context of the messages a component sends in
   place of the config's `getPageContext`, as the builder's chat does with the agent it works on; `null` gives it back.
+- The builder's chat is headed "Agent builder" and offers the builder only. Once it closes, or its page is left, the
+  assistant's chat elsewhere in the application shows the chat or the agent it showed before.
+- `nh-assistant-panel` takes `title`, the heading the host translated, and `agents`, the ids of the only agents its
+  agent picker offers; the picker hides when one remains. Unset, they keep the assistant's title and every agent the
+  person may choose.

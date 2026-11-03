@@ -155,6 +155,42 @@ describe('The agent builder in the administration', () => {
     expect(own.querySelector('[data-agent-builder]')).toBeNull();
   });
 
+  it('is a chat with the builder only, and leaves the assistant\'s chat as it was', async () => {
+    await configure(true);
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    const store = TestBed.inject(NhAssistantStore);
+    await store.initialize();
+    store.selectAgent('planner');
+
+    let page = await openAdminAgent(fixture, element, 'planner', 'build');
+    let section = page.querySelector<HTMLElement>('[data-agent-builder]')!;
+    (section.querySelector('[data-agent-builder-open]') as HTMLButtonElement).click();
+    await settleAdmin(fixture);
+    const panel = section.querySelector('[data-agent-builder-chat] nh-assistant-panel')!;
+    expect(text(panel.querySelector('header h2'))).toBe('Agent builder');
+    // The person may chat with the other agents too, but this chat offers the builder only.
+    expect(store.pickerAgents().length).toBe(3);
+    expect(panel.querySelector('nh-assistant-agent-picker')).toBeNull();
+    expect(store.selectedAgentId()).toBe('nh-agent-builder');
+
+    // Closing the builder's chat gives the assistant's chat its agent back.
+    (section.querySelector('[data-agent-builder-close]') as HTMLButtonElement).click();
+    await settleAdmin(fixture);
+    expect(store.selectedAgentId()).toBe('planner');
+    expect(store.activeConversation()).toBeNull();
+
+    // So does leaving the page while it is open.
+    (section.querySelector('[data-agent-builder-open]') as HTMLButtonElement).click();
+    await settleAdmin(fixture);
+    expect(store.selectedAgentId()).toBe('nh-agent-builder');
+    (adminAgentPage(element).querySelector('[data-back]') as HTMLButtonElement).click();
+    await settleAdmin(fixture);
+    expect(store.selectedAgentId()).toBe('planner');
+    page = await openAdminAgent(fixture, element, 'deadline-watch', 'build');
+    section = page.querySelector<HTMLElement>('[data-agent-builder]')!;
+    expect(section.querySelector('[data-agent-builder-chat]')).toBeNull();
+  });
+
   it('makes a new agent with help and continues on its page with the same chat', async () => {
     const contexts: (ClientContext | null)[] = [];
     await configure(true, contexts);

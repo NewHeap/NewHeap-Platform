@@ -8,7 +8,7 @@
     [attr.aria-labelledby]="titleId">
     <header class="header">
       <div class="heading">
-        <h2 [id]="titleId">{{ 'nh-assistant.panel.title' | translate }}</h2>
+        <h2 [id]="titleId">{{ title() ?? ('nh-assistant.panel.title' | translate) }}</h2>
       </div>
       <div class="header-actions">
         @if (store.enabled()) {
@@ -315,11 +315,11 @@
           (attach)="attach($event)"
           (removeAttachment)="store.removeAttachment($event)"
           (cancel)="cancel()">
-          @if (store.pickerAgents().length > 1) {
+          @if (pickerAgents().length > 1) {
             <nh-assistant-agent-picker
               nhAssistantComposerControls
               [compact]="true"
-              [agents]="store.pickerAgents()"
+              [agents]="pickerAgents()"
               [selectedAgentId]="store.selectedAgentId()"
               (agentChange)="store.selectAgent($event)" />
           }

@@ -2058,6 +2058,7 @@
         "reset-locked": "Pakket {{package}} vergrendelt velden van de definitie. Ontkoppel ze eerst om de agent terug te zetten."
       },
       "agent-builder": {
+        "chat-title": "Agentbouwer",
         "new": "Nieuwe agent met hulp",
         "title": "Bouwen met hulp",
         "description": "De agentbouwer wijzigt deze agent samen met jou in gewone taal: de instructies, tools, vaardigheden, triggers, run-instellingen en regelscripts. Hij leest wat de applicatie aanbiedt, en elke wijziging en elke stap naar live wacht op jouw goedkeuring in de chat.",

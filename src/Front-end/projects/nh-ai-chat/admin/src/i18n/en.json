@@ -2058,6 +2058,7 @@
         "reset-locked": "Package {{package}} locks fields of the definition. Unlink them first to reset the agent."
       },
       "agent-builder": {
+        "chat-title": "Agent builder",
         "new": "New agent with help",
         "title": "Build with help",
         "description": "The agent builder changes this agent with you in plain language: its instructions, tools, skills, triggers, run settings and rule scripts. It reads what the application offers, and every save and every step live waits for your approval in the chat.",
