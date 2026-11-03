@@ -24,6 +24,28 @@ export const PROJECT_PLANNER_ID = 'sample-project-planner';
 /** The operations account the playground's agents that work on their own answer to. */
 const OPERATIONS_ACCOUNT_ID = '9c2f4c58-2d7b-4a43-9c55-1f1b4f2a6e11';
 
+/** The project lead, an administrator who wrote the document check's rule script versions. */
+const PROJECT_LEAD_ACCOUNT_ID = '0b5e3a7e-5c1d-4b0f-8f7e-6a2d9e4c3b21';
+
+/** SPM-393: the document check, whose rules are a rule script stored as data. */
+export const DOCUMENT_CHECK_ID = 'sample-document-check';
+
+/** The document check's script, as the API's sample saves it (`SampleRuleScriptsComposition.DocumentCheckScript`). */
+const DOCUMENT_CHECK_SCRIPT = [
+  'const documents = await tools.project_documents_read_v1({ projectId: subject.id });',
+  'if (!documents.success) {',
+  '  handOver("The project\'s documents could not be read (" + documents.code + ").");',
+  '  return;',
+  '}',
+  'if (documents.data.documentCount > 0) {',
+  '  done("The project keeps " + documents.data.documentCount + " document(s); nothing to warn about.");',
+  '  return;',
+  '}',
+  'alerts.raise({ kind: "project-missing-document", key: "documents", parameters: { project: subject.displayName ?? subject.id } });',
+  'const review = await tools.projects_request_review_v1({ projectId: subject.id });',
+  'done("The project has no document three days before its deadline; warned its people and asked for a review (" + (review.success ? "requested" : review.code) + ").");'
+].join('\n');
+
 /**
  * The agent package the playground's host imported: the intake desk, which hands new projects to the
  * kickoff desk, and the kickoff desk, whose instructions and hand-off the package locks. The
@@ -431,6 +453,53 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         }
       ]
     },
+    // SPM-393: the code's ceiling of rule scripts (UseRuleScriptsAsData), as the API sets it for the document
+    // check: its one write is the review request, one per run, and another administrator than a version's
+    // author sets it live. The project lead wrote the live version and a candidate that runs in shadow, so the
+    // lab shows the versions, a dry run, the latest dry run before going live and a comparison.
+    ruleScripts: {
+      requireFourEyes: true,
+      agents: {
+        [DOCUMENT_CHECK_ID]: {
+          writes: ['projects.request-review'],
+          maxWritesPerRun: 1,
+          tools: [
+            {
+              name: 'project_documents_read_v1',
+              toolId: 'project-documents.read',
+              signature: 'project_documents_read_v1(input: { projectId: string }): Promise<{ success: boolean; data?: { documentCount: number }; code?: string }>;'
+            },
+            {
+              name: 'projects_request_review_v1',
+              toolId: 'projects.request-review',
+              write: true,
+              signature: 'projects_request_review_v1(input: { projectId: string }): Promise<{ success: boolean; code?: string }>;'
+            }
+          ],
+          alertKinds: ['project-missing-document'],
+          versions: [
+            {
+              script: DOCUMENT_CHECK_SCRIPT,
+              writes: ['projects.request-review'],
+              status: 'live',
+              authorActorId: PROJECT_LEAD_ACCOUNT_ID,
+              reason: 'Warn three days before the deadline when a project keeps no document',
+              createdAt: '2026-11-02T08:00:00Z'
+            },
+            {
+              script: DOCUMENT_CHECK_SCRIPT.replace('key: "documents",', 'key: "documents", urgency: "urgent",'),
+              writes: ['projects.request-review'],
+              status: 'candidate',
+              shadow: true,
+              authorActorId: PROJECT_LEAD_ACCOUNT_ID,
+              reason: 'Make the warning urgent',
+              createdAt: '2026-11-03T07:00:00Z',
+              shadowRunsOn: [{ type: 'project', id: 'PRJ-ALPHA' }, { type: 'project', id: 'PRJ-GAMMA' }]
+            }
+          ]
+        }
+      }
+    },
     context: [
       'Sample Project Management tracks projects for divisions.',
       '',
@@ -633,6 +702,21 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         mcpServerIds: [],
         requiredPolicy: 'app.project.view',
         autonomy: 'observe',
+        worksOnSubjectTypes: ['project']
+      },
+      {
+        // SPM-393: the document check, whose rules are a rule script that administrators write, dry-run
+        // and set live on its Build tab, within the ceiling its code sets (admin.ruleScripts above).
+        source: 'code',
+        id: DOCUMENT_CHECK_ID,
+        displayName: 'nh-assistant.agents.sample-document-check.name',
+        description: 'nh-assistant.agents.sample-document-check.description',
+        instructions: 'Check whether the project keeps a document before its deadline.',
+        toolSelectors: ['project-documents.read', 'projects.request-review'],
+        mcpServerIds: [],
+        requiredPolicy: 'app.project.view',
+        autonomy: 'propose',
+        offeredInChat: false,
         worksOnSubjectTypes: ['project']
       },
       {
