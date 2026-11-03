@@ -30,6 +30,9 @@ const PROJECT_LEAD_ACCOUNT_ID = '0b5e3a7e-5c1d-4b0f-8f7e-6a2d9e4c3b21';
 /** SPM-393: the document check, whose rules are a rule script stored as data. */
 export const DOCUMENT_CHECK_ID = 'sample-document-check';
 
+/** SPM-394: the platform's agent builder, which the API switches on with `AddAgentBuilder`. */
+export const AGENT_BUILDER_ID = 'nh-agent-builder';
+
 /** The document check's script, as the API's sample saves it (`SampleRuleScriptsComposition.DocumentCheckScript`). */
 const DOCUMENT_CHECK_SCRIPT = [
   'const documents = await tools.project_documents_read_v1({ projectId: subject.id });',
@@ -335,6 +338,14 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       displayNameKey: 'nh-assistant.agents.sample-catalog-guide.name',
       descriptionKey: 'nh-assistant.agents.sample-catalog-guide.description',
       canMutate: false
+    },
+    {
+      // SPM-394: the agent builder, for administrators only; its texts come with the library.
+      id: AGENT_BUILDER_ID,
+      version: 1,
+      displayNameKey: 'nh-assistant.agent-builder.name',
+      descriptionKey: 'nh-assistant.agent-builder.description',
+      canMutate: true
     }
   ],
   limits: { maxMessageChars: 2_000, maxToolCallsPerTurn: 8 },
@@ -708,6 +719,20 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         worksOnSubjectTypes: ['project']
       },
       {
+        // SPM-394: the agent builder of the platform, whose "Build with help" chat is on every other
+        // agent's Build tab and behind "New agent with help".
+        source: 'code',
+        id: AGENT_BUILDER_ID,
+        displayName: 'nh-assistant.agent-builder.name',
+        description: 'nh-assistant.agent-builder.description',
+        instructions: 'Help administrators build agents; every change waits for their approval.',
+        toolSelectors: ['assistant.agent-builder.*'],
+        mcpServerIds: [],
+        requiredPolicy: 'nh-assistant-agent-builder',
+        autonomy: 'execute',
+        chatOnly: true
+      },
+      {
         // SPM-393: the document check, whose rules are a rule script that administrators write, dry-run
         // and set live on its Build tab, within the ceiling its code sets (admin.ruleScripts above).
         source: 'code',
@@ -930,6 +955,45 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
   },
   timing: { firstEventDelayMs: 350, eventDelayMs: 45 },
   turns: [
+    {
+      // SPM-394: the agent builder reads what the document check's script may call and proposes a new
+      // version; nothing is saved until the administrator approves the card.
+      match: (_text, agentId) => agentId === AGENT_BUILDER_ID,
+      steps: [
+        { text: 'I read what the rule script of the document check may call. ' },
+        {
+          tool: {
+            toolId: 'assistant.agent-builder.read-rule-script',
+            displayName: 'Read a rule script',
+            argumentsPreview: JSON.stringify({ input: { agentId: DOCUMENT_CHECK_ID } }),
+            resultPreview: JSON.stringify({ agentId: DOCUMENT_CHECK_ID, revision: 2, liveVersion: 1, candidateVersion: 2 })
+          }
+        },
+        {
+          approval: {
+            toolId: 'assistant.agent-builder.save-rule-script',
+            displayName: 'Save a rule script',
+            summary: 'Approval is required before this tool can run.',
+            presentation: {
+              toolDisplayName: 'Save a rule script',
+              summary: `Saves a new version of the rule script of the rules of agent ${DOCUMENT_CHECK_ID}: as a candidate, not live yet.`,
+              fields: [
+                { label: 'Agent', value: DOCUMENT_CHECK_ID },
+                { label: 'Writes', value: 'projects.request-review' },
+                { label: 'Script', value: `${DOCUMENT_CHECK_SCRIPT.split('\n').length} lines` },
+                { label: 'Revision', value: '2' }
+              ],
+              notice: 'The agent builder works with your own rights. Nothing changes until you approve this.'
+            },
+            argumentsPreview: JSON.stringify({ input: { agentId: DOCUMENT_CHECK_ID, writes: ['projects.request-review'], expectedRevision: 2 } }),
+            targets: [],
+            resultPreview: JSON.stringify({ agentId: DOCUMENT_CHECK_ID, version: { version: 3, status: 'candidate' } }),
+            approved: [{ text: 'Saved as version 3, a candidate. I can dry-run it on a project before anyone sets it live; under four eyes another administrator does that.' }],
+            rejected: [{ text: 'Nothing was saved. Tell me what to change.' }]
+          }
+        }
+      ]
+    },
     {
       // SPM-300: without the person's calendar connection the answer shows the connect card.
       match: /calendar|agenda/i,
