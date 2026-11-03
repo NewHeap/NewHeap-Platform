@@ -554,24 +554,33 @@ internal sealed partial class NhAssistantTurnRunner(
             {
                 await EnterSkillAsync(state, triggered, agentTurn.SkillChosenBy ?? NhAssistantSkillChoosers.Trigger, callerContext, record: false, cancellationToken);
             }
-            else if (UsesRules(agentTurn))
+            else
             {
-                var ruled = await RunRulesAsync(state, callerContext, request.Inputs, options.RuleHandlerType!, cancellation.Token);
-                if (ruled is null)
+                var agentScripts = await RuleScriptsOfAsync(state, null, cancellationToken);
+                if (UsesRules(agentTurn, agentScripts))
                 {
-                    return Result(state);
-                }
-                if (ruled.UsesSkill)
-                {
-                    if (await RouteAsync(state, callerContext, ruled.SkillId!, NhAssistantSkillChoosers.Rules, cancellationToken))
+                    var ruled = await RunRulesAsync(state, callerContext, request.Inputs, options.RuleHandlerType, agentScripts, cancellation.Token);
+                    if (ruled is null)
                     {
                         return Result(state);
                     }
-                    routing = NhAssistantBriefingService.SkillSection(state.Skill!, NhAssistantSkillChoosers.Rules, ruled.HandOverReason);
+                    if (ruled.UsesSkill)
+                    {
+                        if (await RouteAsync(state, callerContext, ruled.SkillId!, NhAssistantSkillChoosers.Rules, cancellationToken))
+                        {
+                            return Result(state);
+                        }
+                        routing = NhAssistantBriefingService.SkillSection(state.Skill!, NhAssistantSkillChoosers.Rules, ruled.HandOverReason);
+                    }
+                    else
+                    {
+                        routing = RulesRouting(state, ruled.HandOverReason!);
+                    }
                 }
-                else
+                else if (agentScripts is { Shadow: { } shadowOnly, Ceiling: { } shadowCeiling } && IsRuleTrigger(agentTurn))
                 {
-                    routing = RulesRouting(state, ruled.HandOverReason!);
+                    // A candidate in shadow of an agent without rules still records what it would do.
+                    await RunShadowOnlyRuleScriptAsync(state, callerContext, request.Inputs, shadowOnly, shadowCeiling, cancellation.Token);
                 }
             }
 
@@ -602,9 +611,13 @@ internal sealed partial class NhAssistantTurnRunner(
 
             // A skill that works by rules runs them; they end the run, route to a model skill or hand
             // over to the skill's own model, with its tools, instructions, profile, ceiling and budget.
-            if (state.Skill is { RuleHandlerType: { } skillRules })
+            // Its rules are its live rule script or its rule handler.
+            var skillScripts = state.Skill is { } enteredSkill
+                ? await RuleScriptsOfAsync(state, enteredSkill.Id, cancellationToken)
+                : RuleScripts.NhAssistantRuleScriptsInEffect.None;
+            if (state.Skill is { } ruledSkill && (ruledSkill.RuleHandlerType is not null || skillScripts.Live is not null))
             {
-                var ruled = await RunRulesAsync(state, callerContext, request.Inputs, skillRules, cancellation.Token);
+                var ruled = await RunRulesAsync(state, callerContext, request.Inputs, ruledSkill.RuleHandlerType, skillScripts, cancellation.Token);
                 if (ruled is null)
                 {
                     return Result(state);
@@ -612,6 +625,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 if (ruled.UsesSkill
                     && options.Skills.TryGetValue(ruled.SkillId!, out var next)
                     && next.RuleHandlerType is null
+                    && (await RuleScriptsOfAsync(state, next.Id, cancellationToken)).Live is null
                     && next != state.Skill)
                 {
                     if (await RouteAsync(state, callerContext, next.Id, NhAssistantSkillChoosers.Rules, cancellationToken))
@@ -628,6 +642,15 @@ internal sealed partial class NhAssistantTurnRunner(
             else if (state.Skill is { } working && routing is null)
             {
                 routing = NhAssistantBriefingService.SkillSection(working, state.SkillChosenBy ?? NhAssistantSkillChoosers.Trigger, null);
+            }
+
+            if (state.Skill is not null
+                && skillScripts is { Live: null, Shadow: { } skillShadow, Ceiling: { } skillCeiling }
+                && (state.Skill.RuleHandlerType is null)
+                && IsRuleTrigger(agentTurn))
+            {
+                // A candidate in shadow of a skill without rules records what it would do before the model works.
+                await RunShadowOnlyRuleScriptAsync(state, callerContext, request.Inputs, skillShadow, skillCeiling, cancellation.Token);
             }
 
             state.HandedOver = state.RulesRan;
@@ -1513,23 +1536,35 @@ internal sealed partial class NhAssistantTurnRunner(
     /// Whether the agent's rule handler runs this headless run. A person's turn and a trigger that
     /// asks for the model use the model.
     /// </summary>
-    private bool UsesRules(NhAssistantAgentTurnContext agentTurn)
+    private bool UsesRules(NhAssistantAgentTurnContext agentTurn, RuleScripts.NhAssistantRuleScriptsInEffect scripts)
     {
-        return agentTurn.Options.RuleHandlerType is not null
-            && !agentTurn.IsRequestTurn
+        return (agentTurn.Options.RuleHandlerType is not null || scripts.Live is not null)
+            && IsRuleTrigger(agentTurn);
+    }
+
+    /// <summary>
+    /// Whether the run's trigger lets rules run it: a headless run whose trigger does not ask for the model.
+    /// </summary>
+    private bool IsRuleTrigger(NhAssistantAgentTurnContext agentTurn)
+    {
+        return !agentTurn.IsRequestTurn
             && !(registration.Triggers.TryGetValue(agentTurn.TriggerId, out var trigger) && trigger.UseModel);
     }
 
     /// <summary>
-    /// Runs the agent's rule handler instead of the model. The handler proposes through the same
-    /// interceptor as a model's tool call, with approval required for every effect. Returns the
-    /// hand-over reason when the model continues, or <see langword="null"/> when the turn ended.
+    /// Runs the agent's or skill's rules instead of the model: its live rule script when it has one
+    /// (RB-1), which takes the place of a code rule, otherwise its rule handler. The rules propose through
+    /// the same interceptor as a model's tool call, with approval required for every effect; a script's
+    /// writes get the decision they get on their own. A candidate rule script in shadow runs next to them
+    /// and records what it would do. Returns the hand-over reason when the model continues, or
+    /// <see langword="null"/> when the turn ended.
     /// </summary>
     private async Task<NhAssistantRuleResult?> RunRulesAsync(
         NhAssistantTurnState state,
         NhAiInvocationContext callerContext,
         IReadOnlyList<NhAssistantAgentTurnInput> inputs,
-        Type handlerType,
+        Type? handlerType,
+        RuleScripts.NhAssistantRuleScriptsInEffect scripts,
         CancellationToken cancellationToken)
     {
         state.RuleTurn = true;
@@ -1546,8 +1581,29 @@ internal sealed partial class NhAssistantTurnRunner(
             using var agentScope = BeginAgentScope(state);
             var tools = await RuleToolsAsync(state, callerContext, interceptor, timeout.Token);
             var context = await CreateRuleContextAsync(state, inputs, interceptor, tools, timeout.Token);
-            var handler = (INhAssistantAgentRuleHandler)services.GetRequiredService(handlerType);
-            result = await handler.RunAsync(context, timeout.Token);
+            if (scripts is { Live: { } live, Ceiling: { } ceiling })
+            {
+                // A live rule script takes the place of the code rule (RS1).
+                var scripted = await RunLiveRuleScriptAsync(state, inputs, interceptor, tools, live, ceiling, timeout.Token);
+                result = scripted.Result;
+                if (result is null)
+                {
+                    outcomeStatus = NhAssistantTurnStatuses.Failed;
+                    errorCode = scripted.Code;
+                }
+            }
+            else
+            {
+                var handler = (INhAssistantAgentRuleHandler)services.GetRequiredService(handlerType!);
+                result = await handler.RunAsync(context, timeout.Token);
+            }
+
+            if (scripts is { Shadow: { } shadow, Ceiling: { } shadowCeiling })
+            {
+                // The candidate in shadow sees the same subject and inputs, and records what it would do.
+                await RunShadowRuleScriptAsync(state, inputs, tools, shadow, shadowCeiling, timeout.Token);
+            }
+
             if (result is { Alerts.Count: > 0 } or { AlertsToResolve.Count: > 0 })
             {
                 // FB87: the rules' alerts once they ended; a kind the agent does not list fails the run.
@@ -1721,6 +1777,19 @@ internal sealed partial class NhAssistantTurnRunner(
         NhAssistantToolCallInterceptor interceptor,
         CancellationToken cancellationToken)
     {
+        var tools = await RuleFunctionsAsync(state, callerContext, cancellationToken);
+        interceptor.UseOfferedTools(tools.Values.OfType<INhAiGovernedAIFunction>().Select(function => function.Descriptor));
+        return tools;
+    }
+
+    /// <summary>
+    /// The governed functions of <see cref="RuleToolsAsync"/>, without registering them as the turn's offer.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, AIFunction>> RuleFunctionsAsync(
+        NhAssistantTurnState state,
+        NhAiInvocationContext callerContext,
+        CancellationToken cancellationToken)
+    {
         var agent = state.Scope.Agent;
         var context = CreateAgentInvocationContext(state, callerContext);
         var selected = (await SelectRuleToolsAsync(state, agent, context, cancellationToken)).ToHashSet(StringComparer.Ordinal);
@@ -1740,7 +1809,6 @@ internal sealed partial class NhAssistantTurnRunner(
             }
         }
 
-        interceptor.UseOfferedTools(tools.Values.OfType<INhAiGovernedAIFunction>().Select(function => function.Descriptor));
         return tools;
     }
 

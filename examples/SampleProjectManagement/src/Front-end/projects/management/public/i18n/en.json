@@ -663,6 +663,10 @@
       "sample-deadline-reviewer": {
         "name": "Deadline reviewer",
         "description": "Reviews a project's deliverables and, once an administrator allows it, warns the project's people about a deliverable that is due soon."
+      },
+      "sample-document-check": {
+        "name": "Document check",
+        "description": "Warns when a project is due within three days and keeps no document; its rules are a rule script."
       }
     },
     "policies": {
@@ -676,6 +680,9 @@
       },
       "project-deliverable-due": {
         "name": "Deliverable due soon"
+      },
+      "project-missing-document": {
+        "name": "Project without a document near its deadline"
       }
     }
   },

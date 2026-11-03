@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.104",
   "backEnd": {
-    "hash": "e6123d10a46ec1bfab7bb2248b209cc5de32a72f90766e90c40bd009df2b9f8b",
-    "declarationCount": 13094,
+    "hash": "95544aef3d48799b6e5abde3bb207b5e20fe39dd15387adfce7e7269359047ba",
+    "declarationCount": 13374,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -3479,7 +3479,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
-        "declaration": "public sealed record NhAssistantPackageAgent( string Id, string Source, NhAssistantPackageAgentDefinition? Definition = null, NhAssistantPackageRunSettings? RunSettings = null, IReadOnlyList<NhAssistantPackageSkill>? Skills = null, IReadOnlyList<NhAssistantPackageTrigger>? Triggers = null, IReadOnlyList<NhAssistantPackageConsultation>? Consultations = null, IReadOnlyList<NhAssistantPackageHandOff>? HandOffs = null, IReadOnlyDictionary<string, JsonElement>? Metadata = null, IReadOnlyList<string>? Groups = null, IReadOnlyDictionary<string, IReadOnlyList<string>>? Locks = null, IReadOnlyDictionary<string, string>? Hashes = null);"
+        "declaration": "public sealed record NhAssistantPackageAgent( string Id, string Source, NhAssistantPackageAgentDefinition? Definition = null, NhAssistantPackageRunSettings? RunSettings = null, IReadOnlyList<NhAssistantPackageSkill>? Skills = null, IReadOnlyList<NhAssistantPackageTrigger>? Triggers = null, IReadOnlyList<NhAssistantPackageConsultation>? Consultations = null, IReadOnlyList<NhAssistantPackageHandOff>? HandOffs = null, IReadOnlyDictionary<string, JsonElement>? Metadata = null, IReadOnlyList<string>? Groups = null, IReadOnlyDictionary<string, IReadOnlyList<string>>? Locks = null, IReadOnlyDictionary<string, string>? Hashes = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public IReadOnlyList<NhAssistantPackageRuleScript>? RuleScripts { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
@@ -3516,6 +3520,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
         "declaration": "public sealed record NhAssistantPackageHandOff( string SubjectType, IReadOnlyList<string> Sources, string? Description = null, bool NotifySource = false, int? MaxPerSubjectPerDay = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public sealed record NhAssistantPackageRuleScript( string Script, string? Skill = null, IReadOnlyList<string>? Writes = null);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
@@ -3747,7 +3755,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageFormat.cs",
-        "declaration": "[JsonSerializable(typeof(NhAssistantAgentPackage))] [JsonSerializable(typeof(NhAssistantPackageAgentDefinition))] [JsonSerializable(typeof(NhAssistantPackageRunSettings))] [JsonSerializable(typeof(NhAssistantPackageSkill))] [JsonSerializable(typeof(NhAssistantPackageTrigger))] [JsonSerializable(typeof(NhAssistantPackageConsultation))] [JsonSerializable(typeof(NhAssistantPackageHandOff))] [JsonSerializable(typeof(JsonElement))] public sealed partial class NhAssistantAgentPackageFormatJsonSerializerContext : JsonSerializerContext;"
+        "declaration": "[JsonSerializable(typeof(NhAssistantAgentPackage))] [JsonSerializable(typeof(NhAssistantPackageAgentDefinition))] [JsonSerializable(typeof(NhAssistantPackageRunSettings))] [JsonSerializable(typeof(NhAssistantPackageSkill))] [JsonSerializable(typeof(NhAssistantPackageTrigger))] [JsonSerializable(typeof(NhAssistantPackageConsultation))] [JsonSerializable(typeof(NhAssistantPackageHandOff))] [JsonSerializable(typeof(NhAssistantPackageRuleScript))] [JsonSerializable(typeof(JsonElement))] public sealed partial class NhAssistantAgentPackageFormatJsonSerializerContext : JsonSerializerContext;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageLinks.cs",
@@ -3784,6 +3792,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
         "declaration": "public static NhAssistantPackageConsultation ConsultationOf(AssistantAgentConsultationDefinition row) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
+        "declaration": "public static NhAssistantPackageRuleScript RuleScriptOf(AssistantRuleScriptVersion row) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
@@ -9130,6 +9142,14 @@
         "declaration": "public static async ValueTask<object?> MatchLanguageAsync( EndpointFilterInvocationContext context, EndpointFilterDelegate next) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantRuleScriptEndpoints.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptCheckRequest(string? Script);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantRuleScriptEndpoints.cs",
+        "declaration": "public static void MapAdmin(RouteGroupBuilder admin) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
         "declaration": "public async Task ExecuteAsync(HttpContext httpContext) {"
       },
@@ -10490,6 +10510,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261103134803_RuleScripts.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261103134803_RuleScripts.cs",
+        "declaration": "public partial class RuleScripts : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261103134803_RuleScripts.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261103134803_RuleScripts.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -11531,6 +11567,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261102213101_AlertModelSwitches.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261103134759_RuleScripts.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261103134759_RuleScripts.cs",
+        "declaration": "public partial class RuleScripts : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261103134759_RuleScripts.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261103134759_RuleScripts.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -12707,11 +12759,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public const string RuleScript = \"ruleScript\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
         "declaration": "public const string WholeAgent = \"*\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
-        "declaration": "public static IReadOnlyList<string> KeyedKinds { get; } = [Skill, Trigger, Consultation, HandOff, Metadata];"
+        "declaration": "public static IReadOnlyList<string> KeyedKinds { get; } = [Skill, Trigger, Consultation, HandOff, Metadata, RuleScript];"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
@@ -12748,6 +12804,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
         "declaration": "public static IReadOnlyList<string> Consultation { get; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
+        "declaration": "public static IReadOnlyList<string> RuleScript { get; } ="
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentPackageLocks.cs",
@@ -14280,6 +14340,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageFields.cs",
         "declaration": "public static IReadOnlyDictionary<string, string> Of(AssistantAgentHandOffDefinition row) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageFields.cs",
+        "declaration": "public static IReadOnlyDictionary<string, string> Of(AssistantRuleScriptVersion row) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageFields.cs",
@@ -19610,6 +19674,194 @@
         "declaration": "public DateTimeOffset Until { get; set; }"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public sealed class AssistantRuleScript {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public Guid Id { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string AgentId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string SkillId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public int Revision { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public int? LiveVersion { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public int? CandidateVersion { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public bool CandidateShadow { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public int LatestVersion { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public DateTimeOffset ChangedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string ChangedBy { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public List<AssistantRuleScriptVersion> Versions { get; set; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public sealed class AssistantRuleScriptVersion {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public Guid Id { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public Guid RuleScriptId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public AssistantRuleScript RuleScript { get; set; } = null!;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string AgentId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string SkillId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public int Version { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string Status { get; set; } = NhAssistantRuleScriptStatuses.Candidate;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string Script { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string ScriptHash { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string WritesJson { get; set; } = \"[]\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string AuthorActorId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string? AuthorAgentId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string? Reason { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public DateTimeOffset CreatedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public DateTimeOffset? LiveAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string? LiveBy { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public DateTimeOffset? EndedAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string? EndedBy { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public sealed class AssistantRuleScriptRunRecord {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public Guid Id { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public Guid VersionId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string AgentId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string SkillId { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public int Version { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string Kind { get; set; } = NhAssistantRuleScriptRunKinds.DryRun;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public Guid? RunId { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string RanBy { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public DateTimeOffset RanAt { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public int SubjectCount { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public int CompletedCount { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public string RecordJson { get; set; } = \"{}\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public static class NhAssistantRuleScriptRunKinds {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public const string DryRun = \"dry-run\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRuleScriptEntities.cs",
+        "declaration": "public const string Shadow = \"shadow\";"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
         "declaration": "public sealed class AssistantAgentSkillDefinition {"
       },
@@ -20703,6 +20955,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantBuilder UseRuleScriptsAsData(Action<NhAssistantRuleScriptCeilingBuilder> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantBuilder AddApprovalPolicy(string policyId, Action<NhAiApprovalPolicyBuilder> configure) {"
       },
       {
@@ -20980,6 +21236,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantCompositionCeiling? CompositionsAsData { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAssistantRuleScriptCeiling? RuleScriptsAsData { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
@@ -23351,7 +23611,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
-        "declaration": "public enum NhAssistantAuditEventKind { ToolInvoked = 0, ApprovalRequested = 1, ApprovalApproved = 2, ApprovalRejected = 3, ApprovalExpired = 4, AdminContextUpdated = 10, AdminAgentCreated = 11, AdminAgentUpdated = 12, AdminAgentDeleted = 13, AdminAgentReset = 14, AdminMcpServerCreated = 15, AdminMcpServerUpdated = 16, AdminMcpServerDeleted = 17, AdminMcpServerSynced = 18, AdminMcpToolUpdated = 19, ConversationShareLinkCreated = 20, ConversationShareLinkRevoked = 21, ConversationParticipantJoined = 22, ConversationParticipantInvited = 23, ConversationParticipantRemoved = 24, ConversationParticipantLeft = 25, AgentTriggerAccepted = 30, AgentTriggerRejected = 31, AgentRunEnded = 32, AgentProposalExecuted = 33, AgentProposalResolved = 34, AdminAgentRunsStopped = 35, AdminAgentRunsResumed = 36, AgentConsulted = 37, AgentRequested = 38, AgentProposalFeedbackGiven = 39, AdminAgentFeedbackExported = 40, AgentProposalInvalidated = 41, AgentProposalDeduplicated = 42, AgentProposalSuperseded = 43, AdminAgentPaused = 44, AgentHandedOff = 45, AdminAgentEvaluationExported = 46, AdminAgentReplayStarted = 47, AdminAgentShadowChanged = 48, AdminAgentServiceAccountChanged = 49, AdminAgentSkillDefinitionChanged = 50, AdminAgentTriggerDefinitionChanged = 51, AdminAgentRunSettingsChanged = 52, McpDelegatedTokenIssued = 53, McpBackgroundUseChanged = 54, McpConnectionConnected = 55, McpConnectionDisconnected = 56, McpConnectionReauthorizationRequired = 57, AdminMcpConnectionsRevoked = 58, AdminMcpServerAuthorizationConfirmed = 59, AgentProposalPlaced = 60, AgentProposalNotPlaced = 61, AdminAgentSwitchedOff = 62, FileRead = 63, FileRefused = 64, AdminAgentConsultationRoutesChanged = 65, AdminAgentConsultationDefinitionChanged = 66, ApplicationMessagePosted = 70, AdminAgentMetadataChanged = 71, AgentProposalHandedToApplication = 72, AdminAgentHandOffDefinitionChanged = 80, AdminAgentPackageExported = 81, AdminAgentPackageImported = 82, AdminAgentPackageUnlinked = 83, AdminMcpServerAssignmentChanged = 90, AdminAgentShadowVariantPromoted = 91, QuestionAsked = 100, QuestionAnswered = 101, QuestionExpired = 102, AdminMcpToolReviewedBeforeSync = 113, AdminMcpToolSeenAfterReview = 114, AgentProposalRecordedForPerson = 120, ChatFollowUpStarted = 121, ChatFollowUpSkipped = 122, AdminAgentToolWithoutApprovalChanged = 124, AgentProposalWouldRunWithoutApproval = 125, AgentToolRanWithoutApproval = 126, AgentAlertRaised = 127, AgentAlertResolved = 128, AgentAlertDismissed = 129, AgentAlertRecipientDropped = 130, AdminAlertKindChanged = 131, AdminAlertModelSwitchChanged = 132 }"
+        "declaration": "public enum NhAssistantAuditEventKind { ToolInvoked = 0, ApprovalRequested = 1, ApprovalApproved = 2, ApprovalRejected = 3, ApprovalExpired = 4, AdminContextUpdated = 10, AdminAgentCreated = 11, AdminAgentUpdated = 12, AdminAgentDeleted = 13, AdminAgentReset = 14, AdminMcpServerCreated = 15, AdminMcpServerUpdated = 16, AdminMcpServerDeleted = 17, AdminMcpServerSynced = 18, AdminMcpToolUpdated = 19, ConversationShareLinkCreated = 20, ConversationShareLinkRevoked = 21, ConversationParticipantJoined = 22, ConversationParticipantInvited = 23, ConversationParticipantRemoved = 24, ConversationParticipantLeft = 25, AgentTriggerAccepted = 30, AgentTriggerRejected = 31, AgentRunEnded = 32, AgentProposalExecuted = 33, AgentProposalResolved = 34, AdminAgentRunsStopped = 35, AdminAgentRunsResumed = 36, AgentConsulted = 37, AgentRequested = 38, AgentProposalFeedbackGiven = 39, AdminAgentFeedbackExported = 40, AgentProposalInvalidated = 41, AgentProposalDeduplicated = 42, AgentProposalSuperseded = 43, AdminAgentPaused = 44, AgentHandedOff = 45, AdminAgentEvaluationExported = 46, AdminAgentReplayStarted = 47, AdminAgentShadowChanged = 48, AdminAgentServiceAccountChanged = 49, AdminAgentSkillDefinitionChanged = 50, AdminAgentTriggerDefinitionChanged = 51, AdminAgentRunSettingsChanged = 52, McpDelegatedTokenIssued = 53, McpBackgroundUseChanged = 54, McpConnectionConnected = 55, McpConnectionDisconnected = 56, McpConnectionReauthorizationRequired = 57, AdminMcpConnectionsRevoked = 58, AdminMcpServerAuthorizationConfirmed = 59, AgentProposalPlaced = 60, AgentProposalNotPlaced = 61, AdminAgentSwitchedOff = 62, FileRead = 63, FileRefused = 64, AdminAgentConsultationRoutesChanged = 65, AdminAgentConsultationDefinitionChanged = 66, ApplicationMessagePosted = 70, AdminAgentMetadataChanged = 71, AgentProposalHandedToApplication = 72, AdminAgentHandOffDefinitionChanged = 80, AdminAgentPackageExported = 81, AdminAgentPackageImported = 82, AdminAgentPackageUnlinked = 83, AdminMcpServerAssignmentChanged = 90, AdminAgentShadowVariantPromoted = 91, QuestionAsked = 100, QuestionAnswered = 101, QuestionExpired = 102, AdminMcpToolReviewedBeforeSync = 113, AdminMcpToolSeenAfterReview = 114, AgentProposalRecordedForPerson = 120, ChatFollowUpStarted = 121, ChatFollowUpSkipped = 122, AdminAgentToolWithoutApprovalChanged = 124, AgentProposalWouldRunWithoutApproval = 125, AgentToolRanWithoutApproval = 126, AgentAlertRaised = 127, AgentAlertResolved = 128, AgentAlertDismissed = 129, AgentAlertRecipientDropped = 130, AdminAlertKindChanged = 131, AdminAlertModelSwitchChanged = 132, AdminRuleScriptSaved = 133, AdminRuleScriptLive = 134, AdminRuleScriptShadowChanged = 135, AdminRuleScriptDiscarded = 136, AdminRuleScriptDryRun = 137 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
@@ -23612,6 +23872,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
         "declaration": "public int? AlertModelSwitchVersion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public int? RuleScriptVersion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
+        "declaration": "public string? RuleScriptHash { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
@@ -25659,6 +25927,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
+        "declaration": "public DbSet<AssistantRuleScript> RuleScripts => Set<AssistantRuleScript>();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
+        "declaration": "public DbSet<AssistantRuleScriptVersion> RuleScriptVersions => Set<AssistantRuleScriptVersion>();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
+        "declaration": "public DbSet<AssistantRuleScriptRunRecord> RuleScriptRunRecords => Set<AssistantRuleScriptRunRecord>();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantDbContext.cs",
         "declaration": "public DbSet<AssistantDecisionBatch> DecisionBatches => Set<AssistantDecisionBatch>();"
       },
       {
@@ -26128,6 +26408,70 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantProposalFeedbackStore.cs",
         "declaration": "public IReadOnlyList<NhAssistantInvalidationCount> Invalidations { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRuleScriptStore.cs",
+        "declaration": "public async Task<AssistantRuleScript?> FindAsync(string agentId, string skillId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRuleScriptStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantRuleScript>> GetOfAgentAsync(string agentId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRuleScriptStore.cs",
+        "declaration": "public async Task<(AssistantRuleScriptVersion? Live, AssistantRuleScriptVersion? Shadow)> FindInEffectAsync( string agentId, string skillId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRuleScriptStore.cs",
+        "declaration": "public async Task<IReadOnlyList<(string AgentId, string SkillId)>> GetInEffectAsync( IReadOnlyCollection<string> agentIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRuleScriptStore.cs",
+        "declaration": "public async Task<AssistantRuleScriptVersion?> FindVersionAsync( string agentId, string skillId, int version, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRuleScriptStore.cs",
+        "declaration": "public async Task<NhAssistantRuleScriptChange> ChangeAsync( string agentId, string skillId, int expectedRevision, Func<AssistantRuleScript, NhAssistantDbContext, Common.Models.TaskResult?> change, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRuleScriptStore.cs",
+        "declaration": "public static async Task<bool> AddImportedVersionAsync( NhAssistantDbContext context, AssistantRuleScriptVersion version, int expectedRevision, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRuleScriptStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantRuleScriptVersion>> GetLiveOfAgentAsync(string agentId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRuleScriptStore.cs",
+        "declaration": "public async Task AddRunRecordAsync(AssistantRuleScriptRunRecord record, int keep, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRuleScriptStore.cs",
+        "declaration": "public async Task<IReadOnlyList<AssistantRuleScriptRunRecord>> GetRunRecordsAsync( Guid versionId, string kind, int take, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRuleScriptStore.cs",
+        "declaration": "public static NhAssistantRuleScriptChange Conflict { get; } = new() { IsConflict = true };"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRuleScriptStore.cs",
+        "declaration": "public bool IsConflict { get; private init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRuleScriptStore.cs",
+        "declaration": "public Common.Models.TaskResult? Failure { get; private init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRuleScriptStore.cs",
+        "declaration": "public AssistantRuleScript? RuleScript { get; private init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRuleScriptStore.cs",
+        "declaration": "public static NhAssistantRuleScriptChange Failed(Common.Models.TaskResult failure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRuleScriptStore.cs",
+        "declaration": "public static NhAssistantRuleScriptChange Changed(AssistantRuleScript ruleScript) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunConfigurationStore.HandOffs.cs",
@@ -27314,6 +27658,642 @@
         "declaration": "public static string? Clean(string? value, int maxLength) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public interface INhAssistantRuleScripts {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public static class NhAssistantRuleScriptCodes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public const string NotAllowed = \"assistant-rule-scripts-not-allowed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public const string WriteNotAllowed = \"assistant-rule-script-write-not-allowed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public const string VersionNotFound = \"assistant-rule-script-version-not-found\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public const string NotCandidate = \"assistant-rule-script-not-candidate\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public const string FourEyes = \"assistant-rule-script-four-eyes\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public const string SubjectsInvalid = \"assistant-rule-script-subjects-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public const string DryRunWrite = \"assistant-rule-script-dry-run\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public static class NhAssistantRuleScriptWouldOutcomes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public const string Run = \"would-run\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public const string Propose = \"would-propose\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public const string Decide = \"would-decide\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptDto( string AgentId, string? SkillId, bool Allowed, int Revision, int? LiveVersion, int? CandidateVersion, bool CandidateShadow, string? CodeRule, NhAssistantRuleScriptCeilingDto Ceiling, IReadOnlyList<NhAssistantRuleScriptVersionDto> Versions);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptCeilingDto( IReadOnlyList<string> Writes, int MaxWritesPerRun, IReadOnlyList<string> Destructive, bool RequireFourEyes);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptVersionDto( int Version, string Status, string Script, string ScriptHash, IReadOnlyList<string> Writes, string AuthorActorId, string? AuthorAgentId, string? Reason, DateTimeOffset CreatedAt, DateTimeOffset? LiveAt, string? LiveBy, DateTimeOffset? EndedAt, string? EndedBy, bool Shadow, int Revision);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptSaveRequest( string? Script, IReadOnlyList<string>? Writes, int? ExpectedRevision, string? Reason = null, bool Live = false, bool Shadow = false);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptChangeRequest(int? ExpectedRevision, string? Reason = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptShadowRequest(int? ExpectedRevision, bool Shadow, string? Reason = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptDryRunRequest(IReadOnlyList<NhAssistantRuleScriptSubjectDto>? Subjects);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptSubjectDto(string Type, string Id);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptLiveDto( NhAssistantRuleScriptVersionDto Version, NhAssistantRuleScriptRunRecordDto? LatestDryRun);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptCheckDto(bool Valid, string? Code, string? Message, int? Line, int? Column);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptCatalogDto( string AgentId, string? SkillId, IReadOnlyList<NhAssistantRuleScriptToolDto> Tools, IReadOnlyList<string> AlertKinds, string PlatformFunctions, int MaxToolCalls, double TimeoutSeconds, int MaxScriptLength, int MaxWritesPerRun);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptToolDto( string Name, string ToolId, bool Write, bool InCeiling, bool Callable, bool Destructive, string Signature, string? Refusal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptRunRecordDto( Guid Id, string AgentId, string? SkillId, int Version, string Kind, Guid? RunId, string RanBy, DateTimeOffset RanAt, int SubjectCount, int CompletedCount, IReadOnlyList<NhAssistantRuleScriptSubjectRunDto> Subjects);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptSubjectRunDto( string SubjectType, string SubjectId, string? DisplayName, string Status, string? Code, string? Message, int? Line, int? Column, NhAssistantRuleScriptEndDto? End, IReadOnlyList<NhAssistantRuleScriptCallDto> Calls, IReadOnlyList<NhAssistantRuleScriptWriteDto> Writes, IReadOnlyList<NhAssistantRuleScriptProposalDto> Proposals, IReadOnlyList<NhAssistantRuleScriptAlertDto> Alerts, IReadOnlyList<NhAssistantRuleScriptAlertKeyDto> Resolves, IReadOnlyList<string> Logs);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptEndDto(string Kind, string Text, string? SkillId);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptCallDto(int Call, string Tool, string ToolId, string Outcome, string? Code, bool Write);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptWriteDto(int Call, string Tool, string ToolId, string Outcome, string Input);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptProposalDto(string Tool, string? ToolId, string Input, string? Rationale);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptAlertDto( string Kind, string SubjectType, string SubjectId, string Key, string? Urgency, IReadOnlyDictionary<string, string> Parameters, IReadOnlyList<string> Recipients, DateTimeOffset? ExpiresAt);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptAlertKeyDto(string Kind, string SubjectType, string SubjectId, string? Key);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptComparisonDto( int Version, int OtherVersion, IReadOnlyList<NhAssistantRuleScriptLineDto> Lines, IReadOnlyList<string> WritesAdded, IReadOnlyList<string> WritesRemoved, NhAssistantRuleScriptRunRecordDto? DryRun, NhAssistantRuleScriptRunRecordDto? OtherDryRun);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptContracts.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptLineDto(string Change, int? Line, int? OtherLine, string Text);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public interface INhAssistantRuleScriptEngine {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public enum NhAssistantRuleScriptMode { Live = 0, Shadow = 1, DryRun = 2 }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public sealed class NhAssistantRuleScriptRun {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public NhAssistantRuleScriptRun(Func<string, JsonElement, string?, CancellationToken, Task<NhAssistantRuleProposal>> propose) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public required string AgentId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public string? SkillId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public required int Version { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public required string Script { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public required NhAssistantRuleScriptMode Mode { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public required NhAiSubjectInfo Subject { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public required string TriggerId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public Guid? RunId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public required DateTimeOffset Now { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public IReadOnlyList<NhAssistantRuleInput> Inputs { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public IReadOnlyCollection<string> AlertKinds { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public IReadOnlyList<NhAiToolDescriptor> Tools { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public IReadOnlySet<string> Writes { get; init; } = Nothing;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public IReadOnlySet<string> Destructive { get; init; } = Nothing;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public int MaxWrites { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public NhAssistantToolStepSession? Steps { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public Task<NhAssistantRuleProposal> ProposeAsync( string tool, JsonElement input, string? rationale, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptProblem(string Code, string Message) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public int? Line { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public int? Column { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public enum NhAssistantRuleScriptEndKind { Done = 0, HandOver = 1, UseSkill = 2 }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptEnd(NhAssistantRuleScriptEndKind Kind, string Text) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public string? SkillId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptCall(int Sequence, string Tool, string ToolId, string Outcome) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public string? Code { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public Guid? ProposalId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public bool Write { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptOutcome {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public required string ScriptHash { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public required bool Completed { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public string? Code { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public string? Message { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public int? Line { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public int? Column { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public int? StoppedAtCall { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public string? StoppedAtTool { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public NhAssistantRuleScriptEnd? End { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public IReadOnlyList<NhAssistantAlert> Alerts { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public IReadOnlyList<NhAssistantAlertKey> Resolves { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public IReadOnlyList<NhAssistantRuleScriptCall> Calls { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public IReadOnlyList<string> Logs { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public JsonElement Result { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptDeclarations( IReadOnlyList<NhAssistantRuleScriptToolSignature> Tools, string PlatformFunctions, int MaxToolCalls, double TimeoutSeconds, int MaxScriptLength);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptEngine.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptToolSignature( string Name, string ToolId, bool Write, bool Callable, string Signature, string? Refusal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public static NhAssistantRuleScriptsInEffect None { get; } = new(null, null, null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public bool Any => Live is not null || Shadow is not null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public const string DryRunTriggerId = \"dry-run\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public const int MaxRecordedInputCharacters = 4_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public static NhAssistantRuleScriptAgentCeiling? CeilingOf(NhAssistantRegistrationState registration, string agentId, string source) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public static IReadOnlyList<string> WritesOf(AssistantRuleScriptVersion version) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public static IReadOnlySet<string> WritesInEffect(AssistantRuleScriptVersion version, NhAssistantRuleScriptAgentCeiling ceiling) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public static IReadOnlyList<NhAiToolDescriptor> ToolsOf(IReadOnlyDictionary<string, AIFunction> functions) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public static string Would(NhAiToolDescriptor descriptor, NhAssistantAgentDefinition agent, NhAiAgentAccountability accountability, bool shadowThread) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public static NhAssistantRuleResult ToRuleResult(NhAssistantRuleScriptOutcome outcome) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public static NhAssistantRuleScriptSubjectRunDto RecordOf( NhAiSubjectInfo subject, NhAssistantRuleScriptOutcome outcome, NhAssistantRuleScriptRecording recording) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public static NhAssistantRuleScriptSubjectRunDto FailedRecord(NhAiSubjectRef subject, string code, string message) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public static string EndName(NhAssistantRuleScriptEndKind kind) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public static string Serialize(IReadOnlyList<NhAssistantRuleScriptSubjectRunDto> subjects) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public static NhAssistantRuleScriptRunRecordDto ToDto(AssistantRuleScriptRunRecord record) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public static string Bounded(JsonElement input) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public static async Task<NhAssistantCallOutcome> ReadAsync( NhAiToolDescriptor descriptor, AIFunction function, JsonElement arguments, NhAssistantStepCall step, IServiceProvider services, ILogger? logger, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public static JsonElement DryRunWriteResult() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public static string Format(int value) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public IReadOnlyList<NhAssistantRuleScriptWriteDto> Writes => _writes;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public IReadOnlyList<NhAssistantRuleScriptProposalDto> Proposals => _proposals;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public void AddWrite(int call, NhAiToolDescriptor descriptor, string outcome, JsonElement input) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public void AddProposal(string tool, string? toolId, JsonElement input, string? rationale) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public async Task<NhAssistantCallOutcome> RunAsync( NhAiToolDescriptor descriptor, JsonElement arguments, NhAssistantStepCall step, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public ValueTask CompleteAsync(NhAssistantToolStepSession session, JsonElement result, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public async Task<NhAssistantCallOutcome> RunAsync( NhAiToolDescriptor descriptor, JsonElement arguments, NhAssistantStepCall step, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptRuntime.cs",
+        "declaration": "public ValueTask CompleteAsync(NhAssistantToolStepSession session, JsonElement result, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptService.cs",
+        "declaration": "public async Task<NhAssistantRuleScriptDto?> GetAsync(string agentId, string? skillId, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptService.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantRuleScriptCatalogDto>> GetCatalogAsync( string agentId, string? skillId, IReadOnlyCollection<string>? writes = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptService.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantRuleScriptCheckDto>> CheckAsync( string agentId, string? skillId, string script, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptService.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantRuleScriptVersionDto>> SaveAsync( string agentId, string? skillId, NhAssistantRuleScriptSaveRequest request, NhAssistantRuleScriptAuthor author, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptService.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantRuleScriptLiveDto>> SetLiveAsync( string agentId, string? skillId, int version, NhAssistantRuleScriptChangeRequest request, NhAssistantRuleScriptAuthor actor, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptService.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantRuleScriptVersionDto>> SetShadowAsync( string agentId, string? skillId, int version, NhAssistantRuleScriptShadowRequest request, NhAssistantRuleScriptAuthor actor, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptService.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantRuleScriptVersionDto>> DiscardAsync( string agentId, string? skillId, int version, NhAssistantRuleScriptChangeRequest request, NhAssistantRuleScriptAuthor actor, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptService.cs",
+        "declaration": "public async Task<NhAssistantRuleScriptRunRecordDto?> GetDryRunAsync( string agentId, string? skillId, int version, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptService.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantRuleScriptRunRecordDto>> GetShadowRunsAsync( string agentId, string? skillId, int version, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptService.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantRuleScriptComparisonDto>> CompareAsync( string agentId, string? skillId, int version, int? otherVersion, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptService.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantRuleScriptRunRecordDto>> DryRunAsync( string agentId, string? skillId, int version, NhAssistantRuleScriptDryRunRequest request, NhAssistantRuleScriptAuthor actor, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptService.cs",
+        "declaration": "public static IReadOnlyList<NhAssistantRuleScriptLineDto> Compare(string other, string script) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptTool.cs",
+        "declaration": "public static class NhAssistantRuleScriptTool {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptTool.cs",
+        "declaration": "public const string ToolId = \"assistant.rule-script\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptTool.cs",
+        "declaration": "public const string FunctionName = \"rule_script\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptTool.cs",
+        "declaration": "public static NhAiToolDescriptor Descriptor { get; } = CreateDescriptor();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptTool.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptCallInput(int Version, string Hash);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public sealed class NhAssistantRuleScriptCeiling {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public IReadOnlyDictionary<string, NhAssistantRuleScriptAgentCeiling> Agents => _agents;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public NhAssistantRuleScriptAgentCeiling? AgentsCreatedInAdministration { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public bool RequireFourEyes { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public NhAssistantRuleScriptAgentCeiling? For(string agentId, bool createdInAdministration) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public sealed class NhAssistantRuleScriptAgentCeiling {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public IReadOnlySet<string> Writes => _writes;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public int MaxWritesPerRun { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public IReadOnlySet<string> Destructive => _destructive;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public sealed class NhAssistantRuleScriptCeilingBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public NhAssistantRuleScriptCeilingBuilder ForAgent( string agentId, Action<NhAssistantRuleScriptAgentCeilingBuilder>? configure = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public NhAssistantRuleScriptCeilingBuilder ForAgentsCreatedInAdministration( Action<NhAssistantRuleScriptAgentCeilingBuilder>? configure = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public NhAssistantRuleScriptCeilingBuilder RequireFourEyes(bool enabled = true)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public sealed class NhAssistantRuleScriptAgentCeilingBuilder {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public NhAssistantRuleScriptAgentCeilingBuilder AllowWrites(params string[] toolIds) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public NhAssistantRuleScriptAgentCeilingBuilder MaxWritesPerRun(int writes) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public NhAssistantRuleScriptAgentCeilingBuilder AllowDestructive(params string[] toolIds) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public static class NhAssistantRuleScriptLimits {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public const int MaxScriptLength = 10_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public const int MaxWritesPerRun = 16;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public const int MaxWritesPerVersion = 32;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public const int MaxReasonLength = 500;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public const int MaxDryRunSubjects = 20;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public const int MaxShadowRunsKept = 20;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public const int MaxRecordCharacters = 200_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public static class NhAssistantRuleScriptStatuses {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public const string Live = \"live\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public const string Candidate = \"candidate\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public const string Superseded = \"superseded\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public const string Discarded = \"discarded\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public sealed record NhAssistantRuleScriptAuthor(string ActorId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/RuleScripts/NhAssistantRuleScriptsAsData.cs",
+        "declaration": "public string? AgentId { get; init; }"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
         "declaration": "public Task ConsultationProposalEndedAsync( AssistantThread thread, AssistantApproval approval, CancellationToken cancellationToken) {"
       },
@@ -27480,6 +28460,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
         "declaration": "public Task AlertModelSwitchChangedAsync( string agentId, string kindId, string actorId, string mode, int version, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
+        "declaration": "public Task RuleScriptChangedAsync( NhAssistantAuditEventKind kind, string agentId, string? skillId, string actorId, string? viaAgentId, int version, string scriptHash, string outcome, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantApprovalPolicies.cs",
@@ -32655,6 +33639,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallOrigins.cs",
+        "declaration": "public int? RuleScriptVersion { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallOrigins.cs",
         "declaration": "public static NhAiToolCallOrigin? Current => CurrentOrigin.Value;"
       },
       {
@@ -34362,6 +35350,46 @@
         "declaration": "public override async ValueTask<CallToolResult> InvokeAsync( RequestContext<CallToolRequestParams> request, CancellationToken cancellationToken = default)"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiRuleScriptEngine.cs",
+        "declaration": "public NhAssistantRuleScriptProblem? Check(string agentId, string script) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiRuleScriptEngine.cs",
+        "declaration": "public NhAssistantRuleScriptDeclarations Describe( string agentId, IReadOnlyList<NhAiToolDescriptor> tools, IReadOnlySet<string> writes) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiRuleScriptEngine.cs",
+        "declaration": "public Task<NhAssistantRuleScriptOutcome> RunAsync(NhAssistantRuleScriptRun run, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiRuleScriptEngine.cs",
+        "declaration": "public IReadOnlyList<NhAssistantAlert> Alerts => _alerts;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiRuleScriptEngine.cs",
+        "declaration": "public IReadOnlyList<NhAssistantAlertKey> Resolves => _resolves;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiRuleScriptEngine.cs",
+        "declaration": "public NhAssistantRuleScriptEnd? End { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiRuleScriptEngine.cs",
+        "declaration": "public IReadOnlyList<NhAiScriptHostFunction> Functions() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiRuleScriptEngine.cs",
+        "declaration": "public RuleScriptHost(IReadOnlyList<NhAiToolDescriptor> tools, NhAssistantToolStepSession session) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiRuleScriptEngine.cs",
+        "declaration": "public IReadOnlyList<NhAiScriptToolOffer> Tools { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiRuleScriptEngine.cs",
+        "declaration": "public async ValueTask<NhAiScriptCallOutcome> CallAsync(NhAiScriptToolCall call, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
         "declaration": "public static class NhAiScriptCodes {"
       },
@@ -34480,6 +35508,62 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptCodes.cs",
         "declaration": "public const string Stopped = \"stopped\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptEnvironment.cs",
+        "declaration": "public static NhAiScriptEnvironment None { get; } = new();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptEnvironment.cs",
+        "declaration": "public IReadOnlyDictionary<string, JsonElement> Values { get; init; } = new Dictionary<string, JsonElement>(StringComparer.Ordinal);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptEnvironment.cs",
+        "declaration": "public IReadOnlyList<NhAiScriptHostFunction> Functions { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptEnvironment.cs",
+        "declaration": "public Func<NhAiScriptToolOffer, string?>? Refuse { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptEnvironment.cs",
+        "declaration": "public Func<string, bool>? AllowsDestructive { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptEnvironment.cs",
+        "declaration": "public void Validate() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptEnvironment.cs",
+        "declaration": "public NhAiScriptHostFunction(string name, Func<IReadOnlyList<JsonElement>, NhAiScriptHostReply> invoke) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptEnvironment.cs",
+        "declaration": "public NhAiScriptHostFunction( string name, Func<IReadOnlyList<JsonElement>, CancellationToken, ValueTask<NhAiScriptHostReply>> invokeAsync) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptEnvironment.cs",
+        "declaration": "public string Name { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptEnvironment.cs",
+        "declaration": "public Func<IReadOnlyList<JsonElement>, NhAiScriptHostReply>? Invoke { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptEnvironment.cs",
+        "declaration": "public Func<IReadOnlyList<JsonElement>, CancellationToken, ValueTask<NhAiScriptHostReply>>? InvokeAsync { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptEnvironment.cs",
+        "declaration": "public static NhAiScriptHostReply Nothing { get; } = new(null, null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptEnvironment.cs",
+        "declaration": "public static NhAiScriptHostReply Of(JsonElement value) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptEnvironment.cs",
+        "declaration": "public static NhAiScriptHostReply Failed(string error) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptHost.cs",
@@ -34747,7 +35831,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
-        "declaration": "public async Task<NhAiScriptResult> RunAsync( string script, INhAiScriptHost host, NhAiScriptLimits limits, CancellationToken cancellationToken = default)"
+        "declaration": "public Task<NhAiScriptResult> RunAsync( string script, INhAiScriptHost host, NhAiScriptLimits limits, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
@@ -34783,7 +35867,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
-        "declaration": "public ScriptRun(NhAiScriptRunner runner, INhAiScriptHost host, NhAiScriptLimits limits, string hash, string script) {"
+        "declaration": "public Action<JsValue>? Reject { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public NhAiScriptHostFunction? Platform { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public IReadOnlyList<JsonElement> PlatformArguments { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public string Name => Offer?.Name ?? Platform!.Name;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
+        "declaration": "public ScriptRun( NhAiScriptRunner runner, INhAiScriptHost host, NhAiScriptLimits limits, NhAiScriptEnvironment environment, string hash, string script) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScriptRunner.cs",
@@ -34915,11 +36015,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public NhAiScriptLimits RuleScripts { get; } = new();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public IReadOnlyCollection<string> AgentsWithRuleScriptLimits => _ruleScriptAgents.Keys;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
         "declaration": "public IReadOnlyCollection<string> AgentsWithLimits => _agents.Keys;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
         "declaration": "public NhAiScriptLimits LimitsOf(string? agentId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public NhAiScriptLimits RuleScriptLimitsOf(string? agentId) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
@@ -34940,6 +36052,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
         "declaration": "public NhAiScriptingBuilder ConfigureMcp(Action<NhAiScriptLimits> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public NhAiScriptingBuilder ConfigureRuleScripts(Action<NhAiScriptLimits> configure) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
+        "declaration": "public NhAiScriptingBuilder ConfigureRuleScripts(string agentId, Action<NhAiScriptLimits> configure) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NhAiScripting.cs",
@@ -57112,6 +58232,61 @@
       "NhAssistantApprovalPolicySelection",
       "INhAssistantApproverCandidates",
       "RequireIndividualDecision"
+    ],
+    "nh-ai-rule-scripts": [
+      "UseRuleScriptsAsData",
+      "NhAssistantRuleScriptCeiling",
+      "NhAssistantRuleScriptAgentCeiling",
+      "NhAssistantRuleScriptCeilingBuilder",
+      "NhAssistantRuleScriptAgentCeilingBuilder",
+      "NhAssistantRuleScriptLimits",
+      "NhAssistantRuleScriptStatuses",
+      "NhAssistantRuleScriptAuthor",
+      "INhAssistantRuleScriptEngine",
+      "NhAssistantRuleScriptMode",
+      "NhAssistantRuleScriptRun",
+      "NhAssistantRuleScriptProblem",
+      "NhAssistantRuleScriptEndKind",
+      "NhAssistantRuleScriptEnd",
+      "NhAssistantRuleScriptCall",
+      "NhAssistantRuleScriptOutcome",
+      "NhAssistantRuleScriptDeclarations",
+      "NhAssistantRuleScriptToolSignature",
+      "NhAssistantRuleScriptTool",
+      "NhAssistantRuleScriptCallInput",
+      "INhAssistantRuleScripts",
+      "NhAssistantRuleScriptCodes",
+      "NhAssistantRuleScriptWouldOutcomes",
+      "NhAssistantRuleScriptDto",
+      "NhAssistantRuleScriptCeilingDto",
+      "NhAssistantRuleScriptVersionDto",
+      "NhAssistantRuleScriptSaveRequest",
+      "NhAssistantRuleScriptChangeRequest",
+      "NhAssistantRuleScriptShadowRequest",
+      "NhAssistantRuleScriptDryRunRequest",
+      "NhAssistantRuleScriptSubjectDto",
+      "NhAssistantRuleScriptLiveDto",
+      "NhAssistantRuleScriptCheckDto",
+      "NhAssistantRuleScriptCatalogDto",
+      "NhAssistantRuleScriptToolDto",
+      "NhAssistantRuleScriptRunRecordDto",
+      "NhAssistantRuleScriptSubjectRunDto",
+      "NhAssistantRuleScriptEndDto",
+      "NhAssistantRuleScriptCallDto",
+      "NhAssistantRuleScriptWriteDto",
+      "NhAssistantRuleScriptProposalDto",
+      "NhAssistantRuleScriptAlertDto",
+      "NhAssistantRuleScriptAlertKeyDto",
+      "NhAssistantRuleScriptComparisonDto",
+      "NhAssistantRuleScriptLineDto",
+      "NhAssistantRuleScriptCheckRequest",
+      "AssistantRuleScript",
+      "AssistantRuleScriptVersion",
+      "AssistantRuleScriptRunRecord",
+      "NhAssistantRuleScriptRunKinds",
+      "NhAssistantPackageRuleScript",
+      "ConfigureRuleScripts",
+      "RuleScriptLimitsOf"
     ],
     "nh-ai-scripting": [
       "AddNewHeapPlatformAIScripting",

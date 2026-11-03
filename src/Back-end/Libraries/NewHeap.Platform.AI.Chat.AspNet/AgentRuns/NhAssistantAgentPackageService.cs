@@ -384,7 +384,11 @@ internal sealed partial class NhAssistantAgentPackageService(
             .Where(item => dataAgent || registration.AgentMetadata.GetValueOrDefault(item.Name)?.Editable == true)
             .ToDictionary(item => item.Name, item => NhAssistantAgentPackageParts.MetadataOf(item.ValueJson), StringComparer.Ordinal);
         var groups = (await services.GetRequiredService<NhAssistantAgentGroups>().MembershipsAsync([row.Id], cancellationToken))[row.Id].Groups;
-        return new NhAssistantPackageAgent(
+        // The live rule scripts travel; their candidates, history, dry runs and shadow runs stay.
+        var ruleScripts = (await services.GetRequiredService<NhAssistantRuleScriptStore>().GetLiveOfAgentAsync(row.Id, cancellationToken))
+            .Select(NhAssistantAgentPackageParts.RuleScriptOf)
+            .ToArray();
+        var exported = new NhAssistantPackageAgent(
             row.Id,
             dataAgent ? NhAssistantAgentSources.Admin : NhAssistantAgentSources.Code,
             NhAssistantAgentPackageParts.DefinitionOf(row),
@@ -395,6 +399,7 @@ internal sealed partial class NhAssistantAgentPackageService(
             handOffs.Length == 0 ? null : handOffs,
             metadata.Count == 0 ? null : metadata,
             groups.Count == 0 ? null : groups);
+        return ruleScripts.Length == 0 ? exported : exported with { RuleScripts = ruleScripts };
     }
 
     /// <summary>
@@ -483,6 +488,10 @@ internal sealed partial class NhAssistantAgentPackageService(
         foreach (var (name, value) in agent.Metadata ?? new Dictionary<string, JsonElement>())
         {
             hashes[NhAssistantPackagePartKinds.PartOf(NhAssistantPackagePartKinds.Metadata, name)] = NhAssistantAgentPackageFormat.HashOf(value);
+        }
+        foreach (var ruleScript in agent.RuleScripts ?? [])
+        {
+            hashes[NhAssistantPackagePartKinds.PartOf(NhAssistantPackagePartKinds.RuleScript, ruleScript.Skill)] = NhAssistantAgentPackageFormat.HashOf(ruleScript);
         }
 
         return hashes;

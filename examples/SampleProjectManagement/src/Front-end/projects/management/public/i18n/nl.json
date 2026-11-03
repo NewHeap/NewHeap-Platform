@@ -663,6 +663,10 @@
       "sample-deadline-reviewer": {
         "name": "Deadlinebeoordelaar",
         "description": "Beoordeelt de opleveringen van een project en waarschuwt, zodra een beheerder het toestaat, de mensen van het project voor een oplevering die binnenkort af moet."
+      },
+      "sample-document-check": {
+        "name": "Documentcontrole",
+        "description": "Waarschuwt wanneer een project binnen drie dagen af moet en nog geen document heeft; de regels zijn een regelscript."
       }
     },
     "policies": {
@@ -676,6 +680,9 @@
       },
       "project-deliverable-due": {
         "name": "Oplevering moet binnenkort af"
+      },
+      "project-missing-document": {
+        "name": "Project zonder document vlak voor de deadline"
       }
     }
   },

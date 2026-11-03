@@ -170,6 +170,20 @@ internal static class NhAssistantPackageFields
     }
 
     /// <summary>
+    /// The fields of a rule script's version: the SHA-256 of its script, so a lock compares the script
+    /// without keeping it, and the writes it may call.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> Of(AssistantRuleScriptVersion row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        return new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["script"] = Text(row.ScriptHash),
+            ["writes"] = Array(row.WritesJson)
+        };
+    }
+
+    /// <summary>
     /// The field of an agent's value of an entry of agent metadata: the value's canonical JSON, or
     /// <c>null</c> without a value.
     /// </summary>

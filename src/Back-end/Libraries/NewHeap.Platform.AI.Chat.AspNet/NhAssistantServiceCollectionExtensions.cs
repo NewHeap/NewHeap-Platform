@@ -435,6 +435,12 @@ internal sealed class NhAssistantStartupValidator(
                 $"Tool '{state.ApplicationExecutions.Keys.Order(StringComparer.Ordinal).First()}' is executed by the application (ExecuteInApplication), "
                 + "but no executor is registered. Register one with UseProposalExecutor<TExecutor>().");
         }
+        // UseRuleScriptsAsData: rule scripts run on the script engine of NewHeap.Platform.AI.Scripting.
+        if (state.RuleScriptsAsData is not null && provider.GetService<INhAssistantRuleScriptEngine>() is null)
+        {
+            throw new InvalidOperationException(
+                "UseRuleScriptsAsData needs the script engine of NewHeap.Platform.AI.Scripting; call AddNewHeapPlatformAIScripting().");
+        }
 
         await registry.ValidateAsync(
             profiles,

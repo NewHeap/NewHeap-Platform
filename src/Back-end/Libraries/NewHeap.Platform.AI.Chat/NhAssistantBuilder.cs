@@ -571,6 +571,42 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Lets administrators, and the agent builder for them, write the rules of agents and their skills as
+    /// rule scripts stored as data (RB-1 to RB-6), within this ceiling: the agents in code that may have them
+    /// (<see cref="NhAssistantRuleScriptCeilingBuilder.ForAgent"/>), every agent created in the administration
+    /// (<see cref="NhAssistantRuleScriptCeilingBuilder.ForAgentsCreatedInAdministration"/>), the writing tools
+    /// a version may opt in to with the most writes per run, and four eyes for going live
+    /// (<see cref="NhAssistantRuleScriptCeilingBuilder.RequireFourEyes"/>). A live version takes the place of
+    /// the agent's or skill's code rule in its rule turns, which call no model; a candidate may run in shadow
+    /// next to the live rules, and a dry run shows what a version would do. Needs the script engine of
+    /// <c>NewHeap.Platform.AI.Scripting</c> (<c>AddNewHeapPlatformAIScripting</c>), whose rule script limits
+    /// apply. Without this call no agent has rule scripts and nothing changes.
+    /// </summary>
+    public NhAssistantBuilder UseRuleScriptsAsData(Action<NhAssistantRuleScriptCeilingBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var ceiling = _state.RuleScriptsAsData ?? new NhAssistantRuleScriptCeiling();
+        configure(new NhAssistantRuleScriptCeilingBuilder(ceiling));
+        if (ceiling.Agents.Count == 0 && ceiling.AgentsCreatedInAdministration is null)
+        {
+            throw new InvalidOperationException(
+                "UseRuleScriptsAsData allows no agent; name them with ForAgent or ForAgentsCreatedInAdministration.");
+        }
+
+        foreach (var agent in ceiling.Agents.Values.Append(ceiling.AgentsCreatedInAdministration).OfType<NhAssistantRuleScriptAgentCeiling>())
+        {
+            if (agent.Destructive.FirstOrDefault(toolId => !agent.Writes.Contains(toolId)) is { } destructive)
+            {
+                throw new InvalidOperationException(
+                    $"UseRuleScriptsAsData lets destructive tool '{destructive}' run without allowing it as a write; name it with AllowWrites too.");
+            }
+        }
+
+        _state.RuleScriptsAsData = ceiling;
+        return this;
+    }
+
+    /// <summary>
     /// Registers a named approval policy that agents, tools and triggers can reference.
     /// </summary>
     public NhAssistantBuilder AddApprovalPolicy(string policyId, Action<NhAiApprovalPolicyBuilder> configure)
@@ -1453,6 +1489,12 @@ internal sealed class NhAssistantRegistrationState
     /// <see langword="null"/> while such agents never get them.
     /// </summary>
     public NhAssistantCompositionCeiling? CompositionsAsData { get; set; }
+
+    /// <summary>
+    /// The application's ceiling of rule scripts (<see cref="NhAssistantBuilder.UseRuleScriptsAsData"/>);
+    /// <see langword="null"/> while no agent has them.
+    /// </summary>
+    public NhAssistantRuleScriptCeiling? RuleScriptsAsData { get; set; }
 
     public IReadOnlyDictionary<string, NhAssistantSubjectSetDefinition> SubjectSets => _subjectSets;
 

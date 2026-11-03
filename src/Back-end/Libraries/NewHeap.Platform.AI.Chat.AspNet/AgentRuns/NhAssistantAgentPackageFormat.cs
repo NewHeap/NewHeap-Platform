@@ -263,5 +263,6 @@ public static class NhAssistantAgentPackageFormat
 [JsonSerializable(typeof(NhAssistantPackageTrigger))]
 [JsonSerializable(typeof(NhAssistantPackageConsultation))]
 [JsonSerializable(typeof(NhAssistantPackageHandOff))]
+[JsonSerializable(typeof(NhAssistantPackageRuleScript))]
 [JsonSerializable(typeof(JsonElement))]
 public sealed partial class NhAssistantAgentPackageFormatJsonSerializerContext : JsonSerializerContext;

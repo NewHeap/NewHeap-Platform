@@ -59,6 +59,8 @@
   <data name="FollowUpOnProject" xml:space="preserve"><value>Op één project valt niets te tellen; het model antwoordt hier.</value></data>
   <data name="FollowUpWholeApplication" xml:space="preserve"><value>Een run voor de hele applicatie telt de open projecten.</value></data>
   <data name="AlertProjectDueTodayTitle" xml:space="preserve"><value>{0} moet vandaag af</value></data>
+  <data name="AlertProjectMissingDocumentTitle" xml:space="preserve"><value>{0} heeft nog geen document terwijl de deadline nadert</value></data>
+  <data name="AlertProjectMissingDocumentText" xml:space="preserve"><value>De deadline valt binnen drie dagen en het project bewaart nog geen document, zoals het plan.</value></data>
   <data name="AlertProjectDueTodayText" xml:space="preserve"><value>Er staan nog {1} taken open; de deadline is vandaag, {0}.</value></data>
   <data name="DeadlineWatchWarned" xml:space="preserve"><value>Het project moet vandaag af en heeft {0} open taken; de eigenaar en de mensen die eraan werken zijn gewaarschuwd.</value></data>
   <data name="DeadlineWatchClear" xml:space="preserve"><value>Het project moet niet vandaag af met open taken; er is niets om voor te waarschuwen.</value></data>

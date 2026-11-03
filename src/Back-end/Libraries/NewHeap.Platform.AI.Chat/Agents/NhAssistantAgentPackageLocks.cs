@@ -4,8 +4,9 @@ namespace NewHeap.Platform.AI.Chat;
 /// The parts of an agent in an agent package (PK8 of the agent packages plan) and their keys: an
 /// agent's definition (<c>agent</c>), its run settings (<c>runSettings</c>), and one key per data
 /// skill (<c>skill:{id}</c>), data trigger (<c>trigger:{id}</c>), consultation defined as data
-/// (<c>consultation:{subjectType}</c>), hand-off defined as data (<c>handOff:{subjectType}</c>) and
-/// entry of agent metadata (<c>metadata:{name}</c>). A package locks parts by these keys, the
+/// (<c>consultation:{subjectType}</c>), hand-off defined as data (<c>handOff:{subjectType}</c>),
+/// entry of agent metadata (<c>metadata:{name}</c>) and the live rule script of the agent's own rules
+/// (<c>ruleScript</c>) or of a skill (<c>ruleScript:{skillId}</c>). A package locks parts by these keys, the
 /// preview reports an outcome per key and an administrator unlinks one key at a time.
 /// </summary>
 public static class NhAssistantPackagePartKinds
@@ -32,22 +33,30 @@ public static class NhAssistantPackagePartKinds
     public const string Metadata = "metadata";
 
     /// <summary>
+    /// The live version of a rule script: of the agent's own rules without a key, of a skill by skill id.
+    /// </summary>
+    public const string RuleScript = "ruleScript";
+
+    /// <summary>
     /// The part key of every agent part a package names: the whole agent when an administrator
     /// unlinks it, never a key of a package's locks.
     /// </summary>
     public const string WholeAgent = "*";
 
     /// <summary>The kinds whose part key names an id, type or name after a colon.</summary>
-    public static IReadOnlyList<string> KeyedKinds { get; } = [Skill, Trigger, Consultation, HandOff, Metadata];
+    public static IReadOnlyList<string> KeyedKinds { get; } = [Skill, Trigger, Consultation, HandOff, Metadata, RuleScript];
 
     /// <summary>
     /// The part key of a kind and its id, type or name: <c>agent</c> and <c>runSettings</c> without
-    /// one, the other kinds as <c>{kind}:{key}</c>.
+    /// one, the rule script of the agent's own rules as <c>ruleScript</c>, the other kinds as
+    /// <c>{kind}:{key}</c>.
     /// </summary>
     public static string PartOf(string kind, string? key = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(kind);
-        return kind is Agent or RunSettings ? kind : kind + ":" + key;
+        return kind is Agent or RunSettings || (kind == RuleScript && string.IsNullOrEmpty(key))
+            ? kind
+            : kind + ":" + key;
     }
 
     /// <summary>
@@ -62,7 +71,7 @@ public static class NhAssistantPackagePartKinds
         {
             return false;
         }
-        if (part is Agent or RunSettings)
+        if (part is Agent or RunSettings or RuleScript)
         {
             kind = part;
             return true;
@@ -189,6 +198,13 @@ public static class NhAssistantPackageLockFields
         "dataClassification"
     ];
 
+    /// <summary>The fields of a rule script's live version: its script and the writes it may call.</summary>
+    public static IReadOnlyList<string> RuleScript { get; } =
+    [
+        "script",
+        "writes"
+    ];
+
     /// <summary>The fields of a hand-off defined as data.</summary>
     public static IReadOnlyList<string> HandOff { get; } =
     [
@@ -216,6 +232,7 @@ public static class NhAssistantPackageLockFields
             NhAssistantPackagePartKinds.Consultation => Consultation,
             NhAssistantPackagePartKinds.HandOff => HandOff,
             NhAssistantPackagePartKinds.Metadata => Metadata,
+            NhAssistantPackagePartKinds.RuleScript => RuleScript,
             _ => []
         };
     }

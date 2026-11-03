@@ -153,6 +153,7 @@ internal sealed partial class NhAssistantAgentPackageService
         PlanTriggers(plan, agent, options, stored, actorId, reason);
         PlanConsultations(plan, agent, options, stored, actorId, reason);
         PlanHandOffs(plan, agent, options, stored, actorId, reason);
+        await PlanRuleScriptsAsync(plan, agent, options, stored, actorId, reason, cancellationToken);
 
         // A part an earlier version linked that this version no longer contains stays, unlinked, unless
         // a promotion keeps the parts its variant does not carry linked (FB33).
@@ -756,6 +757,78 @@ internal sealed partial class NhAssistantAgentPackageService
                 current is null ? null : NhAssistantPackageFields.Of(current),
                 NhAssistantPackageFields.Of(row!),
                 current is null ? [] : [NhAssistantAgentPackageFormat.HashOf(NhAssistantAgentPackageParts.HandOffOf(current))],
+                options);
+        }
+    }
+
+    /// <summary>
+    /// The live rule scripts of the agent (RB-2): each within the importing host's ceiling, for its own
+    /// rules or a skill it has or the package brings, at most once; the next version, live or under four
+    /// eyes as the candidate.
+    /// </summary>
+    private async Task PlanRuleScriptsAsync(
+        NhAssistantPackagePlan plan,
+        NhAssistantPlannedAgent agent,
+        NhAssistantAgentPackageImportOptions options,
+        NhAssistantStoredRunConfiguration stored,
+        string actorId,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var ruleScript in agent.Source.RuleScripts ?? [])
+        {
+            var key = ruleScript?.Skill ?? string.Empty;
+            var part = new NhAssistantPlannedPart(agent.Id, NhAssistantPackagePartKinds.RuleScript, key)
+            {
+                Link = agent.Links.FirstOrDefault(link => link.PartKind == NhAssistantPackagePartKinds.RuleScript && link.PartKey == key)
+            };
+            plan.Parts.Add(part);
+            if (ruleScript is null || !seen.Add(key) || (key.Length > 0 && !NhAssistantNames.IsSegment(key)))
+            {
+                part.Refuse(NhAssistantValidationErrors.Failed("ruleScripts", NhAssistantFieldErrors.Invalid));
+                continue;
+            }
+            var skillKnown = key.Length == 0
+                || registration.RunOptionsOf(agent.Id).Skills.ContainsKey(key)
+                || stored.Skills.Any(item => item.AgentId == agent.Id && item.SkillId == key)
+                || (agent.Source.Skills ?? []).Any(skill => skill.Id == key);
+            if (!skillKnown)
+            {
+                part.Refuse(TaskResult.Failed(NhAssistantErrorCodes.SkillNotFound, "The skill of the rule script was not found."));
+                continue;
+            }
+
+            var prepared = await services.GetRequiredService<RuleScripts.NhAssistantRuleScriptService>().PrepareImportAsync(
+                agent.Id,
+                agent.Source.Source,
+                key.Length == 0 ? null : key,
+                ruleScript.Script,
+                ruleScript.Writes,
+                actorId,
+                reason,
+                cancellationToken);
+            if (!prepared.Success)
+            {
+                part.Refuse(prepared);
+                continue;
+            }
+            if (KeptLocal(agent, part, prepared.Data!.Current is not null, options))
+            {
+                continue;
+            }
+
+            var import = prepared.Data!;
+            part.ExpectedVersion = import.ExpectedRevision;
+            part.AsCandidate = import.Row.Status == NhAssistantRuleScriptStatuses.Candidate;
+            Decide(
+                agent,
+                part,
+                import.Current,
+                import.Row,
+                import.Current is null ? null : NhAssistantPackageFields.Of(import.Current),
+                NhAssistantPackageFields.Of(import.Row),
+                import.Current is null ? [] : [NhAssistantAgentPackageFormat.HashOf(NhAssistantAgentPackageParts.RuleScriptOf(import.Current))],
                 options);
         }
     }

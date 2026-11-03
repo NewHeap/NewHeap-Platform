@@ -8,7 +8,10 @@ public enum NhAiToolCallOriginKind
     /// <summary>A step of a composition: a chain of tools that an application declared as one tool.</summary>
     Composition = 1,
 
-    /// <summary>A call of a script that a model wrote and the script tool ran on the server.</summary>
+    /// <summary>
+    /// A call of a script that a model wrote and the script tool ran on the server, or of a rule script
+    /// stored as data (<see cref="NhAiToolCallOrigin.RuleScriptVersion"/>).
+    /// </summary>
     Script = 2
 }
 
@@ -72,6 +75,13 @@ public sealed record NhAiToolCallOrigin
 
     /// <summary>The position of the step in its composition or script, from 0.</summary>
     public int? StepIndex { get; init; }
+
+    /// <summary>
+    /// The version of the rule script that made the call: a script stored as data that runs an agent's or
+    /// skill's rules without a model, whose <see cref="Hash"/> is the version's; <see langword="null"/> for
+    /// a script a model wrote and for a composition.
+    /// </summary>
+    public int? RuleScriptVersion { get; init; }
 }
 
 /// <summary>

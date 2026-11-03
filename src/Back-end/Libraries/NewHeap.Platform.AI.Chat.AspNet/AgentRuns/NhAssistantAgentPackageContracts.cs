@@ -63,7 +63,16 @@ public sealed record NhAssistantPackageAgent(
     IReadOnlyDictionary<string, JsonElement>? Metadata = null,
     IReadOnlyList<string>? Groups = null,
     IReadOnlyDictionary<string, IReadOnlyList<string>>? Locks = null,
-    IReadOnlyDictionary<string, string>? Hashes = null);
+    IReadOnlyDictionary<string, string>? Hashes = null)
+{
+    /// <summary>
+    /// The live versions of its rule scripts (RB-2): of its own rules and of its skills, each at most
+    /// once, part <c>ruleScript</c> or <c>ruleScript:{skillId}</c>. The import adds each as the next version
+    /// within the importing host's <c>UseRuleScriptsAsData</c>, live, or as the candidate when the host
+    /// requires four eyes. Left out when the agent has none, so older hosts still read the package.
+    /// </summary>
+    public IReadOnlyList<NhAssistantPackageRuleScript>? RuleScripts { get; init; }
+}
 
 /// <summary>
 /// The definition of an agent, mapped to <see cref="NhAssistantAgentRequest"/> on import. For an agent
@@ -221,6 +230,17 @@ public sealed record NhAssistantPackageHandOff(
     string? Description = null,
     bool NotifySource = false,
     int? MaxPerSubjectPerDay = null);
+
+/// <summary>
+/// The live version of a rule script in an agent package: the script and the writing tools it may call.
+/// </summary>
+/// <param name="Script">The body of an async JavaScript function.</param>
+/// <param name="Skill">The skill whose rules it is; <see langword="null"/> for the agent's own rules.</param>
+/// <param name="Writes">The writing tools it may call, by id, within the importing host's ceiling.</param>
+public sealed record NhAssistantPackageRuleScript(
+    string Script,
+    string? Skill = null,
+    IReadOnlyList<string>? Writes = null);
 
 /// <summary>
 /// How an export builds its package (PK13).

@@ -168,6 +168,19 @@ internal static class NhAssistantAgentPackageParts
             row.DataClassification);
     }
 
+    /// <summary>
+    /// The live version of a rule script as a package carries it.
+    /// </summary>
+    public static NhAssistantPackageRuleScript RuleScriptOf(AssistantRuleScriptVersion row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        var writes = JsonSerializer.Deserialize<string[]>(row.WritesJson) ?? [];
+        return new NhAssistantPackageRuleScript(
+            row.Script,
+            row.SkillId.Length == 0 ? null : row.SkillId,
+            writes.Length == 0 ? null : writes);
+    }
+
     public static NhAssistantPackageHandOff HandOffOf(AssistantAgentHandOffDefinition row)
     {
         ArgumentNullException.ThrowIfNull(row);

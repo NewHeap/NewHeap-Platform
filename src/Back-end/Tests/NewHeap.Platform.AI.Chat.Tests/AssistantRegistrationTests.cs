@@ -277,6 +277,8 @@ public sealed class AssistantRegistrationTests
                     // The names of the settings of an alert kind an administrator changed, dash-case
                     // codes such as digest-times (FB87 phase 2); never their values or the reason.
                     or "ChangedFields"
+                    // The SHA-256 of a rule script version, as its calls name it (RB-2); never the script.
+                    or "RuleScriptHash"
                     or "EqualityContract",
             $"{property.Name} is not an identifier, code or timestamp."));
     }
