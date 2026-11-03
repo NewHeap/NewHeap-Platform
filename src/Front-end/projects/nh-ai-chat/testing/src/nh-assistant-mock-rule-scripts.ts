@@ -688,12 +688,13 @@ function compareLines(other: string, script: string): RuleScriptLine[] {
       lines.push({ change: 'same', line: right + 1, otherLine: left + 1, text: after[right] });
       left++;
       right++;
-    } else if (right < after.length && (left >= before.length || lengths[left][right + 1] >= lengths[left + 1][right])) {
-      lines.push({ change: 'added', line: right + 1, otherLine: null, text: after[right] });
-      right++;
-    } else {
+    } else if (left < before.length && (right >= after.length || lengths[left + 1][right] >= lengths[left][right + 1])) {
+      // A changed line reads as the old line removed, then the new one added.
       lines.push({ change: 'removed', line: null, otherLine: left + 1, text: before[left] });
       left++;
+    } else {
+      lines.push({ change: 'added', line: right + 1, otherLine: null, text: after[right] });
+      right++;
     }
   }
   return lines;

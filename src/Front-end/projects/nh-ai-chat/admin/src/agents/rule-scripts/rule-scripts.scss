@@ -55,6 +55,11 @@ textarea.script {
   overflow: auto;
 }
 
+// The catalog scrolls as a whole; its parts keep their height instead of shrinking into it.
+.editor-catalog > * {
+  flex-shrink: 0;
+}
+
 .catalog-list {
   display: flex;
   flex-direction: column;
