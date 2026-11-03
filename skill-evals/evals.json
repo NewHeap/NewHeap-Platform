@@ -387,6 +387,20 @@
       "prompt": "Every working-day morning, warn the person responsible for each task that is due today and not reported done, without asking anyone to approve anything, and stop warning once the task is done.",
       "expectedRules": ["nh-ai-alerts", "nh-ai-agent-runs"],
       "expectedOutcome": "The backend declares an alert kind in code with AddAlertKind, with a display name key, an urgency, a title per culture from named parameters, the subject's responsible person as recipient, a RepeatAfter and a morning digest as default delivery; an agent with a rule handler lists the kind with Alerts(...) and a scheduled trigger starts it on the tasks due today; the rules raise one alert per task and due date with WithAlerts and resolve it with ResolveAlerts once the task is done, relying on one open alert per kind, subject and key, the recipient check and the expiry; the application's own code uses INhAssistantAlerts; the Alerts migration is applied on SQL Server or PostgreSQL and the behaviour is tested on both."
+    },
+    {
+      "id": "consumer-ai-rule-scripts",
+      "skill": "newheap-backend-development",
+      "prompt": "Let an administrator write, without a deploy, a daily check for one agent that warns the responsible person when a project is due within three days and still misses a document, and lets it request a review where needed, running without a language model.",
+      "expectedRules": ["nh-ai-rule-scripts", "nh-ai-alerts", "nh-ai-agent-runs"],
+      "expectedOutcome": "The backend registers the scripting package and allows rule scripts in code with UseRuleScriptsAsData for that agent, with only the writing tools it may call and a maximum of writes per run; an alert kind exists in code and the agent lists it; a schedule with a subject set registered in code starts the agent per project; the administrator saves the script as a version, runs a dry run on chosen projects that records what it would do without effects, and sets it live or tries it in shadow first, with four eyes where the application requires it; the script reads through tools, raises the alert and proposes the review through the tool's own approval policy; the RuleScripts migration is applied on SQL Server or PostgreSQL and the behaviour is tested on both."
+    },
+    {
+      "id": "consumer-ai-agent-builder",
+      "skill": "newheap-backend-development",
+      "prompt": "Give administrators an assistant in the administration that helps them build an agent from a description in plain language, including its instructions, triggers and a rule script, without letting it change rights or accounts.",
+      "expectedRules": ["nh-ai-agent-builder", "nh-ai-rule-scripts"],
+      "expectedOutcome": "The backend calls AddAgentBuilder with a model profile; only people who pass the assistant's access policy and its administration policy can chat with the builder; the builder reads the catalog and the agent's settings, and every save or step live is a proposal the administrator approves in the chat, acting with the administrator's own rights through the administration services, so ceilings, versions, audits and four eyes still apply; it never changes grants, technical accounts, MCP credentials or ceilings and never deletes; a discovery policy that allow-lists tools lets the builder's tool prefix through; the administration shows the builder on the agent page and for a new agent."
     }
-  ]
+]
 }

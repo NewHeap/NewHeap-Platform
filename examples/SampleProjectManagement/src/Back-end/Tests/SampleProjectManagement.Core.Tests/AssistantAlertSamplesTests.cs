@@ -361,6 +361,25 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
         return (await client.GetFromJsonAsync<NhAssistantAlertListDto>("/api/assistant/alerts?" + query, Json))!;
     }
 
+    /// <summary>
+    /// The alert as the person's list shows it once the dispatcher withheld their delivery, or as it is
+    /// after 30 seconds, so a busy machine does not read it before the pass reached that person.
+    /// </summary>
+    private static async Task<NhAssistantAlertDto> WaitForWithheldAsync(HttpClient client, string about, Guid alertId)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (true)
+        {
+            var alert = Assert.Single((await ListAlertsAsync(client, about)).Items, item => item.Id == alertId);
+            if (alert.IsWithheld || DateTime.UtcNow > deadline)
+            {
+                return alert;
+            }
+
+            await Task.Delay(100);
+        }
+    }
+
     private static async Task<NhAssistantAlertSummaryDto> SummaryAsync(HttpClient client, string about)
     {
         return (await client.GetFromJsonAsync<NhAssistantAlertSummaryDto>("/api/assistant/alerts/summary?" + about, Json))!;
@@ -533,7 +552,8 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
         Assert.NotEqual(warned.Data.AlertId, again.Data!.AlertId);
         host.MoveTo(SampleDeadlineAlertsComposition.At(nextDay, new TimeOnly(7, 30), SampleDeadlineAlertsComposition.TimeZone));
         await host.WaitForOutboxAsync(host.OwnerId, again.Data.AlertId);
-        var withheld = Assert.Single((await ListAlertsAsync(mutingClient, about)).Items, item => item.Id == again.Data.AlertId);
+        // The pass that sent the owner's digest may reach the muted colleague's delivery a moment later.
+        var withheld = await WaitForWithheldAsync(mutingClient, about, again.Data.AlertId);
         Assert.Equal((true, NhAssistantAlertWithholdReasons.SubjectMuted), (withheld.IsWithheld, withheld.WithheldReason));
         Assert.Equal(0, (await SummaryAsync(mutingClient, about)).Unread);
         Assert.Single(host.Outbox.Entries, entry => entry.RecipientActorId == muting.ToString("D"));

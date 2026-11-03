@@ -5608,7 +5608,10 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         host.Model.Use(new RoutingChatClient(
             new SampleAssistantChatClient(),
             ((messages, options) => RoutingChatClient.Mentions(messages, options, "You are being consulted"), starterModel),
-            ((messages, options) => RoutingChatClient.Mentions(messages, options, assistantInstructions), assistant)));
+            // Only the person's chat with the project assistant: other agents about the new projects, such as
+            // the intake reviewer once the outbox delivers their creation, read the same instructions.
+            ((messages, options) => NhAiAgentInvocationScopes.Current is null
+                && RoutingChatClient.Mentions(messages, options, assistantInstructions), assistant)));
         var watched = new[] { askerId.ToString(), readerId.ToString(), colleagueId.ToString() };
         host.PrincipalWatch.Refuse(watched);
         try
