@@ -15,6 +15,7 @@ namespace NewHeap.Platform.AI.Scripting;
 public sealed class NhAiScriptingOptions
 {
     private readonly Dictionary<string, NhAiScriptLimits> _agents = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, NhAiScriptLimits> _ruleScriptAgents = new(StringComparer.Ordinal);
     private readonly HashSet<string> _destructive = new(StringComparer.Ordinal);
 
     /// <summary>The limits of an agent without limits of its own. Read-only scripts by default.</summary>
@@ -23,6 +24,17 @@ public sealed class NhAiScriptingOptions
     /// <summary>The limits of scripts that MCP clients run. Read-only scripts by default.</summary>
     public NhAiScriptLimits Mcp { get; } = new();
 
+    /// <summary>
+    /// The limits of rule scripts (RB-1) of an agent without rule script limits of its own: scripts stored
+    /// as data that run an agent's or skill's rules without a model. Their calls that change data follow
+    /// the ceiling's writes per run (<c>UseRuleScriptsAsData</c>), so <see cref="NhAiScriptLimits.MaxMutationsPerScript"/>
+    /// does not apply to them.
+    /// </summary>
+    public NhAiScriptLimits RuleScripts { get; } = new();
+
+    /// <summary>The agents with rule script limits of their own.</summary>
+    public IReadOnlyCollection<string> AgentsWithRuleScriptLimits => _ruleScriptAgents.Keys;
+
     /// <summary>The agents with limits of their own.</summary>
     public IReadOnlyCollection<string> AgentsWithLimits => _agents.Keys;
 
@@ -30,6 +42,14 @@ public sealed class NhAiScriptingOptions
     public NhAiScriptLimits LimitsOf(string? agentId)
     {
         return agentId is not null && _agents.TryGetValue(agentId, out var limits) ? limits : Defaults;
+    }
+
+    /// <summary>
+    /// The limits of <paramref name="agentId"/>'s rule scripts: its own, otherwise <see cref="RuleScripts"/>.
+    /// </summary>
+    public NhAiScriptLimits RuleScriptLimitsOf(string? agentId)
+    {
+        return agentId is not null && _ruleScriptAgents.TryGetValue(agentId, out var limits) ? limits : RuleScripts;
     }
 
     /// <summary>
@@ -52,6 +72,17 @@ public sealed class NhAiScriptingOptions
         return limits;
     }
 
+    internal NhAiScriptLimits GetOrAddRuleScriptAgent(string agentId)
+    {
+        if (!_ruleScriptAgents.TryGetValue(agentId, out var limits))
+        {
+            limits = RuleScripts.Clone();
+            _ruleScriptAgents.Add(agentId, limits);
+        }
+
+        return limits;
+    }
+
     internal void AllowDestructive(string toolId)
     {
         _destructive.Add(toolId);
@@ -61,7 +92,8 @@ public sealed class NhAiScriptingOptions
     {
         Defaults.Validate();
         Mcp.Validate();
-        foreach (var limits in _agents.Values)
+        RuleScripts.Validate();
+        foreach (var limits in _agents.Values.Concat(_ruleScriptAgents.Values))
         {
             limits.Validate();
         }
@@ -120,6 +152,33 @@ public sealed class NhAiScriptingBuilder
     }
 
     /// <summary>
+    /// Sets the limits of rule scripts (scripts stored as data that run an agent's rules without a model)
+    /// of agents without rule script limits of their own. Call it before the overload per agent, whose
+    /// limits start as a copy of these. How many calls change data follows the ceiling's writes per run
+    /// (<c>UseRuleScriptsAsData</c>); <see cref="NhAiScriptLimits.MaxMutationsPerScript"/> does not apply.
+    /// </summary>
+    public NhAiScriptingBuilder ConfigureRuleScripts(Action<NhAiScriptLimits> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        configure(_options.RuleScripts);
+        _options.RuleScripts.Validate();
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the limits of one agent's rule scripts, for its own rules and those of its skills.
+    /// </summary>
+    public NhAiScriptingBuilder ConfigureRuleScripts(string agentId, Action<NhAiScriptLimits> configure)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentNullException.ThrowIfNull(configure);
+        var limits = _options.GetOrAddRuleScriptAgent(agentId);
+        configure(limits);
+        limits.Validate();
+        return this;
+    }
+
+    /// <summary>
     /// Lets the named destructive tools run in scripts that may change data. A destructive tool is never
     /// called by a script without this opt-in; its calls still get the decision they get on their own.
     /// </summary>
@@ -167,6 +226,8 @@ public static class NhAiScriptingServiceCollectionExtensions
         services.AddNewHeapPlatformAI();
         services.TryAddSingleton<NhAiScriptRunner>();
         services.TryAddSingleton<NhAiScriptToolCatalog>();
+        // Rule scripts (RB-1): the assistant runs an agent's or skill's rules stored as a script on this engine.
+        services.TryAddSingleton<INhAssistantRuleScriptEngine, NhAiRuleScriptEngine>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAiToolCatalog, NhAiScriptToolCatalog>(
             provider => provider.GetRequiredService<NhAiScriptToolCatalog>()));
         services.AddNewHeapPlatformAIMcpToolContributor<NhAiScriptMcpToolContributor>();

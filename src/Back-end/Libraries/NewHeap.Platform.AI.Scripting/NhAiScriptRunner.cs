@@ -78,7 +78,25 @@ public sealed class NhAiScriptRunner
         ArgumentNullException.ThrowIfNull(offers);
         ArgumentNullException.ThrowIfNull(limits);
         return Offers(offers)
-            .Where(offer => RefusalOf(offer, limits) is null)
+            .Where(offer => RefusalOf(offer, limits, NhAiScriptEnvironment.None) is null)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// The tools among <paramref name="offers"/> a script under <paramref name="limits"/> may call in
+    /// <paramref name="environment"/>, which may refuse more of them, such as a rule script's writes that
+    /// its version did not opt in.
+    /// </summary>
+    internal IReadOnlyList<NhAiScriptToolOffer> CallableTools(
+        IReadOnlyList<NhAiScriptToolOffer> offers,
+        NhAiScriptLimits limits,
+        NhAiScriptEnvironment environment)
+    {
+        ArgumentNullException.ThrowIfNull(offers);
+        ArgumentNullException.ThrowIfNull(limits);
+        ArgumentNullException.ThrowIfNull(environment);
+        return Offers(offers)
+            .Where(offer => RefusalOf(offer, limits, environment) is null)
             .ToArray();
     }
 
@@ -87,39 +105,72 @@ public sealed class NhAiScriptRunner
     /// error, a limit or a call that waits for approval, are a stopped <see cref="NhAiScriptResult"/>;
     /// cancellation of <paramref name="cancellationToken"/> throws.
     /// </summary>
-    public async Task<NhAiScriptResult> RunAsync(
+    public Task<NhAiScriptResult> RunAsync(
         string script,
         INhAiScriptHost host,
         NhAiScriptLimits limits,
         CancellationToken cancellationToken = default)
     {
+        return RunAsync(script, host, limits, NhAiScriptEnvironment.None, cancellationToken);
+    }
+
+    /// <summary>
+    /// Runs <paramref name="script"/> against <paramref name="host"/> with the values and platform
+    /// functions of <paramref name="environment"/> next to <c>tools</c> and <c>console</c>, as a rule
+    /// script runs. Expected outcomes are a stopped <see cref="NhAiScriptResult"/>; cancellation throws.
+    /// </summary>
+    internal async Task<NhAiScriptResult> RunAsync(
+        string script,
+        INhAiScriptHost host,
+        NhAiScriptLimits limits,
+        NhAiScriptEnvironment environment,
+        CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(script);
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(limits);
+        ArgumentNullException.ThrowIfNull(environment);
         limits.Validate();
+        environment.Validate();
         cancellationToken.ThrowIfCancellationRequested();
 
         var hash = HashOf(script);
+        var problem = Check(script, limits, out var prepared);
+        if (problem is not null)
+        {
+            return Stopped(hash, problem, [], []);
+        }
+
+        using var run = new ScriptRun(this, host, limits, environment, hash, script);
+        return await run.ExecuteAsync(prepared!.Value, cancellationToken);
+    }
+
+    /// <summary>
+    /// Why <paramref name="script"/> cannot run under <paramref name="limits"/> before it starts: it is
+    /// longer than <see cref="NhAiScriptLimits.MaxScriptLength"/> (<see cref="NhAiScriptCodes.TooLong"/>)
+    /// or does not parse (<see cref="NhAiScriptCodes.SyntaxError"/>, with its line and column); or
+    /// <see langword="null"/> when it may run. Nothing runs.
+    /// </summary>
+    internal static NhAiScriptStop? Check(string script, NhAiScriptLimits limits)
+    {
+        return Check(script, limits, out _);
+    }
+
+    private static NhAiScriptStop? Check(string script, NhAiScriptLimits limits, out Prepared<Script>? prepared)
+    {
+        ArgumentNullException.ThrowIfNull(script);
+        ArgumentNullException.ThrowIfNull(limits);
+        prepared = null;
         if (script.Length > limits.MaxScriptLength)
         {
-            return Stopped(
-                hash,
-                new NhAiScriptStop(
-                    NhAiScriptCodes.TooLong,
-                    "the program has " + script.Length.ToString(CultureInfo.InvariantCulture) + " characters; a script has at most "
-                        + limits.MaxScriptLength.ToString(CultureInfo.InvariantCulture) + ". Write a shorter program."),
-                [],
-                []);
+            return new NhAiScriptStop(
+                NhAiScriptCodes.TooLong,
+                "the program has " + script.Length.ToString(CultureInfo.InvariantCulture) + " characters; a script has at most "
+                    + limits.MaxScriptLength.ToString(CultureInfo.InvariantCulture) + ". Write a shorter program.");
         }
 
-        var prepared = Prepare(script, out var syntaxError);
-        if (syntaxError is not null)
-        {
-            return Stopped(hash, syntaxError, [], []);
-        }
-
-        using var run = new ScriptRun(this, host, limits, hash, script);
-        return await run.ExecuteAsync(prepared!.Value, cancellationToken);
+        prepared = Prepare(script, out var syntaxError);
+        return syntaxError;
     }
 
     private static IReadOnlyList<NhAiScriptToolOffer> Offers(IReadOnlyList<NhAiScriptToolOffer> tools)
@@ -148,17 +199,23 @@ public sealed class NhAiScriptRunner
     /// Why a script under <paramref name="limits"/> may not call <paramref name="offer"/>, or
     /// <see langword="null"/> when it may.
     /// </summary>
-    private string? RefusalOf(NhAiScriptToolOffer offer, NhAiScriptLimits limits)
+    private string? RefusalOf(NhAiScriptToolOffer offer, NhAiScriptLimits limits, NhAiScriptEnvironment environment)
     {
         if (!offer.IsMutation)
         {
             return null;
         }
+        if (environment.Refuse?.Invoke(offer) is { } refusal)
+        {
+            return refusal;
+        }
         if (limits.MaxMutationsPerScript == 0)
         {
             return "it changes data and scripts here are read-only. Call it on its own instead.";
         }
-        if (offer.Descriptor.Effect == NhAiToolEffect.Destructive && !_options.AllowsDestructive(offer.Descriptor.Id))
+
+        var destructiveAllowed = environment.AllowsDestructive ?? _options.AllowsDestructive;
+        if (offer.Descriptor.Effect == NhAiToolEffect.Destructive && !destructiveAllowed(offer.Descriptor.Id))
         {
             return "it is destructive and has not opted in to scripts. Call it on its own instead.";
         }
@@ -321,11 +378,24 @@ public sealed class NhAiScriptRunner
         }
     }
 
+    /// <summary>
+    /// A call the program awaits: a tool call through the host, or a call of an asynchronous platform
+    /// function of the environment (<see cref="Platform"/>), in the order the program made them.
+    /// </summary>
     private sealed record PendingCall(
-        NhAiScriptToolOffer Offer,
+        NhAiScriptToolOffer? Offer,
         JsonElement Arguments,
         int Sequence,
-        Action<JsValue> Resolve);
+        Action<JsValue> Resolve)
+    {
+        public Action<JsValue>? Reject { get; init; }
+
+        public NhAiScriptHostFunction? Platform { get; init; }
+
+        public IReadOnlyList<JsonElement> PlatformArguments { get; init; } = [];
+
+        public string Name => Offer?.Name ?? Platform!.Name;
+    }
 
     /// <summary>
     /// The state of one running script and its engine.
@@ -351,9 +421,20 @@ public sealed class NhAiScriptRunner
             })
             """;
 
+        private const string FreezeSource = """
+            (function freeze(value) {
+              if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
+                Object.freeze(value);
+                for (const name of Object.keys(value)) { freeze(value[name]); }
+              }
+              return value;
+            })
+            """;
+
         private readonly NhAiScriptRunner _runner;
         private readonly INhAiScriptHost _host;
         private readonly NhAiScriptLimits _limits;
+        private readonly NhAiScriptEnvironment _environment;
         private readonly string _hash;
         private readonly string _script;
         private readonly Dictionary<string, NhAiScriptToolOffer> _offers = new(StringComparer.Ordinal);
@@ -368,17 +449,25 @@ public sealed class NhAiScriptRunner
         private readonly Engine _engine;
         private int _made;
         private int _mutations;
+        private int _platformCalls;
         private int _droppedLogs;
         private NhAiScriptStop? _stop;
         private bool _settled;
         private bool _fulfilled;
         private JsValue _settledValue = JsValue.Undefined;
 
-        public ScriptRun(NhAiScriptRunner runner, INhAiScriptHost host, NhAiScriptLimits limits, string hash, string script)
+        public ScriptRun(
+            NhAiScriptRunner runner,
+            INhAiScriptHost host,
+            NhAiScriptLimits limits,
+            NhAiScriptEnvironment environment,
+            string hash,
+            string script)
         {
             _runner = runner;
             _host = host;
             _limits = limits;
+            _environment = environment;
             _hash = hash;
             _script = script;
             _statements = new StatementBudget(limits.MaxStatements);
@@ -386,7 +475,7 @@ public sealed class NhAiScriptRunner
             foreach (var offer in Offers(host.Tools))
             {
                 _offers.Add(offer.Name, offer);
-                if (runner.RefusalOf(offer, limits) is null)
+                if (runner.RefusalOf(offer, limits, environment) is null)
                 {
                     _callable.Add(offer);
                 }
@@ -429,11 +518,29 @@ public sealed class NhAiScriptRunner
                     }
                     if (_clock.Elapsed >= _limits.Timeout)
                     {
-                        throw Stop(TimeoutStop(pending.Sequence, pending.Offer.Name));
+                        throw Stop(TimeoutStop(pending.Offer is null ? null : pending.Sequence, pending.Name));
+                    }
+                    if (pending.Platform is { InvokeAsync: { } invoke })
+                    {
+                        var reply = await invoke(pending.PlatformArguments, cancellationToken);
+                        Segment(() =>
+                        {
+                            if (reply.Error is { } error)
+                            {
+                                pending.Reject!(_engine.Intrinsics.TypeError.Construct(Bound(error, MaxErrorMessageLength)));
+                            }
+                            else
+                            {
+                                pending.Resolve(ToJs(reply.Value));
+                            }
+
+                            _engine.Advanced.ProcessTasks();
+                        });
+                        continue;
                     }
 
                     var outcome = await _host.CallAsync(
-                        new NhAiScriptToolCall(pending.Offer, pending.Arguments, _hash, pending.Sequence),
+                        new NhAiScriptToolCall(pending.Offer!, pending.Arguments, _hash, pending.Sequence),
                         cancellationToken);
                     Record(pending, outcome);
                     var result = outcome.Result;
@@ -508,6 +615,7 @@ public sealed class NhAiScriptRunner
             var proxy = _engine.Invoke(factory, JsValue.Undefined, new JsValue[] { tools, unknown });
             _engine.SetValue("tools", proxy);
             _engine.SetValue("console", CreateConsole());
+            DefineEnvironment();
 
             var main = _engine.Evaluate(prepared);
             if (main is not ObjectInstance promise || promise.Get("then") is not Function)
@@ -519,6 +627,122 @@ public sealed class NhAiScriptRunner
             var fail = new ClrFunction(_engine, "fail", (_, arguments) => Settle(false, arguments), 1);
             _engine.Invoke(promise.Get("then"), promise, new JsValue[] { done, fail });
             _engine.Advanced.ProcessTasks();
+        }
+
+        /// <summary>
+        /// Defines the environment's values, frozen, and its platform functions, grouped in a frozen object
+        /// per namespace such as <c>alerts</c>, next to <c>tools</c> and <c>console</c>.
+        /// </summary>
+        private void DefineEnvironment()
+        {
+            if (_environment.Values.Count == 0 && _environment.Functions.Count == 0)
+            {
+                return;
+            }
+
+            var freeze = _engine.Evaluate(FreezeSource);
+            foreach (var (name, value) in _environment.Values)
+            {
+                _engine.SetValue(name, _engine.Invoke(freeze, JsValue.Undefined, new JsValue[] { ToJs(value) }));
+            }
+
+            var namespaces = new Dictionary<string, JsObject>(StringComparer.Ordinal);
+            foreach (var function in _environment.Functions)
+            {
+                var separator = function.Name.IndexOf('.', StringComparison.Ordinal);
+                var member = separator < 0 ? function.Name : function.Name[(separator + 1)..];
+                var clr = new ClrFunction(_engine, member, (_, arguments) => CallPlatform(function, arguments), 1);
+                if (separator < 0)
+                {
+                    _engine.SetValue(function.Name, clr);
+                    continue;
+                }
+
+                var space = function.Name[..separator];
+                if (!namespaces.TryGetValue(space, out var target))
+                {
+                    target = new JsObject(_engine);
+                    namespaces.Add(space, target);
+                }
+
+                target.DefineOwnProperty(member, new PropertyDescriptor(clr, PropertyFlag.Enumerable));
+            }
+
+            foreach (var (space, target) in namespaces)
+            {
+                _engine.SetValue(space, _engine.Invoke(freeze, JsValue.Undefined, new JsValue[] { target }));
+            }
+        }
+
+        /// <summary>
+        /// Calls a platform function of the environment: a synchronous one answers at once, an asynchronous
+        /// one returns a promise that settles in the program's order of calls, as a tool call does. A
+        /// function's error is a <c>TypeError</c> the program may catch.
+        /// </summary>
+        private JsValue CallPlatform(NhAiScriptHostFunction function, JsValue[] arguments)
+        {
+            ThrowIfStopped();
+            var values = new List<JsonElement>(arguments.Length);
+            foreach (var argument in arguments)
+            {
+                values.Add(ToJson(argument, function.Name));
+            }
+
+            if (function.InvokeAsync is null)
+            {
+                var reply = function.Invoke!(values);
+                if (reply.Error is { } error)
+                {
+                    throw new JavaScriptException(_engine.Intrinsics.TypeError, Bound(error, MaxErrorMessageLength));
+                }
+
+                return ToJs(reply.Value);
+            }
+
+            if (++_platformCalls > _limits.MaxToolCalls)
+            {
+                throw Stop(new NhAiScriptStop(
+                    NhAiScriptCodes.ToolCallLimit,
+                    "a script calls " + function.Name + " at most " + _limits.MaxToolCalls.ToString(CultureInfo.InvariantCulture) + " times. Split the work.")
+                {
+                    Tool = function.Name
+                });
+            }
+
+            var (promise, resolve, reject) = _engine.Advanced.RegisterPromise();
+            _queue.Enqueue(new PendingCall(null, default, 0, resolve)
+            {
+                Reject = reject,
+                Platform = function,
+                PlatformArguments = values
+            });
+            return promise;
+        }
+
+        private JsonElement ToJson(JsValue value, string function)
+        {
+            if (value.IsUndefined() || value is Function)
+            {
+                using var empty = JsonDocument.Parse("null");
+                return empty.RootElement.Clone();
+            }
+
+            try
+            {
+                using var document = JsonDocument.Parse(Stringify(value));
+                return document.RootElement.Clone();
+            }
+            catch (JsonException)
+            {
+                throw new JavaScriptException(_engine.Intrinsics.TypeError, "an argument of " + function + " cannot be written as JSON.");
+            }
+        }
+
+        private JsValue ToJs(JsonElement? value)
+        {
+            return value is { ValueKind: not JsonValueKind.Undefined } json
+                ? new JintJsonParser(_engine).Parse(json.GetRawText())
+                : JsValue.Undefined;
         }
 
         private JsValue Settle(bool fulfilled, JsValue[] arguments)
@@ -645,7 +869,7 @@ public sealed class NhAiScriptRunner
             {
                 throw Stop(new NhAiScriptStop(
                     NhAiScriptCodes.ToolRefused,
-                    "'" + name + "' cannot run in a script: " + _runner.RefusalOf(offer, _limits))
+                    "'" + name + "' cannot run in a script: " + _runner.RefusalOf(offer, _limits, _environment))
                 {
                     Tool = name
                 });
@@ -665,10 +889,11 @@ public sealed class NhAiScriptRunner
 
         private void Record(PendingCall pending, NhAiScriptCallOutcome outcome)
         {
+            var offer = pending.Offer!;
             var code = FailureCode(outcome.Result);
-            var record = new NhAiScriptCallRecord(pending.Sequence, pending.Offer.Name, pending.Offer.Descriptor.Id, NhAiScriptCallOutcomes.Done)
+            var record = new NhAiScriptCallRecord(pending.Sequence, offer.Name, offer.Descriptor.Id, NhAiScriptCallOutcomes.Done)
             {
-                Mutation = pending.Offer.IsMutation,
+                Mutation = offer.IsMutation,
                 ProposalId = outcome.ProposalId ?? ProposalIdOf(outcome.Result)
             };
             switch (outcome.Kind)
@@ -686,7 +911,7 @@ public sealed class NhAiScriptRunner
                         "this call waits for a person's approval. The turn waits for the decision; after it, continue with a new script for the rest if needed.")
                     {
                         Sequence = pending.Sequence,
-                        Tool = pending.Offer.Name,
+                        Tool = offer.Name,
                         CallCode = code,
                         ProposalId = record.ProposalId
                     });
@@ -697,7 +922,7 @@ public sealed class NhAiScriptRunner
                         "the turn refused this call before it ran (" + (code ?? NhAiToolFailureCodes.Failed) + ").")
                     {
                         Sequence = pending.Sequence,
-                        Tool = pending.Offer.Name,
+                        Tool = offer.Name,
                         CallCode = code
                     });
             }
@@ -710,7 +935,7 @@ public sealed class NhAiScriptRunner
             if (string.Equals(code, NhAiToolFailureCodes.InputInvalid, StringComparison.Ordinal))
             {
                 _calls.Add(record with { Outcome = NhAiScriptCallOutcomes.Invalid, Code = code });
-                throw Stop(InvalidCallStop(pending.Offer, pending.Sequence, MessageOf(outcome.Result) ?? "the tool rejected the input.", code));
+                throw Stop(InvalidCallStop(offer, pending.Sequence, MessageOf(outcome.Result) ?? "the tool rejected the input.", code));
             }
 
             _calls.Add(record with { Outcome = NhAiScriptCallOutcomes.Failed, Code = code });
