@@ -130,4 +130,16 @@ yet.
 
 ## Lane choices
 
-None yet.
+| # | Choice | Status |
+|---|---|---|
+| RS1 | A live rule script and a code rule are alternatives: the live script wins in the rule turn and the code rule does not run; `GET admin/agents/{id}/rule-script` names the code rule it replaces (`codeRule`). | For Lars to review |
+| RS2 | The ceiling (`UseRuleScriptsAsData`) lives in AI.Chat and names agents, writes, writes per run, destructive tools and four eyes; the engine limits are `NhAiScriptLimits` set with `AddNewHeapPlatformAIScripting(s => s.ConfigureRuleScripts(...))`, for all agents or per agent, and the ceiling's `MaxWritesPerRun` replaces their `MaxMutationsPerScript`. `AllowWrites` alone allows one write per run. | For Lars to review |
+| RS3 | Destructive writes need `AllowDestructive` on the agent's ceiling and must be in `AllowWrites`; the scripting package's global `AllowDestructive` does not apply to rule scripts. | For Lars to review |
+| RS4 | A write of a live script gets the decision of the agent's own run: an Execute agent follows the tool's approval requirement and policy (deferred in a rule turn); an agent that only proposes, answers for itself (accountability `Agent`) or runs in a shadow thread proposes every write. `propose()` always records a proposal, also for a write that is not opted in. | For Lars to review |
+| RS5 | A candidate in shadow runs without effects inside the live run (after the live rules, on the same subject and inputs), or before the model when the agent or skill has no rules; it is kept as a shadow run (the newest 20 per version), not as a run in the shadow thread. | For Lars to review |
+| RS6 | In shadow and dry runs a write returns `assistant-rule-script-dry-run` to the script and is recorded as `would-run`, `would-propose` or `would-decide`; `propose()` returns the outcome `dry-run`. Reads run with the agent's grants and accountability on the subject, never with the administrator's rights. | For Lars to review |
+| RS7 | The rule script's call is a call of the run (tool id `assistant.rule-script`) with its version and hash, so the thread shows it and its tool calls are its steps; no model is offered it and the composition activity does not list it. | For Lars to review |
+| RS8 | One candidate at a time: saving any new version discards the waiting candidate, and saving straight live also supersedes the live version. Every change expects the rule script's revision (`expectedRevision`), one counter per agent or skill. | For Lars to review |
+| RS9 | A script that ends without `done`, `handOver` or `useSkill` ends with the text it returned, otherwise with "The rule script ran."; ending twice is a `TypeError`. Errors of platform functions (an unlisted alert kind, bad arguments) are `TypeError`s the script may catch, otherwise `ai-script-runtime-error`. | For Lars to review |
+| RS10 | An agent package's import adds its rule script as the next version, live, or as the candidate when the host requires four eyes; the link locks `script` (by its hash) and `writes`. Under four eyes nobody saves straight live. | For Lars to review |
+| RS11 | SPM-393: the sample's projects have no start date, so the document check uses the deadline (due within three days, the schedule's subject set) and the project's documents (`project-documents.read`) as what it misses; its one write is `projects.request-review`, which needs approval and becomes a proposal. | For Lars to review |
