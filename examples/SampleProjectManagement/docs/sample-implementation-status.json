@@ -379,7 +379,8 @@
     "SPM-387",
     "SPM-391",
     "SPM-392",
-    "SPM-393"
+    "SPM-393",
+    "SPM-394"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -4336,6 +4337,26 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-rule-scripts-api.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-rule-scripts-admin.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-rule-scripts.ts"
+    ],
+    "SPM-394": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentBuilderComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentBuilderSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SwitchableChatClientTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentBuilderIds.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilder.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolCatalog.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderInstructions.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentBuilderTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/builder/nh-assistant-agent-builder-chat.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/builder/nh-assistant-agent-builder-chat.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/builder/agent-builder.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-builder.spec.ts"
     ]
   }
 }
