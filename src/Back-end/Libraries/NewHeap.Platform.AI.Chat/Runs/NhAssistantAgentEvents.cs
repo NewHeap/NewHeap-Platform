@@ -1386,6 +1386,43 @@ internal sealed class NhAssistantAgentEvents(
     }
 
     /// <summary>
+    /// Records a change or a dry run of a rule script version (RB-2, RB-5): the agent, the skill, the person,
+    /// the version, its script's hash and the outcome, never the script, the writes, the reason or the
+    /// subjects.
+    /// </summary>
+    public Task RuleScriptChangedAsync(
+        NhAssistantAuditEventKind kind,
+        string agentId,
+        string? skillId,
+        string actorId,
+        string? viaAgentId,
+        int version,
+        string scriptHash,
+        string outcome,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(outcome);
+        if (kind is < NhAssistantAuditEventKind.AdminRuleScriptSaved or > NhAssistantAuditEventKind.AdminRuleScriptDryRun)
+        {
+            throw new ArgumentOutOfRangeException(nameof(kind));
+        }
+
+        return RecordAsync(
+            new NhAssistantAuditEvent(kind, Guid.Empty, Guid.Empty, actorId, agentId, 0, DateTimeOffset.UtcNow)
+            {
+                ObjectId = agentId,
+                SkillId = skillId,
+                AskingAgentId = viaAgentId,
+                ResultCode = outcome,
+                RuleScriptVersion = version,
+                RuleScriptHash = scriptHash
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
     /// The actor of an alert's own events: the agent whose rules raised it, or the application.
     /// </summary>
     private static string RaiserOf(AssistantAlert alert)

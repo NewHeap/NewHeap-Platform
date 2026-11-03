@@ -209,6 +209,8 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<Alerts.NhAssistantAlertModelTool>();
         // Rule scripts (RB-1 to RB-6): the versions per agent and skill, their runtime in rule turns, dry runs and administration.
         services.TryAddScoped<NhAssistantRuleScriptStore>();
+        services.TryAddScoped<RuleScripts.NhAssistantRuleScriptService>();
+        services.TryAddScoped<INhAssistantRuleScripts>(provider => provider.GetRequiredService<RuleScripts.NhAssistantRuleScriptService>());
         // Time and the person (FB87 phase 2): a person's mutes of one kind about one subject (FB87-11).
         services.TryAddScoped<NhAssistantAlertSubjectMuteStore>();
         return state;

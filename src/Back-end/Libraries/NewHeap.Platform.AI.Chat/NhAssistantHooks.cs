@@ -583,7 +583,47 @@ public enum NhAssistantAuditEventKind
     /// <see cref="NhAssistantAuditEvent.AlertModelSwitchVersion"/> the switch's new version. Never the reason.
     /// <see cref="NhAssistantAuditEvent.ConversationId"/> and <see cref="NhAssistantAuditEvent.TurnId"/> are empty.
     /// </summary>
-    AdminAlertModelSwitchChanged = 132
+    AdminAlertModelSwitchChanged = 132,
+
+    /// <summary>
+    /// An administrator, or the agent builder for one, saved a version of a rule script (RB-2,
+    /// <c>POST admin/agents/{id}/rule-script/versions</c>): <see cref="NhAssistantAuditEvent.ObjectId"/> and
+    /// <see cref="NhAssistantAuditEvent.AgentId"/> are the agent, <see cref="NhAssistantAuditEvent.SkillId"/> the
+    /// skill or <see langword="null"/> for the agent's own rules, <see cref="NhAssistantAuditEvent.ActorId"/> the
+    /// person, <see cref="NhAssistantAuditEvent.ResultCode"/> the version's status (<c>live</c> or
+    /// <c>candidate</c>), <see cref="NhAssistantAuditEvent.RuleScriptVersion"/> the version and
+    /// <see cref="NhAssistantAuditEvent.RuleScriptHash"/> the SHA-256 of its script; with
+    /// <see cref="NhAssistantAuditEvent.AskingAgentId"/> the agent that wrote it for the person. Never the
+    /// script, the writes or the reason.
+    /// </summary>
+    AdminRuleScriptSaved = 133,
+
+    /// <summary>
+    /// A version of a rule script went live (RB-3), saved straight live or set live from a candidate, with
+    /// the fields of <see cref="AdminRuleScriptSaved"/>; <see cref="NhAssistantAuditEvent.ResultCode"/> is
+    /// <c>live</c>.
+    /// </summary>
+    AdminRuleScriptLive = 134,
+
+    /// <summary>
+    /// The candidate of a rule script started or stopped running in shadow, with the fields of
+    /// <see cref="AdminRuleScriptSaved"/>; <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>shadow</c> or
+    /// <c>no-shadow</c>.
+    /// </summary>
+    AdminRuleScriptShadowChanged = 135,
+
+    /// <summary>
+    /// The candidate of a rule script was discarded, with the fields of <see cref="AdminRuleScriptSaved"/>;
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>discarded</c>.
+    /// </summary>
+    AdminRuleScriptDiscarded = 136,
+
+    /// <summary>
+    /// A version of a rule script ran without effects on chosen subjects (RB-5), with the fields of
+    /// <see cref="AdminRuleScriptSaved"/>; <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>completed</c>
+    /// when it completed on every subject and <c>stopped</c> otherwise. Never the subjects or what it did.
+    /// </summary>
+    AdminRuleScriptDryRun = 137
 }
 
 /// <summary>
@@ -943,6 +983,18 @@ public sealed record NhAssistantAuditEvent(
     /// event; <see langword="null"/> for other events.
     /// </summary>
     public int? AlertModelSwitchVersion { get; init; }
+
+    /// <summary>
+    /// The version of the rule script of an <see cref="NhAssistantAuditEventKind.AdminRuleScriptSaved"/> to
+    /// <see cref="NhAssistantAuditEventKind.AdminRuleScriptDryRun"/> event; <see langword="null"/> for other events.
+    /// </summary>
+    public int? RuleScriptVersion { get; init; }
+
+    /// <summary>
+    /// The SHA-256 of the script of that version, lowercase hexadecimal, as the origin of its calls names it;
+    /// never the script.
+    /// </summary>
+    public string? RuleScriptHash { get; init; }
 
     /// <summary>
     /// The most characters of <see cref="FileName"/>.

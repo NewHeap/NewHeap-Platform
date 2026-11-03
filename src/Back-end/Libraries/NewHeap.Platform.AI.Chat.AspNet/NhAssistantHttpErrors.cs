@@ -376,6 +376,19 @@ internal static class NhAssistantHttpErrors
         Add(statuses, StatusCodes.Status409Conflict,
             NhAssistantAdminErrorCodes.AlertModelNotAllowed,
             NhAssistantAdminErrorCodes.AlertModelShadowFirst);
+        // Rule scripts (RB-1 to RB-6): an agent the ceiling leaves out, a write outside it, an unknown
+        // version, a change of a version that is no candidate, four eyes and the subjects of a dry run. A
+        // write without effects only ever reaches the script.
+        Add(statuses, StatusCodes.Status409Conflict,
+            NhAssistantRuleScriptCodes.NotAllowed,
+            NhAssistantRuleScriptCodes.NotCandidate,
+            NhAssistantRuleScriptCodes.FourEyes,
+            NhAssistantRuleScriptCodes.DryRunWrite);
+        Add(statuses, StatusCodes.Status400BadRequest,
+            NhAssistantRuleScriptCodes.WriteNotAllowed,
+            NhAssistantRuleScriptCodes.SubjectsInvalid);
+        Add(statuses, StatusCodes.Status404NotFound,
+            NhAssistantRuleScriptCodes.VersionNotFound);
         return statuses.ToFrozenDictionary(StringComparer.Ordinal);
     }
 
