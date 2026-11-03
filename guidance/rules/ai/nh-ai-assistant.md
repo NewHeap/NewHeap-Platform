@@ -664,7 +664,12 @@ the people the conversation's read rule admits, as the live hub does. No notific
 notifications included, reaches a person the platform no longer resolves: one for whom the
 principal factory, as the MCP owner sweep selects it, rebuilds nobody, such as a deleted, blocked
 or locked-out account. A host whose factory cannot tell, without the NewHeap user manager or with
-an access source (`UsePrincipalsFromAccessSource`), keeps delivering. The assistant registers an
+an access source (`UsePrincipalsFromAccessSource`), keeps delivering. Each person a delivery skips
+because the factory rebuilds nobody for them is logged as one content-free warning per person per
+hour, without the actor id, naming `INhAiPrincipalFactory`; the warning changes nobody's deliveries.
+Expect it for deleted or locked-out accounts. When it appears for people who do sign in, the
+application's actor ids are its own and the built-in factory does not know them: register an
+`INhAiPrincipalFactory` of the application's own that rebuilds those people. The assistant registers an
 `INhRetentionParticipant`: when the application forgets a user (`INhRetention.ForgetUserAsync`,
 which `NhUserManager.DeleteAsync` calls), it removes the person's push subscriptions,
 notification choice, MCP connection notices and participant rows, so no browser of theirs is
@@ -1835,8 +1840,10 @@ a verifiable VAPID token, the endpoint allow-list, the notification rules, an
 encrypted delivery without message content, the opt-out and the removal of a gone
 subscription (SPM-264), and on both providers that Web Push and in-app notifications skip a
 participant whose role ended, who fails the agent's policy or whom the platform no longer
-resolves, and that forgetting a user removes their subscriptions, notification choice, notices
-and participant rows (`AssistantNotificationReadRuleTests`, `AssistantUnresolvedPeopleTests`). For the MCP context, read `_meta` in the server's call handler
+resolves, with one content-free warning per such person per hour and none for a person who is
+rebuilt, and that forgetting a user removes their subscriptions, notification choice, notices
+and participant rows (`AssistantNotificationReadRuleTests`, `AssistantUnresolvedPeopleTests`,
+`AssistantUnrebuiltRecipientWarningTests`). For the MCP context, read `_meta` in the server's call handler
 over the official transport: the reviewed tool receives the identities and snapshot, the
 same tool under another server id or URL receives nothing, an approved call carries its
 approval, and the snapshot refuses another person, another invocation or run, a stale
