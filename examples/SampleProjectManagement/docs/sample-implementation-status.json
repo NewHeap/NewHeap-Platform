@@ -4322,7 +4322,20 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261103134759_RuleScripts.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261103134803_RuleScripts.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Scripting.Tests/NhAiRuleScriptEngineTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRuleScriptTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRuleScriptTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/rule-scripts/nh-assistant-agent-rule-scripts.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/rule-scripts/nh-assistant-agent-rule-scripts.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/rule-scripts/nh-assistant-rule-script-editor.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/rule-scripts/nh-assistant-rule-script-editor.component.html",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/rule-scripts/nh-assistant-rule-script-dry-run.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/rule-scripts/nh-assistant-rule-script-run-record.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/rule-scripts/nh-assistant-rule-script-comparison.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/models/assistant-rule-script.models.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-api.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-admin-rule-scripts-api.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-rule-scripts-admin.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-rule-scripts.ts"
     ]
   }
 }
