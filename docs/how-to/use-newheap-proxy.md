@@ -538,7 +538,7 @@ The lower-level store saves only; it does not activate changes. Use it for
 | Administration access is denied | Check HTTPS, the IP allowlist and trusted forwarded-header configuration. |
 | Login is throttled | Wait for the login attempt window to reset; the limit is shared across clients. |
 | A redirect does not match | Check case, trailing slash, host, method, enabled state and priority. Use **Test a URL** to find a competing rule. |
-| Redirect evaluation returns HTTP 503 | Simplify expensive regex patterns or review the configured redirect timeout. |
+| Redirect evaluation returns HTTP 503 | Simplify expensive regex patterns or review the configured redirect timeout. An occasional 503 on a valid rule means the request stalled past the wall-clock timeout, for example in a GC pause or under CPU contention; the rule stays active and the next request is served. Raise `Limits:RedirectResolutionTimeoutMilliseconds` if this recurs, and in integration test hosts that assert redirect outcomes. |
 | A request returns HTTP 508 | Shorten the local rule chain or review `Limits:MaximumChainDepth`. |
 | A preview differs from live traffic | Compare saved and active revisions, then check backend responses and host customizations that preview does not evaluate. |
 | The database prevents startup | Check the file path, permissions, compatibility and whether another proxy instance owns it. See [SQLite storage](../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Proxy.Sqlite/README.md). |

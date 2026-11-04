@@ -150,7 +150,7 @@ All durations, counts and size limits must be positive.
 | `LoginAudit:MaximumPageSize` | `100` | Maximum login activity records returned per page. |
 | `AllowedDestinationHosts` | `[]` | Allowed rewrite backend hostnames, matched case-insensitively. Empty allows any host. Does not restrict redirects. |
 | `Limits:MaximumChainDepth` | `2` | Maximum local redirect/rewrite steps before HTTP 508. |
-| `Limits:RedirectResolutionTimeoutMilliseconds` | `50` | Redirect evaluation timeout; live requests return HTTP 503 on expiry. Range: 1–2,147,483,646 ms. |
+| `Limits:RedirectResolutionTimeoutMilliseconds` | `50` | Redirect evaluation timeout on the wall clock; live requests return HTTP 503 on expiry, also when a valid request stalls that long. Range: 1–2,147,483,646 ms. |
 | `Limits:MaximumRulesPerEngine` | `1000` | Maximum redirects, rewrites and rewrite destination groups, counted separately. |
 | `Limits:MaximumTestRequestBytes` | `65536` | Maximum test input and draft-test request size in bytes (64 KiB). |
 | `Limits:TestTimeout` | `00:00:05` | Preview time limit; maximum 2,147,483,647 ms. |

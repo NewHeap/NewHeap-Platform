@@ -1867,6 +1867,7 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyLiteralRedirectSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyAdministrationSamplesTests.cs",
       "src/Back-end/Applications/SampleProjectManagement.Proxy/Program.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxySampleTestOptions.cs",
       "src/Back-end/Applications/SampleProjectManagement.Proxy/Properties/launchSettings.json",
       "src/Back-end/Orchestration/SampleProjectManagement.AppHost/Program.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProxyApiSamplesTests.cs",
