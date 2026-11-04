@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -13,6 +14,9 @@ namespace SampleProjectManagement.Core.Tests;
 /// <summary>SPM-238: persist exact and regex redirects, restart storage, and serve them through the two-call host API.</summary>
 public sealed class ProxyLiteralRedirectSamplesTests
 {
+    private const int DeadlineBudgetMilliseconds = 75;
+    private static readonly TimeSpan RecoveryBound = TimeSpan.FromSeconds(30);
+
     [Fact]
     public async Task Consumer_loads_a_persisted_literal_redirect_before_handling_requests()
     {
@@ -71,21 +75,9 @@ public sealed class ProxyLiteralRedirectSamplesTests
                 Assert.True(save.Success, string.Join("; ", save.AllErrorMessages));
             }
 
-            var builder = WebApplication.CreateBuilder();
-            builder.WebHost.UseUrls("http://127.0.0.1:0");
-            builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
+            await using (var app = await StartHostAsync(databasePath, ProxySampleTestOptions.GenerousRedirectBudgetMilliseconds, cancellationToken))
             {
-                ["NewHeapProxy:Limits:RedirectResolutionTimeoutMilliseconds"] = Environment.GetEnvironmentVariable("NH_PROBE_TIMEOUT") ?? "75",
-                ["NewHeapProxy:Sqlite:DatabasePath"] = databasePath
-            });
-            builder.Services.AddNewHeapProxy(builder.Configuration.GetSection(NhProxyOptions.ConfigurationSectionName));
-            await using var app = builder.Build();
-            app.UseNewHeapProxy();
-            await app.StartAsync(cancellationToken);
-            try
-            {
-                Assert.Equal(int.Parse(Environment.GetEnvironmentVariable("NH_PROBE_TIMEOUT") ?? "75"), app.Services.GetRequiredService<IOptions<NhProxyOptions>>().Value.Limits.RedirectResolutionTimeoutMilliseconds);
-                using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
                 using var response = await client.GetAsync(app.Urls.Single() + "/old-projects?campaign=sample", cancellationToken);
                 Assert.Equal(HttpStatusCode.Found, response.StatusCode);
                 Assert.Equal("/projects?campaign=sample&source=proxy", response.Headers.Location!.OriginalString);
@@ -111,23 +103,66 @@ public sealed class ProxyLiteralRedirectSamplesTests
                 Assert.Equal(HttpStatusCode.NotFound, networkPath.StatusCode);
                 Assert.Null(networkPath.Headers.Location);
 
+                await app.StopAsync(cancellationToken);
+            }
+
+            // The deadline proof restarts on the same storage with a short budget, captured at startup.
+            await using (var app = await StartHostAsync(databasePath, DeadlineBudgetMilliseconds, cancellationToken))
+            {
                 using var timedOut = await client.GetAsync(app.Urls.Single() + "/timeout/" + new string('a', 1000) + "!", cancellationToken);
                 Assert.Equal(HttpStatusCode.ServiceUnavailable, timedOut.StatusCode);
                 Assert.Null(timedOut.Headers.Location);
                 Assert.True(timedOut.Headers.CacheControl!.NoStore);
 
-                using var afterTimeout = await client.GetAsync(app.Urls.Single() + "/timeout/aaa", cancellationToken);
+                using var afterTimeout = await WaitForAnswerOtherThanTimeoutAsync(client, app.Urls.Single() + "/timeout/aaa", cancellationToken);
                 Assert.Equal(HttpStatusCode.Found, afterTimeout.StatusCode);
                 Assert.Equal("/projects", afterTimeout.Headers.Location!.OriginalString);
-            }
-            finally
-            {
+
                 await app.StopAsync(cancellationToken);
             }
         }
         finally
         {
             directory.Delete(true);
+        }
+    }
+
+    private static async Task<WebApplication> StartHostAsync(string databasePath, int redirectBudgetMilliseconds, CancellationToken cancellationToken)
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseUrls("http://127.0.0.1:0");
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["NewHeapProxy:Limits:RedirectResolutionTimeoutMilliseconds"] = redirectBudgetMilliseconds.ToString(),
+            ["NewHeapProxy:Sqlite:DatabasePath"] = databasePath
+        });
+        builder.Services.AddNewHeapProxy(builder.Configuration.GetSection(NhProxyOptions.ConfigurationSectionName));
+        var app = builder.Build();
+        Assert.Equal(redirectBudgetMilliseconds, app.Services.GetRequiredService<IOptions<NhProxyOptions>>().Value.Limits.RedirectResolutionTimeoutMilliseconds);
+        app.UseNewHeapProxy();
+        await app.StartAsync(cancellationToken);
+
+        return app;
+    }
+
+    /// <summary>
+    /// A timeout ends one request, not the rule. The short budget also covers the request that proves this, and a
+    /// descheduled request ends in 503 as well, so only a lasting 503 or a different answer fails the test.
+    /// </summary>
+    private static async Task<HttpResponseMessage> WaitForAnswerOtherThanTimeoutAsync(HttpClient client, string url, CancellationToken cancellationToken)
+    {
+        var started = Stopwatch.GetTimestamp();
+        while (true)
+        {
+            var response = await client.GetAsync(url, cancellationToken);
+            if (response.StatusCode != HttpStatusCode.ServiceUnavailable)
+            {
+                return response;
+            }
+
+            response.Dispose();
+            Assert.True(Stopwatch.GetElapsedTime(started) < RecoveryBound,
+                $"{url} still answered 503 after {RecoveryBound.TotalSeconds:0} s: a redirect timeout must end only its own request.");
         }
     }
 }

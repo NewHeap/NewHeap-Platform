@@ -29,6 +29,7 @@ public sealed class ProxyAdministrationSamplesTests
             builder.Services.AddNewHeapProxy(options =>
             {
                 builder.Configuration.GetSection("NewHeapProxy").Bind(options);
+                options.UseGenerousRedirectBudget();
                 options.IpAllowlist.Enabled = true;
                 options.IpAllowlist.Entries = ["127.0.0.1/32", "::1/128"];
             }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));

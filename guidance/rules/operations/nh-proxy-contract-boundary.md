@@ -203,7 +203,14 @@ through the section-binding overload or options callback. The runtime captures
 the value at startup and the draft tester uses the same option. Values must be
 between 1 and 2,147,483,646 ms, matching the regex engine's supported range.
 Expiry or a regex timeout returns HTTP 503 with Cache-Control: no-store and no
-Location header; downstream endpoints do not execute. Each regex receives only
+Location header; downstream endpoints do not execute. The budget runs on the
+system clock, so it also expires when a request stalls for that long, for example
+in a GC pause or under CPU contention. A valid rule then answers 503 for that one
+request: the rule stays active and the next request is served. Raise the budget
+when a host shows occasional 503s on valid rules. A test host that asserts redirect,
+rewrite or draft-test outcomes sets a generous budget, as ProxySampleTestOptions
+does in the sample; only a test of the deadline itself keeps a short one.
+Each regex receives only
 the remaining budget as its engine timeout, rounded down to whole milliseconds.
 With less than 1 ms left, do not start another match. RegexMatchTimeoutException
 interrupts the matching itself; do not use Task.Run/WaitAsync to abandon CPU work.
@@ -334,6 +341,7 @@ selection and standard transforms without executing endpoint delegates.
 - Issuing a login cookie when the audit write failed.
 - Letting callers outside the allowlist spend the administrator's login budget, or auditing their attempts without a bound, in a custom `INhProxyAdministrationService`.
 - Discarding failed TaskResult values, including failed activation after commit.
+- Asserting redirect outcomes in a test host on the 50 ms default, or retrying around its 503: a descheduled request gets 503 although the rule is active, so raise the budget for that host.
 - Treating preview as a connectivity/authorization check, claiming it replays host customizations or other configuration sources, or claiming SQL Server/PostgreSQL storage support.
 - Editing consumer DAL migrations or copying only the database while WAL writes are active.
 
@@ -347,8 +355,9 @@ checks, throttling, audit failure, scoped cookies, credential rotation, host aut
 PathBase, local draft isolation, save/activation, stale writes and deletion.
 Resolver tests cover engine-enforced remaining-budget timeouts, exhausted-budget
 short-circuiting, configured budgets, invalid values, bounded caching, slow exact
-hits/misses and accumulated rule work. The persisted HTTP sample binds a 75 ms
-budget from configuration, verifies that an expensive regex returns 503 and that
+hits/misses and accumulated rule work. The persisted HTTP sample proves redirect
+outcomes on a generous budget, then restarts on the same storage with a bound 75 ms
+budget, verifies that an expensive regex returns 503 and that
 a later request succeeds. Registration tests verify the 50 ms default. An API test
 asserts that routing and the application-wide endpoints share the API endpoints built once.
 Run the standalone sample and inspect login, list, editor and audit pages on desktop
