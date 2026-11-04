@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.108",
   "backEnd": {
-    "hash": "b3ceb610f90ab3f7085951c8835739a9855a2762413fa9627d7ee3ba5529a575",
-    "declarationCount": 13527,
+    "hash": "b0a2f36641d103ac9487a0b80594a33abac012ac699a1af8ce08b4bc2fc253b8",
+    "declarationCount": 13662,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2014,6 +2014,18 @@
         "declaration": "public static async Task<IReadOnlyList<NhAiApplicationMapEntry>> MapAsync( NhAiMvcBridgeGatewayModel gateway, IServiceProvider services, CancellationToken cancellationToken) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGatewayResources.cs",
+        "declaration": "public IReadOnlyCollection<string> ToolIds =>"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGatewayResources.cs",
+        "declaration": "public async Task<TaskResult<JsonElement>> SearchAsync(string query, int limit, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGatewayResources.cs",
+        "declaration": "public async Task<TaskResult<JsonElement>> DescribeAsync(string resource, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeOptions.cs",
         "declaration": "public sealed class NhAiMvcBridgeToolDefaults {"
       },
@@ -2255,7 +2267,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilder.cs",
+        "declaration": "public const int MaxGuidanceLength = 4_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilder.cs",
         "declaration": "public string? ProfileName { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilder.cs",
+        "declaration": "public NhAiTextAsset? Guidance { get; private set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilder.cs",
+        "declaration": "public NhAssistantAgentBuilderOptions UseGuidance(NhAiTextAsset asset) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilder.cs",
@@ -2280,6 +2304,70 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilder.cs",
         "declaration": "public bool UsesPersonRightsOnly(NhAiToolDescriptor descriptor) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderBlockers.cs",
+        "declaration": "public string? Cause { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderBlockers.cs",
+        "declaration": "public const string NotConfigured = \"not-configured\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderBlockers.cs",
+        "declaration": "public const string RunSettingsOutOfEffect = \"run-settings-out-of-effect\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderBlockers.cs",
+        "declaration": "public const string ConfigurationProblem = \"configuration-problem\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderBlockers.cs",
+        "declaration": "public const string InstructionsUnavailable = \"instructions-unavailable\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderBlockers.cs",
+        "declaration": "public const string GatewayReadsOff = \"gateway-reads-off\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderBlockers.cs",
+        "declaration": "public const string GatewayReadsNeedAccountability = \"gateway-reads-need-accountability\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderBlockers.cs",
+        "declaration": "public const string TechnicalAccountMissing = \"technical-account-missing\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderBlockers.cs",
+        "declaration": "public const string AlertKindNotListed = \"alert-kind-not-listed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderBlockers.cs",
+        "declaration": "public const string NotActive = \"not-active\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderBlockers.cs",
+        "declaration": "public const string AgentWorkOff = \"agent-work-off\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderBlockers.cs",
+        "declaration": "public const string NoTrigger = \"no-trigger\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderBlockers.cs",
+        "declaration": "public const string InShadow = \"in-shadow\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderBlockers.cs",
+        "declaration": "public const string NoIssuer = \"no-read-issuer\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderBlockers.cs",
+        "declaration": "public const string RunFailed = \"run-failed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderBlockers.cs",
+        "declaration": "public static IReadOnlyList<NhAssistantAgentBuilderBlocker> Of( NhAssistantAgentInEffectDto agent, NhAssistantAgentConfigurationDto? configuration, NhAssistantAgentBuilderBlockerFacts facts) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderInput.cs",
@@ -2319,6 +2407,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderInput.cs",
+        "declaration": "public JsonElement? Element(string name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderInput.cs",
+        "declaration": "public IReadOnlyDictionary<string, JsonElement>? Map(string name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderInput.cs",
         "declaration": "public IReadOnlyList<JsonElement>? Objects(string name) {"
       },
       {
@@ -2331,7 +2427,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderInstructions.cs",
-        "declaration": "public const int Version = 1;"
+        "declaration": "public const int Version = 2;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderInstructions.cs",
@@ -2339,7 +2435,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderInstructions.cs",
-        "declaration": "public static NhAiTextAsset Asset { get; } = NhAiTextAssetFactory.Create( AssetId, Version, Content, \"embedded:NewHeap.Platform.AI.Chat.AspNet/AgentBuilder\", NhAiAssetRole.SystemInstructions, NhAiContextTrust.TrustedApplication, NhAiModelCapability.Chat, [], \"default\", NhAiDataClassification.Internal, NhAiRetentionCategory.Operational, AssetId + \"-v1\");"
+        "declaration": "public static NhAiTextAsset Asset { get; } = NhAiTextAssetFactory.Create( AssetId, Version, Content, \"embedded:NewHeap.Platform.AI.Chat.AspNet/AgentBuilder\", NhAiAssetRole.SystemInstructions, NhAiContextTrust.TrustedApplication, NhAiModelCapability.Chat, [], \"default\", NhAiDataClassification.Internal, NhAiRetentionCategory.Operational, AssetId + \"-v2\");"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
@@ -2351,6 +2447,42 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public Texts Texts { get; } = texts;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string AgentId { get; } = agentId;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string Summary { get; set; } = string.Empty;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string? Notice { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public List<NhAssistantPresentationField> Fields { get; } = [new(texts.Agent, Bound(agentId, MaxValueLength))];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public void Add(string label, string? value) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public void Rights(IReadOnlyList<string> changes) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public void Removal(string what) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public bool Dutch => dutch;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
         "declaration": "public string Agent => \"Agent\";"
       },
       {
@@ -2359,11 +2491,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
-        "declaration": "public string Description => dutch ? \"Omschrijving\" : \"Description\";"
+        "declaration": "public string Tools => \"Tools\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
-        "declaration": "public string Tools => \"Tools\";"
+        "declaration": "public string Tool => \"Tool\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
@@ -2407,6 +2539,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string SubjectType => dutch ? \"Objecttype\" : \"Object type\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
         "declaration": "public string RuleHandler => dutch ? \"Regelhandler\" : \"Rule handler\";"
       },
       {
@@ -2427,6 +2563,90 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string RequiredPolicy => dutch ? \"Vereist beleid\" : \"Required policy\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string McpServers => dutch ? \"MCP-servers\" : \"MCP servers\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string McpServer => dutch ? \"MCP-server\" : \"MCP server\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string HeadlessUse => dutch ? \"Zonder persoon\" : \"Without a person\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string Accountability => dutch ? \"Verantwoording\" : \"Accountability\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string TechnicalAccount => dutch ? \"Technisch account\" : \"Technical account\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string Delegation => dutch ? \"Rechten van wie de run start\" : \"Rights of whoever starts a run\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string GatewayReads => dutch ? \"Lezen via de gateway\" : \"Gateway reads\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string ElevatedReads => dutch ? \"Lezen met verhoogde rechten\" : \"Elevated reads\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string Routes => dutch ? \"Routes\" : \"Routes\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string WhoMayAsk => dutch ? \"Wie mag vragen\" : \"Who may ask\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string Sources => dutch ? \"Bronnen\" : \"Sources\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string DailyLimit => dutch ? \"Daglimiet\" : \"Daily limit\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string Entry => dutch ? \"Veld\" : \"Entry\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string Value => dutch ? \"Waarde\" : \"Value\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string State => dutch ? \"Status\" : \"State\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string Mode => dutch ? \"Stand\" : \"Mode\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string AlertKind => dutch ? \"Soort waarschuwing\" : \"Alert kind\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string Groups => dutch ? \"Groepen\" : \"Groups\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string RightsLabel => dutch ? \"Rechten\" : \"Rights\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string RemovesLabel => dutch ? \"Verwijdert\" : \"Removes\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
         "declaration": "public string None => dutch ? \"geen\" : \"none\";"
       },
       {
@@ -2435,11 +2655,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string FromCode => dutch ? \"uit de code\" : \"from code\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string ReadOnly => dutch ? \"alleen lezen\" : \"read only\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
         "declaration": "public string InShadow => dutch ? \"in schaduw\" : \"in shadow\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
         "declaration": "public string Live => \"live\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string Off => dutch ? \"uit\" : \"off\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
@@ -2499,6 +2731,26 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string PartConsultation => dutch ? \"een raadpleging\" : \"a consultation\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string TheAgentItself => dutch ? \"de agent zelf, met zijn run-instellingen, vaardigheden, triggers en metadata\" : \"the agent itself, with its run settings, skills, triggers and metadata\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string TheOverride => dutch ? \"de aanpassingen van het beheer: de definitie uit de code geldt weer en de MCP-servers gaan eraf\" : \"the administration's override: the definition in code applies again and its MCP servers are removed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string TheRunSettings => dutch ? \"de run-instellingen: de agent chat daarna alleen nog\" : \"the run settings: the agent then only chats\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string VariantItself => dutch ? \"de schaduwvariant zelf, na het overnemen\" : \"the shadow variant itself, once promoted\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
         "declaration": "public string ApprovalNotice => dutch"
       },
       {
@@ -2508,6 +2760,70 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
         "declaration": "public string FourEyesLive => dutch"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string RightsNotice(string agentId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string RemovalNotice(string what, string agentId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string HeadlessUseNotice(string serverId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string WithoutApprovalNotice(string agentId, string toolId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string AccountabilityOf(string accountability) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string OnOff(bool on) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string StateSummary(string part, string? name, string agentId, string? state) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string AssignmentOf(string? serverId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string TheSkill(string? skillId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string TheTrigger(string? triggerId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string TheConsultation(string? subjectType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string TheHandOff(string? subjectType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string TheMetadata(string? name) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string TheSkillCandidate(string? skillId, string? version) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string TheTriggerCandidate(string? triggerId, string? version) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string TheRuleScriptVersion(string? skillId, string? version) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
@@ -2582,6 +2898,86 @@
         "declaration": "protected override ValueTask<object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> CreateAgentAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> UpdateAgentAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> SaveRunSettingsAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> SaveSkillAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> SaveTriggerAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> SaveRuleScriptAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> SaveConsultationAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> SaveHandOffAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> SaveMetadataAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> SetLiveAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> SetShadowAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> SetStateAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> SetTechnicalAccountAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> SetConsultationRoutesAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> SetMcpServerAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> SetMcpHeadlessUseAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> SetSwitchAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> SetGroupsAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> PromoteShadowVariantAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.Writes.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> RemoveAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.cs",
         "declaration": "public NhAssistantRuleScriptAuthor Author => new(Person) { AgentId = NhAssistantAgentBuilderIds.AgentId };"
       },
@@ -2592,6 +2988,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.cs",
         "declaration": "public const int MaxToolDescriptionLength = 300;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.cs",
+        "declaration": "public const int MaxAccountQueryLength = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.cs",
+        "declaration": "public const int MaxGatewayResultLength = 48_000;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.cs",
@@ -2615,39 +3019,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> SearchAccountsAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.cs",
+        "declaration": "public async Task<TaskResult<JsonNode>> ReadGatewayAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.cs",
         "declaration": "public async Task<TaskResult<JsonNode>> DryRunRuleScriptAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.cs",
-        "declaration": "public async Task<TaskResult<JsonNode>> CreateAgentAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.cs",
-        "declaration": "public async Task<TaskResult<JsonNode>> UpdateAgentAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.cs",
-        "declaration": "public async Task<TaskResult<JsonNode>> SaveRunSettingsAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.cs",
-        "declaration": "public async Task<TaskResult<JsonNode>> SaveSkillAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.cs",
-        "declaration": "public async Task<TaskResult<JsonNode>> SaveTriggerAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.cs",
-        "declaration": "public async Task<TaskResult<JsonNode>> SaveRuleScriptAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.cs",
-        "declaration": "public async Task<TaskResult<JsonNode>> SetLiveAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderToolHandler.cs",
-        "declaration": "public async Task<TaskResult<JsonNode>> SetShadowAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken) {"
+        "declaration": "public bool? AllowWithoutApproval { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
@@ -2664,6 +3048,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
         "declaration": "public const string ReadRuleScript = NhAssistantAgentBuilderIds.ToolIdPrefix + \"read-rule-script\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string SearchAccounts = NhAssistantAgentBuilderIds.ToolIdPrefix + \"search-accounts\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string ReadGateway = NhAssistantAgentBuilderIds.ToolIdPrefix + \"read-gateway\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
@@ -2695,11 +3087,59 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string SaveConsultation = NhAssistantAgentBuilderIds.ToolIdPrefix + \"save-consultation\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string SaveHandOff = NhAssistantAgentBuilderIds.ToolIdPrefix + \"save-hand-off\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string SaveMetadata = NhAssistantAgentBuilderIds.ToolIdPrefix + \"save-metadata\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
         "declaration": "public const string SetLive = NhAssistantAgentBuilderIds.ToolIdPrefix + \"set-live\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
         "declaration": "public const string SetShadow = NhAssistantAgentBuilderIds.ToolIdPrefix + \"set-shadow\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string SetState = NhAssistantAgentBuilderIds.ToolIdPrefix + \"set-state\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string SetTechnicalAccount = NhAssistantAgentBuilderIds.ToolIdPrefix + \"set-technical-account\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string SetConsultationRoutes = NhAssistantAgentBuilderIds.ToolIdPrefix + \"set-consultation-routes\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string SetMcpServer = NhAssistantAgentBuilderIds.ToolIdPrefix + \"set-mcp-server\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string SetMcpHeadlessUse = NhAssistantAgentBuilderIds.ToolIdPrefix + \"set-mcp-headless-use\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string SetSwitch = NhAssistantAgentBuilderIds.ToolIdPrefix + \"set-switch\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string SetGroups = NhAssistantAgentBuilderIds.ToolIdPrefix + \"set-groups\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string PromoteShadowVariant = NhAssistantAgentBuilderIds.ToolIdPrefix + \"promote-shadow-variant\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string Remove = NhAssistantAgentBuilderIds.ToolIdPrefix + \"remove\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
@@ -2739,6 +3179,86 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public static class StateParts {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string Agent = \"agent\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string Skill = \"skill\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string Consultation = \"consultation\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public static class SwitchParts {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string ToolWithoutApproval = \"tool-without-approval\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string AlertModel = \"alert-model\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public static class RemoveParts {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string Agent = \"agent\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string Override = \"override\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string RunSettings = \"run-settings\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string Skill = \"skill\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string Trigger = \"trigger\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string Consultation = \"consultation\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string HandOff = \"hand-off\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string Metadata = \"metadata\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string SkillCandidate = \"skill-candidate\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string TriggerCandidate = \"trigger-candidate\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public const string RuleScriptVersion = \"rule-script-version\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public static IReadOnlyList<string> All { get; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
         "declaration": "public static IReadOnlyList<NhAssistantAgentBuilderTool> All { get; } ="
       },
       {
@@ -2759,6 +3279,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public static JsonObject NullableText(string description, int maxLength) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
         "declaration": "public static JsonObject Reason() {"
       },
       {
@@ -2768,6 +3292,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
         "declaration": "public static JsonObject Flag(string description) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public static JsonObject Any(string description) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
+        "declaration": "public static JsonObject Map(string description) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",
@@ -21779,6 +22311,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
+        "declaration": "public NhAiTextAsset? AgentBuilderGuidance { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantBuilder.cs",
         "declaration": "public NhAssistantLimits Limits { get; set; } = new();"
       },
       {
@@ -28167,7 +28703,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
-        "declaration": "public static NhAssistantComposedPrompt Compose( NhAssistantAgentDefinition agent, AssistantApplicationContext? applicationContext, NhAssistantPreferences preferences, string language) {"
+        "declaration": "public const string AgentBuilderGuidanceHeading = \"\"\""
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
+        "declaration": "public static NhAssistantComposedPrompt Compose( NhAssistantAgentDefinition agent, AssistantApplicationContext? applicationContext, NhAssistantPreferences preferences, string language, NhAiTextAsset? guidance = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
@@ -57609,6 +58149,8 @@
     "nh-ai-agent-builder": [
       "AddAgentBuilder",
       "NhAssistantAgentBuilderOptions",
+      "UseGuidance",
+      "MaxGuidanceLength",
       "NhAssistantAgentBuilderExtensions",
       "NhAssistantAgentBuilderIds",
       "setPageContextOverride"
