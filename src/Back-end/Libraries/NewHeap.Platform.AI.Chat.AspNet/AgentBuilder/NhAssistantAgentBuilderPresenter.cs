@@ -18,7 +18,7 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentBuilder;
 /// never proposed: the catalog refuses the call first (<see cref="RefusalOfCardAsync"/>).
 /// </summary>
 internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationState registration, IServiceProvider services)
-    : INhAssistantToolPresenter
+    : INhAssistantToolPresenter, INhAssistantRequiredToolPresenter
 {
     private const int MaxValueLength = NhAssistantPresentationLimits.MaxFieldValueLength;
 
@@ -75,6 +75,38 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
     }
 
     /// <summary>
+    /// Every write of the builder is proposed only with its own card: the resolver asks for it in every
+    /// culture and refuses the proposal when there is none, never using another presenter's card or the
+    /// generic summary.
+    /// </summary>
+    public bool Requires(NhAiToolDescriptor descriptor)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        return NhAssistantAgentBuilderIds.IsAgentBuilderTool(descriptor.Id) && descriptor.Approval == NhAiApprovalRequirement.Required;
+    }
+
+    public async ValueTask<NhAssistantRequiredPresentation> PresentRequiredAsync(
+        NhAssistantApprovalPresentationContext context,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        var tool = NhAssistantAgentBuilderTools.All.FirstOrDefault(item => string.Equals(item.Id, context.Descriptor.Id, StringComparison.Ordinal));
+        if (tool is null || context.Arguments is not JsonElement { ValueKind: JsonValueKind.Object } arguments)
+        {
+            return new NhAssistantRequiredPresentation(null, Refusals.NoCard);
+        }
+
+        var (input, refusal) = NhAssistantAgentBuilderInput.Read(arguments, tool.Input.Schema);
+        if (input is null)
+        {
+            return new NhAssistantRequiredPresentation(null, refusal);
+        }
+
+        var (card, cardRefusal) = await BuildAsync(tool, input, IsDutch(context.Culture), cancellationToken);
+        return new NhAssistantRequiredPresentation(card, card is null ? cardRefusal ?? Refusals.NoCard : null);
+    }
+
+    /// <summary>
     /// Why the approval card of a write cannot be built within the presentation's limits in English or
     /// Dutch, the languages it is shown in, as a message the model can act on; <see langword="null"/> when it
     /// can, or for a tool without a card. A write is proposed only with its own valid card that shows every
@@ -121,7 +153,7 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
                 return (null, null);
             }
 
-            card.AddGiven(input, tool.Input.Properties, ShownInFullOf(tool));
+            card.AddGiven(input, tool.Input.Schema, ShownInFullOf(tool), CapabilitiesOf(tool));
             return card.ToPresentation(NameOf(tool.Id, dutch));
         }
         catch (NhAssistantAgentBuilderInputException exception)
@@ -130,6 +162,24 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
             // handler refuses it as well.
             return (null, $"'{exception.Property}' cannot be read as its schema says. Send it as a value its schema allows.");
         }
+    }
+
+    /// <summary>
+    /// The properties of a tool whose values say what an agent, a skill or a consultation may do: its tools,
+    /// autonomy, compositions and scripts, and what a consultation offers. The card never shortens them; a
+    /// list spans more fields when one does not hold it, and the change is refused when the card does not.
+    /// </summary>
+    private static IReadOnlySet<string> CapabilitiesOf(NhAssistantAgentBuilderTool tool)
+    {
+        string[] names = tool.Id switch
+        {
+            NhAssistantAgentBuilderTools.CreateAgent or NhAssistantAgentBuilderTools.UpdateAgent => ["toolSelectors", "autonomy", "compositions", "scripts"],
+            NhAssistantAgentBuilderTools.SaveSkill => ["tools"],
+            NhAssistantAgentBuilderTools.SaveConsultation => ["toolSelectors", "exposeToMcp", "allowRequests", "requestsOnly"],
+            NhAssistantAgentBuilderTools.SaveRuleScript => ["writes"],
+            _ => []
+        };
+        return names.ToHashSet(StringComparer.Ordinal);
     }
 
     /// <summary>
@@ -175,6 +225,7 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
                     : (dutch
                         ? $"Maakt de nieuwe agent '{input.Text("displayName")}' aan in het beheer, zonder run-instellingen, vaardigheden, triggers of MCP-servers."
                         : $"Creates the new agent '{input.Text("displayName")}' in the administration, without run settings, skills, triggers or MCP servers.");
+                card.Rights(new[] { "requiredPolicy", "runPolicy", "viewPolicy" }.Where(input.Given).ToArray());
                 return true;
             case NhAssistantAgentBuilderTools.UpdateAgent:
                 card.Summary = dutch
@@ -352,12 +403,20 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
         var definition = services.GetService<NhAssistantAgentCatalog>() is { } catalog
             ? await catalog.FindAsync(variantId, includeDisabled: true, cancellationToken)
             : null;
-        card.Summary = texts.PromotionSummary(variantId, liveId, input.Bool("moveSkills") == true, input.Bool("asPackageVersion") == true);
+        var moveSkills = input.Bool("moveSkills") == true;
+        card.Summary = texts.PromotionSummary(variantId, liveId, moveSkills);
         card.AddField(texts.LiveAgent, liveId, "the live agent");
-        var (settings, tools) = texts.TakesOverOf(variant, definition, toAgentInAdministration);
-        card.AddField(texts.TakesOver, settings, "what the live agent takes over");
-        card.AddField(texts.TakesOverTools, tools, "the tools the live agent takes over");
-        card.Notice = texts.PromotionNotice(variantId, liveId, toAgentInAdministration);
+        card.AddField(texts.TakesOver, texts.TakesOverOf(variant, definition, toAgentInAdministration), "what the live agent takes over");
+        card.AddList(texts.TakesOverTools, variant.ToolSelectors, "the tools the live agent takes over");
+        if (moveSkills)
+        {
+            // The variant's data skills become live versions of the live agent's skills.
+            var skills = services.GetService<INhAssistantAgentConfiguration>() is { } configuration
+                ? (await configuration.GetAsync(variantId, cancellationToken))?.DataSkills.Select(skill => skill.SkillId).ToArray()
+                : null;
+            card.AddList(texts.MovesSkills, skills ?? [], "the skills the promotion moves");
+        }
+        card.Notice = texts.PromotionNotice(variantId, liveId, toAgentInAdministration, moveSkills);
     }
 
     private static string RemovalOf(NhAssistantAgentBuilderInput input, Texts texts)
@@ -523,15 +582,24 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
     /// <summary>
     /// One card while it is filled: its summary, notice and fields. The agent, what identifies the change and
     /// every value of whose rights it alters or what it removes are fields of their own, in full; a value
-    /// that does not fit refuses the card. The other values the call gives follow, a field each while there
-    /// is room and sharing fields otherwise, each shortened as far as the card needs to keep within the
-    /// presentation's limits, also as stored JSON with its escapes, and the notice then says the technical
-    /// details show them in full. A change of whose rights the agent uses and a removal set the notice that
-    /// says so, unless four eyes already set one.
+    /// that does not fit refuses the card, and a list spans more fields when one does not hold it. What an
+    /// agent, skill or consultation may do is never shortened either: its lists span fields as well, and its
+    /// other values share fields of their own without being cut. The other values the call gives follow, a
+    /// field each while there is room and sharing fields otherwise, each shortened as far as the card needs
+    /// to keep within the presentation's limits, also as stored JSON with its escapes, and the notice then
+    /// says the technical details show them in full. A change of whose rights the agent uses and a removal
+    /// set the notice that says so, unless four eyes already set one.
     /// </summary>
     private sealed class Card(Texts texts, string agentId)
     {
         private readonly List<NhAssistantPresentationField> _full = [];
+
+        private readonly List<NhAssistantPresentationField> _capabilityLists = [];
+
+        private readonly List<(string Label, string Value)> _capabilities = [];
+
+        /// <summary>The lists that span more than one field, named as a refusal names them.</summary>
+        private readonly List<string> _spanning = [];
 
         private readonly List<(string Label, string Value)> _others = [];
 
@@ -572,18 +640,82 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
         }
 
         /// <summary>
-        /// Every property the call gives but its agent, in the order of the tool's schema, with its value:
-        /// those of <paramref name="inFull"/> in full in fields of their own, the others after them.
+        /// A list the card shows in full, item by item: in one field when it holds it, otherwise in as many
+        /// as it needs, as "label (1 of 2)"; an item longer than a field refuses the card.
         /// </summary>
-        public void AddGiven(NhAssistantAgentBuilderInput input, IReadOnlyList<string> properties, IReadOnlySet<string> inFull)
+        public void AddList(string label, IReadOnlyList<string> items, string what)
         {
-            foreach (var name in properties.Where(name => name != "agentId" && input.Given(name)))
+            AddList(_full, label, items, what);
+        }
+
+        private void AddList(List<NhAssistantPresentationField> target, string label, IReadOnlyList<string> items, string what)
+        {
+            var chunks = new List<string>();
+            var current = string.Empty;
+            foreach (var item in items.Select(Printable).Where(item => item.Length > 0))
+            {
+                if (item.Length > MaxValueLength)
+                {
+                    Refuse(Refusals.TooLong(what.StartsWith("the ", StringComparison.Ordinal) ? what : $"'{what}'"));
+                    return;
+                }
+                if (current.Length > 0 && current.Length + 2 + item.Length > MaxValueLength)
+                {
+                    chunks.Add(current);
+                    current = string.Empty;
+                }
+                current = current.Length == 0 ? item : current + ", " + item;
+            }
+            chunks.Add(current.Length == 0 ? Texts.None : current);
+
+            if (chunks.Count > 1)
+            {
+                _spanning.Add(what.StartsWith("the ", StringComparison.Ordinal) ? what : $"'{what}'");
+            }
+            for (var index = 0; index < chunks.Count; index++)
+            {
+                target.Add(new NhAssistantPresentationField(chunks.Count == 1 ? label : Texts.PartOf(label, index + 1, chunks.Count), chunks[index]));
+            }
+        }
+
+        /// <summary>
+        /// Every property the call gives but its agent, in the order of the tool's schema, with its value:
+        /// those of <paramref name="inFull"/> and the lists of <paramref name="capabilities"/> in full in
+        /// fields of their own, the other capabilities in full in fields they share, the others after them.
+        /// A property without a type in the schema, such as a metadata value, shows as the JSON it is saved as.
+        /// </summary>
+        public void AddGiven(
+            NhAssistantAgentBuilderInput input,
+            System.Text.Json.Nodes.JsonObject schema,
+            IReadOnlySet<string> inFull,
+            IReadOnlySet<string> capabilities)
+        {
+            var properties = schema["properties"] as System.Text.Json.Nodes.JsonObject ?? [];
+            foreach (var (name, propertySchema) in properties.Where(item => item.Key != "agentId" && input.Given(item.Key)))
             {
                 var label = Texts.LabelOf(name);
-                var value = Texts.ValueOf(input, name);
+                var raw = propertySchema is System.Text.Json.Nodes.JsonObject typed && typed["type"] is null && typed["anyOf"] is null;
+                var isList = input.Element(name) is { ValueKind: JsonValueKind.Array } list
+                    && list.EnumerateArray().All(item => item.ValueKind == JsonValueKind.String);
+                if (inFull.Contains(name) && isList)
+                {
+                    AddList(_full, label, input.Texts(name)!, name);
+                    continue;
+                }
+                if (capabilities.Contains(name) && isList)
+                {
+                    AddList(_capabilityLists, label, input.Texts(name)!, name);
+                    continue;
+                }
+
+                var value = raw ? input.Element(name)!.Value.GetRawText() : Texts.ValueOf(input, name);
                 if (inFull.Contains(name))
                 {
                     AddField(label, value, name);
+                }
+                else if (capabilities.Contains(name))
+                {
+                    _capabilities.Add((label, Printable(value)));
                 }
                 else
                 {
@@ -619,10 +751,13 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
             {
                 Refuse(Refusals.Summary);
             }
+            // The values of whose rights first, then what it may do, then the rest.
             fields.AddRange(_full);
+            fields.AddRange(_capabilityLists);
+            fields.AddRange(Capabilities());
             if (fields.Count > NhAssistantPresentationLimits.MaxFields)
             {
-                Refuse(Refusals.TooMany);
+                Refuse(_spanning.Count > 0 ? Refusals.TooLong(string.Join(" and ", _spanning)) : Refusals.TooMany);
             }
             if (_refusal is not null)
             {
@@ -678,6 +813,47 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
                 var keep = Math.Max(MinShownLength, value.Length - (int)Math.Ceiling(overflow / perCharacter) - 1);
                 others[index] = others[index] with { Value = Fit(value, keep) };
             }
+        }
+
+        /// <summary>
+        /// What the agent, skill or consultation may do besides its lists, in full: a field each when there
+        /// is one value, otherwise as "label: value" in as few fields as hold them, never cut.
+        /// </summary>
+        private List<NhAssistantPresentationField> Capabilities()
+        {
+            if (_capabilities.Count == 1)
+            {
+                var (label, value) = _capabilities[0];
+                if (value.Length > MaxValueLength)
+                {
+                    Refuse(Refusals.TooLong($"'{label}'"));
+                }
+                return [new NhAssistantPresentationField(label, value)];
+            }
+
+            var fields = new List<NhAssistantPresentationField>();
+            var current = string.Empty;
+            foreach (var (label, value) in _capabilities)
+            {
+                var item = label + ": " + value;
+                if (item.Length > MaxValueLength)
+                {
+                    Refuse(Refusals.TooLong($"'{label}'"));
+                    return [];
+                }
+                if (current.Length > 0 && current.Length + 2 + item.Length > MaxValueLength)
+                {
+                    fields.Add(new NhAssistantPresentationField(Texts.MayDo, current));
+                    current = string.Empty;
+                }
+                current = current.Length == 0 ? item : current + "; " + item;
+            }
+            if (current.Length > 0)
+            {
+                fields.Add(new NhAssistantPresentationField(Texts.MayDo, current));
+            }
+
+            return fields;
         }
 
         /// <summary>
@@ -842,8 +1018,7 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
             ["groups"] = ("Groups", "Groepen"),
             ["expectedVariantVersion"] = ("Variant's version", "Versie van de variant"),
             ["moveSkills"] = ("Moves its skills", "Neemt de vaardigheden mee"),
-            ["asPackageVersion"] = ("As the package's next version", "Als volgende versie van het pakket"),
-            ["uncarriedParts"] = ("Linked parts it does not carry", "Gekoppelde onderdelen die het niet meeneemt"),
+
             ["reason"] = ("Reason", "Reden")
         };
 
@@ -853,6 +1028,16 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
         public string LiveAgent => "Live agent";
         public string TakesOver => dutch ? "Neemt over" : "Takes over";
         public string TakesOverTools => dutch ? "Neemt de tools over" : "Takes over the tools";
+        public string MovesSkills => dutch ? "Neemt deze vaardigheden mee, direct live" : "Moves these skills, live at once";
+        public string MayDo => dutch ? "Wat het mag" : "What it may do";
+        public string None => dutch ? "geen" : "none";
+
+        public string PartOf(string label, int part, int parts)
+        {
+            return dutch
+                ? $"{label} ({part.ToString(CultureInfo.InvariantCulture)} van {parts.ToString(CultureInfo.InvariantCulture)})"
+                : $"{label} ({part.ToString(CultureInfo.InvariantCulture)} of {parts.ToString(CultureInfo.InvariantCulture)})";
+        }
         public string Cleared => dutch ? "gewist (de standaard geldt)" : "cleared (the default applies)";
         public string NoTechnicalAccount => dutch ? "geen (een eerder ingesteld technisch account vervalt)" : "none (a technical account set before is removed)";
         public string NewInShadow => dutch ? "nieuw, start in schaduw" : "new, it starts in shadow";
@@ -912,7 +1097,7 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
                     return element.GetRawText();
                 case JsonValueKind.Array when element.EnumerateArray().All(item => item.ValueKind == JsonValueKind.String):
                     var items = input.Texts(name)!;
-                    return items.Count == 0 ? (dutch ? "geen" : "none") : string.Join(", ", items);
+                    return items.Count == 0 ? None : string.Join(", ", items);
                 case JsonValueKind.String when name is "instructions":
                     return Characters(input.RawText(name)!.Length);
                 case JsonValueKind.String when name is "script":
@@ -941,22 +1126,21 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
                 : $"Note: this removes {what} (agent {agentId}). It cannot be undone in the chat; versions stay as history where the administration keeps them. Nothing changes until you approve this.";
         }
 
-        public string PromotionSummary(string variantId, string liveId, bool moveSkills, bool asPackageVersion)
+        public string PromotionSummary(string variantId, string liveId, bool moveSkills)
         {
             var skills = moveSkills ? (dutch ? ", met haar vaardigheden" : ", with its skills") : string.Empty;
-            var package = asPackageVersion ? (dutch ? ", als volgende versie van haar pakket" : ", as its package's next version") : string.Empty;
             return dutch
-                ? $"Neemt de definitie van schaduwvariant {variantId} over op live agent {liveId} als diens volgende versie{skills}{package}, en verwijdert daarna de variant."
-                : $"Copies the definition of shadow variant {variantId} onto live agent {liveId} as its next version{skills}{package}, then deletes the variant.";
+                ? $"Neemt de definitie van schaduwvariant {variantId} over op live agent {liveId} als diens volgende versie{skills}, en verwijdert daarna de variant."
+                : $"Copies the definition of shadow variant {variantId} onto live agent {liveId} as its next version{skills}, then deletes the variant.";
         }
 
         /// <summary>
-        /// What the live agent takes over from the variant, as the promotion copies it: the settings of
-        /// whose rights first (required policy, who may run it and see its results, autonomy, what it works
-        /// on, model profile, classification, compositions and scripts; only the required policy and the
-        /// autonomy for an agent in code), then its tools.
+        /// What the live agent takes over from the variant besides its tools, as the promotion copies it: the
+        /// required policy, who may run it and see its results, autonomy, what it works on, model profile,
+        /// classification, compositions and scripts; only the required policy and the autonomy for an agent
+        /// in code.
         /// </summary>
-        public (string Settings, string Tools) TakesOverOf(NhAssistantAgentInEffectDto variant, NhAssistantAgent? definition, bool toAgentInAdministration)
+        public string TakesOverOf(NhAssistantAgentInEffectDto variant, NhAssistantAgent? definition, bool toAgentInAdministration)
         {
             var none = dutch ? "geen" : "none";
             var parts = new List<string>
@@ -992,19 +1176,22 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
                 parts.Add("scripts: " + (compositions.Scripts ? (dutch ? "ja" : "yes") : (dutch ? "nee" : "no")));
             }
 
-            return (string.Join("; ", parts), variant.ToolSelectors.Count == 0 ? none : string.Join(", ", variant.ToolSelectors));
+            return string.Join("; ", parts);
         }
 
-        public string PromotionNotice(string variantId, string liveId, bool toAgentInAdministration)
+        public string PromotionNotice(string variantId, string liveId, bool toAgentInAdministration, bool moveSkills)
         {
             var what = toAgentInAdministration
                 ? (dutch
                     ? "het vereiste beleid, wie hem start en zijn resultaten ziet, de autonomie, waar hij aan werkt, het modelprofiel, de classificatie, de composities en scripts en de tools"
                     : "the required policy, who may run it and see its results, the autonomy, what it works on, the model profile, the classification, the compositions and scripts and the tools")
                 : (dutch ? "het vereiste beleid, de autonomie en de tools" : "the required policy, the autonomy and the tools");
+            var skills = moveSkills
+                ? (dutch ? " Haar vaardigheden worden direct live versies van die van de live agent." : " Its skills become live versions of the live agent's skills at once.")
+                : string.Empty;
             return dutch
-                ? $"Let op: dit verandert met wiens rechten agent {liveId} werkt: hij neemt {what} over van schaduwvariant {variantId}, en de variant wordt verwijderd. Er verandert niets tot je dit goedkeurt."
-                : $"Note: this changes whose rights agent {liveId} works with: it takes over {what} of shadow variant {variantId}, and the variant is deleted. Nothing changes until you approve this.";
+                ? $"Let op: dit verandert met wiens rechten agent {liveId} werkt: hij neemt {what} over van schaduwvariant {variantId}, en de variant wordt verwijderd.{skills} Er verandert niets tot je dit goedkeurt."
+                : $"Note: this changes whose rights agent {liveId} works with: it takes over {what} of shadow variant {variantId}, and the variant is deleted.{skills} Nothing changes until you approve this.";
         }
         public string HeadlessUseNotice(string serverId)
         {

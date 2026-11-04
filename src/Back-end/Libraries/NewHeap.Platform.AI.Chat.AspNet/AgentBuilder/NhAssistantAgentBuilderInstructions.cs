@@ -47,6 +47,10 @@ internal static class NhAssistantAgentBuilderInstructions
           that does not fit, or whose approval card cannot show every value of whose rights it changes in
           full, such as a long list of MCP servers, is refused before the administrator sees it: correct it
           or make the change in smaller steps, and call again.
+        - You promote a shadow variant as its live agent's next version. When it should become its agent
+          package's next version, say that the administrator does that in the administration's screens: the
+          package carries its run settings, technical account, skills, triggers, consultations, hand-offs
+          and rule scripts as well.
         - You act with the administrator's own rights and the administration's checks, so you can never do
           more than they can or than the code allows. When a change alters whose rights an agent uses (its
           accountability, technical account, delegation, gateway or elevated reads, required policy, who may

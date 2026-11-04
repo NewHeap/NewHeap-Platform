@@ -99,14 +99,21 @@
   change alike: `null` for an optional property that takes no `null` is left out, so it keeps what the agent
   has, and a whole number written as `1.0` is that number. A nullable choice is published as the `anyOf` of the
   choice and `null`, as the generated tools publish nullable values, without `null` in its enum.
-- A builder write is proposed only with its own valid card, in English and Dutch, that shows every value of
-  whose rights it changes and what it removes; a call whose card cannot be built within the presentation's
-  limits is refused with `ai-tool-input-invalid` and a message that says what to shorten or split, instead of
-  being proposed with the generic summary. The values of whose rights (such as the required policy, MCP
-  servers, run and view policies, accountability and technical account, consultation routes and the parts a
-  removal names) have fields of their own, first and in full. The other values follow, sharing fields when
+- A builder write is proposed only with the builder's own valid card, which shows every value of whose rights
+  it changes, what it removes and what the agent may do: the card is built for the proposal, after the
+  invoker's gate, in every UI culture of the application. When it cannot be built within the presentation's
+  limits, or the builder's presenter fails or takes longer than 10 seconds, nothing is proposed: the call reads
+  `not-executed` with `ai-tool-input-invalid` and a message that says what to shorten or split, and no other
+  presenter's card or the generic summary stands in, also not for a proposal made through
+  `INhAssistantProposals`. An approved write runs only while its card can still be built.
+- The values of whose rights (such as the required policy, MCP servers, run and view policies, accountability
+  and technical account, consultation routes and the parts a removal names) have fields of their own, first
+  and in full. What an agent, skill or consultation may do (tools and tool selectors, autonomy, compositions,
+  scripts, what a consultation offers, a rule script's writes) follows and is never shortened either; a list
+  that one field does not hold spans more, as "Tools (1 of 2)". The other values follow, sharing fields when
   needed, each shortened as far as the card needs to keep within its limits also as stored JSON with its
-  escapes; the card then says the technical details show them in full.
+  escapes; the card then says the technical details show them in full. A metadata value shows as the JSON it
+  is saved as, and creating an agent with a required, run or view policy gets the rights notice.
 - `builder_save_skill`, `builder_save_trigger`, `builder_save_consultation` and `builder_save_hand_off` keep what
   a change leaves out, as the card says (a trigger while its source stays the same); a description is needed
   only for a new skill or consultation, and the sources only for a new hand-off.
@@ -116,7 +123,10 @@
   the variant's version (`expectedVariantVersion`), so a variant changed after its card is refused; its card
   names the live agent and what it takes over, the settings of whose rights first: the required policy, run
   and view policies, autonomy, what it works on, model profile, classification, compositions and scripts for an
-  agent created in the administration, then the tools in a field of their own.
+  agent created in the administration, then the tools in fields of their own and, with `moveSkills`, the
+  skills that go live. It no longer takes `asPackageVersion` or `uncarriedParts`: a variant that becomes its
+  agent package's next version carries its run settings, technical account, skills, triggers, consultations,
+  hand-offs and rule scripts as well, so it is promoted in the administration's screens.
 - `builder_set_mcp_headless_use` changes only whether the server serves runs without a person, checked as the
   server editor checks that field and written only while the server's authentication mode and connection
   scope are still those it was checked against; what another administrator changed between the card and the
@@ -129,7 +139,7 @@
 
 | Breaking change | Required action |
 |---|---|
-| The builder's tools refuse input that does not fit their schema, or whose card cannot show it in full, instead of reading it leniently or proposing it with the generic summary; `builder_save_skill`, `builder_save_trigger`, `builder_save_consultation` and `builder_save_hand_off` keep what a change leaves out instead of clearing it; `builder_promote_shadow_variant` requires `expectedVariantVersion`. | None: the builder corrects a refused call itself. Decide or let expire the builder's waiting approvals before the upgrade. |
+| The builder's tools refuse input that does not fit their schema, or whose card cannot show it in full, instead of reading it leniently or proposing it with the generic summary; `builder_save_skill`, `builder_save_trigger`, `builder_save_consultation` and `builder_save_hand_off` keep what a change leaves out instead of clearing it; `builder_promote_shadow_variant` requires `expectedVariantVersion` and no longer takes `asPackageVersion` or `uncarriedParts`. | None: the builder corrects a refused call itself. Promote a variant as its package's next version in the administration's screens. Decide or let expire the builder's waiting approvals before the upgrade. |
 | An MCP server assigned to the agent builder is no longer offered to its turns, and the administration refuses such an assignment. | Remove an existing assignment with `DELETE admin/mcp-servers/{id}/agents/nh-agent-builder` if you want it gone from the list. |
 
 ## @newheap/platform-ai-chat: the agent builder follows its changes (FB94)

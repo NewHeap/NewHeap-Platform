@@ -112,6 +112,14 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler(
 
         try
         {
+            // An approved write runs only while its card can still be built as it was approved, after the
+            // gate and for the person of the chat; the proposal itself was recorded only with that card.
+            if (tool.Approval == NhAiApprovalRequirement.Required
+                && await NhAssistantAgentBuilderPresenter.RefusalOfCardAsync(services, tool, input, cancellationToken) is { } cardRefusal)
+            {
+                return Refused(NhAiToolFailureCodes.InputInvalid, cardRefusal);
+            }
+
             return await tool.Handle(this, new NhAssistantAgentBuilderCall(person, input), cancellationToken);
         }
         catch (NhAssistantAgentBuilderInputException wrong)

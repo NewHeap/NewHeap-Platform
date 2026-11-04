@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentBuilder;
+using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 using NewHeap.Platform.AI.Scripting;
 using NewHeap.Platform.AI.Test;
@@ -376,7 +377,7 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
         var view = await PresentAsync(presenter, NhAssistantAgentBuilderTools.UpdateAgent, new { agentId = AgentId, expectedVersion = 1, viewPolicy = (string?)null, compositions = true, dataClassification = "confidential", offeredInChat = false }, "en-US");
         Assert.Contains("Who sees its results for the whole application", view.Notice, StringComparison.Ordinal);
         Assert.Equal(
-            [("Agent", AgentId), ("Who sees its results for the whole application", "cleared (the default applies)"), ("Version", "1"), ("Offered in the chat", "no"), ("Classification", "confidential"), ("Compositions", "yes")],
+            [("Agent", AgentId), ("Who sees its results for the whole application", "cleared (the default applies)"), ("Compositions", "yes"), ("Version", "1"), ("Offered in the chat", "no"), ("Classification", "confidential")],
             view.Fields.Select(field => (field.Label, field.Value)));
 
         // Every removal names what goes.
@@ -431,7 +432,7 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
             expectedVersion = 4,
             displayName = new string('n', 256),
             description = new string('d', 512),
-            toolSelectors = Enumerable.Range(0, 10).Select(index => $"tools.{index}.{new string('t', 90)}").ToArray(),
+            toolSelectors = Enumerable.Range(0, 3).Select(index => $"tools.{index}.{new string('t', 90)}").ToArray(),
             requiredPolicy = policy,
             mcpServerIds = new[] { "planning", "billing" },
             runPolicy = "app.operators",
@@ -442,6 +443,13 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
         Assert.Equal(
             [("Agent", AgentId), ("Required policy", policy), ("MCP servers", "planning, billing"), ("Who may run it for the whole application", "app.operators"), ("Who sees its results for the whole application", "cleared (the default applies)")],
             card!.Fields.Take(5).Select(field => (field.Label, field.Value)));
+        // What the agent may use is never shortened: its tools span two fields.
+        Assert.Equal(
+            ["Tools (1 of 2)", "Tools (2 of 2)"],
+            card.Fields.Where(field => field.Label.StartsWith("Tools", StringComparison.Ordinal)).Select(field => field.Label));
+        Assert.Equal(
+            string.Join(", ", Enumerable.Range(0, 3).Select(index => $"tools.{index}.{new string('t', 90)}")),
+            string.Join(", ", card.Fields.Where(field => field.Label.StartsWith("Tools", StringComparison.Ordinal)).Select(field => field.Value)));
         Assert.Contains("technical details", card.Notice, StringComparison.Ordinal);
 
         // A value of whose rights that cannot be shown in full refuses the change, naming it.
@@ -449,10 +457,19 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
         {
             agentId = AgentId,
             expectedVersion = 4,
-            mcpServerIds = Enumerable.Range(0, 10).Select(index => $"server-{index}-{new string('s', 32)}").ToArray()
+            mcpServerIds = Enumerable.Range(0, 64).Select(index => $"server-{index}-{new string('s', 32)}").ToArray()
         });
         Assert.Null(none);
         Assert.Contains("'mcpServerIds'", why, StringComparison.Ordinal);
+
+        // A list that a field does not hold but the card does spans fields in full.
+        var (spanned, _) = await BuildAsync(presenter, update, new
+        {
+            agentId = AgentId,
+            expectedVersion = 4,
+            mcpServerIds = Enumerable.Range(0, 10).Select(index => $"server-{index}-{new string('s', 32)}").ToArray()
+        });
+        Assert.Equal(["MCP servers (1 of 2)", "MCP servers (2 of 2)"], spanned!.Fields.Where(field => field.Label.StartsWith("MCP", StringComparison.Ordinal)).Select(field => field.Label));
 
         // So do values of whose rights that together do not fit the stored card, with their escapes.
         var (tooBig, size) = await BuildAsync(presenter, update, new
@@ -483,12 +500,13 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
                 expectedVersion = 4,
                 displayName = new string('<', 256),
                 description = string.Concat(Enumerable.Repeat("Ω\"'&", 128)),
-                toolSelectors = new[] { new string('>', 256), "😀" + new string('ж', 200) },
+                toolSelectors = new[] { "projects.*", "😀" + new string('ж', 60) },
                 requiredPolicy = policy
             }), dutch, CancellationToken.None);
             Assert.Null(refusal);
             Assert.Null(NhAssistantPresentationLimits.FindBrokenRule(card!));
             Assert.Contains(card!.Fields, field => field.Value == policy);
+            Assert.Contains(card.Fields, field => field.Value == "projects.*, 😀" + new string('ж', 60));
             Assert.Matches("technical details|technische details", card.Notice);
 
             // A reason or a text of escapes alone does not drop the card either.
@@ -534,6 +552,8 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
         Assert.Contains(card.Fields, field => field.Label == "Takes over"
             && field.Value == "required policy: app.planners; autonomy: execute; model profile: chat; classification: confidential; compositions: no; scripts: no");
         Assert.Contains(card.Fields, field => field.Label == "Takes over the tools" && field.Value == "projects.*, mail.send");
+        Assert.Contains(card.Fields, field => field.Label == "Moves these skills, live at once" && field.Value == "none");
+        Assert.Contains("Its skills become live versions of the live agent's skills at once.", card.Notice, StringComparison.Ordinal);
         Assert.Contains("whose rights agent planner works with", card.Notice, StringComparison.Ordinal);
         Assert.Contains("the model profile, the classification, the compositions and scripts and the tools", card.Notice, StringComparison.Ordinal);
         Assert.Contains("the variant is deleted", card.Notice, StringComparison.Ordinal);
@@ -545,6 +565,122 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
         Assert.Null(changed);
         Assert.Contains("version 2", refusal, StringComparison.Ordinal);
         Assert.Contains("expectedVariantVersion", NhAssistantAgentBuilderInput.Read(JsonSerializer.SerializeToElement(new { agentId = "planner-next", expectedVersion = 3 }), promote.Input.Schema).Refused, StringComparison.Ordinal);
+
+        // A variant that becomes its package's next version carries parts the card cannot show: the
+        // builder does not take it.
+        Assert.Contains("'asPackageVersion'", NhAssistantAgentBuilderInput.Read(JsonSerializer.SerializeToElement(new { agentId = "planner-next", expectedVersion = 3, expectedVariantVersion = 2, asPackageVersion = true }), promote.Input.Schema).Refused, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_builder_write_is_proposed_only_with_the_builders_own_card_in_every_culture()
+    {
+        var descriptor = new NhAssistantAgentBuilderToolCatalog().Descriptors.Single(item => item.Id == NhAssistantAgentBuilderTools.UpdateAgent);
+        var context = new NhAiInvocationContext(Administrator, "assistant", new Dictionary<string, string>());
+        var english = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+        var other = new OtherPresenter();
+
+        // The builder's card is the one proposed, in every culture of the application.
+        var resolver = Resolver(Presenter(), other);
+        var shown = await resolver.ResolveApprovalInCulturesAsync(descriptor, JsonSerializer.SerializeToElement(new { agentId = AgentId, expectedVersion = 1, requiredPolicy = "app.helpers" }), context, english, CancellationToken.None);
+        Assert.Null(shown.Refusal);
+        Assert.Contains("whose rights agent project-assistant works with", shown.Presentation!.Notice, StringComparison.Ordinal);
+        Assert.Contains("met wiens rechten agent project-assistant werkt", shown.LocalizedJson, StringComparison.Ordinal);
+
+        // A card it cannot build refuses the proposal with its reason; no other card stands in.
+        var refused = await resolver.ResolveApprovalInCulturesAsync(descriptor, JsonSerializer.SerializeToElement(new { agentId = AgentId, expectedVersion = 1, mcpServerIds = Enumerable.Range(0, 64).Select(index => $"server-{index}-{new string('s', 32)}").ToArray() }), context, english, CancellationToken.None);
+        Assert.Null(refused.Presentation);
+        Assert.Contains("'mcpServerIds'", refused.Refusal, StringComparison.Ordinal);
+
+        // So does a presenter that times out, fails, builds nothing or a card beyond the limits.
+        var stubs = new (RequiredStub Presenter, string Refusal)[]
+        {
+            (new RequiredStub(async token => { await Task.Delay(Timeout.Infinite, token); return new NhAssistantRequiredPresentation(null, null); }), NhAssistantRequiredPresentation.TimedOut),
+            (new RequiredStub(_ => throw new InvalidOperationException("The directory is not there.")), NhAssistantRequiredPresentation.Failed),
+            (new RequiredStub(_ => ValueTask.FromResult(new NhAssistantRequiredPresentation(null, null))), NhAssistantRequiredPresentation.Failed),
+            (new RequiredStub(_ => ValueTask.FromResult(new NhAssistantRequiredPresentation(new NhAssistantApprovalPresentation("Change", new string('s', 600), []), null))), NhAssistantRequiredPresentation.Failed)
+        };
+        foreach (var (stub, expected) in stubs)
+        {
+            var outcome = await Resolver(stub, other, TimeSpan.FromMilliseconds(50)).ResolveApprovalInCulturesAsync(descriptor, JsonSerializer.SerializeToElement(new { agentId = AgentId }), context, english, CancellationToken.None);
+            Assert.Equal((null, expected), (outcome.Presentation, outcome.Refusal));
+        }
+        Assert.Equal(0, other.Calls);
+
+        // A tool whose proposal needs no card of its own keeps the other presenters.
+        var read = new NhAssistantAgentBuilderToolCatalog().Descriptors.Single(item => item.Id == NhAssistantAgentBuilderTools.ReadAgent);
+        Assert.NotNull((await Resolver(Presenter(), other).ResolveApprovalInCulturesAsync(read, JsonSerializer.SerializeToElement(new { agentId = AgentId }), context, english, CancellationToken.None)).Presentation);
+    }
+
+    [Fact]
+    public async Task An_approved_write_reads_nothing_before_the_person_of_the_chat_is_known()
+    {
+        var directory = new CountingDirectory();
+        await using var services = new ServiceCollection()
+            .AddSingleton(new NhAssistantRegistrationState())
+            .AddSingleton<AspNet.AgentRuns.INhAssistantAgentDirectory>(directory)
+            .BuildServiceProvider();
+        var handler = new NhAssistantAgentBuilderToolHandler(
+            services,
+            new NhAssistantRegistrationState(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<NhAssistantAgentBuilderToolHandler>.Instance);
+        var promote = NhAssistantAgentBuilderTools.All.Single(item => item.Id == NhAssistantAgentBuilderTools.PromoteShadowVariant);
+
+        var result = await handler.HandleAsync(
+            promote,
+            JsonSerializer.SerializeToElement(new { agentId = "planner-next", expectedVersion = 3, expectedVariantVersion = 2 }),
+            new NhAiInvocationContext(Administrator, "assistant", new Dictionary<string, string>()),
+            CancellationToken.None);
+
+        // Outside a person's chat with the builder the call is refused before its card reads the variant.
+        Assert.Equal(NhAssistantAdminErrorCodes.Forbidden, result.GetResultItems().First().Name);
+        Assert.Equal(0, directory.Calls);
+    }
+
+    [Fact]
+    public async Task What_an_agent_skill_or_consultation_may_do_is_never_shortened()
+    {
+        var presenter = Presenter();
+        var create = NhAssistantAgentBuilderTools.All.Single(tool => tool.Id == NhAssistantAgentBuilderTools.CreateAgent);
+        var selectors = Enumerable.Range(0, 10).Select(index => $"tools.{index}.{new string('t', 40)}").Append("*").ToArray();
+
+        // Ten selectors followed by "*" show the "*", next to long other values that are shortened.
+        var (card, refusal) = await BuildAsync(presenter, create, new
+        {
+            agentId = "new-agent",
+            displayName = "New",
+            description = new string('<', 512),
+            instructions = "Help.",
+            toolSelectors = selectors,
+            autonomy = "execute",
+            compositions = true,
+            scripts = true,
+            requiredPolicy = "app.helpers"
+        });
+        Assert.Null(refusal);
+        Assert.Null(NhAssistantPresentationLimits.FindBrokenRule(card!));
+        var tools = card!.Fields.Where(field => field.Label.StartsWith("Tools", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(string.Join(", ", selectors), string.Join(", ", tools.Select(field => field.Value)));
+        Assert.EndsWith(", *", tools[^1].Value, StringComparison.Ordinal);
+        Assert.Contains(card.Fields, field => field.Label == "What it may do" && field.Value == "Autonomy: execute; Compositions: yes; Scripts: yes");
+        // Creating an agent with a required policy says whose rights it changes.
+        Assert.Contains("whose rights agent new-agent works with (Required policy)", card.Notice, StringComparison.Ordinal);
+
+        // A skill's tools and what a consultation offers are not shortened either.
+        var skill = NhAssistantAgentBuilderTools.All.Single(tool => tool.Id == NhAssistantAgentBuilderTools.SaveSkill);
+        var (skillCard, _) = await BuildAsync(presenter, skill, new { agentId = AgentId, skillId = "notes", description = new string('"', 512), tools = selectors });
+        Assert.Equal(string.Join(", ", selectors), string.Join(", ", skillCard!.Fields.Where(field => field.Label.StartsWith("Tools", StringComparison.Ordinal)).Select(field => field.Value)));
+        var consultation = NhAssistantAgentBuilderTools.All.Single(tool => tool.Id == NhAssistantAgentBuilderTools.SaveConsultation);
+        var (consultationCard, _) = await BuildAsync(presenter, consultation, new { agentId = AgentId, subjectType = "project", description = new string('&', 400), toolSelectors = new[] { "projects.search" }, exposeToMcp = true });
+        Assert.Contains(consultationCard!.Fields, field => field.Label == "Tools" && field.Value == "projects.search");
+        Assert.Contains(consultationCard.Fields, field => field.Label == "Visible to MCP clients" && field.Value == "yes");
+
+        // A metadata value shows as the JSON it is saved as, also an empty or padded text.
+        var metadata = NhAssistantAgentBuilderTools.All.Single(tool => tool.Id == NhAssistantAgentBuilderTools.SaveMetadata);
+        foreach (var value in new[] { "", "  ", "  x  " })
+        {
+            var (entry, _) = await BuildAsync(presenter, metadata, new { agentId = AgentId, name = "team", value });
+            Assert.Contains(entry!.Fields, field => field.Label == "Value" && field.Value == JsonSerializer.Serialize(value));
+        }
     }
 
     [Theory]
@@ -700,6 +836,84 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
             "object" => new System.Text.Json.Nodes.JsonObject { ["entry"] = new string('v', 600) },
             _ => new System.Text.Json.Nodes.JsonObject { ["any"] = new string('w', 600) }
         };
+    }
+
+    private static NhAssistantToolPresentationResolver Resolver(INhAssistantToolPresenter required, INhAssistantToolPresenter other, TimeSpan? timeout = null)
+    {
+        return new NhAssistantToolPresentationResolver(
+            [required, other],
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<NhAssistantToolPresentationResolver>.Instance,
+            new TwoCultures(),
+            timeout);
+    }
+
+    private sealed class TwoCultures : INhAssistantPresentationCultures
+    {
+        public IReadOnlyList<System.Globalization.CultureInfo> GetCultures()
+        {
+            return [System.Globalization.CultureInfo.GetCultureInfo("en-US"), System.Globalization.CultureInfo.GetCultureInfo("nl-NL")];
+        }
+    }
+
+    /// <summary>A presenter of the application that would present any tool, and counts when it is asked.</summary>
+    private sealed class OtherPresenter : INhAssistantToolPresenter
+    {
+        public int Calls { get; private set; }
+
+        public ValueTask<string?> GetDisplayNameAsync(NhAssistantToolDisplayNameContext context, CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult<string?>(null);
+        }
+
+        public ValueTask<NhAssistantApprovalPresentation?> PresentApprovalAsync(NhAssistantApprovalPresentationContext context, CancellationToken cancellationToken)
+        {
+            Calls++;
+            return ValueTask.FromResult<NhAssistantApprovalPresentation?>(new NhAssistantApprovalPresentation("Other", "Another card.", []));
+        }
+    }
+
+    /// <summary>A presenter the builder's writes need, with a scripted answer.</summary>
+    private sealed class RequiredStub(Func<CancellationToken, ValueTask<NhAssistantRequiredPresentation>> answer) : INhAssistantToolPresenter, INhAssistantRequiredToolPresenter
+    {
+        public bool Requires(NhAiToolDescriptor descriptor)
+        {
+            return NhAssistantAgentBuilderIds.IsAgentBuilderTool(descriptor.Id);
+        }
+
+        public ValueTask<NhAssistantRequiredPresentation> PresentRequiredAsync(NhAssistantApprovalPresentationContext context, CancellationToken cancellationToken)
+        {
+            return answer(cancellationToken);
+        }
+
+        public ValueTask<string?> GetDisplayNameAsync(NhAssistantToolDisplayNameContext context, CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult<string?>(null);
+        }
+
+        public ValueTask<NhAssistantApprovalPresentation?> PresentApprovalAsync(NhAssistantApprovalPresentationContext context, CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult<NhAssistantApprovalPresentation?>(null);
+        }
+    }
+
+    /// <summary>A directory that knows no agent and counts its reads.</summary>
+    private sealed class CountingDirectory : AspNet.AgentRuns.INhAssistantAgentDirectory
+    {
+        public int Calls { get; private set; }
+
+        public Task<AspNet.AgentRuns.NhAssistantAgentInEffectDto?> GetAsync(string agentId, CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Task.FromResult<AspNet.AgentRuns.NhAssistantAgentInEffectDto?>(null);
+        }
+
+        public Task<IReadOnlyList<AspNet.AgentRuns.NhAssistantAgentInEffectDto>> ListAsync(
+            AspNet.AgentRuns.NhAssistantAgentDirectoryFilter? filter = null,
+            CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Task.FromResult<IReadOnlyList<AspNet.AgentRuns.NhAssistantAgentInEffectDto>>([]);
+        }
     }
 
     /// <summary>A directory that knows the agents a promotion's card reads: the variant and its live agent.</summary>

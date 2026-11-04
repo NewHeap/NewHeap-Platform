@@ -480,14 +480,13 @@ internal static class NhAssistantAgentBuilderTools
         Write(
             PromoteShadowVariant,
             "builder_promote_shadow_variant",
-            "Copies the definition of a shadow variant created in the administration (agentId) onto its live agent as the live agent's next version, after the administrator approves it in the chat, and then deletes the variant. expectedVersion is the live agent's version and expectedVariantVersion the variant's, as builder_read_agent shows them; a changed variant is refused. With moveSkills the variant's data skills become versions of the live agent's skills; with asPackageVersion a variant linked to one agent package becomes that package's next version.",
+            "Copies the definition of a shadow variant created in the administration (agentId) onto its live agent as the live agent's next version, after the administrator approves it in the chat, and then deletes the variant. expectedVersion is the live agent's version and expectedVariantVersion the variant's, as builder_read_agent shows them; a changed variant is refused. With moveSkills the variant's data skills become live versions of the live agent's skills. A variant that becomes its agent package's next version is promoted in the administration's screens only, since the package carries its run settings, technical account, skills, triggers, consultations, hand-offs and rule scripts as well.",
             Schema.Object([
                 ("agentId", Schema.Id("The shadow variant's id."), true),
                 ("expectedVersion", Schema.Integer("The live agent's current version."), true),
                 ("expectedVariantVersion", Schema.Integer("The variant's current version, as builder_read_agent shows it; a changed variant is refused."), true),
                 ("moveSkills", Schema.Flag("The variant's data skills move to the live agent."), false),
-                ("asPackageVersion", Schema.Flag("The variant becomes its package's next version."), false),
-                ("uncarriedParts", Schema.Choice("With asPackageVersion: unlink (default) or relink the live agent's linked parts the variant does not carry.", ["unlink", "relink"]), false),
+
                 ("reason", Schema.Reason(), false)
             ]),
             (handler, call, token) => handler.PromoteShadowVariantAsync(call, token)),
