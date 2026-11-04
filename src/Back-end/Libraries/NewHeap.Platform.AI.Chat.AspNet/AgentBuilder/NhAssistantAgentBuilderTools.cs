@@ -283,7 +283,7 @@ internal static class NhAssistantAgentBuilderTools
         Write(
             SaveTrigger,
             "builder_save_trigger",
-            "Adds a data trigger or saves its next version, after the administrator approves it in the chat. A change names only what changes: a field it leaves out keeps the live value and null clears it, and a change of source starts from that source's defaults. An event trigger names a trigger event and may select its filters; a schedule names a cron expression and a subject set from the catalog (without one it runs for the whole application). A new trigger starts in shadow; a change applies live or, with apply shadow, becomes its candidate.",
+            "Adds a data trigger or saves its next version, after the administrator approves it in the chat. A change names only what changes: a field it leaves out keeps the live value and null clears it, and a change of source starts from that source's defaults. An event trigger names a trigger event and may select its filters; a schedule names a cron expression, the message every run receives and a subject set from the catalog (without one it runs for the whole application). A new trigger starts in shadow; a change applies live or, with apply shadow, becomes its candidate.",
             Schema.Object([
                 ("agentId", Schema.Id("The agent's id."), true),
                 ("triggerId", Schema.Id("The trigger's id, lowercase dash-case."), true),
@@ -295,7 +295,7 @@ internal static class NhAssistantAgentBuilderTools
                 ("cron", Schema.Text("For a schedule: a five- or six-field cron expression.", 128), false),
                 ("timeZone", Schema.NullableText("For a schedule: an IANA time zone id; null for UTC.", 128), false),
                 ("subjectSet", Schema.NullableText("For a schedule: a subject set from the catalog; null for the whole application.", 128), false),
-                ("message", Schema.NullableText("For a schedule: what every run receives; null for none.", 2_000), false),
+                ("message", Schema.Text("For a schedule: what every run receives; a schedule needs one.", 2_000), false),
                 ("conflict", Schema.Choice("What happens while a run on the subject is active.", ["coalesce", "queue", "supersede", "ignore"]), false),
                 ("debounceSeconds", Schema.Nullable(Schema.Integer("For an event trigger: the window in which events coalesce, at most 3,600; null for the default.")), false),
                 ("apply", Schema.Choice("For a change: live (default) or shadow, as a candidate.", [NhAssistantSkillApplyModes.Live, NhAssistantSkillApplyModes.Shadow]), false),

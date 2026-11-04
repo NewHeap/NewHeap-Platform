@@ -329,7 +329,11 @@ public sealed class AssistantAgentBuilderAdministrationTests(AssistantDatabaseFi
             .RespondWithFunctionCall("builder_save_skill", new { input = new { agentId = Weekly, skillId = "notes", expectedVersion = 1, description = "Writes short notes." } })
             .RespondWithText("Only the description changed.")
             .RespondWithFunctionCall("builder_save_trigger", new { input = new { agentId = Weekly, triggerId = "monday", expectedVersion = 1, source = "schedule", message = "Count the week before." } })
-            .RespondWithText("Only the message changed.");
+            .RespondWithText("Only the message changed.")
+            .RespondWithFunctionCall("builder_save_trigger", new { input = new { agentId = Weekly, triggerId = "monday", expectedVersion = 2, source = "schedule", cron = "0 6 * * 2", message = (string?)null } })
+            .RespondWithText("Only the schedule changed.")
+            .RespondWithFunctionCall("builder_save_trigger", new { input = new { agentId = Weekly, triggerId = "friday", source = "schedule", cron = "0 6 * * 5" } })
+            .RespondWithText("A schedule needs a message.");
         await using var app = await StartAsync(model, provider);
         await CreateWeeklyAsync(app, runSettings: true);
         await using (var scope = app.Services.CreateAsyncScope())
@@ -380,6 +384,18 @@ public sealed class AssistantAgentBuilderAdministrationTests(AssistantDatabaseFi
         Assert.Equal(
             (2, "0 6 * * 1", "Europe/Amsterdam", "Count the week before."),
             (triggerNow.Version, triggerNow.Cron, triggerNow.TimeZone, triggerNow.Message));
+
+        // Null for a schedule's message reads as left out, so the schedule keeps it.
+        var moved = await SendAsync(administrator, conversation, "Move the Monday trigger to Tuesday.");
+        await DecideAsync(administrator, conversation, Assert.Single(moved, evt => evt.Name == "approval.required").Data, "approve");
+        triggerNow = Assert.Single((await ConfigurationAsync(app)).DataTriggers, trigger => trigger.TriggerId == "monday");
+        Assert.Equal((3, "0 6 * * 2", "Count the week before."), (triggerNow.Version, triggerNow.Cron, triggerNow.Message));
+
+        // A new schedule has no message to keep: the call says which field it misses and stores nothing.
+        var added = await SendAsync(administrator, conversation, "Add a trigger for Friday.");
+        await DecideAsync(administrator, conversation, Assert.Single(added, evt => evt.Name == "approval.required").Data, "approve");
+        Assert.DoesNotContain((await ConfigurationAsync(app)).DataTriggers, trigger => trigger.TriggerId == "friday");
+        Assert.Contains("message", FunctionResult(model, model.FunctionResults.Count - 1).GetRawText(), StringComparison.Ordinal);
     }
 
     [Theory]
