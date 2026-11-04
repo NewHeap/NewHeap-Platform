@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.108",
   "backEnd": {
-    "hash": "ccafe34721356a5737a4e272724dc638b38ca0e0233a22f5656b734029b5dc14",
-    "declarationCount": 13687,
+    "hash": "89a385e03e367ad2d9113c977e059922d72b2341bf6ad7f6b4396af5634ca38c",
+    "declarationCount": 13688,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2632,6 +2632,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
         "declaration": "public string AlertKind => dutch ? \"Soort waarschuwing\" : \"Alert kind\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string AlertKinds => dutch ? \"Soorten waarschuwingen\" : \"Alert kinds\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",

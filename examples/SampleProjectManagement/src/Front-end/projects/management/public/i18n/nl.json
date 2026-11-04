@@ -686,6 +686,9 @@
       },
       "project-review-reminder": {
         "name": "Herinnering om het project te bekijken"
+      },
+      "weekly-task-changes": {
+        "name": "Weektelling van gewijzigde taken"
       }
     }
   },

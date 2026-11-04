@@ -56,6 +56,9 @@
   administrator's own rights, so a technical account that would lend more rights than they hold is refused
   (`assistant-service-account-not-permitted`), and its own id, tools, policy and definition stay reserved.
 - `builder_search_accounts` finds people and technical accounts as the administration's account search does.
+- `builder_save_run_settings` takes `alertKinds` (FB93): the kinds in code that an agent created in the
+  administration lists for its rule scripts and model; left out keeps the stored list, an empty list lists
+  none, and the card names them. `builder_read_agent` shows the listed kinds.
 - The builder's instructions are version 2 of `nh-agent-builder-instructions`.
 
 | Breaking change | Required action |

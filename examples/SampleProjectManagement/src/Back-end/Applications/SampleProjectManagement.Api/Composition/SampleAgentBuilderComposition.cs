@@ -39,7 +39,9 @@ public static class SampleAgentBuilderComposition
           the description lists.
         - A check that runs for the whole application, such as a weekly count, answers to a technical account
           with gateway reads on, because no project's responsible person stands for the whole application.
-        - Alerts go to the people the alert kind chooses; a rule script never names recipients of its own.
+        - Alerts go to the people the alert kind chooses: for a project its responsible person. The whole
+          application has no responsible person, so a kind about it, such as weekly-task-changes, warns the people
+          its rule script names.
         - Agents of this application are named in English, in lowercase dash-case ids.
         """,
         "sample:agent-builder-guidance",

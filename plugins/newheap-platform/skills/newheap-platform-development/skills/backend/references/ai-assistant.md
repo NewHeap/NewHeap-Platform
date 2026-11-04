@@ -60,7 +60,8 @@ who chats:
 - `builder_dry_run_rule_script`, without approval because it changes nothing;
 - writes, each a proposal that waits for the person's approval on an inline card that says what changes:
   `builder_create_agent` (also a shadow variant with `shadowOf`), `builder_update_agent`,
-  `builder_save_run_settings`, `builder_save_skill`, `builder_save_trigger`, `builder_save_rule_script`,
+  `builder_save_run_settings` (also `alertKinds`: the kinds in code an agent created in the administration
+  lists for its rule scripts and model, see `nh-ai-alerts`), `builder_save_skill`, `builder_save_trigger`, `builder_save_rule_script`,
   `builder_save_consultation`, `builder_save_hand_off`, `builder_save_metadata`, `builder_set_live`,
   `builder_set_shadow`, `builder_set_state`, `builder_set_technical_account` (an agent in code),
   `builder_set_consultation_routes`, `builder_set_mcp_server` (assign an existing server or remove the
@@ -136,7 +137,7 @@ and an agent created in the administration is, audited for the person; an existi
 without its secret, a call that sends a secret is refused before any approval, the assignment and the use
 without a person change after their approvals and the server keeps its secret; the gateway's resources are
 read with the administrator's rights, the blockers name gateway reads, the accountability, an unlisted alert
-kind and the missing trigger, and the guidance reaches the builder after the rules and before the
+kind and the missing trigger, the builder lists the kind after an approval whose card names it and the blocker is gone, and the guidance reaches the builder after the rules and before the
 application context and no other agent. Without a database: 27 tools, every write needs an approval, no
 tool takes a secret, every write's card keeps within the presentation's limits in English and Dutch, a
 change of rights and every removal say so, a call outside a person's chat with the builder is refused, the
@@ -145,7 +146,9 @@ API bridge's gateway resources find and describe only what the person may use. I
 Angular spec on the mock API proves the chat on the Build tab with its page context, "New agent with help"
 continuing on the created agent's page with the same chat, the page going back to the agents after the
 builder removed its agent, no builder on its own page and nothing for a person who may not chat with it.
-SPM-394 is the executable reference.
+SPM-394 is the executable reference for building a rule script with the builder, SPM-396 for an
+application-wide weekly count through the gateway with a technical account, gateway reads and a listed
+alert kind (FB93).
 
 ## Optional source evidence
 
