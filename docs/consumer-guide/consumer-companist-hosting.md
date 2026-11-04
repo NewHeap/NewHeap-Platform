@@ -28,6 +28,10 @@ For managed PostgreSQL, keep the database outside Compose. Declare engine `postg
 
 Static blockers describe genuine unresolved runtime requirements. Put optional integrations and operating recommendations in notes; never hard-code "no security review yet" as a blocker. Companist independently requires current security evidence for the exact commit and settings. These capabilities require a compatible Companist OS/Auth/runner release; they do not change standard NewHeap authentication defaults.
 
+In nested Linux build containers, .NET 10 compiler Server GC can fail with an empty CPU-affinity intersection (`0x8013200A`, dotnet/runtime#133497). Scope workstation GC to compilation: `RUN DOTNET_gcServer=0 dotnet publish ...` in the SDK stage. The executable `publish-companist.sh` sample shows the equivalent shell command. Do not place this setting in the final runtime image or disable CPU/memory limits. The Linux regression publishes with deliberately unavailable compiler affinity, then verifies the application's Server GC configuration is preserved and its executable starts.
+
+For optional Compose bindings, an absent source value is omitted from the container environment; an explicitly configured empty value stays empty. Let application defaults handle absent integrations instead of assuming empty strings will be injected.
+
 ## Avoid
 
 - Treating the generic bootstrap's `--docker` output as proof of a complete Companist-ready application.
@@ -47,5 +51,5 @@ Executable evidence: `node examples/SampleProjectManagement/src/Back-end/Tests/C
 - SPM-217 — Scope-driven consumer bootstrap
   - [src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs](../../examples/SampleProjectManagement/src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs)
   - [src/Back-end/Tests/ConsumerBootstrap/companist-hosting.test.mjs](../../examples/SampleProjectManagement/src/Back-end/Tests/ConsumerBootstrap/companist-hosting.test.mjs)
-  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleHostedAccessContext.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleHostedAccessContext.cs)
-  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/HostedAccessContextSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/HostedAccessContextSamplesTests.cs)
+  - [src/Back-end/Tests/ConsumerBootstrap/publish-companist.sh](../../examples/SampleProjectManagement/src/Back-end/Tests/ConsumerBootstrap/publish-companist.sh)
+  - [src/Back-end/Tests/ConsumerBootstrap/companist-build.test.mjs](../../examples/SampleProjectManagement/src/Back-end/Tests/ConsumerBootstrap/companist-build.test.mjs)

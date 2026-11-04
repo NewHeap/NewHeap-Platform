@@ -3045,6 +3045,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "evidence": [
       "src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs",
       "src/Back-end/Tests/ConsumerBootstrap/companist-hosting.test.mjs",
+      "src/Back-end/Tests/ConsumerBootstrap/publish-companist.sh",
+      "src/Back-end/Tests/ConsumerBootstrap/companist-build.test.mjs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleHostedAccessContext.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/HostedAccessContextSamplesTests.cs"
     ]

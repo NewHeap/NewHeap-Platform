@@ -137,6 +137,8 @@ jobs:
         run: npm run skills:validate
       - name: Validate sample repository structure
         run: npm run sample:structure
+      - name: Verify consumer bootstrap and Companist Linux compilation
+        run: npm --prefix examples/SampleProjectManagement run test:consumer-bootstrap
       - name: Verify platform-common on Angular 20, 21 and 22
         if: inputs.component == '' || inputs.component == 'all' || inputs.component == 'npm-platform-common' || inputs.component == 'npm-nh-toastr'
         run: |
