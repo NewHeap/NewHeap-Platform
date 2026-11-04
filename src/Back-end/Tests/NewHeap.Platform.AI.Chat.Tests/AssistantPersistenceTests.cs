@@ -435,7 +435,7 @@ public sealed class AssistantPersistenceTests(AssistantDatabaseFixture database)
     /// Inserts a server as the schema before the <c>McpReaders</c> migration stored it, with the reader
     /// setting in its own columns.
     /// </summary>
-    private static async Task InsertServerAsync(
+    internal static async Task InsertServerAsync(
         NhAssistantDbContext context,
         string id,
         (string ToolName, string MediaTypes, string MaxClassification)? reader)

@@ -2066,7 +2066,10 @@ its file with `assistant-file-reader-failed` without a second reader, that the r
 against `MaxFileTokensPerTurn`, and that audit and logs hold the reader id, file id and hash, never
 the content or the text. Prove a migration that moves data, such as `McpReaders`, on both providers
 from the earlier schema up and back down, and that the idempotent script of a release applies to an
-empty database twice, without a schema placeholder, also for another schema (`AssistantSchemaScriptTests`).
+empty database twice with SQL Server's plan cache emptied in between, changes nothing on a database the library
+migrated itself, brings a database of an earlier version up with its data, and holds no schema placeholder, also
+for another schema (`AssistantSchemaScriptTests`). SQL Server compiles a whole batch, also what the script's check
+of the migration history skips, so the SQL of a migration runs in `EXEC` in that script; write it as plain SQL.
 
 For retrieved context, assert that the sample's assistant reads the project descriptions of the
 person's active division that match the question, after the situation, never those of another
