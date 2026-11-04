@@ -1978,21 +1978,23 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             // a set of projects that is known only when it ticks.
             var planner = (await administrator.GetFromJsonAsync<NhAssistantAgentConfigurationDto>($"/api/assistant/admin/agents/{SampleProjectPlannerComposition.AgentId}/configuration", Json))!;
             // The administration's guardrails show what its code sets, read only: its skills in the
-            // chat, triage, gateway reads, its budget and its token ceiling.
-            Assert.Equal(
-                new NhAssistantCodeRunSettingsDto(NhAssistantAccountabilities.SubjectResponsible, false, SampleIntakeReviewerComposition.ApprovalPolicyId, false)
-                {
-                    SkillsInChat = true,
-                    TriageProfile = SampleProjectPlannerComposition.TriageProfileName,
-                    RetryCount = 3,
-                    MaxConcurrentRuns = 2,
-                    MaxRunsPerSubjectPerDay = 20,
-                    DailyToolCalls = 100,
-                    DailyTokens = 300_000,
-                    MaxTokensPerRun = 40_000,
-                    AllowGatewayReads = true
-                },
-                planner.CodeRunSettings);
+            // chat, triage, gateway reads, its budget and its token ceiling. It lists no alert kinds; the
+            // list is compared on its own, as a record compares a list by reference.
+            var codeRunSettings = Assert.IsType<NhAssistantCodeRunSettingsDto>(planner.CodeRunSettings);
+            Assert.Empty(codeRunSettings.AlertKinds);
+            var expectedRunSettings = new NhAssistantCodeRunSettingsDto(NhAssistantAccountabilities.SubjectResponsible, false, SampleIntakeReviewerComposition.ApprovalPolicyId, false)
+            {
+                SkillsInChat = true,
+                TriageProfile = SampleProjectPlannerComposition.TriageProfileName,
+                RetryCount = 3,
+                MaxConcurrentRuns = 2,
+                MaxRunsPerSubjectPerDay = 20,
+                DailyToolCalls = 100,
+                DailyTokens = 300_000,
+                MaxTokensPerRun = 40_000,
+                AllowGatewayReads = true
+            };
+            Assert.Equal(expectedRunSettings, codeRunSettings with { AlertKinds = expectedRunSettings.AlertKinds });
             Assert.Equal(ProjectSubjects.Type, planner.CodeTriggers.Single(trigger => trigger.TriggerId == SampleProjectPlannerComposition.TaskTriggerId).SubjectType);
             Assert.Null(planner.CodeTriggers.Single(trigger => trigger.TriggerId == SampleProjectPlannerComposition.DeadlineCheckTriggerId).SubjectType);
 
