@@ -36,6 +36,8 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { readMayChangeAgentRights } from '../agents/agent-rights';
+import { NhAssistantAgentRightsHintComponent } from '../agents/nh-assistant-agent-rights-hint.component';
 import { focusFirstInvalid } from '../agents/run-config/run-config-shared';
 import { startNhAssistantAdminTranslations } from '../i18n/nh-assistant-admin-translations';
 
@@ -80,7 +82,9 @@ const serverFields = [
   'oauth.confirmAuthorization',
   'requiredPolicy',
   'headlessUse',
-  'readers'
+  'readers',
+  // The server's refusal of any change by a person without the agent rights policy; the form's error says it.
+  'mcpServer'
 ] as const;
 
 /** The fields of one reader the server reports errors for, as `readers[<index>].<field>`. */
@@ -147,12 +151,13 @@ let nextReaderKey = 0;
  * may be sent to it and its priority, with readers to add and remove. Every field stops at the length
  * the server accepts; a refused save shows each of the server's field errors at its field, those of a
  * reader at that reader (`readers[0].toolName`), for example a secret reference the application cannot
- * resolve (`not-found`), and moves the focus to the first of them.
+ * resolve (`not-found`), and moves the focus to the first of them. Every change of a server takes the agent rights
+ * policy, so a person without it sees the settings read-only: its use in background runs included.
  */
 @Component({
   selector: 'nh-assistant-admin-mcp-server-editor',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
+  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantAgentRightsHintComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-admin-mcp-server-editor.component.html',
   styleUrl: '../nh-assistant-admin-shared.scss'
@@ -174,6 +179,7 @@ export class NhAssistantAdminMcpServerEditorComponent {
   readonly cancelled = output<void>();
 
   readonly id = `nh-assistant-server-editor-${nextId++}`;
+  readonly mayChangeRights = readMayChangeAgentRights();
   readonly limits = NH_ASSISTANT_MCP_SERVER_LIMITS;
   readonly builtInAuthModes: readonly McpBuiltInAuthMode[] = ['none', 'bearer', 'api-key', 'basic', 'forward-user-token', 'oauth', 'oauth-client-credentials'];
   /** The modes the application registered in code; none until they are loaded or when loading fails. */
@@ -515,6 +521,10 @@ export class NhAssistantAdminMcpServerEditorComponent {
   }
 
   save(): void {
+    if (!this.mayChangeRights()) {
+      return;
+    }
+
     this.submitted.set(true);
     if (!this.valid() || this.saving()) {
       return;

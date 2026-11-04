@@ -12,7 +12,10 @@ namespace NewHeap.Platform.AI.Chat.AspNet.Mcp;
 /// <c>AdminMcpServerDeleted</c>, <c>AdminMcpServerSynced</c>, <c>AdminMcpToolUpdated</c>). Assigning a
 /// server to an agent changes only the assignment, never the agent's definition or version, and is
 /// audited as <c>AdminMcpServerAssignmentChanged</c>. The service does not authorize the caller: the
-/// application calls it for an administrator or a deployment it trusts and names that actor.
+/// application calls it for an administrator or a deployment it trusts and names that actor. Under
+/// <c>UseAgentRightsPolicy</c> a person who does not pass that policy gets
+/// <c>assistant-agent-rights-forbidden</c> for what gives agents more to reach; an actor the platform knows as no
+/// person does not.
 /// </summary>
 public interface INhAssistantMcpServers
 {
@@ -290,7 +293,8 @@ internal sealed class NhAssistantMcpServerService(
     NhAssistantAdminStore store,
     NhAssistantMcpOAuthStore oauthStore,
     NhAssistantAgentCatalog catalog,
-    IEnumerable<INhAssistantBusinessAuditSink> auditSinks) : INhAssistantMcpServers
+    IEnumerable<INhAssistantBusinessAuditSink> auditSinks,
+    INhAssistantAgentRightsGate? rightsGate = null) : INhAssistantMcpServers
 {
     private const int MaxActorIdLength = 256;
 
@@ -469,6 +473,14 @@ internal sealed class NhAssistantMcpServerService(
         if (await catalog.FindAsync(agentId, includeDisabled: true, cancellationToken) is null)
         {
             return AgentNotFound();
+        }
+        // A new assignment gives the agent the server's tools; removing one only takes them away.
+        if (assign
+            && rightsGate is { Enabled: true }
+            && !(await store.ListMcpAssignmentsAsync(serverId, cancellationToken)).Contains(agentId, StringComparer.Ordinal)
+            && await rightsGate.CheckAsync(agentId, [NhAssistantAgentRights.McpServerIds], actorId, cancellationToken) is { } rightsRefused)
+        {
+            return TaskResult<NhAssistantMcpServerDto>.Failed(rightsRefused);
         }
 
         var changed = await store.SetMcpAssignmentAsync(agentId, serverId, assign, NhAssistantMcpServerLimits.MaxServersPerAgent, cancellationToken);

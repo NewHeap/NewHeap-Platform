@@ -185,6 +185,12 @@ textarea.large {
   }
 }
 
+/* A choice that shows its value but does not change here, as the hint next to it says. */
+.check:has(input:disabled),
+.use:has(input:disabled) {
+  cursor: not-allowed;
+}
+
 /* A check box with a name and an explanation below it. */
 .check.described > span {
   display: grid;

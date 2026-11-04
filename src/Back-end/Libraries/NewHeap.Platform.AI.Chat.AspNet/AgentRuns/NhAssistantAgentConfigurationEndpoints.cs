@@ -20,7 +20,7 @@ internal static class NhAssistantAgentConfigurationEndpoints
         admin.MapGet("run-catalog", GetCatalog)
             .WithName("NhAssistantAdminGetRunCatalog")
             .WithSummary("List the building blocks of agent runs")
-            .WithDescription("Returns the trigger events, subject sets and rule handlers registered in code, the approval policies and the chat profiles that skills and triggers defined as data can name, and the subject types with their names in the request's language, entity, link template and whether they can be searched.")
+            .WithDescription("Returns the trigger events, subject sets and rule handlers registered in code, the approval policies and the chat profiles that skills and triggers defined as data can name, and the subject types with their names in the request's language, entity, link template and whether they can be searched, and mayChangeAgentRights: whether the caller may change whose rights an agent uses, who reaches it, who decides its proposals and what runs without approval (UseAgentRightsPolicy).")
             .Produces<NhAssistantRunCatalogDto>();
         admin.MapGet("instruction-assets", ListInstructionAssetsAsync)
             .WithName("NhAssistantAdminListInstructionAssets")
@@ -53,6 +53,7 @@ internal static class NhAssistantAgentConfigurationEndpoints
             .WithSummary("Add or change the run settings of an agent created in the administration")
             .WithDescription("Whom the agent answers to (agent, subject-responsible or service-account with serviceAccountActorId), its approval policy, budget, run ceiling, retries, gateway reads, triage profile and rule handler. Grants are never data: in headless runs the agent acts with the rights of the account it answers to, within its tool selectors, recorded as grant source accountable. The agent then gets skills and triggers as data. expectedVersion must be current, otherwise 409; an agent in code cannot change (409).")
             .Produces<NhAssistantAgentRunSettingsDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
@@ -69,6 +70,7 @@ internal static class NhAssistantAgentConfigurationEndpoints
             .WithSummary("Add or change a skill defined as data")
             .WithDescription("A new skill starts in shadow; put it live with POST agents/{id}/skills/{skillId}/shadow. A skill of a chat-only agent works live at once. A change stores the next version when expectedVersion is the live version, otherwise 409: with apply live (default) it takes effect at once in the skill's mode; with apply shadow it becomes the candidate that runs in the agent's shadow threads next to the live version until it is promoted or discarded. Tools stay within the agent's own selectors and every name must be registered in code (400). A skill in code cannot change (409).")
             .Produces<NhAssistantDataSkillDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
@@ -155,6 +157,7 @@ internal static class NhAssistantAgentConfigurationEndpoints
             .WithSummary("Add or change a consultation defined as data")
             .WithDescription("Lets other assistants consult the agent about subjects of one type: description, instructions, who may ask (minimumRole and an askerPolicy listed with AddAgentPolicy), the routes of its proposals, the proposal role and approval policy, limits, the request tool, MCP exposure and the classification of its answers, within the ceiling in code (UseConsultationsAsData, and ConsultableAsData for an agent in code). It is in effect once saved, unless it starts off (startsOff, or StartOff of the ceiling in code) until it is switched on with POST agents/{id}/consultations/{subjectType}/state, and answers when an asking agent selects its generated tool; a change keeps whether it is on, and startsOff on a change is refused with startsOff invalid (400). A route outside the ceiling is refused with routes not-allowed (400); an agent that may get none (409 assistant-consultations-not-allowed), an agent created in the administration without run settings (409 assistant-agent-not-configured), a type the agent allows consultation about in code (409 assistant-consultation-in-code), more than 20 per agent (409 assistant-configuration-limit) and a stale expectedVersion (409) are refused.")
             .Produces<NhAssistantDataConsultationDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
@@ -206,10 +209,13 @@ internal static class NhAssistantAgentConfigurationEndpoints
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
     }
 
-    private static IResult GetCatalog(INhAssistantAgentConfiguration configuration)
+    private static async Task<IResult> GetCatalog(
+        HttpContext httpContext,
+        INhAssistantAgentConfiguration configuration,
+        NhAssistantAgentRightsGate rightsGate)
     {
         return NhAssistantAdminEndpoints.Json(
-            configuration.GetCatalog(),
+            configuration.GetCatalog() with { MayChangeAgentRights = await rightsGate.MayChangeAsync(httpContext.User) },
             NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantRunCatalogDto);
     }
 

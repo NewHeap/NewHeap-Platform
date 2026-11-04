@@ -11,15 +11,30 @@
     </p>
     @if (mode() === null) {
       <div class="card-actions">
-        <button class="secondary" type="button" data-account-action="set" [disabled]="disabled() || busy()" (click)="ask('set')">
+        <button
+          class="secondary"
+          type="button"
+          data-account-action="set"
+          [disabled]="disabled() || busy() || !mayChangeRights()"
+          [attr.aria-describedby]="mayChangeRights() ? null : id + '-rights'"
+          (click)="ask('set')">
           <nh-assistant-icon name="edit" />{{ 'nh-assistant.admin.agents.service-account.action.set' | translate }}
         </button>
         @if (account.overridden) {
-          <button class="secondary" type="button" data-account-action="code" [disabled]="disabled() || busy()" (click)="ask('code')">
+          <button
+            class="secondary"
+            type="button"
+            data-account-action="code"
+            [disabled]="disabled() || busy() || !mayChangeRights()"
+            [attr.aria-describedby]="mayChangeRights() ? null : id + '-rights'"
+            (click)="ask('code')">
             {{ 'nh-assistant.admin.agents.service-account.action.code' | translate }}
           </button>
         }
       </div>
+      @if (!mayChangeRights()) {
+        <nh-assistant-agent-rights-hint [hintId]="id + '-rights'" />
+      }
     } @else {
       <form class="change-form" data-account-form (submit)="$event.preventDefault(); apply()">
         <p class="muted" [attr.title]="accountTitle(account.configuredActorId)">{{ 'nh-assistant.admin.agents.service-account.explain.' + mode() | translate: { account: accountName(account.configuredActorId) } }}</p>

@@ -14,7 +14,9 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { readMayChangeAgentRights } from '../agent-rights';
 import { agentDisplayName } from '../agent-texts';
+import { NhAssistantAgentRightsHintComponent } from '../nh-assistant-agent-rights-hint.component';
 import { RunConfigForm } from './run-config-form';
 import { RunConfigErrors, dashCase, requireText, runConfigLimits } from './run-config-shared';
 
@@ -39,18 +41,20 @@ export type ShadowVariantsClosed = 'not-allowed' | 'limit';
  * agent's next version, its skills move along when asked, and the variant is removed; `promoted` hands
  * the outcome to the page, which shows the agent's new version. A variant linked to an agent package
  * (FB11) also offers "As the package's next version": all its parts replace this agent's as an import
- * does and this agent is linked to that package version.
+ * does and this agent is linked to that package version. A person without the agent rights policy creates a
+ * variant only of an agent with no MCP servers and no run or view policy, because a variant copies those.
  */
 @Component({
   selector: 'nh-assistant-agent-shadow-variants',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
+  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantAgentRightsHintComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-shadow-variants.component.html',
   styleUrls: ['../../nh-assistant-admin-shared.scss', './run-config-forms.scss']
 })
 export class NhAssistantAgentShadowVariantsComponent extends RunConfigForm {
   private readonly admin = inject(NhAssistantAdminApiService);
+  private readonly mayChangeRights = readMayChangeAgentRights();
   private loadSubscription?: Subscription;
   private promoteSubscription?: Subscription;
   /** The agent the last promotion note belongs to. */
@@ -79,6 +83,14 @@ export class NhAssistantAgentShadowVariantsComponent extends RunConfigForm {
   readonly instructions = signal('');
   readonly loadErrorKeys = computed(() => nhAssistantErrorKeys(this.loadError()));
   readonly dataVariants = computed(() => (this.variants()?.variants ?? []).filter(variant => variant.source === 'data').length);
+  /**
+   * A new variant copies its agent's MCP servers and who may run it and see its results, which a person without
+   * the agent rights policy may not give a new agent.
+   */
+  readonly rightsRequired = computed(() => {
+    const live = this.agent();
+    return !this.mayChangeRights() && (live.mcpServerIds.length > 0 || (live.source === 'admin' && (!!live.runPolicy || !!live.viewPolicy)));
+  });
   readonly closed = computed<ShadowVariantsClosed | null>(() => {
     const variants = this.variants();
     if (!variants?.allowsDataVariants) {

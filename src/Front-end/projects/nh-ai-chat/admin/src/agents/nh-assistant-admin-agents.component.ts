@@ -31,6 +31,7 @@ import {
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
 import { NhAssistantAgentTab } from '../nh-assistant-admin-location';
+import { mayChangeAgentRights } from './agent-rights';
 import { NhAssistantAdminAgentEditorComponent, NhAssistantAgentEditorSection } from './nh-assistant-admin-agent-editor.component';
 import { NhAssistantAgentPackageExportDialogComponent } from './agent-packages/nh-assistant-agent-package-export-dialog.component';
 import { NhAssistantAgentPackageImportDialogComponent } from './agent-packages/nh-assistant-agent-package-import-dialog.component';
@@ -135,6 +136,8 @@ export class NhAssistantAdminAgentsComponent {
   readonly catalogLoading = signal(false);
   /** Whether the application offers an account search for the technical account. */
   readonly accountSearch = signal(false);
+  /** Whether the person may change an agent's rights, which an agent package can do. */
+  readonly mayChangeRights = computed(() => mayChangeAgentRights(this.catalog()));
   /**
    * The names of the technical accounts and of the people who changed an agent, once known, and why
    * they are not.

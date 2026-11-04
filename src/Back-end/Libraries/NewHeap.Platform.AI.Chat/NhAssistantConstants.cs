@@ -1051,9 +1051,19 @@ public static class NhAssistantErrorCodes
     /// <summary>
     /// The person who binds the account an agent answers to may not act for it: the account would lend
     /// the agent rights to its tools that the person does not hold. The person themself, the agent's
-    /// account in code and an account without such rights may always be bound.
+    /// account in code and an account without such rights may always be bound. Giving an agent that answers to
+    /// an account more tools fails the same way when the account could do something with them that the person
+    /// may not, also for the account in code.
     /// </summary>
     public const string ServiceAccountNotPermitted = "assistant-service-account-not-permitted";
+
+    /// <summary>
+    /// The person does not pass the application's agent rights policy
+    /// (<see cref="NhAssistantBuilder.UseAgentRightsPolicy"/>) and the change alters whose rights an agent uses,
+    /// who reaches it, who decides its proposals or what runs without approval. Its field errors name what
+    /// changes, each as <see cref="NhAssistantFieldErrors.RightsRequired"/>.
+    /// </summary>
+    public const string AgentRightsForbidden = "assistant-agent-rights-forbidden";
 
     /// <summary>
     /// The skill is declared in code; only skills defined as data change at runtime.
@@ -2080,6 +2090,12 @@ public static class NhAssistantFieldErrors
     /// it keeps the package's value until an administrator unlinks the part.
     /// </summary>
     public const string Locked = "locked";
+
+    /// <summary>
+    /// Changing the field takes the application's agent rights policy
+    /// (<see cref="NhAssistantBuilder.UseAgentRightsPolicy"/>), which the person does not pass.
+    /// </summary>
+    public const string RightsRequired = "rights-required";
 
     /// <summary>
     /// The model profile, a registered one, permits the assistant's execution region

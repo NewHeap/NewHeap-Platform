@@ -65,6 +65,8 @@ export interface NhAssistantMockMcpContext {
   setAssignment(serverId: string, agentId: string, assign: boolean): 'agent-not-found' | 'too-long' | 'changed' | 'unchanged';
   /** Whether the caller passes the administration policy. */
   canAdminister(): boolean;
+  /** The refusal of changes of an agent's rights by a caller who may not make them; `null` when they may go ahead. */
+  rightsRefusal(changes: readonly string[]): NhAssistantMockResult | null;
 }
 
 const authModes = ['none', 'bearer', 'api-key', 'basic', 'forward-user-token', 'oauth', 'oauth-client-credentials'];
@@ -381,6 +383,10 @@ export class NhAssistantMockAdminMcp {
       if (Object.keys(errors).length > 0) {
         return failure('assistant-validation', errors);
       }
+      const createRefused = this.context.rightsRefusal(['mcpServer']);
+      if (createRefused) {
+        return createRefused;
+      }
       if (this.servers.has(input.id)) {
         return failure('assistant-mcp-server-exists');
       }
@@ -419,6 +425,10 @@ export class NhAssistantMockAdminMcp {
         }
         if (Object.keys(errors).length > 0) {
           return failure('assistant-validation', errors);
+        }
+        const updateRefused = this.context.rightsRefusal(['mcpServer']);
+        if (updateRefused) {
+          return updateRefused;
         }
         // An omitted headless use, transport or user name keeps the stored value, as on the server.
         const headlessUse = input.headlessUse ?? stored.server.headlessUse;
@@ -498,7 +508,10 @@ export class NhAssistantMockAdminMcp {
       return { status: 204 };
     }
     if (action === 'connection' && child === 'authorize' && length === 5) {
-      return method === 'POST' ? this.startAuthorization(stored, body) : { status: 405 };
+      if (method !== 'POST') {
+        return { status: 405 };
+      }
+      return this.context.rightsRefusal(['mcpServer']) ?? this.startAuthorization(stored, body);
     }
     if (action === 'connections' && length === 4) {
       if (method !== 'DELETE') {
@@ -569,6 +582,11 @@ export class NhAssistantMockAdminMcp {
       const override = typeof input.descriptionOverride === 'string' && input.descriptionOverride.trim().length > 0
         ? input.descriptionOverride.slice(0, 1_000)
         : null;
+      // A disabled tool is offered to nobody, so disabling one stays open.
+      const toolRefused = input.isEnabled ? this.context.rightsRefusal(['mcpTool']) : null;
+      if (toolRefused) {
+        return toolRefused;
+      }
       if (!tool) {
         return this.reviewBeforeSync(stored, child, input.isEnabled, input.effect as McpToolEffect, override);
       }
@@ -590,6 +608,14 @@ export class NhAssistantMockAdminMcp {
     if (length === 5 && action === 'agents' && child !== undefined) {
       if (method !== 'PUT' && method !== 'DELETE') {
         return { status: 405 };
+      }
+      // A new assignment gives the agent the server's tools; removing one only takes them away.
+      const assignee = this.context.agents().find(agent => agent.id === child);
+      const assignRefused = method === 'PUT' && assignee && !assignee.mcpServerIds.includes(stored.server.id)
+        ? this.context.rightsRefusal(['mcpServerIds'])
+        : null;
+      if (assignRefused) {
+        return assignRefused;
       }
       // Only the assignment changes, never the agent's version, as on the server.
       const changed = this.context.setAssignment(stored.server.id, child, method === 'PUT');

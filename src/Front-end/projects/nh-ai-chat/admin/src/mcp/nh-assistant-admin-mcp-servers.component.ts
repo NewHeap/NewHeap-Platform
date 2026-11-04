@@ -16,6 +16,8 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { readMayChangeAgentRights } from '../agents/agent-rights';
+import { NhAssistantAgentRightsHintComponent } from '../agents/nh-assistant-agent-rights-hint.component';
 import { NhAssistantAdminMcpServerEditorComponent } from './nh-assistant-admin-mcp-server-editor.component';
 import { NhAssistantAdminMcpToolsComponent } from './nh-assistant-admin-mcp-tools.component';
 import { startNhAssistantAdminTranslations } from '../i18n/nh-assistant-admin-translations';
@@ -32,7 +34,9 @@ let nextId = 0;
  * MCP server administration: list, connection test, tool sync, the organization's OAuth connection,
  * the server editor and the tool table of one server. The personal connections are counted and
  * revoked only for servers each person connects to with OAuth; a count that could not be read shows
- * its translated code at the server.
+ * its translated code at the server. A server decides what the agents that have it can reach and with whose
+ * credentials, so a person without the agent rights policy adds no server, connects none and sees a server's
+ * settings without changing them; testing, syncing, disconnecting, revoking and deleting stay open.
  */
 @Component({
   selector: 'nh-assistant-admin-mcp-servers',
@@ -42,6 +46,7 @@ let nextId = 0;
     TranslatePipe,
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
+    NhAssistantAgentRightsHintComponent,
     NhAssistantAdminMcpServerEditorComponent,
     NhAssistantAdminMcpToolsComponent
   ],
@@ -56,6 +61,7 @@ export class NhAssistantAdminMcpServersComponent {
   private readonly actions = new Subscription();
 
   readonly id = `nh-assistant-admin-mcp-${nextId++}`;
+  readonly mayChangeRights = readMayChangeAgentRights();
   readonly loading = signal(true);
   readonly loadFailed = signal(false);
   readonly servers = signal<McpServer[]>([]);

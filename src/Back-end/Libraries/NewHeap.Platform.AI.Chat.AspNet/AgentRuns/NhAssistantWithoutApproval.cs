@@ -119,7 +119,8 @@ internal sealed class NhAssistantWithoutApprovalService(
     IEnumerable<INhAiToolCatalog> catalogs,
     NhAssistantWithoutApprovalStore store,
     NhAssistantAgentEvents events,
-    TimeProvider? timeProvider = null) : INhAssistantWithoutApprovalSwitches
+    TimeProvider? timeProvider = null,
+    INhAssistantAgentRightsGate? rightsGate = null) : INhAssistantWithoutApprovalSwitches
 {
     private const int MaxActorIdLength = 256;
 
@@ -230,6 +231,13 @@ internal sealed class NhAssistantWithoutApprovalService(
             return TaskResult<NhAssistantWithoutApprovalSwitchDto>.Failed(
                 NhAssistantErrorCodes.WithoutApprovalShadowFirst,
                 "Switch the tool to shadow first; it goes live only from shadow.");
+        }
+        // Going live is what lets the tool run without a person; off and shadow stay open to everyone here.
+        if (request.Mode == NhAssistantWithoutApprovalModes.Live
+            && rightsGate is not null
+            && await rightsGate.CheckAsync(agentId, [NhAssistantAgentRights.WithoutApprovalMode], actorId, cancellationToken) is { } rightsRefused)
+        {
+            return TaskResult<NhAssistantWithoutApprovalSwitchDto>.Failed(rightsRefused);
         }
 
         var next = new AssistantAgentToolSwitch

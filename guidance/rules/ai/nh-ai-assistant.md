@@ -158,7 +158,8 @@ refuses every reservation, host start fails.
 
 ## Administration and personalization
 
-Register an admin policy with `UseAdminPolicy` (or `NewHeap:AI:Assistant:AdminPolicy`,
+Separate who manages agents from who decides about their rights with `UseAgentRightsPolicy`, see
+`nh-ai-agent-builder`. Register an admin policy with `UseAdminPolicy` (or `NewHeap:AI:Assistant:AdminPolicy`,
 default `app.assistant.admin`); startup fails when it does not exist, because
 `MapNewHeapAssistant` also maps the `admin/*` endpoints behind the access and admin
 policies. `GET status` reports `canAdminister`. Every assistant endpoint (chat, administration,

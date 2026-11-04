@@ -15,6 +15,8 @@ const maxReason = 500;
 export interface NhAssistantMockWithoutApprovalHost {
   find(agentId: string): AdminAgent | undefined;
   tools(): ToolCatalogEntry[];
+  /** The refusal of changes of an agent's rights by a caller who may not make them; `null` when they may go ahead. */
+  rightsRefusal(changes: readonly string[]): NhAssistantMockResult | null;
 }
 
 /**
@@ -87,6 +89,11 @@ export class NhAssistantMockWithoutApproval {
     }
     if (mode === 'live' && current?.mode !== 'shadow') {
       return failure('assistant-without-approval-shadow-first');
+    }
+    // Going live is what lets the tool run without a person; off and shadow stay open.
+    const rightsRefused = mode === 'live' ? this.host.rightsRefusal(['mode']) : null;
+    if (rightsRefused) {
+      return rightsRefused;
     }
 
     history.push({

@@ -74,6 +74,7 @@ const statusTable: Readonly<Record<number, readonly string[]>> = {
     'assistant-approval-policy-denied',
     'assistant-four-eyes-required',
     'assistant-forbidden',
+    'assistant-agent-rights-forbidden',
     'assistant-mcp-credential-mismatch',
     'assistant-mcp-initiator-only',
     'assistant-file-forbidden',

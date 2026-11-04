@@ -19,6 +19,7 @@ import {
   NhAssistantConsultationRoute
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAdminAgent, NhAssistantMockScenario } from './nh-assistant-mock.models';
+import { mockDefinitionRights } from './nh-assistant-mock-agent-rights';
 import { NhAssistantMockInstructionAssets } from './nh-assistant-mock-instruction-assets';
 import {
   NhAssistantMockResult,
@@ -90,6 +91,10 @@ export interface NhAssistantMockAgentRules {
   instructionAssets?(): NhAssistantMockInstructionAssets;
   /** Whether agents work on the host (`NewHeap:AI:Assistant:AgentWork`); missing means they do. */
   agentWork?(): boolean;
+  /** The refusal of changes of an agent's rights by a caller who may not make them; missing refuses nothing. */
+  rightsRefusal?(changes: readonly string[]): NhAssistantMockResult | null;
+  /** Whether the agent's runs use another account's rights, which more tools and autonomy put to more use. */
+  lendsRights?(agent: AdminAgent): boolean;
 }
 
 /** The profile of an agent that did not choose one, as the application's chat profile. */
@@ -370,6 +375,10 @@ export class NhAssistantMockAdminAgents {
       }
 
       const created = this.toAgent({ ...input, mcpServerIds: input.mcpServerIds ?? [] }, 'admin', 1, false);
+      const rightsRefused = this.rules.rightsRefusal?.(mockDefinitionRights(null, created, created.mcpServerIds, false));
+      if (rightsRefused) {
+        return rightsRefused;
+      }
       // A data shadow variant always works in shadow and is never offered in the chat.
       const agent: AdminAgent = shadowOf === null
         ? created
@@ -443,6 +452,11 @@ export class NhAssistantMockAdminAgents {
         stored.agent.version + 1,
         stored.agent.source === 'code',
         stored.agent);
+      const rightsRefused = this.rules.rightsRefusal?.(
+        mockDefinitionRights(stored.agent, updated, definition.mcpServerIds ?? null, this.rules.lendsRights?.(stored.agent) ?? false));
+      if (rightsRefused) {
+        return rightsRefused;
+      }
       // A data shadow variant keeps its live agent and stays out of the chat.
       stored.agent = stored.agent.source === 'admin' && stored.agent.shadowOf ? { ...updated, offeredInChat: false } : updated;
       return { status: 200, body: stored.agent };
@@ -740,6 +754,10 @@ export class NhAssistantMockAdminAgents {
 
     const overridden = actorId !== null;
     if ((current.overridden ? current.actorId : null) !== actorId) {
+      const rightsRefused = this.rules.rightsRefusal?.(['serviceAccountActorId']);
+      if (rightsRefused) {
+        return rightsRefused;
+      }
       stored.agent = {
         ...stored.agent,
         serviceAccount: {
@@ -797,6 +815,10 @@ export class NhAssistantMockAdminAgents {
     }
     const changed = consultationRoutes.some(([route]) => overrides[route] !== current.overrides[route]);
     if (changed) {
+      const rightsRefused = this.rules.rightsRefusal?.(['consultationRoutes']);
+      if (rightsRefused) {
+        return rightsRefused;
+      }
       stored.consultations = { ...current, overrides, changedAt: this.now(), changedBy: 'current-user', reason };
     }
     return { status: 200, body: this.toAgentState(stored) };

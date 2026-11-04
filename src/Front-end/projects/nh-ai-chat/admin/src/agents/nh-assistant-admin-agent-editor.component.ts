@@ -33,8 +33,10 @@ import {
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
 import { NH_ASSISTANT_MAX_INSTRUCTIONS } from '../context/nh-assistant-admin-context.component';
+import { mayChangeAgentRights } from './agent-rights';
 import { agentDisplayName, policyKeys, warningKeys, worksOnSummary } from './agent-texts';
 import { NhAssistantAgentMetadataComponent } from './metadata/nh-assistant-agent-metadata.component';
+import { NhAssistantAgentRightsHintComponent } from './nh-assistant-agent-rights-hint.component';
 import { InstructionsSource, NhAssistantInstructionsAssetComponent, sameInstructionAsset } from './run-config/nh-assistant-instructions-asset.component';
 import { RunConfigFieldError } from './run-config/run-config-shared';
 import { NhAssistantPackageLockComponent } from './agent-packages/nh-assistant-package-lock.component';
@@ -89,7 +91,11 @@ let nextId = 0;
  * of the definition that the agent's package locks show read-only with a lock and the package's id and
  * version, with "Unlink" for the definition; a save keeps their values. A new agent is created with its
  * MCP servers; an existing agent's save sends no `mcpServerIds`, so an assignment made since the editor
- * opened stays, and then assigns or unassigns only the servers the administrator changed, one by one.
+ * opened stays, and then assigns or unassigns only the servers the administrator changed, one by one. A person
+ * without the agent rights policy (`RunCatalog.mayChangeAgentRights`) sees the policies of an agent that exists
+ * and who may run it and see its results, but changes neither, and can take MCP servers away but add none. Its
+ * tools and autonomy stay open: they only take that policy when they widen an agent that uses another account's
+ * rights, which the server knows and refuses at the field.
  */
 @Component({
   selector: 'nh-assistant-admin-agent-editor',
@@ -99,6 +105,7 @@ let nextId = 0;
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
     NhAssistantAgentMetadataComponent,
+    NhAssistantAgentRightsHintComponent,
     NhAssistantInstructionsAssetComponent,
     NhAssistantPackageLockComponent,
     NhAssistantPackageLockedMarkComponent
@@ -232,6 +239,20 @@ export class NhAssistantAdminAgentEditorComponent {
   readonly metadataEntries = computed(() => this.catalog()?.agentMetadata ?? []);
 
   readonly isNew = computed(() => this.editing() === null);
+  /** Whether the person may change whose rights the agent uses and who reaches it. */
+  readonly mayChangeRights = computed(() => mayChangeAgentRights(this.catalog()));
+  /** A required policy only narrows who reaches a new agent, so it stays free until the agent exists. */
+  readonly requiredPolicyRightsLocked = computed(() => !this.mayChangeRights() && !this.isNew());
+  /** The servers the person may take away but not give the agent, which are all it does not have yet. */
+  readonly anyServerRightsLocked = computed(() => this.servers().some(server => this.serverRightsLocked(server.id)));
+  /** What the MCP servers describe themselves with: why some cannot be added, and the server's refusal. */
+  readonly mcpServersDescribedBy = computed(() => {
+    const ids = [
+      this.anyServerRightsLocked() ? `${this.id}-mcp-rights` : null,
+      this.fieldError('mcpServerIds') ? `${this.id}-mcp-error` : null
+    ].filter((id): id is string => id !== null);
+    return ids.length > 0 ? ids.join(' ') : null;
+  });
   /** Only agents created here choose whether they are offered in the chat; code decides for the others. */
   readonly choosesUse = computed(() => this.agent()?.source !== 'code');
   readonly idInvalid = computed(() => this.isNew() && !NH_ASSISTANT_DASH_CASE.test(this.agentId()));
@@ -383,6 +404,11 @@ export class NhAssistantAdminAgentEditorComponent {
 
   toggleGroup(groupId: string, checked: boolean): void {
     this.groups.update(groups => checked ? [...groups.filter(group => group !== groupId), groupId] : groups.filter(group => group !== groupId));
+  }
+
+  /** Whether the person may not assign a server: adding one takes the rights, removing one never does. */
+  serverRightsLocked(serverId: string): boolean {
+    return !this.mayChangeRights() && !(this.editing()?.mcpServerIds ?? []).includes(serverId);
   }
 
   toggleServer(serverId: string, checked: boolean): void {

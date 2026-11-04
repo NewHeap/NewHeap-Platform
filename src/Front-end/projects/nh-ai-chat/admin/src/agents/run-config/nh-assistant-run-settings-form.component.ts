@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, Signal, computed, inject, input, output, signal } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import {
   AgentAccountability,
@@ -11,6 +11,8 @@ import {
   ɵNhAssistantPickerComponent as NhAssistantPickerComponent,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
+import { agentRightsRunSettingsFields, mayChangeAgentRights } from '../agent-rights';
+import { NhAssistantAgentRightsHintComponent } from '../nh-assistant-agent-rights-hint.component';
 import { NhAssistantAccountPickerComponent } from './nh-assistant-account-picker.component';
 import { NhAssistantAlertKindsFieldComponent, alertKindsToSave } from './nh-assistant-alert-kinds-field.component';
 import { NhAssistantFileLimitsFieldsComponent } from './nh-assistant-file-limits-fields.component';
@@ -41,7 +43,9 @@ const defaults = { retries: '3', concurrent: '4', perSubject: '10' };
 /**
  * The run settings of an agent created in the administration, as questions: who the agent answers to,
  * how it works, who approves its proposals, the alerts it may raise and its limits, with the rarely
- * changed options under "Advanced". Errors appear at their fields and next to the actions.
+ * changed options under "Advanced". Errors appear at their fields and next to the actions. A person without
+ * the agent rights policy sees who the agent answers to, who approves and the rights under "Advanced", but
+ * changes the rest; new settings then answer to the agent itself, which is all such a person may give it.
  */
 @Component({
   selector: 'nh-assistant-run-settings-form',
@@ -52,6 +56,7 @@ const defaults = { retries: '3', concurrent: '4', perSubject: '10' };
     NhAssistantIconComponent,
     NhAssistantPickerComponent,
     NhAssistantAccountPickerComponent,
+    NhAssistantAgentRightsHintComponent,
     NhAssistantAlertKindsFieldComponent,
     NhAssistantFileLimitsFieldsComponent,
     NhAssistantPackageLockComponent,
@@ -83,9 +88,11 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
   protected readonly fields = [
     'accountability', 'serviceAccountActorId', 'ruleHandler', 'approvalPolicy', 'triageProfile', 'retryCount',
     'maxConcurrentRuns', 'maxRunsPerSubjectPerDay', 'maxTokensPerRun', 'dailyToolCalls', 'dailyTokens',
-    'elevatedReads', 'allowGatewayReads', 'reason', 'maxFileBytes', 'maxFilePages', 'maxFilesPerTurn', 'maxFileTokensPerTurn',
+    'elevatedReads', 'allowGatewayReads', 'delegateFromInitiator', 'reason', 'maxFileBytes', 'maxFilePages', 'maxFilesPerTurn', 'maxFileTokensPerTurn',
     'alertKinds'
   ];
+  protected override readonly rightsLocks: Signal<readonly string[]> = computed(() =>
+    mayChangeAgentRights(this.catalog()) ? [] : agentRightsRunSettingsFields);
 
   readonly accountability = signal<AgentAccountability>('service-account');
   readonly serviceAccount = signal('');
@@ -127,7 +134,7 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
 
   /** An error under "Advanced" keeps it open, so the field with the error can be seen. */
   readonly advancedHasErrors = computed(() => ['retryCount', 'maxConcurrentRuns', 'maxRunsPerSubjectPerDay', 'triageProfile',
-    'elevatedReads', 'allowGatewayReads'].some(field => this.fieldError(field) !== null));
+    'elevatedReads', 'allowGatewayReads', 'delegateFromInitiator'].some(field => this.fieldError(field) !== null));
 
   /** Whether the advanced options differ from their defaults. */
   private readonly advancedInUse = computed(() =>
@@ -141,7 +148,7 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
 
   ngOnInit(): void {
     const settings = this.settings();
-    this.accountability.set(settings?.accountability ?? 'service-account');
+    this.accountability.set(settings?.accountability ?? (this.rightsLocked('accountability') ? 'agent' : 'service-account'));
     this.serviceAccount.set(settings?.serviceAccountActorId ?? '');
     this.approvalPolicy.set(settings?.approvalPolicy ?? '');
     this.ruleHandler.set(settings?.ruleHandler ?? '');

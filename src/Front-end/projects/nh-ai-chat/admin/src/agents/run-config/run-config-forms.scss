@@ -68,6 +68,15 @@ h5 {
     outline: 2px solid var(--nha-highlight);
     outline-offset: 2px;
   }
+
+  // Shows its value but does not change here: the choice that holds stays clear, the others step back.
+  &:has(input:disabled) {
+    cursor: not-allowed;
+
+    &:not(.selected) {
+      opacity: .6;
+    }
+  }
 }
 
 .block {

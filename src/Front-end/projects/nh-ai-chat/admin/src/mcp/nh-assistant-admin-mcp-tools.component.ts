@@ -12,6 +12,8 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { readMayChangeAgentRights } from '../agents/agent-rights';
+import { NhAssistantAgentRightsHintComponent } from '../agents/nh-assistant-agent-rights-hint.component';
 import { startNhAssistantAdminTranslations } from '../i18n/nh-assistant-admin-translations';
 
 /** Unsaved changes of one tool row. */
@@ -28,12 +30,14 @@ let nextId = 0;
  * the administrator enables it and chooses the effect. Remote annotations appear as hints
  * only, and a changed remote input schema is shown as a warning. A tool whose settings were reviewed
  * before any sync saw it (`awaitingSync`) shows as not seen yet: its settings change here, and the
- * first sync that finds it on the server makes it available with them.
+ * first sync that finds it on the server makes it available with them. A disabled tool is offered to nobody, so a
+ * person without the agent rights policy can disable a tool and change a disabled one, but enables none and
+ * changes nothing of a tool that stays enabled.
  */
 @Component({
   selector: 'nh-assistant-admin-mcp-tools',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
+  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantAgentRightsHintComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-admin-mcp-tools.component.html',
   styleUrl: '../nh-assistant-admin-shared.scss'
@@ -49,6 +53,7 @@ export class NhAssistantAdminMcpToolsComponent {
   readonly synced = output<void>();
 
   readonly id = `nh-assistant-mcp-tools-${nextId++}`;
+  readonly mayChangeRights = readMayChangeAgentRights();
   readonly effects: readonly McpToolEffect[] = ['mutation', 'read-only'];
   readonly loading = signal(true);
   readonly loadFailed = signal(false);
@@ -121,6 +126,16 @@ export class NhAssistantAdminMcpToolsComponent {
   change(tool: McpTool, patch: Partial<ToolDraft>): void {
     this.savedTool.set(null);
     this.drafts.update(drafts => ({ ...drafts, [tool.remoteName]: { ...this.draft(tool), ...patch } }));
+  }
+
+  /** Whether the person may not enable the tool; one that is enabled can always be disabled. */
+  enableRightsLocked(tool: McpTool): boolean {
+    return !this.mayChangeRights() && !tool.isEnabled;
+  }
+
+  /** Whether the person may not change the tool's settings: a save that leaves it enabled takes the rights. */
+  settingsRightsLocked(tool: McpTool): boolean {
+    return !this.mayChangeRights() && this.draft(tool).isEnabled;
   }
 
   value(event: Event): string {

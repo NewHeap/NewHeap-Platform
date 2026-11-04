@@ -26,6 +26,7 @@ import {
 import { NhAssistantAccountNames } from '../../nh-assistant-account-names';
 import { NhAssistantAccountPickerComponent } from '../run-config/nh-assistant-account-picker.component';
 import { maxStateReason, withState } from '../agent-operations';
+import { NhAssistantAgentRightsHintComponent } from '../nh-assistant-agent-rights-hint.component';
 import { startNhAssistantAdminTranslations } from '../../i18n/nh-assistant-admin-translations';
 
 let nextId = 0;
@@ -41,12 +42,13 @@ const accountRefusals = new Set([
  * The technical account an agent in code answers to: the account in effect, the one its code
  * configures when an administrator replaced it, and the reason. An administrator replaces it with
  * another account, found by name when the application offers an account search, or returns to the
- * account in code, each with an optional reason. A refused account shows at its field.
+ * account in code, each with an optional reason. A refused account shows at its field. A person without the
+ * agent rights policy sees the account but does not change it.
  */
 @Component({
   selector: 'nh-assistant-agent-account-control',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantAccountPickerComponent],
+  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantAccountPickerComponent, NhAssistantAgentRightsHintComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-account-control.component.html',
   styleUrls: ['../../nh-assistant-admin-shared.scss', './agent-page.scss']
@@ -63,6 +65,8 @@ export class NhAssistantAgentAccountControlComponent {
   /** The names of the accounts, once known. */
   readonly names = input.required<NhAssistantAccountNames>();
   readonly disabled = input(false);
+  /** Whether the person may change an agent's rights (`RunCatalog.mayChangeAgentRights`). */
+  readonly mayChangeRights = input(true);
   /** The agent with its new technical account. */
   readonly changed = output<AdminAgent>();
 
@@ -78,7 +82,7 @@ export class NhAssistantAgentAccountControlComponent {
   /** The text of the account field's error: the refused field value, then the code. */
   readonly accountErrorKeys = computed(() => {
     const error = this.accountError();
-    const value = error?.fieldErrors?.['actorId']?.[0];
+    const value = error?.fieldErrors?.['actorId']?.[0] ?? error?.fieldErrors?.['serviceAccountActorId']?.[0];
     return value ? [`nh-assistant.admin.run-config.field-errors.${value}`, ...nhAssistantErrorKeys(error)] : nhAssistantErrorKeys(error);
   });
 
@@ -96,6 +100,10 @@ export class NhAssistantAgentAccountControlComponent {
   }
 
   ask(mode: 'set' | 'code'): void {
+    if (!this.mayChangeRights()) {
+      return;
+    }
+
     this.mode.set(mode);
     this.accountId.set('');
     this.reason.set('');
@@ -150,7 +158,8 @@ export class NhAssistantAgentAccountControlComponent {
       error: (error: unknown) => {
         this.busy.set(false);
         const failure = toNhAssistantError(error);
-        if (failure.fieldErrors?.['actorId'] || accountRefusals.has(failure.code)) {
+        // Only the form that sets an account has an account field to show a refusal at.
+        if (mode === 'set' && (failure.fieldErrors?.['serviceAccountActorId'] || failure.fieldErrors?.['actorId'] || accountRefusals.has(failure.code))) {
           this.accountError.set(failure);
           this.focusAccount();
         } else {

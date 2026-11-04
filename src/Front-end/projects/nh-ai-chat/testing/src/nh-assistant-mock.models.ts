@@ -471,6 +471,8 @@ export interface NhAssistantMockAdminScenario {
    * The building blocks in code that run configuration as data names. Default: none, with
    * `policies` as the approval policies. `divisions: true` lets agents created in the
    * administration work per division, as an application that lists its divisions does.
+   * `mayChangeAgentRights: false` plays a person without the agent rights policy (`UseAgentRightsPolicy`), whose
+   * changes of an agent's rights the mock refuses as the server does; `setMayChangeAgentRights` switches it.
    */
   runCatalog?: Partial<RunCatalog>;
   /**

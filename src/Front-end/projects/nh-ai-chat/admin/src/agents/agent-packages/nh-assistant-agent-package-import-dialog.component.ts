@@ -52,6 +52,8 @@ interface ImportRow {
   fields: { field: string; codes: string[] }[];
   /** What the package locks on the part, in the reader's language; `null` without locks. */
   locked: string | null;
+  /** What the part changes of the agent's rights, in the reader's language; `null` when it changes none. */
+  rightsChanges: string | null;
   /**
    * The import may take over the host's agent with the package's id (`relink` naming the whole
    * agent): it is created here and belongs to no package, or the import takes it over already.
@@ -94,7 +96,9 @@ let nextId = 0;
  * account per agent whose run settings answer to one, whether changed skills and triggers take effect
  * at once or run in shadow first, and per kept-local part whether to take the package's version again.
  * The import applies everything or nothing; when its own check refuses a part after all, the dialog
- * checks again to show which. A modal dialog that opens itself and emits `closed`; Escape closes it.
+ * checks again to show which. The check names what a part changes of an agent's rights; a person without the
+ * agent rights policy then reads that the import takes that permission, and cannot start it. A modal dialog that
+ * opens itself and emits `closed`; Escape closes it.
  */
 @Component({
   selector: 'nh-assistant-agent-package-import-dialog',
@@ -118,6 +122,8 @@ export class NhAssistantAgentPackageImportDialogComponent {
   readonly agents = input<readonly AdminAgent[]>([]);
   /** Whether the application offers an account search for the technical accounts. */
   readonly accountSearch = input(false);
+  /** Whether the person may change an agent's rights (`RunCatalog.mayChangeAgentRights`). */
+  readonly mayChangeRights = input(true);
 
   /** The package was imported; the host reads its agents again. */
   readonly imported = output<AgentPackageImport>();
@@ -218,9 +224,18 @@ export class NhAssistantAgentPackageImportDialogComponent {
     return previewed !== null && previewed.key !== this.checkKey();
   });
 
+  /** The parts of the latest check that change an agent's rights, by name. */
+  readonly rightsParts = computed(() => {
+    const names = (this.checked()?.agents ?? []).flatMap(agent => agent.parts.filter(part => part.rightsChanges !== null).map(part => part.label));
+    return [...new Set(names)].join(', ');
+  });
+
+  /** The check found changes of an agent's rights that this person may not make, so the import would be refused. */
+  readonly rightsRequired = computed(() => !this.mayChangeRights() && this.rightsParts().length > 0);
+
   readonly canImport = computed(() => {
     const previewed = this.previewed();
-    return previewed !== null && previewed.preview.importable && !this.stale() && !this.busy();
+    return previewed !== null && previewed.preview.importable && !this.stale() && !this.busy() && !this.rightsRequired();
   });
 
   readonly previewLabelKey = computed(() => {
@@ -420,6 +435,7 @@ export class NhAssistantAgentPackageImportDialogComponent {
       codeParams: refusal?.params ?? null,
       fields: Object.entries(part.errors ?? {}).map(([field, codes]) => ({ field, codes: [...codes] })),
       locked: this.lockedText(part.lockedFields),
+      rightsChanges: this.rightsText(part.rightsChanges ?? []),
       takeOver: part.part === 'agent' && (this.isRelinked(part.agentId, null) || refusal?.takeOver === true)
     };
   }
@@ -457,12 +473,22 @@ export class NhAssistantAgentPackageImportDialogComponent {
     if (fields.includes(NH_ASSISTANT_PACKAGE_LOCK_ALL)) {
       return this.translate.instant('nh-assistant.admin.packages.lock.whole') as string;
     }
-    const names = fields.map(field => {
+    return this.translate.instant('nh-assistant.admin.packages.lock.fields', { fields: this.fieldNames(fields) }) as string;
+  }
+
+  private rightsText(fields: readonly string[]): string | null {
+    return fields.length === 0
+      ? null
+      : this.translate.instant('nh-assistant.admin.packages.import-dialog.rights-changes', { fields: this.fieldNames(fields) }) as string;
+  }
+
+  /** The fields of a part by their names in the reader's language, or as the package names a field without one. */
+  private fieldNames(fields: readonly string[]): string {
+    return fields.map(field => {
       const key = packageFieldLabelKey(field);
       const text = this.translate.instant(key) as string;
       return text && text !== key ? text : field;
-    });
-    return this.translate.instant('nh-assistant.admin.packages.lock.fields', { fields: names.join(', ') }) as string;
+    }).join(', ');
   }
 
   /** Whether the package's run settings of an agent answer to a technical account. */

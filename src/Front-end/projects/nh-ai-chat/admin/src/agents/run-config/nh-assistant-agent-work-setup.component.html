@@ -230,13 +230,16 @@
           </fieldset>
         }
         @case ('who') {
-          <fieldset class="group" data-step="who">
+          <fieldset class="group" data-step="who" [attr.aria-describedby]="rightsLocked('accountability') ? id + '-who-rights' : null">
             <legend tabindex="-1">{{ 'nh-assistant.admin.run-config.settings.who.title' | translate }}</legend>
             <p class="muted">{{ 'nh-assistant.admin.run-config.settings.who.explain' | translate }}</p>
+            @if (rightsLocked('accountability')) {
+              <nh-assistant-agent-rights-hint [hintId]="id + '-who-rights'" />
+            }
             <div class="choices" role="radiogroup" [attr.aria-label]="'nh-assistant.admin.run-config.settings.who.title' | translate">
               @for (option of accountabilities; track option) {
                 <label class="choice" [class.selected]="accountability() === option">
-                  <input type="radio" [name]="id + '-accountability'" [value]="option" [checked]="accountability() === option" (change)="setAccountability(option)" />
+                  <input type="radio" [name]="id + '-accountability'" [value]="option" [disabled]="locked('accountability')" [checked]="accountability() === option" (change)="setAccountability(option)" />
                   <span>
                     <strong>{{ 'nh-assistant.admin.run-config.settings.accountability.' + option | translate }}</strong>
                     <span class="muted">{{ 'nh-assistant.admin.run-config.settings.accountability-explain.' + option | translate }}</span>
@@ -248,6 +251,7 @@
               <div class="field">
                 <label [for]="id + '-account'">{{ 'nh-assistant.admin.run-config.settings.service-account' | translate }}</label>
                 <nh-assistant-account-picker [inputId]="id + '-account'" [value]="serviceAccount()" [searchable]="accountSearch()"
+                  [disabled]="rightsLocked('serviceAccountActorId')"
                   [invalid]="fieldError('serviceAccountActorId') !== null"
                   [describedBy]="describedBy(id + '-account-hint', 'serviceAccountActorId', id + '-account-error')"
                   (valueChange)="serviceAccount.set($event); touch('serviceAccountActorId')" />
@@ -269,12 +273,15 @@
             <legend tabindex="-1">{{ 'nh-assistant.admin.run-config.setup.limits.title' | translate }}</legend>
             <div class="field">
               <label [for]="id + '-policy'">{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}</label>
-              <nh-assistant-picker [inputId]="id + '-policy'" [options]="policies()" [value]="approvalPolicy()"
+              <nh-assistant-picker [inputId]="id + '-policy'" [disabled]="locked('approvalPolicy')" [options]="policies()" [value]="approvalPolicy()"
                 [noneLabel]="'nh-assistant.admin.run-config.settings.approval.default' | translate"
                 [invalid]="fieldError('approvalPolicy') !== null"
-                [describedBy]="describedBy(id + '-policy-hint', 'approvalPolicy', id + '-policy-error')"
+                [describedBy]="describedBy(id + '-policy-hint' + (rightsLocked('approvalPolicy') ? ' ' + id + '-policy-rights' : ''), 'approvalPolicy', id + '-policy-error')"
                 (valueChange)="approvalPolicy.set($event); touch('approvalPolicy')" />
               <p class="hint" [id]="id + '-policy-hint'">{{ 'nh-assistant.admin.run-config.settings.approval.hint' | translate }}</p>
+              @if (rightsLocked('approvalPolicy')) {
+                <nh-assistant-agent-rights-hint [hintId]="id + '-policy-rights'" />
+              }
               @if (errorKey('approvalPolicy'); as key) {
                 <p class="field-error" [id]="id + '-policy-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('approvalPolicy')?.params }}</p>
               }

@@ -4372,7 +4372,11 @@
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/builder/nh-assistant-agent-builder-chat.component.html",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/builder/agent-builder.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-builder.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-builder.spec.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRights.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRightsGate.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentRightsPolicyTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-rights-admin.spec.ts"
     ],
     "SPM-395": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAlertKindsAsDataComposition.cs",

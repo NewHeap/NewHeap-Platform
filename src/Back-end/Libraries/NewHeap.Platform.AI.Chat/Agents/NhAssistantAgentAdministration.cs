@@ -87,7 +87,9 @@ internal sealed class NhAssistantAgentAdministration(
     NhAssistantAgentMetadataService metadata,
     NhAssistantInstructionAssets instructionAssets,
     NhAssistantPackageLockCheck locks,
-    NhAssistantAgentMetadataStore metadataStore)
+    NhAssistantAgentMetadataStore metadataStore,
+    INhAssistantAgentRightsGate? rightsGate = null,
+    INhAssistantLentToolsCheck? lentTools = null)
 {
     public const int MaxInstructionsLength = 20_000;
 
@@ -102,6 +104,10 @@ internal sealed class NhAssistantAgentAdministration(
         if (failure is not null)
         {
             return TaskResult<NhAssistantAgent>.Failed(failure);
+        }
+        if (await CheckRightsAsync(null, row!, input.McpServerIds, actorId, cancellationToken) is { } refused)
+        {
+            return TaskResult<NhAssistantAgent>.Failed(refused);
         }
 
         if (!await store.AddAgentAsync(row!, input.McpServerIds, cancellationToken, rows))
@@ -269,6 +275,14 @@ internal sealed class NhAssistantAgentAdministration(
         {
             return TaskResult<NhAssistantAgent>.Failed(locked);
         }
+        if (await CheckUpdateRightsAsync(input, actorId, cancellationToken) is { } refused)
+        {
+            return TaskResult<NhAssistantAgent>.Failed(refused);
+        }
+        if (await CheckAddedToolsAsync(input.Id, input.ToolSelectors, actorId, cancellationToken) is { } notPermitted)
+        {
+            return TaskResult<NhAssistantAgent>.Failed(notPermitted);
+        }
 
         var metadataChanges = new List<NhAssistantAgentMetadataChange>();
         // Null keeps the agent's MCP assignments in the store.
@@ -307,6 +321,124 @@ internal sealed class NhAssistantAgentAdministration(
         }
 
         return completed;
+    }
+
+    /// <summary>
+    /// The refusal of an update that changes an agent's rights by a person who may not; the rows are read only
+    /// when the application set the policy.
+    /// </summary>
+    private async Task<TaskResult?> CheckUpdateRightsAsync(NhAssistantAgentInput input, string actorId, CancellationToken cancellationToken)
+    {
+        if (rightsGate is not { Enabled: true })
+        {
+            return null;
+        }
+
+        var before = await store.FindAgentAsync(input.Id, cancellationToken);
+        var after = await store.FindAgentAsync(input.Id, cancellationToken);
+        if (before is null || after is null)
+        {
+            return null;
+        }
+
+        ApplyInput(after, input, after.Version + 1);
+        return await CheckRightsAsync(before, after, input.KeepMcpServers ? null : input.McpServerIds, actorId, cancellationToken);
+    }
+
+    /// <summary>
+    /// The refusal of a change of the definition from <paramref name="before"/>, <see langword="null"/> for a new
+    /// agent, to <paramref name="after"/> by a person who may not change an agent's rights.
+    /// </summary>
+    private async Task<TaskResult?> CheckRightsAsync(
+        AssistantAgent? before,
+        AssistantAgent after,
+        IReadOnlyCollection<string>? mcpServersAfter,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        if (rightsGate is not { Enabled: true } gate)
+        {
+            return null;
+        }
+
+        var lendsRights = before is not null && await LendsRightsAsync(after.Id, cancellationToken);
+        var changes = NhAssistantAgentRights.OfDefinition(before, after, mcpServersAfter, lendsRights);
+        return await gate.CheckAsync(after.Id, changes, actorId, cancellationToken);
+    }
+
+    /// <summary>
+    /// The refusal of giving the agent the tools of <paramref name="selectorsAfter"/> by a person who does not hold
+    /// what the technical account it answers to could do with the ones they add; <see langword="null"/> when they may,
+    /// also for an agent that answers to no such account. A subject's responsible person has no such check: who that
+    /// is differs per subject and is the application's to decide, so there is no one account to compare with.
+    /// </summary>
+    internal async Task<TaskResult?> CheckAddedToolsAsync(
+        string agentId,
+        IReadOnlyList<string> selectorsAfter,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        if (lentTools is null || await store.FindAgentAsync(agentId, cancellationToken) is not { } before)
+        {
+            return null;
+        }
+        if (!NhAssistantAgentRights.Widens(NhAssistantAgentRights.SelectorsOf(before.ToolSelectorsJson), selectorsAfter))
+        {
+            return null;
+        }
+
+        return await CheckAddedToolsAsync(before, selectorsAfter, await TechnicalAccountOfAsync(before, cancellationToken), actorId, cancellationToken);
+    }
+
+    private async Task<TaskResult?> CheckAddedToolsAsync(
+        AssistantAgent before,
+        IReadOnlyList<string> selectorsAfter,
+        string? account,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        var selectorsBefore = NhAssistantAgentRights.SelectorsOf(before.ToolSelectorsJson);
+        if (lentTools is null || account is null || !NhAssistantAgentRights.Widens(selectorsBefore, selectorsAfter))
+        {
+            return null;
+        }
+
+        var check = await lentTools.CheckAddedToolsAsync(before.Id, selectorsBefore, selectorsAfter, account, actorId, cancellationToken);
+        return check.Success ? null : check;
+    }
+
+    /// <summary>
+    /// The technical account the agent answers to: the one an administrator bound, otherwise the one in code or in its
+    /// run settings; <see langword="null"/> for an agent that answers to none.
+    /// </summary>
+    private async Task<string?> TechnicalAccountOfAsync(AssistantAgent row, CancellationToken cancellationToken)
+    {
+        if (state.CodeAgentRuns.TryGetValue(row.Id, out var code))
+        {
+            return code.Accountability == NhAiAgentAccountability.ServiceAccount
+                ? row.ServiceAccountActorId ?? code.ServiceAccountActorId
+                : null;
+        }
+
+        var settings = await runConfigurationStore.FindRunSettingsAsync(row.Id, cancellationToken);
+        return settings?.Accountability == NhAssistantAccountabilities.ServiceAccount
+            ? row.ServiceAccountActorId ?? settings.ServiceAccountActorId
+            : null;
+    }
+
+    /// <summary>
+    /// Whether the agent's runs use another account's rights: it answers to a technical account or a subject's
+    /// responsible person, in code or in its run settings.
+    /// </summary>
+    private async Task<bool> LendsRightsAsync(string agentId, CancellationToken cancellationToken)
+    {
+        if (state.CodeAgentRuns.TryGetValue(agentId, out var code))
+        {
+            return code.Accountability != NhAiAgentAccountability.Agent;
+        }
+
+        var settings = await runConfigurationStore.FindRunSettingsAsync(agentId, cancellationToken);
+        return settings is not null && settings.Accountability != NhAssistantAccountabilities.Agent;
     }
 
     /// <summary>
@@ -410,6 +542,16 @@ internal sealed class NhAssistantAgentAdministration(
         if (await locks.CheckResetAsync(agentId, NhAssistantPackageFields.Of(existing), NhAssistantPackageFields.Of(reset), cancellationToken) is { } locked)
         {
             return TaskResult<NhAssistantAgent>.Failed(locked);
+        }
+        if (await CheckRightsAsync(existing, reset, [], actorId, cancellationToken) is { } refused)
+        {
+            return TaskResult<NhAssistantAgent>.Failed(refused);
+        }
+        // The tools and the account in code are what its developers chose together; an account an administrator
+        // bound gets the code's tools only from someone who holds what it could do with them.
+        if (await CheckAddedToolsAsync(existing, NhAssistantAgentRights.SelectorsOf(reset.ToolSelectorsJson), existing.ServiceAccountActorId, actorId, cancellationToken) is { } notPermitted)
+        {
+            return TaskResult<NhAssistantAgent>.Failed(notPermitted);
         }
 
         var updated = await store.UpdateAgentAsync(

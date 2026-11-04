@@ -192,6 +192,28 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Sets the authorization policy a person needs, on top of the administration policy, to change an agent's
+    /// rights: whose rights it uses (accountability, technical account, delegation, gateway and elevated reads),
+    /// who reaches it (required, run and view policy, consultations and their routes, MCP servers and their
+    /// settings), who decides its proposals (approval policies) and what runs without approval. It holds in the
+    /// administration's screens, the agent builder and an import or promotion of an agent package alike, so a
+    /// person who manages agents builds and operates them without being able to lend anyone's rights. A person
+    /// without it gets <c>assistant-agent-rights-forbidden</c>; what only narrows, such as removing an MCP server
+    /// or switching a tool's run without approval off, stays open, and application code with an actor the
+    /// platform knows as no person decides for itself. Without this call the administration policy covers it all.
+    /// </summary>
+    public NhAssistantBuilder UseAgentRightsPolicy(string policyName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(policyName);
+        if (policyName.Length > 256)
+        {
+            throw new ArgumentOutOfRangeException(nameof(policyName));
+        }
+        _state.AgentRightsPolicy = policyName;
+        return this;
+    }
+
+    /// <summary>
     /// Seeds the application context as version 1 when no context is stored yet. A changed seed never
     /// replaces a context that already exists, including one an administrator edited.
     /// </summary>
@@ -1371,6 +1393,12 @@ internal sealed class NhAssistantRegistrationState
     public string? AdminPolicy { get; set; }
 
     /// <summary>
+    /// The policy a person needs on top of the administration policy to change an agent's rights
+    /// (<see cref="NhAssistantBuilder.UseAgentRightsPolicy"/>); <see langword="null"/> asks nothing more.
+    /// </summary>
+    public string? AgentRightsPolicy { get; set; }
+
+    /// <summary>
     /// The policy that makes a person a reader of the whole application; <see langword="null"/> uses
     /// the access policy.
     /// </summary>
@@ -1401,6 +1429,12 @@ internal sealed class NhAssistantRegistrationState
     /// <see langword="null"/> without it.
     /// </summary>
     public NhAiTextAsset? AgentBuilderGuidance { get; set; }
+
+    /// <summary>
+    /// The agent builder leaves an agent's rights to the administration's screens (<c>WithoutRightsChanges</c> of
+    /// <c>AddAgentBuilder</c>).
+    /// </summary>
+    public bool AgentBuilderWithoutRightsChanges { get; set; }
 
     public NhAssistantLimits Limits { get; set; } = new();
 

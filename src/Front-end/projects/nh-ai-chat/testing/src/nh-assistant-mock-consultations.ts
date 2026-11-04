@@ -13,6 +13,7 @@ import {
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAdminAgent, NhAssistantMockConsultationCeiling } from './nh-assistant-mock.models';
 import { NhAssistantMockResult, mockFailure as failure, mockHashText as hashText, mockMaxStateReason as maxReason, mockSnapshot } from './nh-assistant-mock-admin-shared';
+import { mockConsultationRights } from './nh-assistant-mock-agent-rights';
 import { mockSystemSubjectType, mockWorksOnCovers } from './nh-assistant-mock-works-on';
 
 /** What the consultations read of the mock's agents, their run configuration and the run catalog. */
@@ -32,6 +33,8 @@ export interface NhAssistantMockConsultationRules {
   approvalPolicySummaries(): ApprovalPolicySummary[];
   /** The policies administrators may choose as the asker policy, by name. */
   agentPolicyNames(): string[];
+  /** The refusal of changes of an agent's rights by a caller who may not make them; `null` when they may go ahead. */
+  rightsRefusal(changes: readonly string[]): NhAssistantMockResult | null;
 }
 
 /** A consultation defined as data as the mock stores it. */
@@ -409,6 +412,10 @@ export class NhAssistantMockConsultations {
     }
     if ((request.expectedVersion ?? null) !== (existing?.version ?? null)) {
       return failure('assistant-version-conflict');
+    }
+    const rightsRefused = this.rules.rightsRefusal(mockConsultationRights(existing ?? null, row));
+    if (rightsRefused) {
+      return rightsRefused;
     }
 
     this.stored.set(key(agent.id, subjectType), row);

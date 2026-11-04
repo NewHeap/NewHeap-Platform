@@ -1041,6 +1041,14 @@ and nothing changes; saving an account that is already bound again checks only t
 The person is the request's user when they sent the request, otherwise the principal
 `INhAiPrincipalFactory` rebuilds; application code that binds with a technical actor id, which the
 factory knows as no person, decides on its own.
+More tools on an agent that answers to a technical account lend its rights as well, so the same rule holds for the
+tools they add, in the administration, through the agent builder, on the promotion of a shadow variant and through
+an agent package: a tool the account may use and the person may not is refused with the same code. Tools the agent
+already has are not compared, so a person can add what they hold to an agent someone with more rights set up. The
+account in code gets no exception here, because its developers chose it for the tools in code; a reset to those tools
+only checks an account an administrator bound. An agent that answers to a subject's responsible person has no such
+check, because who that is differs per subject and is the application's to decide; use `UseAgentRightsPolicy` to say
+who may give such an agent more tools.
 
 Add skills and triggers to an agent configured in code as data, without a deploy, when an
 application manages them in screens or imports them from packages. Code registers the building

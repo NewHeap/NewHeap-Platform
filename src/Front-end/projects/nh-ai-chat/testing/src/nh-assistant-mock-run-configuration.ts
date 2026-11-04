@@ -23,6 +23,7 @@ import {
   TriggerComparison
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAccounts } from './nh-assistant-mock-accounts';
+import { NhAssistantMockAgentRights, mockRunSettingsRights, mockSkillRights } from './nh-assistant-mock-agent-rights';
 import { NhAssistantMockConsultations } from './nh-assistant-mock-consultations';
 import { NhAssistantMockAdminScenario } from './nh-assistant-mock.models';
 import { mockSystemSubjectType, mockWorksOnCovers } from './nh-assistant-mock-works-on';
@@ -117,7 +118,8 @@ export class NhAssistantMockRunConfiguration {
     private readonly now: () => string,
     private readonly accounts: NhAssistantMockAccounts = new NhAssistantMockAccounts(scenario),
     private readonly instructionAssets: NhAssistantMockInstructionAssets = new NhAssistantMockInstructionAssets(scenario.instructionAssets),
-    alertKinds: readonly RunAlertKind[] = []
+    alertKinds: readonly RunAlertKind[] = [],
+    private readonly rights: NhAssistantMockAgentRights = new NhAssistantMockAgentRights(true)
   ) {
     const approvalPolicies = scenario.runCatalog?.approvalPolicies ?? scenario.policies ?? [];
     this.consultations = new NhAssistantMockConsultations(scenario.consultationsAsData, scenario.agents ?? [], {
@@ -129,7 +131,8 @@ export class NhAssistantMockRunConfiguration {
       approvalPolicyOf: agent => agent.source === 'admin' ? this.settings.get(agent.id)?.approvalPolicy ?? null : this.codeSettingsOf(agent).approvalPolicy,
       approvalPolicies: () => this.catalog.approvalPolicies,
       approvalPolicySummaries: () => this.catalog.approvalPolicySummaries ?? [],
-      agentPolicyNames: () => this.agentPolicyNames
+      agentPolicyNames: () => this.agentPolicyNames,
+      rightsRefusal: changes => this.rights.refusal(changes)
     }, now);
     this.catalog = {
       // A trigger event lists its named filters, none unless the scenario's application registers some.
@@ -211,7 +214,13 @@ export class NhAssistantMockRunConfiguration {
 
   /** `GET admin/run-catalog`. */
   runCatalog(method: string): MockResult {
-    return method === 'GET' ? { status: 200, body: this.catalog } : { status: 405 };
+    return method === 'GET' ? { status: 200, body: { ...this.catalog, mayChangeAgentRights: this.rights.mayChange } } : { status: 405 };
+  }
+
+  /** Whether the agent's runs use another account's rights: it answers to somebody else, in code or in its settings. */
+  lendsRights(agent: AdminAgent): boolean {
+    const accountability = agent.source === 'admin' ? this.settings.get(agent.id)?.accountability : this.codeSettingsOf(agent).accountability;
+    return accountability !== undefined && accountability !== 'agent';
   }
 
   /**
@@ -458,6 +467,10 @@ export class NhAssistantMockRunConfiguration {
       ...storedFileLimits(request),
       alertKinds: alertKinds ? alertKinds.sort() : [...(current?.alertKinds ?? [])]
     };
+    const rightsRefused = this.rights.refusal(mockRunSettingsRights(current ?? null, saved));
+    if (rightsRefused) {
+      return rightsRefused;
+    }
     this.settings.set(agent.id, saved);
     return { status: 200, body: saved };
   }
@@ -542,6 +555,10 @@ export class NhAssistantMockRunConfiguration {
     }
     if ((request.expectedVersion ?? null) !== (live?.version ?? null)) {
       return failure('assistant-version-conflict');
+    }
+    const rightsRefused = this.rights.refusal(mockSkillRights(live ?? null, { approvalPolicy: text(request.approvalPolicy) }));
+    if (rightsRefused) {
+      return rightsRefused;
     }
 
     const candidate = request.apply === 'shadow';

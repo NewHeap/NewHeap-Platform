@@ -360,6 +360,13 @@ public sealed record NhAssistantAgentPackagePartDto(
     /// version; otherwise <see langword="null"/>.
     /// </summary>
     public int? CandidateVersion { get; init; }
+
+    /// <summary>
+    /// What the part changes of whose rights the agent uses, who reaches it, who decides its proposals and what
+    /// runs without approval, by field; <see langword="null"/> when it changes none of them. An import of such a
+    /// part takes the application's agent rights policy (<c>UseAgentRightsPolicy</c>).
+    /// </summary>
+    public IReadOnlyList<string>? RightsChanges { get; init; }
 }
 
 /// <summary>

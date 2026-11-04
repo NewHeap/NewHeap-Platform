@@ -14,7 +14,8 @@ import { RunConfigErrors, RunConfigFieldError, fieldErrorKey, focusFirstInvalid,
  * What the run configuration forms share: errors checked before sending and those the server
  * returns, each shown at its field, a form-level error next to the actions, and the focus on the
  * first invalid field after a refused save. A field the part's agent package locks shows read-only with
- * the package's lock next to its label.
+ * the package's lock next to its label; so does a field this person may not change (`rightsLocks`), with a hint
+ * in its group.
  */
 export abstract class RunConfigForm {
   protected readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -43,6 +44,12 @@ export abstract class RunConfigForm {
    */
   readonly lock: Signal<PackageLockView | null> = signal(null);
 
+  /**
+   * The fields of this form the person may not change, which take the agent rights policy
+   * (`RunCatalog.mayChangeAgentRights`); none for a person who may, and a form without such fields.
+   */
+  protected readonly rightsLocks: Signal<readonly string[]> = signal([]);
+
   readonly fieldErrors = computed<RunConfigErrors>(() => {
     const cleared = this.cleared();
     const server = Object.fromEntries(Object.entries(this.mapServerErrors(serverFieldErrors(this.serverError())))
@@ -60,14 +67,19 @@ export abstract class RunConfigForm {
     inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
   }
 
-  /** Whether the part's package locks a field, which then shows read-only and keeps its value. */
-  locked(field: string): boolean {
-    return isPackageFieldLocked(this.lock(), field);
+  /** Whether the person may not change a field, which then shows read-only and keeps its value. */
+  rightsLocked(field: string): boolean {
+    return this.rightsLocks().includes(field);
   }
 
-  /** The lock the mark next to a field's label shows; `null` for a field that changes here. */
+  /** Whether a field does not change here: the part's package locks it, or the person may not change it. */
+  locked(field: string): boolean {
+    return isPackageFieldLocked(this.lock(), field) || this.rightsLocked(field);
+  }
+
+  /** The lock the mark next to a field's label shows; `null` for a field no package locks. */
   lockOf(field: string): PackageLockView | null {
-    return this.locked(field) ? this.lock() : null;
+    return isPackageFieldLocked(this.lock(), field) ? this.lock() : null;
   }
 
   fieldError(field: string): RunConfigFieldError | null {

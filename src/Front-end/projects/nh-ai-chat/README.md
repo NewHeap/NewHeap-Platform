@@ -297,6 +297,14 @@ uses `translations: 'host'`. Route to it lazily behind the host's admin permissi
   `readOnlyHint` appear as hints only, and a changed remote input schema disables the
   tool and shows a warning.
 
+An application that sets `UseAgentRightsPolicy` on the server lets a person build and operate agents without
+changing their rights: the run catalog then says `mayChangeAgentRights: false`, and the administration shows
+whose rights an agent uses, who reaches it, who decides its proposals and what runs without approval as disabled
+controls with their values and one hint. Going to shadow or off, removing an MCP server or disabling a tool stay
+open. The import of an agent package names the parts that change an agent's rights, and needs the permission when
+there are any. A server refusal (`assistant-agent-rights-forbidden`) shows at its field. A server without the flag
+changes nothing.
+
 Each agent card also opens the agent's feedback report (see [Proposal feedback](#proposal-feedback)).
 
 `NhAssistantAdminApiService` (main entry) is the typed client of the `admin/*`

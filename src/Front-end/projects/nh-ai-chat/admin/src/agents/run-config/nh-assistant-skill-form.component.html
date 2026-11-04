@@ -166,7 +166,7 @@
     </fieldset>
   </fieldset>
 
-  <fieldset class="group">
+  <fieldset class="group" [attr.aria-describedby]="rightsLocked('approvalPolicy') ? id + '-approval-rights' : null">
     <legend>{{ 'nh-assistant.admin.run-config.settings.approval.title' | translate }}</legend>
     <div class="field">
       <label [for]="id + '-skill-policy'">{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('approvalPolicy')" /></label>
@@ -179,6 +179,9 @@
         [invalid]="fieldError('approvalPolicy') !== null"
         [describedBy]="describedBy(null, 'approvalPolicy', id + '-skill-policy-error')"
         (valueChange)="approvalPolicy.set($event); touch('approvalPolicy')" />
+      @if (rightsLocked('approvalPolicy')) {
+        <nh-assistant-agent-rights-hint [hintId]="id + '-approval-rights'" />
+      }
       @if (errorKey('approvalPolicy'); as key) {
         <p class="field-error" [id]="id + '-skill-policy-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('approvalPolicy')?.params }}</p>
       }

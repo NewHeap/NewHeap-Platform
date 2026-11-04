@@ -344,6 +344,11 @@ export interface AgentPackagePart {
   lockedFields: string[];
   /** For a skill or trigger an import makes a candidate of (`apply: shadow`): the candidate's version. */
   candidateVersion?: number | null;
+  /**
+   * The fields of the part whose change takes the application's agent rights policy
+   * (`RunCatalog.mayChangeAgentRights`); missing or `null` for a part that changes none.
+   */
+  rightsChanges?: string[] | null;
 }
 
 /** What an import would do: the parts per agent in dependency order, left-behind agents and parts last. */

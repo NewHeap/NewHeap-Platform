@@ -4,14 +4,17 @@
     <div>
       <h3 [id]="id + '-title'">{{ 'nh-assistant.admin.shadow-variants.title' | translate }}</h3>
       <p class="muted">{{ 'nh-assistant.admin.shadow-variants.description' | translate }}</p>
+      @if (rightsRequired() && variants()?.allowsDataVariants) {
+        <nh-assistant-agent-rights-hint [hintId]="id + '-rights'" />
+      }
     </div>
     @if (!loading() && !loadError() && variants()?.allowsDataVariants) {
       <button
         class="secondary"
         type="button"
         data-open-form="shadow-variant"
-        [attr.aria-describedby]="closed() ? id + '-closed' : null"
-        [disabled]="busy() || closed() !== null || creating()"
+        [attr.aria-describedby]="closed() ? id + '-closed' : rightsRequired() ? id + '-rights' : null"
+        [disabled]="busy() || closed() !== null || creating() || rightsRequired()"
         (click)="startCreate()">
         <nh-assistant-icon name="plus" />{{ 'nh-assistant.admin.shadow-variants.add' | translate }}
       </button>

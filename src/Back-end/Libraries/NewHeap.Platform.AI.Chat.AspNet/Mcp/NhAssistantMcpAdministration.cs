@@ -93,7 +93,8 @@ internal sealed partial class NhAssistantMcpAdministration(
     NhAssistantMcpOAuthConnections oauthConnections,
     NhAssistantMcpAuthorizationFlows flows,
     NhAssistantMcpAuthModeCatalog modes,
-    IOptionsMonitor<NhAssistantOptions> options)
+    IOptionsMonitor<NhAssistantOptions> options,
+    INhAssistantAgentRightsGate? rightsGate = null)
 {
     public const string AdministratorReason = "administrator";
     public const string ServerChangedReason = "server-changed";
@@ -109,6 +110,17 @@ internal sealed partial class NhAssistantMcpAdministration(
         return store.ListMcpServersAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// The refusal of <paramref name="change"/> by a person who may not change an agent's rights: a server's
+    /// settings, connection and tools decide what the agents that have it can reach, and with whose credentials.
+    /// </summary>
+    private ValueTask<TaskResult?> CheckRightsAsync(string serverId, string change, string actorId, CancellationToken cancellationToken)
+    {
+        return rightsGate is null
+            ? ValueTask.FromResult<TaskResult?>(null)
+            : rightsGate.CheckAsync(serverId, [change], actorId, cancellationToken);
+    }
+
     public async Task<TaskResult<AssistantMcpServer>> CreateAsync(
         NhAssistantMcpServerInput input,
         string actorId,
@@ -118,6 +130,10 @@ internal sealed partial class NhAssistantMcpAdministration(
         if (!validation.Success)
         {
             return TaskResult<AssistantMcpServer>.Failed(validation);
+        }
+        if (await CheckRightsAsync(input.Id, NhAssistantAgentRights.McpServer, actorId, cancellationToken) is { } rightsRefused)
+        {
+            return TaskResult<AssistantMcpServer>.Failed(rightsRefused);
         }
         var confirmation = await ConfirmAsync(input, existing: null, cancellationToken);
         if (!confirmation.Success)
@@ -161,6 +177,10 @@ internal sealed partial class NhAssistantMcpAdministration(
         if (!validation.Success)
         {
             return TaskResult<AssistantMcpServer>.Failed(validation);
+        }
+        if (await CheckRightsAsync(input.Id, NhAssistantAgentRights.McpServer, actorId, cancellationToken) is { } rightsRefused)
+        {
+            return TaskResult<AssistantMcpServer>.Failed(rightsRefused);
         }
         var confirmation = await ConfirmAsync(input, existing, cancellationToken);
         if (!confirmation.Success)
@@ -216,6 +236,13 @@ internal sealed partial class NhAssistantMcpAdministration(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentNullException.ThrowIfNull(headlessUse);
+        // Never using a server without a person only takes something away.
+        if (headlessUse != NhAssistantMcpHeadlessUses.Never
+            && await CheckRightsAsync(id, NhAssistantAgentRights.HeadlessUse, actorId, cancellationToken) is { } rightsRefused)
+        {
+            return TaskResult<AssistantMcpServer>.Failed(rightsRefused);
+        }
+
         AssistantMcpServer? updated = null;
         for (var attempt = 0; attempt < 2 && updated is null; attempt++)
         {
@@ -400,6 +427,13 @@ internal sealed partial class NhAssistantMcpAdministration(
         if (!errors.IsEmpty)
         {
             return TaskResult<AssistantMcpTool>.Failed(errors.ToResult());
+        }
+
+        // A disabled tool is offered to nobody, so disabling one stays open; enabling it needs the rights, with
+        // whatever effect it was given meanwhile.
+        if (isEnabled && await CheckRightsAsync(serverId, NhAssistantAgentRights.McpTool, actorId, cancellationToken) is { } rightsRefused)
+        {
+            return TaskResult<AssistantMcpTool>.Failed(rightsRefused);
         }
 
         var settings = new ToolSettings(isEnabled, effect!, string.IsNullOrWhiteSpace(descriptionOverride) ? null : descriptionOverride.Trim());
@@ -1112,6 +1146,13 @@ internal sealed partial class NhAssistantMcpAdministration(
         if (server is null)
         {
             return NotFound<NhAssistantMcpAuthorizationStart>();
+        }
+        // The organization's account decides with whose credentials agents work; a person's own connection to a
+        // server each person connects to lends nobody's rights.
+        if (server.ConnectionScope == NhAssistantMcpConnectionScopes.Organization
+            && await CheckRightsAsync(id, NhAssistantAgentRights.McpServer, actorId, cancellationToken) is { } rightsRefused)
+        {
+            return TaskResult<NhAssistantMcpAuthorizationStart>.Failed(rightsRefused);
         }
         var owner = NhAssistantMcpConnectionRules.AuthorizedConnection(server, actorId);
         if (!owner.Success)

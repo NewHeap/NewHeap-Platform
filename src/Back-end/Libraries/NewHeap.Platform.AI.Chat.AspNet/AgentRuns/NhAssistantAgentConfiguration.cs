@@ -475,6 +475,15 @@ public sealed record NhAssistantRunCatalogDto(
     public NhAssistantFileLimitsDto? FileLimits { get; init; }
 
     /// <summary>
+    /// Whether the person who asks may change whose rights an agent uses, who reaches it, who decides its
+    /// proposals and what runs without approval: <see langword="true"/> unless the application set
+    /// <c>UseAgentRightsPolicy</c> and the person does not pass it, in which case such a change fails with
+    /// <c>assistant-agent-rights-forbidden</c>. <c>GET admin/run-catalog</c> asks it per request; the service
+    /// alone knows no person and leaves it <see langword="true"/>.
+    /// </summary>
+    public bool MayChangeAgentRights { get; init; } = true;
+
+    /// <summary>
     /// The application's ceiling of consultations defined as data (<c>UseConsultationsAsData</c>);
     /// <see langword="null"/> while consultations exist in code only.
     /// </summary>
@@ -1773,6 +1782,12 @@ internal sealed class NhAssistantAgentConfiguration(
     /// </summary>
     private NhAssistantPackageLockCheck Locks => services.GetRequiredService<NhAssistantPackageLockCheck>();
 
+    /// <summary>
+    /// Who changes an agent's rights (<see cref="NhAssistantBuilder.UseAgentRightsPolicy"/>), which every save path
+    /// of this service enforces after the locks.
+    /// </summary>
+    private INhAssistantAgentRightsGate RightsGate => services.GetRequiredService<INhAssistantAgentRightsGate>();
+
     public NhAssistantRunCatalogDto GetCatalog()
     {
         var profiles = services.GetService(typeof(INhAiModelProfileRegistry)) is INhAiModelProfileRegistry registry
@@ -2208,6 +2223,10 @@ internal sealed class NhAssistantAgentConfiguration(
         {
             return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(locked);
         }
+        if (await RightsGate.CheckAsync(agentId, NhAssistantAgentRights.OfRunSettings(before, settings!), actorId, cancellationToken) is { } rightsRefused)
+        {
+            return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(rightsRefused);
+        }
 
         var serviceAccount = settings!.ServiceAccountActorId;
         if (serviceAccount is not null
@@ -2501,6 +2520,10 @@ internal sealed class NhAssistantAgentConfiguration(
                 cancellationToken) is { } locked)
         {
             return (TaskResult<NhAssistantDataSkillDto>.Failed(locked), null);
+        }
+        if (await RightsGate.CheckAsync(agentId, NhAssistantAgentRights.OfSkill(live.GetValueOrDefault(skillId), definition!), actorId, cancellationToken) is { } rightsRefused)
+        {
+            return (TaskResult<NhAssistantDataSkillDto>.Failed(rightsRefused), null);
         }
 
         var saved = assetCandidate
@@ -3340,6 +3363,10 @@ internal sealed class NhAssistantAgentConfiguration(
                 cancellationToken) is { } locked)
         {
             return TaskResult<NhAssistantDataConsultationDto>.Failed(locked);
+        }
+        if (await RightsGate.CheckAsync(agentId, NhAssistantAgentRights.OfConsultation(current, row!), actorId, cancellationToken) is { } rightsRefused)
+        {
+            return TaskResult<NhAssistantDataConsultationDto>.Failed(rightsRefused);
         }
 
         var saved = await store.SaveConsultationAsync(row!, request.ExpectedVersion, cancellationToken);

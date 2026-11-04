@@ -18,12 +18,28 @@ namespace SampleProjectManagement.Api.Composition;
 /// another one does. Only people with the administration policy see it; the administration offers it on an
 /// agent's Build tab and with "New agent with help". It answers on the assistant's chat profile, the model the
 /// application names for it, and reads <see cref="Guidance"/>, the application's own guidance.
+/// <para>
+/// A project manager passes the administration policy and builds agents, and only an administrator changes an
+/// agent's rights (<see cref="AgentRightsPolicy"/>): whose rights it uses, who reaches it, who decides its proposals
+/// and what runs without approval, in the screens, in the builder and through an agent package alike. An
+/// application that wants those settings out of the builder altogether and in the screens only says
+/// <c>WithoutRightsChanges</c> (FB97), which <c>rightsInScreensOnly</c> shows.
+/// </para>
 /// Call it after <c>AddSampleAssistant</c>, which registers the profile and the administration policy.
 /// </summary>
 public static class SampleAgentBuilderComposition
 {
     /// <summary>The agent builder's id, which the platform reserves.</summary>
     public const string AgentId = NhAssistantAgentBuilderIds.AgentId;
+
+    /// <summary>
+    /// The policy a person needs on top of the administration policy to change an agent's rights: the role
+    /// administrator, while a project manager passes the administration policy with app.project.manage.
+    /// </summary>
+    public const string AgentRightsPolicy = "app.project.agent-rights";
+
+    /// <summary>The role that passes <see cref="AgentRightsPolicy"/>.</summary>
+    public const string AgentRightsRole = "administrator";
 
     /// <summary>
     /// The application's guidance for the agent builder (FB95): background about this application's data and
@@ -54,13 +70,20 @@ public static class SampleAgentBuilderComposition
         NhAiRetentionCategory.Operational,
         "sample-agent-builder-guidance-v1");
 
-    public static IServiceCollection AddSampleAgentBuilder(this IServiceCollection services)
+    public static IServiceCollection AddSampleAgentBuilder(this IServiceCollection services, bool rightsInScreensOnly = false)
     {
+        services.AddAuthorizationBuilder()
+            .AddPolicy(AgentRightsPolicy, policy => policy.RequireRole(AgentRightsRole));
         services.AddNewHeapAssistant(assistant => assistant
+            .UseAgentRightsPolicy(AgentRightsPolicy)
             .AddAgentBuilder(builder =>
             {
                 builder.ProfileName = SampleAssistantComposition.ProfileName;
                 builder.UseGuidance(Guidance);
+                if (rightsInScreensOnly)
+                {
+                    builder.WithoutRightsChanges();
+                }
             }));
         return services;
     }

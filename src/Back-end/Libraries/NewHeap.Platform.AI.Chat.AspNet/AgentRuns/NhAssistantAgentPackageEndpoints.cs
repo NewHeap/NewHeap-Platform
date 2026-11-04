@@ -43,6 +43,7 @@ internal static class NhAssistantAgentPackageEndpoints
             .WithSummary("Import an agent package")
             .WithDescription("Imports the package as the preview shows it, in one database transaction with one change of the run configuration: every agent and part, or nothing. An agent whose id is free is created; one linked to the package is upgraded; any other agent with the id refuses the package (part outcome assistant-agent-exists). New skills and triggers start in shadow; with apply shadow a changed skill or trigger becomes the candidate next to the live version. A refused part answers 409 assistant-package-refused with the field error parts invalid, and the preview names each refused part with its field errors; a concurrent change 409 assistant-version-conflict; the format and size answer as for the preview. Every part is audited as its save, then the package as AdminAgentPackageImported.")
             .Produces<NhAssistantAgentPackageImportDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status413PayloadTooLarge);

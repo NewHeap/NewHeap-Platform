@@ -83,7 +83,7 @@ public sealed class AssistantAgentPackageEndpointTests(AssistantDatabaseFixture 
         var previewed = await ReadJsonAsync(preview);
         Assert.True(previewed.GetProperty("importable").GetBoolean());
         Assert.Equal(
-            ["agentId", "part", "outcome", "changedLocally", "code", "errors", "lockedFields", "candidateVersion"],
+            ["agentId", "part", "outcome", "changedLocally", "code", "errors", "lockedFields", "candidateVersion", "rightsChanges"],
             previewed.GetProperty("parts")[0].EnumerateObject().Select(property => property.Name).ToArray());
         using var imported = await admin.PostAsync(Base + NhAssistantAgentPackageRoutes.Import, Json(new { package, options }));
         Assert.Equal(HttpStatusCode.OK, imported.StatusCode);

@@ -33,6 +33,29 @@ public sealed class NhAssistantAgentBuilderOptions
     public NhAiTextAsset? Guidance { get; private set; }
 
     /// <summary>
+    /// Whether the agent builder may change an agent's rights; <see langword="true"/> unless
+    /// <see cref="WithoutRightsChanges"/> set its ceiling.
+    /// </summary>
+    public bool AllowsRightsChanges { get; private set; } = true;
+
+    /// <summary>
+    /// Keeps an agent's rights out of the agent builder (FB97), so the application switches it on for what it is
+    /// good at, such as instructions, skills, triggers, consultations, tools and rule scripts, while whose rights
+    /// an agent uses, who reaches it, who decides its proposals and what runs without approval stay in the
+    /// administration's screens. <c>builder_read_catalog</c> shows the ceiling, so the builder names the screen
+    /// instead of proposing the change, and a call that names such a setting is refused before anyone sees an
+    /// approval card. More tools or more autonomy on an agent whose runs use another account's rights count too,
+    /// because they put those rights to more use. What only takes something away, such as removing an MCP server,
+    /// stays open. This is a ceiling on the builder, not on a person: the same person still changes these settings
+    /// in the screens. <c>UseAgentRightsPolicy</c> decides who may change them anywhere.
+    /// </summary>
+    public NhAssistantAgentBuilderOptions WithoutRightsChanges()
+    {
+        AllowsRightsChanges = false;
+        return this;
+    }
+
+    /// <summary>
     /// Gives the agent builder guidance of the application's own (FB95): a text asset in code, such as one
     /// loaded with <c>NhAiTextAsset.FromEmbeddedResource</c>, that only the builder reads, after the
     /// platform's rules and before the application context, in a section framed as background, so it
@@ -104,7 +127,9 @@ public static class NhAssistantAgentBuilderExtensions
     /// the assistant's access policy and its administration policy sees it, chats with it and gets its tools
     /// (<see cref="NhAssistantAgentBuilderIds.Policy"/>); no other agent is offered its tools, and its id,
     /// tools, policy and definition never change in the administration. The administration offers it on an
-    /// agent's page and with "New agent with help". Without this call nothing changes.
+    /// agent's page and with "New agent with help". <see cref="NhAssistantAgentBuilderOptions.WithoutRightsChanges"/>
+    /// keeps an agent's rights out of it, and <c>UseAgentRightsPolicy</c> says who may change them anywhere. Without
+    /// this call nothing changes.
     /// </summary>
     public static NhAssistantBuilder AddAgentBuilder(
         this NhAssistantBuilder builder,
@@ -130,6 +155,7 @@ public static class NhAssistantAgentBuilderExtensions
             NhAssistantAgentBuilderIds.Policy));
 
         builder.State.AgentBuilderGuidance = options.Guidance;
+        builder.State.AgentBuilderWithoutRightsChanges = !options.AllowsRightsChanges;
 
         var services = builder.Services;
         services.AddAuthorizationBuilder()
