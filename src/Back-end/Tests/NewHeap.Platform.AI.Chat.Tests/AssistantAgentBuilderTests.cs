@@ -730,6 +730,8 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
         Assert.Equal(0, Accepted(NhAssistantAgentBuilderTools.SaveRunSettings, """{"agentId":"a","elevatedReads":null,"accountability":null,"delegateFromInitiator":null,"allowGatewayReads":null,"expectedVersion":null}""", input =>
             new[] { "elevatedReads", "accountability", "delegateFromInitiator", "allowGatewayReads", "expectedVersion" }.Count(input.Given)));
         Assert.False(Accepted(NhAssistantAgentBuilderTools.UpdateAgent, """{"agentId":"a","expectedVersion":1,"mcpServerIds":null}""", input => input.Given("mcpServerIds")));
+        // A schedule cannot do without its message, so null keeps the one it has instead of clearing it.
+        Assert.False(Accepted(NhAssistantAgentBuilderTools.SaveTrigger, """{"agentId":"a","triggerId":"t","source":"schedule","message":null}""", input => input.Given("message")));
         // Null where the schema allows it clears: a nullable choice is an anyOf of the choice and null,
         // without null in its enum.
         Assert.True(Accepted(NhAssistantAgentBuilderTools.SaveSkill, """{"agentId":"a","skillId":"notes","dataClassification":null}""", input => input.Given("dataClassification") && !input.Has("dataClassification")));
