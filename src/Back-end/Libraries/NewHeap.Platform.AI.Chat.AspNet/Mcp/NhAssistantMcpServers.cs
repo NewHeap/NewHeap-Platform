@@ -455,6 +455,12 @@ internal sealed class NhAssistantMcpServerService(
         ArgumentException.ThrowIfNullOrWhiteSpace(serverId);
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         ValidateActor(actorId);
+        if (assign && NhAssistantAgentBuilderIds.IsAgentBuilder(agentId))
+        {
+            // The agent builder's tools are reserved as its definition is (BA8): it gets no MCP server. An
+            // assignment that exists from before may still be removed.
+            return TaskResult<NhAssistantMcpServerDto>.Failed(NhAssistantValidationErrors.Failed("agentId", NhAssistantFieldErrors.NotAllowed));
+        }
         if (await store.FindMcpServerAsync(serverId, cancellationToken) is null)
         {
             return ServerNotFound();

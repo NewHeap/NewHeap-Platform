@@ -1,11 +1,15 @@
 using System.Net;
+using System.Security.Claims;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentBuilder;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
+using NewHeap.Platform.AI.Chat.AspNet.Mcp;
+using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
 using NewHeap.Platform.AI.Scripting;
 using NewHeap.Platform.AI.Test;
@@ -63,15 +67,16 @@ public sealed class AssistantAgentBuilderAdministrationTests(AssistantDatabaseFi
         // Without a gateway the builder hears there is none; the account search runs without approval.
         var asked = await SendAsync(administrator, conversation, "Let the weekly count read as the operations account through the gateway.");
         Assert.False(FunctionResult(model, 0).GetProperty("data").GetProperty("gateway").GetBoolean());
-        var account = Assert.Single(FunctionResult(model, 1).GetProperty("data").GetProperty("accounts").EnumerateArray());
-        Assert.Equal(KnownAccountPrincipalFactory.First, account.GetProperty("actorId").GetString());
+        var found = Assert.Single(FunctionResult(model, 1).GetProperty("data").GetProperty("accounts").EnumerateArray());
+        Assert.Equal(KnownAccountPrincipalFactory.First, found.GetProperty("actorId").GetString());
 
         // The change of whose rights the agent uses waits for the approval, on a card that says so.
         var approval = Assert.Single(asked, evt => evt.Name == "approval.required").Data;
         var presentation = approval.GetProperty("presentation");
         Assert.Matches("whose rights agent weekly-count works with|met wiens rechten agent weekly-count werkt", presentation.GetProperty("notice").GetString());
-        var rights = Assert.Single(presentation.GetProperty("fields").EnumerateArray(), field => field.GetProperty("label").GetString() is "Rights" or "Rechten");
-        Assert.Contains(KnownAccountPrincipalFactory.First, rights.GetProperty("value").GetString(), StringComparison.Ordinal);
+        var account = presentation.GetProperty("fields").EnumerateArray()
+            .Single(field => field.GetProperty("label").GetString() is "Technical account" or "Technisch account");
+        Assert.Equal(KnownAccountPrincipalFactory.First, account.GetProperty("value").GetString());
         Assert.Null((await ConfigurationAsync(app)).RunSettings);
 
         await DecideAsync(administrator, conversation, approval, "approve");
@@ -207,10 +212,27 @@ public sealed class AssistantAgentBuilderAdministrationTests(AssistantDatabaseFi
         var headless = await SendAsync(administrator, conversation, "Let its runs use the planning server on their own.");
         var headlessCard = Assert.Single(headless, evt => evt.Name == "approval.required").Data;
         Assert.Matches("every agent the server is assigned to|elke agent waaraan de server is toegewezen", headlessCard.GetProperty("presentation").GetProperty("notice").GetString());
+        Assert.Matches("Changes only whether|Wijzigt alleen of", headlessCard.GetProperty("presentation").GetProperty("summary").GetString());
+
+        // It changes only whether runs without a person use the server: what another administrator changed in
+        // the screens between the card and the approval stays, as do the connection and the secret.
+        using (var renamed = await administrator.PutAsync("/api/assistant/admin/mcp-servers/planning", Json(new
+        {
+            id = "planning",
+            displayName = "Planning (renamed)",
+            url = "http://localhost/planning/mcp",
+            authMode = "bearer",
+            isEnabled = false
+        })))
+        {
+            Assert.Equal(HttpStatusCode.OK, renamed.StatusCode);
+        }
         await DecideAsync(administrator, conversation, headlessCard, "approve");
         using var servers = await administrator.GetAsync("/api/assistant/admin/mcp-servers");
         var stored = Assert.Single((await ReadJsonAsync(servers)).EnumerateArray());
-        Assert.Equal(("organization", true), (stored.GetProperty("headlessUse").GetString(), stored.GetProperty("hasSecret").GetBoolean()));
+        Assert.Equal(
+            ("organization", true, "Planning (renamed)", false, "bearer"),
+            (stored.GetProperty("headlessUse").GetString(), stored.GetProperty("hasSecret").GetBoolean(), stored.GetProperty("displayName").GetString(), stored.GetProperty("isEnabled").GetBoolean(), stored.GetProperty("authMode").GetString()));
     }
 
     [Theory]
@@ -285,7 +307,161 @@ public sealed class AssistantAgentBuilderAdministrationTests(AssistantDatabaseFi
         Assert.DoesNotContain(GuidanceText, model.Requests[^1].Options!.Instructions!, StringComparison.Ordinal);
     }
 
-    private Task<AssistantWebApplication> StartAsync(NhAiScriptedChatClient model, AssistantTestProvider provider, bool gateway = false)
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_builder_refuses_input_its_card_could_read_otherwise_and_a_change_keeps_what_it_leaves_out(AssistantTestProvider provider)
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("builder_save_run_settings", new { input = new { agentId = Weekly, expectedVersion = 1, elevatedReads = (string?)null } })
+            .RespondWithFunctionCall("builder_update_agent", new { input = new { agentId = Weekly, expectedVersion = 1, mcpServerIds = (string[]?)null } })
+            .RespondWithFunctionCall("builder_save_skill", new { input = new { agentId = Weekly, skillId = "notes", expectedVersion = "1", description = "Writes short notes." } })
+            .RespondWithFunctionCall("builder_save_skill", new { input = new { agentId = Weekly, skillId = "notes", expectedVersion = 1, description = "Writes short notes." } })
+            .RespondWithText("Only the description changed.")
+            .RespondWithFunctionCall("builder_save_trigger", new { input = new { agentId = Weekly, triggerId = "monday", expectedVersion = 1, source = "schedule", message = "Count the week before." } })
+            .RespondWithText("Only the message changed.");
+        await using var app = await StartAsync(model, provider);
+        await CreateWeeklyAsync(app, runSettings: true);
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var configuration = scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>();
+            var skill = await configuration.SaveSkillAsync(Weekly, "notes", new NhAssistantDataSkillRequest("Writes notes.", Instructions: "Write one note per change.", Tools: ["projects.*"]), Admin);
+            Assert.True(skill.Success, string.Join(", ", skill.AllErrorMessages));
+            var trigger = await configuration.SaveTriggerAsync(Weekly, "monday", new NhAssistantDataTriggerRequest("schedule", Cron: "0 6 * * 1", TimeZone: "Europe/Amsterdam", Message: "Count last week."), Admin);
+            Assert.True(trigger.Success, string.Join(", ", trigger.AllErrorMessages));
+        }
+        using var administrator = app.CreateClient(Admin, admin: true);
+        var conversation = await CreateConversationAsync(administrator, Builder);
+
+        // Input the card and the change could read differently is refused before anything is proposed: null
+        // for a setting that has no default to clear to, null for a list, and a number as a string.
+        var asked = await SendAsync(administrator, conversation, "Give the notes skill a shorter description.");
+        var refused = asked.Where(evt => evt.Name == "tool.completed").Select(evt => evt.Data).ToArray();
+        Assert.Equal(3, refused.Length);
+        Assert.All(refused, result => Assert.Equal(("failed", NhAiToolFailureCodes.InputInvalid), (result.GetProperty("status").GetString(), result.GetProperty("resultCode").GetString())));
+        foreach (var (index, property) in new[] { (0, "elevatedReads"), (1, "mcpServerIds"), (2, "expectedVersion") })
+        {
+            Assert.Contains(property, FunctionResult(model, index).GetRawText(), StringComparison.Ordinal);
+        }
+        Assert.Equal(1, (await ConfigurationAsync(app)).RunSettings!.Version);
+
+        // The card shows the version and the value that change; what the call leaves out stays.
+        var approval = Assert.Single(asked, evt => evt.Name == "approval.required").Data;
+        var presentation = approval.GetProperty("presentation");
+        Assert.Matches("fields it does not name stay as they are|velden die niet genoemd worden blijven zoals ze zijn", presentation.GetProperty("summary").GetString());
+        var shown = presentation.GetProperty("fields").EnumerateArray()
+            .ToDictionary(field => field.GetProperty("label").GetString()!, field => field.GetProperty("value").GetString());
+        Assert.Equal(("1", "Writes short notes."), (shown.GetValueOrDefault("Version") ?? shown["Versie"], shown.GetValueOrDefault("Description") ?? shown["Omschrijving"]));
+        await DecideAsync(administrator, conversation, approval, "approve");
+        var skillNow = Assert.Single((await ConfigurationAsync(app)).DataSkills, skill => skill.SkillId == "notes");
+        Assert.Equal(
+            (2, "Writes short notes.", "Write one note per change.", "projects.*"),
+            (skillNow.Version, skillNow.Description, skillNow.Instructions, string.Join(",", skillNow.Tools)));
+
+        // So does a trigger's change: its schedule and time zone stay.
+        var again = await SendAsync(administrator, conversation, "Let the Monday trigger count the week before.");
+        await DecideAsync(administrator, conversation, Assert.Single(again, evt => evt.Name == "approval.required").Data, "approve");
+        var triggerNow = Assert.Single((await ConfigurationAsync(app)).DataTriggers, trigger => trigger.TriggerId == "monday");
+        Assert.Equal(
+            (2, "0 6 * * 1", "Europe/Amsterdam", "Count the week before."),
+            (triggerNow.Version, triggerNow.Cron, triggerNow.TimeZone, triggerNow.Message));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_builder_gets_no_mcp_server_and_its_turns_load_none(AssistantTestProvider provider)
+    {
+        const string PlanningUrl = "http://localhost/planning/mcp";
+        var servers = new InMemoryMcpServers();
+        servers.Register(PlanningUrl, () => servers.PlanningTools());
+        var model = new NhAiScriptedChatClient()
+            .RespondWithText("I build agents.")
+            .RespondWithText("I can look up the planning.");
+        await using var app = await StartAsync(model, provider, mcp: servers);
+        using var administrator = app.CreateClient(Admin, admin: true);
+        using (var created = await administrator.PostAsync("/api/assistant/admin/mcp-servers", Json(new { id = "planning", displayName = "Planning", url = PlanningUrl, authMode = "none", isEnabled = true })))
+        {
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        }
+        using (var synced = await administrator.PostAsync("/api/assistant/admin/mcp-servers/planning/sync", Json(new { })))
+        {
+            Assert.Equal(HttpStatusCode.OK, synced.StatusCode);
+        }
+        using (var enabled = await administrator.PutAsync("/api/assistant/admin/mcp-servers/planning/tools/Lookup_Order", Json(new { isEnabled = true, effect = "read-only" })))
+        {
+            Assert.Equal(HttpStatusCode.OK, enabled.StatusCode);
+        }
+        using (var assigned = await administrator.PutAsync("/api/assistant/admin/mcp-servers/planning/agents/project-assistant", Json(new { })))
+        {
+            Assert.Equal(HttpStatusCode.OK, assigned.StatusCode);
+        }
+
+        // The administration does not assign a server to the builder.
+        using (var builder = await administrator.PutAsync($"/api/assistant/admin/mcp-servers/planning/agents/{Builder}", Json(new { })))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, builder.StatusCode);
+            var body = await builder.Content.ReadAsStringAsync();
+            Assert.Contains("agentId", body, StringComparison.Ordinal);
+            Assert.Contains(NhAssistantFieldErrors.NotAllowed, body, StringComparison.Ordinal);
+        }
+
+        // An assignment that is stored all the same, such as one from before, gives its turns no MCP tools and
+        // opens no connection.
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            Assert.NotNull(await scope.ServiceProvider.GetRequiredService<NhAssistantAgentCatalog>().FindAsync(Builder, includeDisabled: true, CancellationToken.None));
+            var stored = await scope.ServiceProvider.GetRequiredService<NhAssistantAdminStore>().SetMcpAssignmentAsync(Builder, "planning", true, 8, CancellationToken.None);
+            Assert.True(stored.Value);
+        }
+        var connections = servers.Connections.Count;
+        var conversation = await CreateConversationAsync(administrator, Builder);
+        await SendAsync(administrator, conversation, "Which tools do you have?");
+        Assert.DoesNotContain(model.Requests[0].Options!.Tools!, tool => tool.Name.StartsWith("mcp_", StringComparison.Ordinal));
+        Assert.Equal(connections, servers.Connections.Count);
+
+        // The same server serves another agent it is assigned to.
+        var other = await CreateConversationAsync(administrator, "project-assistant");
+        await SendAsync(administrator, other, "Which tools do you have?");
+        Assert.Contains(model.Requests[^1].Options!.Tools!, tool => tool.Name.StartsWith("mcp_planning_", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task The_builder_is_offered_only_where_the_screens_let_the_person_in_also_with_a_policy_that_decides_by_resource()
+    {
+        // An administration policy that passes only for a resource: the screens check it without one.
+        await using var app = await StartAsync(
+            new NhAiScriptedChatClient(),
+            AssistantTestProvider.PostgreSql,
+            configure: services => services.PostConfigure<AuthorizationOptions>(options => options.AddPolicy(
+                "app.assistant.admin",
+                policy => policy.RequireAssertion(context => context.Resource is not null && context.User.HasClaim("permission", "assistant-admin")))));
+        using var administrator = app.CreateClient(Admin, admin: true);
+
+        using (var screens = await administrator.GetAsync("/api/assistant/admin/agents"))
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, screens.StatusCode);
+        }
+        using (var refused = await administrator.PostAsync("/api/assistant/conversations", Json(new { agentId = Builder })))
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+        }
+
+        // Nor does a check with a resource, as a tool's gate makes it, let the person use the builder.
+        var person = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.NameIdentifier, Admin), new Claim("permission", "assistant"), new Claim("permission", "assistant-admin")],
+            "test"));
+        var authorization = app.Services.GetRequiredService<IAuthorizationService>();
+        Assert.True((await authorization.AuthorizeAsync(person, new object(), "app.assistant.admin")).Succeeded);
+        Assert.False((await authorization.AuthorizeAsync(person, new object(), NhAssistantAgentBuilderIds.Policy)).Succeeded);
+    }
+
+    private Task<AssistantWebApplication> StartAsync(
+        NhAiScriptedChatClient model,
+        AssistantTestProvider provider,
+        bool gateway = false,
+        InMemoryMcpServers? mcp = null,
+        Action<IServiceCollection>? configure = null)
     {
         return AssistantWebApplication.StartAsync(
             database,
@@ -304,6 +480,11 @@ public sealed class AssistantAgentBuilderAdministrationTests(AssistantDatabaseFi
                     services.AddSingleton<FakeGatewayResources>();
                     services.AddScoped<INhAiGatewayResources>(provider => provider.GetRequiredService<FakeGatewayResources>().For(provider));
                 }
+                if (mcp is not null)
+                {
+                    services.Replace(ServiceDescriptor.Singleton<INhAssistantMcpClientFactory>(mcp));
+                }
+                configure?.Invoke(services);
             },
             assistantBuilder: assistant => assistant
                 .AddBusinessAuditSink<CapturedBusinessAuditSinkAdapter>()

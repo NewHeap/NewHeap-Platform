@@ -198,7 +198,7 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler
         {
             return TargetRefused(call);
         }
-        if (Required(input, "skillId", "description") is { } missing)
+        if (Required(input, "skillId") is { } missing)
         {
             return missing;
         }
@@ -206,29 +206,35 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler
         var skillId = input.Text("skillId")!;
         var current = (await Configuration.GetAsync(agentId, cancellationToken))?.DataSkills
             .FirstOrDefault(skill => string.Equals(skill.SkillId, skillId, StringComparison.Ordinal));
-        var instructions = input.RawText("instructions");
-        // The file limits a skill reads and an asset its instructions come from stay as they are.
+        if (Pick(input, "description", current?.Description) is not { } description)
+        {
+            return Missing("description");
+        }
+
+        // The service stores the whole skill: what the call leaves out keeps the live version's value, as
+        // the card says, and null clears a value that may be empty. The file limits stay as they are.
+        var instructionsGiven = input.Given("instructions");
         var request = new NhAssistantDataSkillRequest(
-            input.Text("description"),
-            Instructions: instructions,
-            Tools: input.Texts("tools"),
-            Profile: input.Text("profile"),
-            RuleHandler: input.Text("ruleHandler"),
-            MaxTokensPerRun: input.Long("maxTokensPerRun"),
-            DailyToolCalls: input.Int("dailyToolCalls"),
-            DailyTokens: input.Long("dailyTokens"),
-            ApprovalPolicy: input.Text("approvalPolicy"),
+            description,
+            Instructions: instructionsGiven ? input.RawText("instructions") : current?.InstructionsAsset is null ? current?.Instructions : null,
+            Tools: input.Texts("tools") ?? current?.Tools,
+            Profile: Pick(input, "profile", current?.Profile),
+            RuleHandler: Pick(input, "ruleHandler", current?.RuleHandler),
+            MaxTokensPerRun: PickLong(input, "maxTokensPerRun", current?.MaxTokensPerRun),
+            DailyToolCalls: PickInt(input, "dailyToolCalls", current?.DailyToolCalls),
+            DailyTokens: PickLong(input, "dailyTokens", current?.DailyTokens),
+            ApprovalPolicy: Pick(input, "approvalPolicy", current?.ApprovalPolicy),
             ExpectedVersion: input.Int("expectedVersion"),
             Reason: input.Text("reason"),
             Apply: input.Text("apply"),
-            DataClassification: input.Text("dataClassification"),
+            DataClassification: Pick(input, "dataClassification", current?.DataClassification),
             AcceptsFiles: input.Bool("acceptsFiles") ?? current?.AcceptsFiles ?? false,
             MaxFileBytes: current?.MaxFileBytes,
             MaxFilePages: current?.MaxFilePages,
             MaxFilesPerTurn: current?.MaxFilesPerTurn,
             MaxFileTokensPerTurn: current?.MaxFileTokensPerTurn)
         {
-            InstructionsAsset = instructions is null ? current?.InstructionsAsset : null
+            InstructionsAsset = instructionsGiven ? null : current?.InstructionsAsset
         };
         var saved = await Configuration.SaveSkillAsync(agentId, skillId, request, call.Person, cancellationToken);
         return Outcome(saved, data => new { agentId, skill = data });
@@ -246,23 +252,36 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler
             return missing;
         }
 
+        // The service stores the whole trigger: while the source stays the same, what the call leaves out
+        // keeps the live version's value, as the card says; another source starts from what the call gives.
+        var triggerId = input.Text("triggerId")!;
+        var source = input.Text("source")!;
+        var current = (await Configuration.GetAsync(agentId, cancellationToken))?.DataTriggers
+            .FirstOrDefault(trigger => string.Equals(trigger.TriggerId, triggerId, StringComparison.Ordinal));
+        var same = current is not null && string.Equals(current.Source, source, StringComparison.Ordinal);
+        string? Keep(string name, string? value)
+        {
+            return input.Given(name) ? input.Text(name) : same ? value : null;
+        }
+
+        var events = string.Equals(source, "event", StringComparison.Ordinal);
         var request = new NhAssistantDataTriggerRequest(
-            input.Text("source"),
-            input.Text("skill"),
-            input.Text("event"),
-            input.Text("cron"),
-            input.Text("timeZone"),
-            input.Text("subjectSet"),
-            input.Text("message"),
-            input.Text("conflict"),
-            input.Int("debounceSeconds"),
+            source,
+            Keep("skill", current?.SkillId),
+            Keep("event", current?.Event),
+            Keep("cron", current?.Cron),
+            Keep("timeZone", current?.TimeZone),
+            Keep("subjectSet", current?.SubjectSet),
+            Keep("message", current?.Message),
+            Keep("conflict", current?.Conflict),
+            input.Given("debounceSeconds") ? input.Int("debounceSeconds") : same && events ? current?.DebounceSeconds : null,
             input.Int("expectedVersion"),
             input.Text("reason"),
-            input.Texts("filters"))
+            input.Texts("filters") ?? (same && events ? current?.Filters : null))
         {
             Apply = input.Text("apply")
         };
-        var saved = await Configuration.SaveTriggerAsync(agentId, input.Text("triggerId")!, request, call.Person, cancellationToken);
+        var saved = await Configuration.SaveTriggerAsync(agentId, triggerId, request, call.Person, cancellationToken);
         return Outcome(saved, data => new { agentId, trigger = data });
     }
 
@@ -300,34 +319,47 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler
         {
             return TargetRefused(call);
         }
-        if (Required(input, "subjectType", "description") is { } missing)
+        if (Required(input, "subjectType") is { } missing)
         {
             return missing;
         }
 
+        var subjectType = input.Text("subjectType")!;
+        var current = (await Configuration.GetAsync(agentId, cancellationToken))?.DataConsultations
+            .FirstOrDefault(consultation => string.Equals(consultation.SubjectType, subjectType, StringComparison.Ordinal));
+        if (Pick(input, "description", current?.Description) is not { } description)
+        {
+            return Missing("description");
+        }
+
+        // The service stores the whole consultation: what the call leaves out keeps the current value, as
+        // the card says. A consultation that takes requests only has no turn of its own, so the settings of
+        // that turn are not carried over to it.
+        var requestsOnly = input.Bool("requestsOnly") ?? current?.RequestsOnly ?? false;
+        var turn = requestsOnly ? null : current;
         var request = new NhAssistantDataConsultationRequest(
-            input.Text("description"),
-            input.RawText("instructions"),
-            input.Text("minimumRole"),
-            input.Text("askerPolicy"),
-            input.Texts("routes"),
-            input.Text("proposalRole"),
-            input.Text("proposalPolicy"),
-            input.Int("maxToolCalls"),
-            input.Int("timeoutSeconds"),
-            input.Int("maxAnswerChars"),
-            input.Int("maxHistoryMessages"),
-            input.Bool("allowRequests") ?? false,
-            input.Bool("exposeToMcp") ?? false,
-            input.Text("dataClassification"),
+            description,
+            input.Given("instructions") ? input.RawText("instructions") : turn?.Instructions,
+            Pick(input, "minimumRole", turn?.MinimumRole),
+            Pick(input, "askerPolicy", current?.AskerPolicy),
+            input.Texts("routes") ?? turn?.Routes,
+            Pick(input, "proposalRole", turn?.ProposalRole),
+            Pick(input, "proposalPolicy", turn?.ProposalPolicy),
+            PickInt(input, "maxToolCalls", turn?.MaxToolCalls),
+            PickInt(input, "timeoutSeconds", turn?.TimeoutSeconds),
+            PickInt(input, "maxAnswerChars", turn?.MaxAnswerChars),
+            PickInt(input, "maxHistoryMessages", turn?.MaxHistoryMessages),
+            input.Bool("allowRequests") ?? current?.AllowRequests ?? false,
+            input.Bool("exposeToMcp") ?? current?.ExposeToMcp ?? false,
+            Pick(input, "dataClassification", current?.DataClassification),
             input.Int("expectedVersion"),
             input.Text("reason"))
         {
-            ToolSelectors = input.Texts("toolSelectors"),
-            RequestsOnly = input.Bool("requestsOnly") ?? false,
+            ToolSelectors = input.Texts("toolSelectors") ?? turn?.ToolSelectors,
+            RequestsOnly = requestsOnly,
             StartsOff = input.Bool("startsOff") ?? false
         };
-        var saved = await Configuration.SaveConsultationAsync(agentId, input.Text("subjectType")!, request, call.Person, cancellationToken);
+        var saved = await Configuration.SaveConsultationAsync(agentId, subjectType, request, call.Person, cancellationToken);
         return Outcome(saved, data => new { agentId, consultation = data });
     }
 
@@ -650,28 +682,12 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler
             return missing;
         }
 
+        // Only headless use changes, through the administration's own check of that field: the server's other
+        // settings, its connection and its secret are never read or written here, so a change an administrator
+        // makes in the screens meanwhile stays.
         var serverId = input.Text("serverId")!;
-        var server = (await McpServers.ListAsync(cancellationToken))
-            .FirstOrDefault(item => string.Equals(item.Id, serverId, StringComparison.Ordinal));
-        if (server is null)
-        {
-            return Refused(NhAssistantAdminErrorCodes.McpServerNotFound, "The MCP server was not found.");
-        }
-
-        // Only headless use changes: every other setting is sent as it is stored, and the secret, the
-        // references, the connection and the readers are left out, so they are kept and never handled.
-        var request = new NhAssistantMcpServerRequest(
-            server.Id,
-            server.DisplayName,
-            server.Url,
-            server.AuthMode,
-            server.HeaderName,
-            null,
-            server.RequiredPolicy,
-            server.IsEnabled,
-            input.Text("headlessUse"));
-        var changed = await McpServers.UpdateAsync(request, call.Person, cancellationToken);
-        return Outcome(changed, data => new { serverId, data.HeadlessUse, data.AssignedAgentIds });
+        var changed = await services.GetRequiredService<NhAssistantMcpAdministration>()
+            .SetHeadlessUseAsync(serverId, input.Text("headlessUse")!, call.Person, cancellationToken);        return Outcome(changed, data => new { serverId, data.HeadlessUse });
     }
 
     // ----- Switches, groups and shadow variants -----

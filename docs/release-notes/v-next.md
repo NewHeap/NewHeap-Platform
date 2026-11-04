@@ -87,6 +87,37 @@
   `NhAssistantAgentBuilderOptions.MaxGuidanceLength` (4,000) characters, with the hash of its content; its id
   and version are part of the builder's prompt version.
 
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: the agent builder's cards say what runs
+
+- The input of every builder tool is checked against the tool's schema before it becomes a proposal, and the
+  card and the change read the same checked input: a number given as a string, a string given as yes or no,
+  `null` for a property that does not allow it, an empty text, a value outside its choices or bounds, and a
+  property the tool does not take are refused with `ai-tool-input-invalid`, naming the property, and nothing
+  is proposed. `null` clears a value only where the schema allows it (for example a retry count, a budget, a
+  profile, a policy or a skill's instructions); the card then says the default applies.
+- The card shows every value the call gives, also when more values than the card's fields share a field, and
+  says when a value is in full only in the technical details.
+- `builder_save_skill`, `builder_save_trigger` and `builder_save_consultation` keep what a change leaves out,
+  as the card says (a trigger while its source stays the same); a description is needed only for a new skill
+  or consultation.
+- The card says that a change alters whose rights an agent uses also for who may run it, who sees its results
+  for the whole application, and a required policy that is cleared. The card of `builder_promote_shadow_variant`
+  names the live agent and what it takes over: tools, required policy, autonomy, what it works on and its run
+  and view policies.
+- `builder_set_mcp_headless_use` changes only whether the server serves runs without a person, checked as the
+  server editor checks that field; what another administrator changed between the card and the approval, the
+  connection and the secret stay.
+- The builder's policy checks the administration policy without a resource, as the administration's endpoints
+  do, so a policy that decides by a resource lets a person use the builder only where the screens let them in.
+- The administration refuses to assign an MCP server to the builder (`PUT admin/mcp-servers/{id}/agents/nh-agent-builder`
+  answers `400` with `agentId: not-allowed`), and the builder's turns never load MCP servers, also with an
+  assignment stored before.
+
+| Breaking change | Required action |
+|---|---|
+| The builder's tools refuse input that does not fit their schema instead of reading it leniently, and `builder_save_skill`, `builder_save_trigger` and `builder_save_consultation` keep what a change leaves out instead of clearing it. | None: the builder corrects a refused call itself. Decide or let expire the builder's waiting approvals before the upgrade. |
+| An MCP server assigned to the agent builder is no longer offered to its turns, and the administration refuses such an assignment. | Remove an existing assignment with `DELETE admin/mcp-servers/{id}/agents/nh-agent-builder` if you want it gone from the list. |
+
 ## @newheap/platform-ai-chat: the agent builder follows its changes (FB94)
 
 - The agent page of `nh-assistant-admin` reads the agent again after every change the builder made after an

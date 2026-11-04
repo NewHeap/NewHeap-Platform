@@ -152,7 +152,8 @@ internal sealed class NhAssistantAgentBuilderRequirement : IAuthorizationRequire
 
 /// <summary>
 /// Passes <see cref="NhAssistantAgentBuilderRequirement"/> for a person who passes both the access policy and
-/// the administration policy in effect. The authorization service is resolved when a requirement is checked,
+/// the administration policy in effect, the latter without a resource, as the administration's endpoints
+/// check it. The authorization service is resolved when a requirement is checked,
 /// not when the handler is created, as the service creates its handlers itself.
 /// </summary>
 internal sealed class NhAssistantAgentBuilderAuthorizationHandler(IServiceProvider services)
@@ -167,8 +168,11 @@ internal sealed class NhAssistantAgentBuilderAuthorizationHandler(IServiceProvid
         var authorization = services.GetRequiredService<IAuthorizationService>();
         var access = NhAssistantEndpointOptions.ResolveAccessPolicy(state, options);
         var admin = NhAssistantEndpointOptions.ResolveAdminPolicy(state, options);
+        // The administration policy is checked as the administration's endpoints check it, without a
+        // resource: the builder does what the screens do, so a person passes it only where the screens let
+        // them in, also with handlers that decide by a tenant, division or subject.
         if ((await authorization.AuthorizeAsync(context.User, context.Resource, access)).Succeeded
-            && (await authorization.AuthorizeAsync(context.User, context.Resource, admin)).Succeeded)
+            && (await authorization.AuthorizeAsync(context.User, null, admin)).Succeeded)
         {
             context.Succeed(requirement);
         }

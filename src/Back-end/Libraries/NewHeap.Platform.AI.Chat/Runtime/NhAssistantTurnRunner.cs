@@ -2541,7 +2541,9 @@ internal sealed partial class NhAssistantTurnRunner(
     /// </summary>
     private async Task<NhAssistantMcpToolSet> LoadMcpToolsAsync(NhAssistantTurnState state, CancellationToken cancellationToken)
     {
-        if (state.EffectiveAgent.McpServerIds.Count == 0)
+        // The agent builder's turns get its own tools only, never a remote server's, also not through an
+        // assignment stored before the id was reserved for it.
+        if (state.EffectiveAgent.McpServerIds.Count == 0 || NhAssistantAgentBuilderIds.IsAgentBuilder(state.EffectiveAgent.Id))
         {
             return NhAssistantMcpToolSet.Empty;
         }

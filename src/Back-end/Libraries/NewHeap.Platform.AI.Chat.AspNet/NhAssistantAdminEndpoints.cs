@@ -309,7 +309,7 @@ internal static class NhAssistantAdminEndpoints
         admin.MapPut("mcp-servers/{id}/agents/{agentId}", AssignMcpServerAsync)
             .WithName("NhAssistantAdminAssignMcpServer")
             .WithSummary("Assign an MCP server to an agent")
-            .WithDescription("Assigns the server to the agent, in code or created in the administration, so its enabled tools are offered in the agent's turns. Only the assignment changes: the agent's definition, version and package links stay, so an editor that holds the agent's version saves without a conflict. Assigning an assigned server changes nothing. An agent with 32 servers gets no more (400, mcpServerIds: too-long); an unknown server or agent answers 404. Audited as AdminMcpServerAssignmentChanged (assigned).")
+            .WithDescription("Assigns the server to the agent, in code or created in the administration, so its enabled tools are offered in the agent's turns. Only the assignment changes: the agent's definition, version and package links stay, so an editor that holds the agent's version saves without a conflict. Assigning an assigned server changes nothing. An agent with 32 servers gets no more (400, mcpServerIds: too-long), and the agent builder gets none (400, agentId: not-allowed); an unknown server or agent answers 404. Audited as AdminMcpServerAssignmentChanged (assigned).")
             .Produces<NhAssistantMcpServerDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);

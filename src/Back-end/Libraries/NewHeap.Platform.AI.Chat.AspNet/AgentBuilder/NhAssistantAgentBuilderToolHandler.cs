@@ -104,10 +104,10 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler(
             return Refused(NhAssistantAdminErrorCodes.Forbidden, "The agent builder's tools work only in a person's chat with the agent builder.");
         }
 
-        var (input, unknown) = NhAssistantAgentBuilderInput.Read(value, tool.Input.Properties);
+        var (input, refusal) = NhAssistantAgentBuilderInput.Read(value, tool.Input.Schema);
         if (input is null)
         {
-            return Refused(NhAiToolFailureCodes.InputInvalid, UnknownInputMessage(unknown!));
+            return Refused(NhAiToolFailureCodes.InputInvalid, refusal!);
         }
 
         try
@@ -120,13 +120,6 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler(
         }
     }
 
-    /// <summary>
-    /// What the model reads when a call names a property its tool does not take.
-    /// </summary>
-    internal static string UnknownInputMessage(string property)
-    {
-        return $"The tool does not take '{property}'. Use only the properties its schema names; the agent builder never takes or handles secrets.";
-    }
     /// <summary>
     /// The person of the running turn when it is their own chat with the agent builder: not an agent's run
     /// or thread, a consultation or a shadow run; <see langword="null"/> otherwise.
