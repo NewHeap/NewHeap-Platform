@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.Common.Identity.Claims;
 using SampleProjectManagement.Api.Authorization;
+using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.DAL;
 using SampleProjectManagement.DAL.Entities;
 using System.Security.Claims;
@@ -43,6 +44,12 @@ public static class SampleDevelopmentIdentitySeeder
             roleManager,
             SampleAuthorizationDefaults.ProjectLeadRole,
             ["app.project.view", "app.project.manage", "app.assistant.access"]);
+        // SPM-394: the role the sample's agent-rights policy asks for, with the rights of the technical account
+        // that agents answer to, so the check on tools added to such an agent lets this account through.
+        await EnsureApplicationRoleAsync(
+            roleManager,
+            SampleAgentBuilderComposition.AgentRightsRole,
+            ["app.project.view", "app.project.manage", "app.assistant.access"]);
 
         var manager = await EnsureUserAsync(
             userManager,
@@ -69,6 +76,9 @@ public static class SampleDevelopmentIdentitySeeder
         var projectLead = await EnsureUserAsync(
             userManager,
             SampleAuthorizationDefaults.ProjectLeadEmail);
+        var administrator = await EnsureUserAsync(
+            userManager,
+            SampleAuthorizationDefaults.AdministratorEmail);
         var operations = await EnsureTechnicalAccountAsync(
             userManager,
             SampleAuthorizationDefaults.OperationsEmail);
@@ -97,6 +107,10 @@ public static class SampleDevelopmentIdentitySeeder
             userManager,
             projectLead,
             SampleAuthorizationDefaults.ProjectLeadRole);
+        await EnsureUserRoleAsync(
+            userManager,
+            administrator,
+            SampleAgentBuilderComposition.AgentRightsRole);
 
         await EnsureDivisionAsync(
             dbContext,
@@ -167,6 +181,11 @@ public static class SampleDevelopmentIdentitySeeder
             divisionEditorRole.Id);
         await EnsureDivisionAssignmentAsync(
             dbContext,
+            administrator.Id,
+            SampleAuthorizationDefaults.NorthDivisionId,
+            divisionEditorRole.Id);
+        await EnsureDivisionAssignmentAsync(
+            dbContext,
             projectEditor.Id,
             SampleAuthorizationDefaults.NorthDivisionId,
             projectMemberRole.Id);
@@ -195,6 +214,10 @@ public static class SampleDevelopmentIdentitySeeder
         await SetActiveDivisionAsync(
             userManager,
             projectLead,
+            SampleAuthorizationDefaults.NorthDivisionId);
+        await SetActiveDivisionAsync(
+            userManager,
+            administrator,
             SampleAuthorizationDefaults.NorthDivisionId);
         await SetActiveDivisionAsync(
             userManager,

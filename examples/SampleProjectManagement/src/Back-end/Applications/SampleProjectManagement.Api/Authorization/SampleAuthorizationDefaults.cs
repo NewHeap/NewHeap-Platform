@@ -26,6 +26,13 @@ public static class SampleAuthorizationDefaults
     public const string ProjectLeadEmail = "project-lead@example.test";
 
     /// <summary>
+    /// Member of the role <c>administrator</c> and of <see cref="DivisionEditorRole"/> in Sample North: the
+    /// account that changes an agent's rights, which the sample's agent-rights policy keeps from the manager.
+    /// Signing in as either one shows both sides of that policy in the assistant's administration (SPM-394).
+    /// </summary>
+    public const string AdministratorEmail = "administrator@example.test";
+
+    /// <summary>
     /// The technical account that agents working on their own answer to. It has no password, so
     /// nobody signs in with it; agents act with its rights.
     /// </summary>

@@ -390,6 +390,7 @@
     "two-factor-qr-alt": "QR code for the authenticator app",
     "two-factor-shared-key": "Key for manual entry",
     "login-project-lead-account": "Project lead (assistant)",
+    "login-administrator-account": "Administrator (agent rights)",
     "login-two-factor-account": "Two-step verification",
     "login-security-officer-account": "Security officer (must enroll)",
     "login-passkey-alternative": "Or sign in without a password",

@@ -129,6 +129,29 @@ public sealed class AuthenticationSessionSamplesTests(SamplePostgreSqlServer pos
     }
 
     /// <summary>
+    /// SPM-394: of the Development accounts that manage agents, the administrator signs in with the role of the
+    /// sample's agent-rights policy and the manager without it, so the running sample shows both sides.
+    /// </summary>
+    [Fact]
+    public async Task TheAdministratorSignsInWithTheRoleOfTheAgentRightsPolicyAndTheManagerWithoutIt()
+    {
+        using var application = BuildApplication(await postgreSql.CreateMigratedDatabaseAsync("authentication_agent_rights"));
+        using var scope = application.Services.CreateScope();
+        await SampleDevelopmentIdentitySeeder.SeedAsync(scope.ServiceProvider);
+        var authentication = scope.ServiceProvider.GetRequiredService<INhAuthenticationService>();
+
+        async Task<bool> MayChangeAgentRightsAsync(string email)
+        {
+            var login = await authentication.Authenticate(new AuthenticateRequest(email, SampleAuthorizationDefaults.Password));
+            Assert.True(login.Success);
+            return PrincipalOf(login.Data!.Token).IsInRole(SampleAgentBuilderComposition.AgentRightsRole);
+        }
+
+        Assert.True(await MayChangeAgentRightsAsync(SampleAuthorizationDefaults.AdministratorEmail));
+        Assert.False(await MayChangeAgentRightsAsync(SampleAuthorizationDefaults.ManagerEmail));
+    }
+
+    /// <summary>
     /// The principal that bearer validation makes of <paramref name="accessToken"/>; NewHeap clears
     /// the inbound claim map, so the token's claim types are kept.
     /// </summary>
