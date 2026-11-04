@@ -66,6 +66,11 @@ public static class NhAssistantAgentConfigurationLimits
     /// The longest description of a consultation, in characters, in code and as data.
     /// </summary>
     public const int MaxConsultationDescriptionLength = 1_000;
+
+    /// <summary>
+    /// The most alert kinds the run settings of an agent created in the administration list.
+    /// </summary>
+    public const int MaxAlertKinds = 20;
 }
 
 /// <summary>
@@ -135,10 +140,11 @@ public static class NhAssistantElevatedReadNames
 /// </summary>
 /// <param name="Kind"><c>agent</c> for run settings and for the instructions an agent created in the
 /// administration takes from an asset of the application, <c>skill</c>, <c>candidate</c>,
-/// <c>trigger</c>, <c>trigger-candidate</c>, <c>consultation</c> or <c>hand-off</c>.</param>
-/// <param name="Id">The agent id, the skill id, the trigger id or, for a consultation and a hand-off,
-/// its subject type. A consultation that works with less has a problem per part that no longer
-/// fits.</param>
+/// <c>trigger</c>, <c>trigger-candidate</c>, <c>consultation</c>, <c>hand-off</c> or
+/// <c>alert-kind</c> for an alert kind the run settings list that the code no longer registers.</param>
+/// <param name="Id">The agent id, the skill id, the trigger id, the alert kind id or, for a
+/// consultation and a hand-off, its subject type. A consultation that works with less has a problem
+/// per part that no longer fits.</param>
 /// <param name="Code">One of <see cref="NhAssistantRunConfigurationProblems"/>.</param>
 public sealed record NhAssistantRunConfigurationProblem(string AgentId, string Kind, string Id, string Code);
 
@@ -166,6 +172,20 @@ public static class NhAssistantRunConfigurationProblems
     /// keeps working.
     /// </summary>
     public const string TriggerCandidateKind = "trigger-candidate";
+
+    /// <summary>
+    /// An alert kind the run settings of an agent created in the administration list, by its kind id.
+    /// Unlike a problem of kind <see cref="AgentKind"/>, the run settings stay in effect without it.
+    /// </summary>
+    public const string AlertKindKind = "alert-kind";
+
+    /// <summary>
+    /// The run settings list an alert kind the code no longer registers with <c>AddAlertKind</c>. The
+    /// run settings stay in effect without the kind, so its alerts are refused with
+    /// <see cref="NhAssistantAlertCodes.KindNotListed"/> until it is registered again or removed from
+    /// the list.
+    /// </summary>
+    public const string UnknownAlertKind = "unknown-alert-kind";
 
     /// <summary>The agent has no run configuration, in code or as data, or no longer exists.</summary>
     public const string UnknownAgent = "unknown-agent";
@@ -447,6 +467,78 @@ internal static class NhAssistantDataTriggerFilters
 }
 
 /// <summary>
+/// The alert kinds the run settings of an agent created in the administration list, as their row stores
+/// them (FB93): a JSON array of distinct alert kind ids ordered by id, at most
+/// <see cref="NhAssistantAgentConfigurationLimits.MaxAlertKinds"/>, or <see langword="null"/> for none.
+/// </summary>
+internal static class NhAssistantDataAlertKinds
+{
+    /// <summary>
+    /// The longest stored array: the most kinds with the longest ids, quoted and separated.
+    /// </summary>
+    public const int MaxJsonLength = NhAssistantAgentConfigurationLimits.MaxAlertKinds * (NhAssistantAlertLimits.MaxKindIdLength + 3) + 2;
+
+    /// <summary>
+    /// The stored kind ids in their order, empty for none, or <see langword="null"/> when the stored
+    /// value is not a valid list of alert kind ids.
+    /// </summary>
+    public static IReadOnlyList<string>? Read(string? json)
+    {
+        if (json is null)
+        {
+            return [];
+        }
+        if (json.Length > MaxJsonLength)
+        {
+            return null;
+        }
+
+        string[]? kindIds;
+        try
+        {
+            kindIds = JsonSerializer.Deserialize<string[]>(json);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        return kindIds is not null && IsValid(kindIds) ? kindIds : null;
+    }
+
+    /// <summary>
+    /// The value a row stores for <paramref name="kindIds"/>, each once and ordered by id:
+    /// <see langword="null"/> for none.
+    /// </summary>
+    public static string? Write(IReadOnlyCollection<string> kindIds)
+    {
+        var ordered = Normalize(kindIds);
+        return ordered.Count == 0 ? null : JsonSerializer.Serialize(ordered);
+    }
+
+    /// <summary>
+    /// The kind ids each once, ordered by id, as the run options list them.
+    /// </summary>
+    public static IReadOnlyList<string> Normalize(IEnumerable<string> kindIds)
+    {
+        return kindIds
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Well-formed kind ids, each once, no more than the run settings may list.
+    /// </summary>
+    public static bool IsValid(IReadOnlyCollection<string> kindIds)
+    {
+        return kindIds.Count <= NhAssistantAgentConfigurationLimits.MaxAlertKinds
+               && kindIds.All(NhAssistantAlertKeys.IsValidKindId)
+               && kindIds.Distinct(StringComparer.Ordinal).Count() == kindIds.Count;
+    }
+}
+
+/// <summary>
 /// The routes a consultation defined as data stores: a JSON array of distinct values of
 /// <see cref="NhAssistantConsultationRoutes"/> with at most one route at the subject; an empty array
 /// keeps the consultation read-only.
@@ -658,7 +750,8 @@ internal sealed partial class NhAssistantRunConfigurationValidator(
             || settings.MaxTokensPerRun < 1
             || (settings.DailyToolCalls is null) != (settings.DailyTokens is null)
             || settings.DailyToolCalls < 1
-            || settings.DailyTokens < 1)
+            || settings.DailyTokens < 1
+            || NhAssistantDataAlertKinds.Read(settings.AlertKindsJson) is null)
         {
             return NhAssistantRunConfigurationProblems.Invalid;
         }
@@ -679,6 +772,15 @@ internal sealed partial class NhAssistantRunConfigurationValidator(
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="kindId"/> is an alert kind the code registers with <c>AddAlertKind</c>,
+    /// which the run settings of an agent created in the administration may list (FB93).
+    /// </summary>
+    public bool IsRegisteredAlertKind(string kindId)
+    {
+        return registration.AlertKinds.ContainsKey(kindId);
     }
 
     /// <summary>
@@ -1348,7 +1450,29 @@ internal sealed partial class NhAssistantRunConfigurations(
 
             // What the agent works on and its classification are part of its definition; its runs
             // follow them.
-            agentRuns[settings.AgentId] = ToOptions(settings, stored.AdminAgents[settings.AgentId]);
+            var options = ToOptions(settings, stored.AdminAgents[settings.AgentId]);
+
+            // FB93: the alert kinds the run settings list, as Alerts(...) lists them in code. A kind the
+            // code no longer registers is left out, so its alerts stay refused, and the run settings
+            // stay in effect without it.
+            var alertKinds = new List<string>();
+            foreach (var kindId in NhAssistantDataAlertKinds.Read(settings.AlertKindsJson)!)
+            {
+                if (!validator.IsRegisteredAlertKind(kindId))
+                {
+                    problems.Add(new NhAssistantRunConfigurationProblem(
+                        settings.AgentId,
+                        NhAssistantRunConfigurationProblems.AlertKindKind,
+                        kindId,
+                        NhAssistantRunConfigurationProblems.UnknownAlertKind));
+                    continue;
+                }
+
+                alertKinds.Add(kindId);
+            }
+
+            options.AlertKinds = NhAssistantDataAlertKinds.Normalize(alertKinds);
+            agentRuns[settings.AgentId] = options;
             runAgents[settings.AgentId] = new NhAssistantRunAgent([], agentSelectors!);
         }
 

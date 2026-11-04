@@ -313,7 +313,8 @@ public sealed record NhAssistantRuleScriptCheckDto(bool Valid, string? Code, str
 /// What a rule script of the agent or skill sees.
 /// </summary>
 /// <param name="Tools">The tools the agent's rules may use, by function name.</param>
-/// <param name="AlertKinds">The alert kinds the agent lists with <c>Alerts(...)</c>.</param>
+/// <param name="AlertKinds">The alert kinds the agent lists: with <c>Alerts(...)</c> in code, or in the
+/// run settings of an agent created in the administration.</param>
 /// <param name="PlatformFunctions">The TypeScript-style declarations of <c>subject</c>, <c>inputs</c>,
 /// <c>run</c>, <c>alerts</c>, <c>propose</c>, <c>done</c>, <c>handOver</c> and <c>useSkill</c>.</param>
 public sealed record NhAssistantRuleScriptCatalogDto(

@@ -552,9 +552,20 @@ public sealed class NhAssistantDefaultAlertPolicy : INhAssistantAlertPolicy
 /// </summary>
 internal static partial class NhAssistantAlertKeys
 {
+    /// <summary>
+    /// Whether <paramref name="kindId"/> has the form of an alert kind id: dash-case, at most
+    /// <see cref="NhAssistantAlertLimits.MaxKindIdLength"/> characters.
+    /// </summary>
+    public static bool IsValidKindId(string? kindId)
+    {
+        return kindId is not null
+               && NhAiSubjectRef.IsValidType(kindId)
+               && kindId.Length <= NhAssistantAlertLimits.MaxKindIdLength;
+    }
+
     public static void ValidateKindId(string kindId, string parameterName)
     {
-        if (!NhAiSubjectRef.IsValidType(kindId) || kindId.Length > NhAssistantAlertLimits.MaxKindIdLength)
+        if (!IsValidKindId(kindId))
         {
             throw new ArgumentException(
                 $"An alert kind id is a dash-case identifier of at most {NhAssistantAlertLimits.MaxKindIdLength} characters.",
