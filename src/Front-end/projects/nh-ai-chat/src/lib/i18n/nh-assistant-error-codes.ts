@@ -150,6 +150,12 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-proposal-placed',
   'assistant-proposal-not-placed',
   'assistant-proposal-not-needed',
+  // Gateway reads of a headless run that got no usable delegated read credential: the cause
+  // (`NhAiDelegatedReadFailureCodes`) as the code of the failed tool call
+  'ai-delegated-read-target-unknown',
+  'ai-delegated-read-no-issuer',
+  'ai-delegated-read-issuer-refused',
+  'ai-delegated-read-rejected',
   // Steps of compositions and scripts
   'assistant-step-tool-unavailable',
   'assistant-step-limit-reached',
