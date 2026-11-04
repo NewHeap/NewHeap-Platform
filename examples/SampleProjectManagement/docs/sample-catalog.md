@@ -311,6 +311,12 @@ which the platform checks as plain values; the project and the people are never 
 An administrator switches it on for the reviewer on the agent's Rollout, first in shadow, where its
 warnings reach nobody and count as what it would have sent, and then for the project's people, who see
 the warning labelled as raised by AI.
+An agent created in the administration warns people the same way (SPM-395). An administrator creates
+the project reminder, lists the kind `project-review-reminder` in its run settings out of the kinds the
+application registers, and writes its rules as a rule script that another administrator sets live; started on
+a project, it raises the reminder for the project's owner without a model. A version that raises a kind its run
+settings do not list, such as the document check's, stops and raises nothing. `AssistantAlertKindsAsDataSamplesTests`
+runs it.
 The agent's work also appears on the project itself (SPM-280): the project directory shows a
 badge per project from one summary request, the project dialog shows the open proposals of
 every agent on the project with the viewer's decision rights, and opening the conversation with
