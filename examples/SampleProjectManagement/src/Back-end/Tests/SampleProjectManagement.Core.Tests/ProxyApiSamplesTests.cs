@@ -39,6 +39,7 @@ public sealed class ProxyApiSamplesTests
                 options.Administrator.UserName = "automation";
                 options.Administrator.Password = "sample-api-password";
                 options.Administrator.LoginAttemptLimit = 1;
+                options.UseGenerousRedirectBudget();
                 options.IpAllowlist.Enabled = true;
                 options.IpAllowlist.Entries = ["127.0.0.1"];
             }, storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));

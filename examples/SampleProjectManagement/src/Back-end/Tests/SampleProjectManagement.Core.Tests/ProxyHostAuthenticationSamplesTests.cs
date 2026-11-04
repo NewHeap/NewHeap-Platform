@@ -43,6 +43,7 @@ public sealed class ProxyHostAuthenticationSamplesTests
             });
             builder.Services.AddNewHeapProxy(options =>
             {
+                options.UseGenerousRedirectBudget();
                 options.ConfigureAdministrationAuthentication(auth =>
                 {
                     auth.AuthenticationScheme = AdministrationScheme;

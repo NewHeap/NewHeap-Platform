@@ -35,7 +35,7 @@ public sealed class ProxyRewriteSamplesTests
 
             var builder = WebApplication.CreateBuilder();
             builder.WebHost.UseUrls("http://127.0.0.1:0");
-            builder.Services.AddNewHeapProxy(configureStorage: storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
+            builder.Services.AddNewHeapProxy(options => options.UseGenerousRedirectBudget(), storage => storage.DatabasePath = Path.Combine(directory.FullName, "proxy.db"));
             await using var app = builder.Build();
             app.UseNewHeapProxy();
             await app.StartAsync(cancellationToken);
