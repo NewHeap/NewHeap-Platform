@@ -782,8 +782,8 @@ internal static class NhAiMvcBridgeGatewayFunctions
             descriptor,
             input,
             async (_, invocationCancellationToken) =>
-                await NhAiMvcBridgeUsers.IsUnauthenticatedAsync(services, invocationCancellationToken)
-                    ? Unauthenticated<JsonElement?>()
+                await NhAiMvcBridgeUsers.RefusalAsync(services, invocationCancellationToken) is { } refusal
+                    ? NhAiMvcBridgeDelegatedReadFailures.Failed<JsonElement?>(refusal)
                     : await handler(gateway, services, input, invocationCancellationToken),
             cancellationToken);
     }
@@ -865,9 +865,9 @@ internal static class NhAiMvcBridgeGatewayFunctions
         JsonElement input,
         CancellationToken cancellationToken)
     {
-        if (await NhAiMvcBridgeUsers.IsUnauthenticatedAsync(services, cancellationToken))
+        if (await NhAiMvcBridgeUsers.RefusalAsync(services, cancellationToken) is { } refusal)
         {
-            return await RefuseAsync(gatewayDescriptor, services, input, Unauthenticated<NhAiBridgeResponse>(), cancellationToken);
+            return await RefuseAsync(gatewayDescriptor, services, input, NhAiMvcBridgeDelegatedReadFailures.Failed<NhAiBridgeResponse>(refusal), cancellationToken);
         }
         var resource = await ResolveAsync(gateway, services, input, NhAiMvcBridgeGatewayKinds.Query, cancellationToken);
         var operation = resource?.Find(NhAiMvcBridgeGatewayKinds.Query);
@@ -922,9 +922,9 @@ internal static class NhAiMvcBridgeGatewayFunctions
         JsonElement input,
         CancellationToken cancellationToken)
     {
-        if (await NhAiMvcBridgeUsers.IsUnauthenticatedAsync(services, cancellationToken))
+        if (await NhAiMvcBridgeUsers.RefusalAsync(services, cancellationToken) is { } refusal)
         {
-            return await RefuseAsync(gatewayDescriptor, services, input, Unauthenticated<NhAiBridgeResponse>(), cancellationToken);
+            return await RefuseAsync(gatewayDescriptor, services, input, NhAiMvcBridgeDelegatedReadFailures.Failed<NhAiBridgeResponse>(refusal), cancellationToken);
         }
         var resource = await ResolveAsync(gateway, services, input, NhAiMvcBridgeGatewayKinds.Get, cancellationToken);
         var operation = resource?.Find(NhAiMvcBridgeGatewayKinds.Get);
@@ -1327,17 +1327,6 @@ internal static class NhAiMvcBridgeGatewayFunctions
             input,
             (_, _) => Task.FromResult(refusal),
             cancellationToken);
-    }
-
-    /// <summary>
-    /// A headless run got no delegated read credential for its accountable person: the issuer
-    /// refused, or the host's scheme rejected the credential, for example of a removed person.
-    /// </summary>
-    private static TaskResult<T> Unauthenticated<T>()
-    {
-        return TaskResult<T>.Failed(
-            NhAiBridgeFailureCodes.Unauthenticated,
-            "No read credential could be issued for the person the agent works for.");
     }
 
     private static TaskResult<T> Invalid<T>(string message)

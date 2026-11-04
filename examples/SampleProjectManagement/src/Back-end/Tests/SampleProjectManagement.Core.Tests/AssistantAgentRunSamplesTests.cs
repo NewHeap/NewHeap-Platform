@@ -5865,6 +5865,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 && !RoutingChatClient.Mentions(messages, options, VariantDeadlineSkill), triage),
             ((messages, options) => RoutingChatClient.Mentions(messages, options, "## Skill: deadline-risk")
                 && RoutingChatClient.Mentions(messages, options, projectText), deadline)));
+        Guid conversationId;
         try
         {
             // The daily deadline check starts the planner without a person: it reads for the owner.
@@ -5872,7 +5873,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             // host's clock past a run that gives way to the planner's other runs.
             host.Services.GetRequiredService<IRecurringJobManager>()
                 .Trigger("nh-assistant-trigger-" + SampleProjectPlannerComposition.DeadlineCheckTriggerId);
-            var conversationId = await WaitForThreadAsync(approverClient, project, planner, host.AdvanceToNextAgentRetryAsync);
+            conversationId = await WaitForThreadAsync(approverClient, project, planner, host.AdvanceToNextAgentRetryAsync);
             var check = await WaitForRunAsync(approverClient, conversationId, NhAssistantRunStatuses.Completed, host.AdvanceToNextAgentRetryAsync);
             Assert.Null(check.InitiatorActorId);
             Assert.Equal(SampleProjectPlannerComposition.DeadlineRiskSkill, check.Skill);
@@ -5935,6 +5936,45 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 ReadRequest(owner, Guid.NewGuid(), listAction),
                 CancellationToken.None);
             Assert.False(refused.Success);
+        }
+
+        // A read that gets no credential says why. The locked-out owner asks for a check: the run
+        // reads for the owner, the issuer refuses, and the planner's query fails with that cause as
+        // its code, which the model reads and the thread shows. This API routes before it
+        // authenticates (UseEndpointRoutingOnly), so its reads never fail as
+        // ai-delegated-read-target-unknown, the code of a host that authenticates before routing.
+        var lockedOutTriage = new NhAiScriptedChatClient()
+            .RespondWithText("""{"skill":"deadline-risk","reason":"The owner asks for the deadline."}""");
+        var lockedOutDeadline = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("sample-api-gateway_query_v1", openTasks, "call-locked-out")
+            .RespondWithText("I could not read the tasks: no read credential was issued for you.");
+        host.Model.Use(new RoutingChatClient(
+            new SampleAssistantChatClient(),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "You route the work of an assistant agent")
+                && RoutingChatClient.Mentions(messages, options, projectText)
+                && !RoutingChatClient.Mentions(messages, options, VariantDeadlineSkill), lockedOutTriage),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "## Skill: deadline-risk")
+                && RoutingChatClient.Mentions(messages, options, projectText), lockedOutDeadline)));
+        try
+        {
+            var asked = await ownerClient.PostAsJsonAsync(
+                "/api/assistant/threads/start",
+                new NhAssistantStartAgentRequest(planner, ProjectSubjects.Type, projectText, $"Check the deadline of project {projectText}."),
+                Json);
+            Assert.Equal(HttpStatusCode.Accepted, asked.StatusCode);
+            await WaitForInitiatedRunAsync(ownerClient, conversationId, owner.ToString());
+
+            var refusedRead = lockedOutDeadline.FunctionResults.First(result => result.CallId == "call-locked-out").Result?.ToString();
+            Assert.Contains(NhAiDelegatedReadFailureCodes.IssuerRefused, refusedRead);
+            Assert.DoesNotContain("Migrate the customer data", refusedRead);
+            var refusedCall = ToolCall(await ReadConversationAsync(ownerClient, conversationId), "call-locked-out");
+            Assert.Equal(
+                (NhAssistantToolCallStatuses.Failed, NhAiDelegatedReadFailureCodes.IssuerRefused),
+                (refusedCall.Status, refusedCall.ResultCode));
+        }
+        finally
+        {
+            host.Model.Use(new SampleAssistantChatClient());
         }
     }
 

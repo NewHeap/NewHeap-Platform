@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.108",
   "backEnd": {
-    "hash": "47585e00fba6bbe7834fcfd4fb35ec1c45e2c74899df2abd65a3a9d5e9313c81",
-    "declarationCount": 13513,
+    "hash": "b3ceb610f90ab3f7085951c8835739a9855a2762413fa9627d7ee3ba5529a575",
+    "declarationCount": 13527,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -583,6 +583,30 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public static class NhAiDelegatedReadFailureCodes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public const string TargetUnknown = \"ai-delegated-read-target-unknown\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public const string NoIssuer = \"ai-delegated-read-no-issuer\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public const string IssuerRefused = \"ai-delegated-read-issuer-refused\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public const string Rejected = \"ai-delegated-read-rejected\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public static IReadOnlyList<string> All { get; } = [TargetUnknown, NoIssuer, IssuerRefused, Rejected];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
         "declaration": "public interface INhAiDelegatedReadSurface {"
       },
       {
@@ -623,6 +647,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public bool CanIssue => services.GetService<INhAuthenticationService>() is not null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
         "declaration": "public async ValueTask<TaskResult<NhAiDelegatedReadCredential>> IssueAsync( NhAiDelegatedReadRequest request, CancellationToken cancellationToken) {"
       },
       {
@@ -651,7 +679,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
-        "declaration": "public async ValueTask<ClaimsPrincipal?> AuthenticateAsync( NhAiAgentInvocationScope scope, CancellationToken cancellationToken) {"
+        "declaration": "public async ValueTask<NhAiDelegatedReadAuthentication> AuthenticateAsync( NhAiAgentInvocationScope scope, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public static string FailureCodeOf(TaskResult result) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
@@ -676,6 +708,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
         "declaration": "public Task StopAsync(CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public void Report(string cause, string? agentId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public string? TakeRefusal(Guid invocationId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
+        "declaration": "public static void WatchUnknownTarget(HttpContext httpContext, Guid invocationId) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpCompositions.cs",
@@ -1647,7 +1691,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDelegatedReads.cs",
-        "declaration": "public static async ValueTask<bool> IsUnauthenticatedAsync( IServiceProvider services, CancellationToken cancellationToken) {"
+        "declaration": "public static async ValueTask<string?> RefusalAsync( IServiceProvider services, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDelegatedReads.cs",
+        "declaration": "public static string CodeOf(string? refusal) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDelegatedReads.cs",
+        "declaration": "public static TaskResult<T> Failed<T>(string code) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDelegatedReads.cs",
+        "declaration": "public static string Message(string code) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeDiscoveryPolicy.cs",
@@ -58369,6 +58425,7 @@
       "NhAiDelegatedReadRequest",
       "NhAiDelegatedReadCredential",
       "NhAiDelegatedReadDefaults",
+      "NhAiDelegatedReadFailureCodes",
       "INhAiDelegatedReadSurface",
       "CreateDelegatedTokenAsync",
       "MaySignInAsync"

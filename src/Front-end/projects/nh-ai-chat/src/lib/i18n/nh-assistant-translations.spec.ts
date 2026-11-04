@@ -43,6 +43,16 @@ describe('NH_ASSISTANT_TRANSLATIONS', () => {
     }
   });
 
+  it('explains every cause of a failed gateway read in en and nl', () => {
+    // NhAiDelegatedReadFailureCodes: a tool call, a rule script's call and a run show them as text.
+    const causes = ['target-unknown', 'no-issuer', 'issuer-refused', 'rejected'].map(cause => `ai-delegated-read-${cause}`);
+    expect(NH_ASSISTANT_ERROR_CODES).toEqual(jasmine.arrayContaining(causes));
+    for (const language of ['en', 'nl'] as const) {
+      const keys = flatten(NH_ASSISTANT_TRANSLATIONS[language]);
+      expect(causes.filter(code => !keys.has(`nh-assistant.errors.${code}`))).withContext(language).toEqual([]);
+    }
+  });
+
   it('leaves the administration texts to the admin entry point, so they do not load with the panel', () => {
     for (const language of ['en', 'nl'] as const) {
       const keys = [...flatten(NH_ASSISTANT_TRANSLATIONS[language]).keys()];
