@@ -1227,8 +1227,10 @@ it out of effect with the problem `unknown-filter` until an administrator clears
 An agent created in the administration gets runs through run settings as data:
 `INhAssistantAgentConfiguration.SaveRunSettingsAsync` or `PUT admin/agents/{id}/run-settings` sets
 whom it answers to (`agent`, `subject-responsible`, or `service-account` with an account that exists
-and may sign in), its approval policy, budget, run ceiling, retries, gateway reads, triage profile and
-rule handler by name. Grants never become data: in headless runs such an agent acts with the rights
+and may sign in), its approval policy, budget, run ceiling, retries, gateway reads, triage profile,
+rule handler by name and the alert kinds it may raise (`alertKinds`, out of the kinds the code
+registers with `AddAlertKind`, as `Alerts(...)` lists them for an agent in code; see the alerts rule,
+SPM-395). Grants never become data: in headless runs such an agent acts with the rights
 of the person or technical account it answers to, within its tool selectors. A tool is allowed when
 that account, rebuilt with `INhAiPrincipalFactory` for every decision (with
 `UsePrincipalsFromAccessSource` from the application's `INhAiAccessSource`, while its context is

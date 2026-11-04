@@ -1227,8 +1227,10 @@ it out of effect with the problem `unknown-filter` until an administrator clears
 An agent created in the administration gets runs through run settings as data:
 `INhAssistantAgentConfiguration.SaveRunSettingsAsync` or `PUT admin/agents/{id}/run-settings` sets
 whom it answers to (`agent`, `subject-responsible`, or `service-account` with an account that exists
-and may sign in), its approval policy, budget, run ceiling, retries, gateway reads, triage profile and
-rule handler by name. Grants never become data: in headless runs such an agent acts with the rights
+and may sign in), its approval policy, budget, run ceiling, retries, gateway reads, triage profile,
+rule handler by name and the alert kinds it may raise (`alertKinds`, out of the kinds the code
+registers with `AddAlertKind`, as `Alerts(...)` lists them for an agent in code; see the alerts rule,
+SPM-395). Grants never become data: in headless runs such an agent acts with the rights
 of the person or technical account it answers to, within its tool selectors. A tool is allowed when
 that account, rebuilt with `INhAiPrincipalFactory` for every decision (with
 `UsePrincipalsFromAccessSource` from the application's `INhAiAccessSource`, while its context is
@@ -3399,3 +3401,8 @@ SPM-316 and SPM-317 are the executable references.
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+- SPM-395 — The project reminder, an agent created in the administration, lists the alert kind it may raise in its run settings, and its rule script raises it while a kind it does not list is refused
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAlertKindsAsDataComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAlertKindsAsDataComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
