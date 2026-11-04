@@ -10,8 +10,10 @@ import { agentDisplayName } from '../agent-texts';
 import { startNhAssistantAdminTranslations } from '../../i18n/nh-assistant-admin-translations';
 import {
   NH_ASSISTANT_AGENT_BUILDER_ID,
+  NhAssistantAgentBuilderChange,
   NhAssistantAgentBuilderChats,
   nhAssistantAgentBuilderContext,
+  nhAssistantBuilderChanges,
   nhAssistantCreatedAgents
 } from './agent-builder';
 
@@ -23,8 +25,9 @@ let nextId = 0;
  * builder's proposals wait on the same approval cards; each save and each step live changes nothing until
  * the administrator approves it there. The agent goes along as the page context of every message. The chat
  * continues where it was while the administration is open; once the builder created an agent, it says so
- * (`agentCreated`) and continues on that agent's page. It shows only when the person may chat with the
- * builder, never on the builder's own page.
+ * (`agentCreated`) and continues on that agent's page. Every other change it makes after an approval it
+ * reports as well (`changed`), so the page reads the agent again, or leaves when the builder removed it. It
+ * shows only when the person may chat with the builder, never on the builder's own page.
  */
 @Component({
   selector: 'nh-assistant-agent-builder-chat',
@@ -40,6 +43,8 @@ export class NhAssistantAgentBuilderChatComponent {
   private readonly translate = inject(TranslateService);
   /** Per conversation, the create calls that had succeeded when the chat first showed it. */
   private readonly known = new Map<string, Set<string>>();
+  /** Per conversation, the changes the chat had made when it first showed it. */
+  private readonly knownChanges = new Map<string, Set<string>>();
 
   /** The agent the builder works on; `null` for a new agent. */
   readonly agent = input<AdminAgent | null>(null);
@@ -47,6 +52,8 @@ export class NhAssistantAgentBuilderChatComponent {
   readonly startOpen = input(false);
   /** The builder created an agent in this chat, by its id. */
   readonly agentCreated = output<string>();
+  /** The builder changed something after the administrator's approval in this chat. */
+  readonly changed = output<NhAssistantAgentBuilderChange>();
 
   readonly id = `nh-assistant-agent-builder-${nextId++}`;
   /** The panel's picker offers the builder only: this chat is with the builder. */
@@ -100,6 +107,7 @@ export class NhAssistantAgentBuilderChatComponent {
       untracked(() => {
         const agentId = this.agent()?.id ?? null;
         this.chats.remember(agentId, conversation.id);
+        this.reportChanges(conversation.id, nhAssistantBuilderChanges(conversation));
         const created = nhAssistantCreatedAgents(conversation);
         const known = this.known.get(conversation.id);
         if (known === undefined) {
@@ -119,6 +127,24 @@ export class NhAssistantAgentBuilderChatComponent {
         }
       });
     });
+  }
+
+  /**
+   * Reports the changes the chat made since it showed the conversation first; those it made before were
+   * read by the page already.
+   */
+  private reportChanges(conversationId: string, changes: readonly NhAssistantAgentBuilderChange[]): void {
+    const known = this.knownChanges.get(conversationId);
+    if (known === undefined) {
+      this.knownChanges.set(conversationId, new Set(changes.map(change => change.invocationId)));
+      return;
+    }
+    for (const change of changes) {
+      if (!known.has(change.invocationId)) {
+        known.add(change.invocationId);
+        this.changed.emit(change);
+      }
+    }
   }
 
   /** Opens the chat: the one about the agent when there is one, otherwise a new chat with the builder. */

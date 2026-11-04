@@ -63,6 +63,7 @@ import { NhAssistantAgentRolloutComponent, RolloutReview } from './nh-assistant-
 import { NhAssistantAgentStateControlComponent } from './nh-assistant-agent-state-control.component';
 import { NhAssistantAgentRuleScriptsComponent } from '../rule-scripts/nh-assistant-agent-rule-scripts.component';
 import { startNhAssistantAdminTranslations } from '../../i18n/nh-assistant-admin-translations';
+import { NhAssistantAgentBuilderChange } from '../builder/agent-builder';
 import { NhAssistantAgentBuilderChatComponent } from '../builder/nh-assistant-agent-builder-chat.component';
 
 /** A section of Build, which its index scrolls to. */
@@ -392,6 +393,22 @@ export class NhAssistantAgentPageComponent {
   remove(): void {
     const agentId = this.agent().id;
     this.run<void>(this.admin.deleteAgent(agentId), () => this.agentRemoved.emit(agentId));
+  }
+
+  /**
+   * The agent builder changed something after the administrator's approval: the page reads the agent
+   * again, or goes back to the list when the builder removed this agent.
+   */
+  onBuilderChanged(change: NhAssistantAgentBuilderChange): void {
+    const agentId = this.agent().id;
+    if (change.agentRemoved && change.agentId === agentId) {
+      this.agentRemoved.emit(agentId);
+      return;
+    }
+
+    this.refreshRequested.emit();
+    this.buildConfiguration()?.load();
+    void this.store.reloadStatus();
   }
 
   onStateChanged(agent: AdminAgent): void {

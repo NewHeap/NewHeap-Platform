@@ -2061,13 +2061,13 @@
         "chat-title": "Agent builder",
         "new": "New agent with help",
         "title": "Build with help",
-        "description": "The agent builder changes this agent with you in plain language: its instructions, tools, skills, triggers, run settings and rule scripts. It reads what the application offers, and every save and every step live waits for your approval in the chat.",
+        "description": "The agent builder changes this agent with you in plain language: what you can change in these screens, from its instructions, tools, skills, triggers and rule scripts to whose rights it works with, and removing what you no longer need. It reads what the application offers, and every change waits for your approval in the chat.",
         "new-title": "New agent with help",
         "new-description": "Describe what the agent should do. The agent builder proposes the agent and creates it after your approval; you then continue on its page with the same chat.",
         "new-context": "New agent",
         "open": "Open the agent builder",
         "close": "Close the chat",
-        "rights": "The agent builder works with your own rights. It never changes grants, technical accounts, MCP servers or what the code allows, and it never deletes anything."
+        "rights": "The agent builder works with your own rights and never goes beyond what the code allows. Its card says so when a change alters whose rights an agent works with or removes something. It never handles secrets: connecting MCP servers and their credentials stays in these screens."
       },
       "agent-page": {
         "back": "All agents",

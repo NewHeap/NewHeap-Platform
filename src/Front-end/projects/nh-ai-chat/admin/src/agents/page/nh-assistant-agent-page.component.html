@@ -240,7 +240,7 @@
               </select>
             </div>
 
-            <nh-assistant-agent-builder-chat [agent]="current" />
+            <nh-assistant-agent-builder-chat [agent]="current" (changed)="onBuilderChanged($event)" />
 
             <section class="build-section" data-build-section="profile" [attr.aria-labelledby]="id + '-profile-title'">
               <header>

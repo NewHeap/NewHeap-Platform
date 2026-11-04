@@ -4,7 +4,8 @@ import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { NhAssistantMockScenario, provideNhAssistantMockApi } from '@newheap/platform-ai-chat/testing';
 import { firstValueFrom } from 'rxjs';
 import { NhAssistantAdminAgentsComponent } from '../../../admin/src/public-api';
-import { ClientContext } from '../models/assistant-api.models';
+import { nhAssistantBuilderChanges } from '../../../admin/src/agents/builder/agent-builder';
+import { ClientContext, Conversation } from '../models/assistant-api.models';
 import { NhAssistantStore } from '../services/nh-assistant.store';
 import { adminAgentPage, openAdminAgent, settleAdmin } from './nh-assistant-admin-navigation';
 import { provideNhAssistant } from '../provide-nh-assistant';
@@ -62,6 +63,29 @@ function scenario(withBuilder: boolean, contexts: (ClientContext | null)[] = [])
               resultPreview: '{"agentId":"deadline-watch","created":true}',
               approved: [{ text: 'The agent exists now.' }],
               rejected: [{ text: 'Nothing was created.' }]
+            }
+          }
+        ]
+      },
+      {
+        match: text => text.includes('Remove'),
+        steps: [
+          {
+            approval: {
+              toolId: 'assistant.agent-builder.remove',
+              displayName: 'Remove',
+              summary: 'Approval is required before this tool can run.',
+              presentation: {
+                toolDisplayName: 'Remove',
+                summary: 'Removes the agent itself, with its run settings, skills, triggers and metadata of agent deadline-watch.',
+                fields: [{ label: 'Agent', value: 'deadline-watch' }],
+                notice: 'Note: this removes the agent itself (agent deadline-watch). It cannot be undone in the chat.'
+              },
+              argumentsPreview: '{"input":{"agentId":"deadline-watch","part":"agent"}}',
+              targets: [],
+              resultPreview: '{"agentId":"deadline-watch","removed":"agent"}',
+              approved: [{ text: 'The agent is deleted.' }],
+              rejected: [{ text: 'Nothing was removed.' }]
             }
           }
         ]
@@ -217,6 +241,51 @@ describe('The agent builder in the administration', () => {
     await until(fixture, () => page.querySelector('[data-agent-builder-chat] nh-assistant-panel') !== null);
     expect(store.activeConversation()?.id).toBe(conversationId);
     expect(store.pageContext()?.entities?.[0]?.id).toBe('deadline-watch');
+  });
+
+  it('goes back to the agents when the builder removed the agent the page shows', async () => {
+    await configure(true);
+    const { fixture, element } = await render(NhAssistantAdminAgentsComponent);
+    const store = TestBed.inject(NhAssistantStore);
+
+    const page = await openAdminAgent(fixture, element, 'deadline-watch', 'build');
+    (page.querySelector('[data-agent-builder-open]') as HTMLButtonElement).click();
+    await settleAdmin(fixture);
+    await store.submit('Remove this agent.');
+    await until(fixture, () => store.pendingApproval()?.status === 'pending');
+    // Nothing goes before the administrator approves the card that says what goes.
+    expect(element.querySelector('[data-agent-page="deadline-watch"]')).not.toBeNull();
+    store.decide('approve');
+
+    await until(fixture, () => element.querySelector('[data-agent-page="deadline-watch"]') === null);
+  });
+
+  it('reads the builder\'s changes from its succeeded writes, and not from its reads', () => {
+    const call = (invocationId: string, toolId: string, status: string, resultPreview: string) => ({
+      type: 'tool-call', invocationId, toolId, status, resultPreview
+    });
+    const conversation = {
+      messages: [
+        {
+          parts: [
+            call('1', 'assistant.agent-builder.read-agent', 'succeeded', '{"agent":{"agentId":"planner"}}'),
+            call('2', 'assistant.agent-builder.save-run-settings', 'succeeded', '{"agentId":"planner","runSettings":{}}'),
+            call('3', 'assistant.agent-builder.remove', 'failed', '{"agentId":"planner","removed":"agent"}'),
+            call('4', 'assistant.agent-builder.remove', 'succeeded', '{"agentId":"planner","removed":"skill"}'),
+            call('5', 'assistant.agent-builder.remove', 'succeeded', '{"agentId":"planner","removed":"agent"}'),
+            call('6', 'assistant.agent-builder.set-mcp-headless-use', 'succeeded', '{"serverId":"planning"}'),
+            call('7', 'projects.archive', 'succeeded', '{"agentId":"planner"}')
+          ]
+        }
+      ]
+    } as unknown as Conversation;
+
+    expect(nhAssistantBuilderChanges(conversation)).toEqual([
+      { invocationId: '2', agentId: 'planner', agentRemoved: false },
+      { invocationId: '4', agentId: 'planner', agentRemoved: false },
+      { invocationId: '5', agentId: 'planner', agentRemoved: true },
+      { invocationId: '6', agentId: null, agentRemoved: false }
+    ]);
   });
 
   it('is offered only where the person may chat with the builder', async () => {
