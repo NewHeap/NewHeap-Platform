@@ -264,6 +264,14 @@ public sealed class AssistantAgentRunConfiguration
     /// </summary>
     public int? MaxFileTokensPerTurn { get; set; }
 
+    /// <summary>
+    /// The kinds of alert the agent's rules may raise and resolve, out of those the code registers with
+    /// <c>AddAlertKind</c> (FB93): a JSON array of distinct kind ids ordered by id, at most
+    /// <see cref="NhAssistantAgentConfigurationLimits.MaxAlertKinds"/>; <see langword="null"/> for none,
+    /// as for settings stored before the list existed.
+    /// </summary>
+    public string? AlertKindsJson { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public string CreatedBy { get; set; } = string.Empty;

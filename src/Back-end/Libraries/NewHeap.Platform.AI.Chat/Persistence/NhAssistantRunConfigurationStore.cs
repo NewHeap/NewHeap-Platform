@@ -230,6 +230,7 @@ internal sealed partial class NhAssistantRunConfigurationStore(NhAssistantDbCont
             existing.MaxFilePages = settings.MaxFilePages;
             existing.MaxFilesPerTurn = settings.MaxFilesPerTurn;
             existing.MaxFileTokensPerTurn = settings.MaxFileTokensPerTurn;
+            existing.AlertKindsJson = settings.AlertKindsJson;
             existing.Version++;
             existing.UpdatedAt = settings.UpdatedAt;
             existing.UpdatedBy = settings.UpdatedBy;

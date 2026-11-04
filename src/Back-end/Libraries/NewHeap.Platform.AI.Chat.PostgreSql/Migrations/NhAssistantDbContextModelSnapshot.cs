@@ -710,6 +710,10 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<string>("AlertKindsJson")
+                        .HasMaxLength(1342)
+                        .HasColumnType("character varying(1342)");
+
                     b.Property<bool>("AllowGatewayReads")
                         .HasColumnType("boolean");
 

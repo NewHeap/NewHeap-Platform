@@ -106,7 +106,10 @@ public sealed class NhAssistantRuleScriptRun
     /// <summary>The run's inputs, oldest first: events, schedule ticks and messages.</summary>
     public IReadOnlyList<NhAssistantRuleInput> Inputs { get; init; } = [];
 
-    /// <summary>The alert kinds the agent lists with <c>Alerts(...)</c>; the script raises and resolves only these.</summary>
+    /// <summary>
+    /// The alert kinds the agent lists, with <c>Alerts(...)</c> in code or in the run settings of an agent
+    /// created in the administration; the script raises and resolves only these.
+    /// </summary>
     public IReadOnlyCollection<string> AlertKinds { get; init; } = [];
 
     /// <summary>The tools the run may use, reads and writes; a write the version may not call is refused.</summary>

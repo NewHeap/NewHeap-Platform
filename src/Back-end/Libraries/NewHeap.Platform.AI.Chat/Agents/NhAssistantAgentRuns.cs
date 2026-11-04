@@ -154,8 +154,11 @@ public sealed class NhAssistantAgentRunOptions
     }
 
     /// <summary>
-    /// The kinds of alert the agent's rules may raise and resolve, as <c>Alerts(...)</c> lists them,
-    /// ordered by id; empty for an agent that raises none. Startup refuses a kind that is not registered.
+    /// The kinds of alert the agent's rules may raise and resolve, as <c>Alerts(...)</c> lists them in
+    /// code, ordered by id; empty for an agent that raises none. Startup refuses a kind that is not
+    /// registered. For an agent created in the administration they are the kinds its run settings list
+    /// (FB93), without a kind the code no longer registers, which the run configuration reports as a
+    /// problem (<see cref="NhAssistantRunConfigurationProblems.UnknownAlertKind"/>).
     /// </summary>
     public IReadOnlyList<string> AlertKinds { get; internal set; } = [];
 

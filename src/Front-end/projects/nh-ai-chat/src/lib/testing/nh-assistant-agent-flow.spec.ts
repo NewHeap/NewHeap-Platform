@@ -566,7 +566,9 @@ describe('The mock API for the flow view', () => {
       maxTokensPerRun: null,
       maxConsultationsPerTurn: null,
       elevatedReads: 'restricted',
-      allowGatewayReads: false
+      allowGatewayReads: false,
+      // The kinds of alert its code lists with Alerts(...), none here (FB93).
+      alertKinds: []
     });
 
     const followUp = (await call('GET', 'admin/agents/follow-up/configuration')).body as AgentRunConfiguration;

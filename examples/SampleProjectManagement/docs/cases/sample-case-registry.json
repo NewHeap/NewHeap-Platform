@@ -7130,6 +7130,40 @@
         "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.ts",
         "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-agent-builder.spec.ts"
       ]
+    },
+    {
+      "id": "SPM-395",
+      "categoryId": "18",
+      "title": "The project reminder, an agent created in the administration, lists the alert kind it may raise in its run settings, and its rule script raises it while a kind it does not list is refused",
+      "surface": "Alert kinds of agents created in the administration (FB93): `NhAssistantAgentRunSettingsRequest.AlertKinds` and `NhAssistantAgentRunSettingsDto.AlertKinds` of `PUT admin/agents/{id}/run-settings` and `GET admin/agents/{id}/configuration` in NewHeap.Platform.AI.Chat.AspNet, with the field errors `alertKinds: invalid` and `alertKinds: not-found` and `NhAssistantAgentConfigurationLimits.MaxAlertKinds`; `NhAssistantRunCatalogDto.AlertKinds` with `NhAssistantRunAlertKindDto` of `GET admin/run-catalog`; `NhAssistantCodeRunSettingsDto.AlertKinds` for an agent in code; `NhAssistantAgentRunOptions.AlertKinds` from the run settings in NewHeap.Platform.AI.Chat, read by rule results, `ResolveWhenNotRaised`, rule scripts and `assistant.alert.raise`; the run configuration problem of kind `alert-kind` (`NhAssistantRunConfigurationProblems.AlertKindKind`) with `unknown-alert-kind` (`UnknownAlertKind`); `AssistantAgentRunConfiguration.AlertKindsJson` with the `AgentRunSettingsAlertKinds` migrations for SQL Server and PostgreSQL; `NhAssistantPackageRunSettings.AlertKinds` and the lockable field `alertKinds` of agent packages; in @newheap/platform-ai-chat the alert kinds of the run settings form and the guided setup of nh-assistant-admin, the Build tab's summary, an agent in code's kinds read-only and the flow's results, with the models RunAlertKind, `RunCatalog.alertKinds`, `AgentRunSettings.alertKinds`, `AgentRunSettingsRequest.alertKinds`, `CodeRunSettings.alertKinds`, `PackageRunSettings.alertKinds`, the problem kind `alert-kind`, the constant NH_ASSISTANT_MAX_RUN_ALERT_KINDS, the texts nh-assistant.admin.run-config.alert-kinds.* in English and Dutch, and the mock API's run catalog, run settings and packages",
+      "outcome": "The sample declares the kind `project-review-reminder` in code (`SampleAlertKindsAsDataComposition`, registered with `AddSampleAlertKindsAsData`) with its name, urgency, texts in English and Dutch and the project's owner as recipient, and lets agents created in the administration have read-only rule scripts (`UseRuleScriptsAsData` with `ForAgentsCreatedInAdministration`). No agent in code lists the kind. The sample test creates the project reminder as an administrator does, finds the kind with its name and urgency in the run catalog, is refused a run settings list with a kind the code does not register at the field `alertKinds`, and lists the reminder kind in its run settings. The reminder's rule script sees that kind, is saved by one administrator and set live by another under the sample's four eyes; started on a project, the run raises the kind for the project's owner without a model. A version that raises the document check's kind `project-missing-document`, which the reminder does not list, stops at `alerts.raise` and the run raises nothing. The kind in code stays the ceiling: its texts, recipients and delivery. The library tests prove on SQL Server and PostgreSQL that the rules and rule scripts of an agent created in the administration raise only the listed kinds, in shadow as shadow alerts, that a save without the list keeps it and an empty list lists none, that a listed kind the code no longer registers is a problem of kind `alert-kind` while the run settings stay in effect and its alerts stay refused, and that agent packages carry the list, written only when there are kinds, and their import refuses a kind the host does not register. The assistant lab shows the project reminder with the kind in its run settings on the mock API, and the Angular specs prove the form, the guided setup, the Build tab, the flow and the mock API in English.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAlertKindsAsDataComposition.cs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAlertKindsAsDataSamplesTests.cs",
+        "src/Front-end/projects/management/public/i18n/en.json",
+        "src/Front-end/projects/management/public/i18n/nl.json",
+        "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageParts.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261104103150_AgentRunSettingsAlertKinds.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261104103159_AgentRunSettingsAlertKinds.cs",
+        "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAlertKindsAsDataTests.cs",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-alert-kinds-field.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-run-settings-form.component.html",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-agent-work-setup.component.html",
+        "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-agent-flow.component.html",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/models/assistant-admin.models.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-alert-kinds-as-data.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-run-configuration.ts"
+      ]
     }
   ]
 }

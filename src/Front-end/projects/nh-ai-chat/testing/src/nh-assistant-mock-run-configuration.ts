@@ -18,6 +18,7 @@ import {
   NhAssistantConsultationRoute,
   RunCatalog,
   SkillComparison,
+  RunAlertKind,
   ToolCatalogEntry,
   TriggerComparison
 } from '@newheap/platform-ai-chat';
@@ -71,6 +72,9 @@ const maxReason = 500;
 /** A data trigger applies at most this many filters of its event, each named in lowercase dash-case. */
 const maxTriggerFilters = 10;
 const filterName = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/** The run settings list at most this many alert kinds, each a dash-case id of at most 64 characters (FB93). */
+const maxAlertKinds = 20;
+const maxAlertKindId = 64;
 
 /** The platform's default file limits (`NhAssistantLimits`). */
 const defaultFileLimits: FileLimits = {
@@ -112,7 +116,8 @@ export class NhAssistantMockRunConfiguration {
     private readonly agents: NhAssistantMockRunAgents,
     private readonly now: () => string,
     private readonly accounts: NhAssistantMockAccounts = new NhAssistantMockAccounts(scenario),
-    private readonly instructionAssets: NhAssistantMockInstructionAssets = new NhAssistantMockInstructionAssets(scenario.instructionAssets)
+    private readonly instructionAssets: NhAssistantMockInstructionAssets = new NhAssistantMockInstructionAssets(scenario.instructionAssets),
+    alertKinds: readonly RunAlertKind[] = []
   ) {
     const approvalPolicies = scenario.runCatalog?.approvalPolicies ?? scenario.policies ?? [];
     this.consultations = new NhAssistantMockConsultations(scenario.consultationsAsData, scenario.agents ?? [], {
@@ -148,7 +153,9 @@ export class NhAssistantMockRunConfiguration {
       fileLimits: scenario.runCatalog?.fileLimits ?? defaultFileLimits,
       consultationCeiling: this.consultations.applicationCeiling,
       instructionAssets: instructionAssets.supported,
-      compositionCeiling: scenario.compositionsAsData ?? null
+      compositionCeiling: scenario.compositionsAsData ?? null,
+      // Every kind the application registers, which the run settings of an agent created here may list.
+      alertKinds: scenario.runCatalog?.alertKinds ?? [...alertKinds]
     };
     this.codeTriggers = (scenario.codeTriggers ?? []).map(trigger => ({
       ...trigger,
@@ -284,7 +291,11 @@ export class NhAssistantMockRunConfiguration {
         ...dataTriggers
           .filter(trigger => trigger.candidate && trigger.candidate.problem !== null)
           .map(trigger => ({ agentId: agent.id, kind: 'trigger-candidate' as const, id: trigger.triggerId, code: trigger.candidate!.problem! })),
-        ...this.consultations.problems(agent)
+        ...this.consultations.problems(agent),
+        // A kind the settings list that the application no longer registers; the settings stay in effect.
+        ...(agent.source === 'admin' ? this.settings.get(agent.id)?.alertKinds ?? [] : [])
+          .filter(kindId => !this.isAlertKind(kindId))
+          .map(kindId => ({ agentId: agent.id, kind: 'alert-kind' as const, id: kindId, code: 'unknown-alert-kind' }))
       ],
       source: agent.source,
       runSettings: agent.source === 'admin' ? this.settings.get(agent.id) ?? null : null,
@@ -322,8 +333,14 @@ export class NhAssistantMockRunConfiguration {
       maxTokensPerRun: given.maxTokensPerRun ?? null,
       maxConsultationsPerTurn: given.maxConsultationsPerTurn ?? null,
       elevatedReads: given.elevatedReads ?? 'restricted',
-      allowGatewayReads: given.allowGatewayReads ?? false
+      allowGatewayReads: given.allowGatewayReads ?? false,
+      alertKinds: [...(given.alertKinds ?? [])].sort()
     };
+  }
+
+  /** Whether the application registers the alert kind, as the run catalog lists it. */
+  private isAlertKind(kindId: string): boolean {
+    return (this.catalog.alertKinds ?? []).some(kind => kind.id === kindId);
   }
 
   /**
@@ -397,6 +414,15 @@ export class NhAssistantMockRunConfiguration {
     this.requireKnown(errors, 'triageProfile', request.triageProfile, this.catalog.profiles);
     this.requireKnown(errors, 'ruleHandler', request.ruleHandler, this.catalog.ruleHandlers.map(handler => handler.name));
     this.requireFileLimits(errors, request.acceptsFiles ?? false, request);
+    // The alert kinds, each once; left out keeps the ones the settings list.
+    const alertKinds = Array.isArray(request.alertKinds)
+      ? [...new Set(request.alertKinds.map(kindId => typeof kindId === 'string' ? kindId.trim() : ''))]
+      : null;
+    if (alertKinds && (alertKinds.length > maxAlertKinds || alertKinds.some(kindId => !dashCase.test(kindId) || kindId.length > maxAlertKindId))) {
+      errors['alertKinds'] = ['invalid'];
+    } else if (alertKinds?.some(kindId => !this.isAlertKind(kindId))) {
+      errors['alertKinds'] = ['not-found'];
+    }
     if (Object.keys(errors).length > 0) {
       return failure('assistant-validation', errors);
     }
@@ -429,7 +455,8 @@ export class NhAssistantMockRunConfiguration {
       inEffect: true,
       problem: null,
       acceptsFiles: request.acceptsFiles ?? false,
-      ...storedFileLimits(request)
+      ...storedFileLimits(request),
+      alertKinds: alertKinds ? alertKinds.sort() : [...(current?.alertKinds ?? [])]
     };
     this.settings.set(agent.id, saved);
     return { status: 200, body: saved };

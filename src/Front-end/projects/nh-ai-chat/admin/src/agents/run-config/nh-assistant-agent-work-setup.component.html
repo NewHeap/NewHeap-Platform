@@ -218,6 +218,15 @@
                 <p class="field-error"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('tools')?.params }}</p>
               }
             </fieldset>
+            @if (catalogAlertKinds().length > 0) {
+              <nh-assistant-alert-kinds-field
+                [kinds]="catalogAlertKinds()"
+                [selected]="alertKinds()"
+                [idPrefix]="id"
+                [errorKey]="errorKey('alertKinds')"
+                [errorParams]="fieldError('alertKinds')?.params"
+                (selectedChange)="setAlertKinds($event)" />
+            }
           </fieldset>
         }
         @case ('who') {
@@ -330,6 +339,16 @@
                   {{ ruleHandler() ? ruleHandler() + (ruleDescription() ? ' — ' + ruleDescription() : '') : ('nh-assistant.admin.run-config.model' | translate) }}
                 </span>
               </dd>
+              @if (catalogAlertKinds().length > 0) {
+                <dt>{{ 'nh-assistant.admin.run-config.alert-kinds.title' | translate }}</dt>
+                <dd data-review-alert-kinds>
+                  @for (kind of chosenAlertKinds(); track kind.id; let last = $last) {
+                    {{ [kind.displayNameKey] | nhAssistantTranslate: kind.id }}{{ last ? '' : ', ' }}
+                  } @empty {
+                    {{ 'nh-assistant.admin.run-config.alert-kinds.none' | translate }}
+                  }
+                </dd>
+              }
               <dt>{{ 'nh-assistant.admin.run-config.setup.step.who' | translate }}</dt>
               <dd>{{ 'nh-assistant.admin.run-config.settings.accountability.' + accountability() | translate }}</dd>
               <dt>{{ 'nh-assistant.admin.run-config.setup.step.limits' | translate }}</dt>

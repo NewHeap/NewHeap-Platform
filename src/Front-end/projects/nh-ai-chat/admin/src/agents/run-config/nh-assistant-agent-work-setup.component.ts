@@ -11,6 +11,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAccountPickerComponent } from './nh-assistant-account-picker.component';
+import { NhAssistantAlertKindsFieldComponent } from './nh-assistant-alert-kinds-field.component';
 import { RunConfigForm } from './run-config-form';
 import {
   RunConfigErrors,
@@ -49,14 +50,15 @@ const stepOfField: Record<string, WorkSetupStep> = {
   triggerId: 'when', source: 'when', event: 'when', debounceSeconds: 'when', cron: 'when', timeZone: 'when',
   subjectSet: 'when', message: 'when', skill: 'when', conflict: 'when',
   skillId: 'what', name: 'what', description: 'what', instructions: 'what', tools: 'what', ruleHandler: 'what', profile: 'what',
+  alertKinds: 'what',
   accountability: 'who', serviceAccountActorId: 'who',
   approvalPolicy: 'limits', maxTokensPerRun: 'limits', dailyToolCalls: 'limits', dailyTokens: 'limits'
 };
 
 /**
  * Lets an agent created in the administration work on its own in one flow: when it starts, what it
- * does, on whose behalf, who approves its proposals and its limits, and a review. Saving adds the run
- * settings, a skill and a trigger that starts it; the skill and the trigger start in shadow, where
+ * does and the alerts it may raise, on whose behalf, who approves its proposals and its limits, and a
+ * review. Saving adds the run settings, with the alert kinds, a skill and a trigger that starts it; the skill and the trigger start in shadow, where
  * nobody is notified and nothing executes, and can be put live at the end. A schedule of an agent
  * that works on the whole application may run for the whole application instead of a set of
  * subjects, once per division for an agent that works per division.
@@ -64,7 +66,14 @@ const stepOfField: Record<string, WorkSetupStep> = {
 @Component({
   selector: 'nh-assistant-agent-work-setup',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantPickerComponent, NhAssistantAccountPickerComponent],
+  imports: [
+    TranslatePipe,
+    NhAssistantTranslatePipe,
+    NhAssistantIconComponent,
+    NhAssistantPickerComponent,
+    NhAssistantAccountPickerComponent,
+    NhAssistantAlertKindsFieldComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-work-setup.component.html',
   styleUrls: ['../../nh-assistant-admin-shared.scss', './run-config-forms.scss']
@@ -121,6 +130,8 @@ export class NhAssistantAgentWorkSetupComponent extends RunConfigForm {
   readonly ruleHandler = signal('');
   readonly instructions = signal('');
   readonly tools = signal<string[]>([]);
+  /** The alert kinds the agent may raise, by id (FB93); none by default. */
+  readonly alertKinds = signal<string[]>([]);
   // Who.
   readonly accountability = signal<AgentAccountability>('service-account');
   readonly serviceAccount = signal('');
@@ -137,6 +148,10 @@ export class NhAssistantAgentWorkSetupComponent extends RunConfigForm {
     return toDashCase(base).slice(0, 64).replace(/-+$/, '');
   });
   readonly accountSearch = computed(() => this.catalog()?.accountSearch === true);
+  /** Every alert kind the application registers; the step offers them while there are any. */
+  readonly catalogAlertKinds = computed(() => this.catalog()?.alertKinds ?? []);
+  /** The names of the chosen kinds, for the review, in the run catalog's order. */
+  readonly chosenAlertKinds = computed(() => this.catalogAlertKinds().filter(kind => this.alertKinds().includes(kind.id)));
   readonly events = computed(() => eventOptions(this.catalog(), this.worksOn()));
   readonly subjectSets = computed(() => subjectSetOptions(this.catalog()));
   /** A schedule may run for the whole application only for an agent that works on it. */
@@ -183,6 +198,11 @@ export class NhAssistantAgentWorkSetupComponent extends RunConfigForm {
     this.accountability.set(accountability);
     this.touch('accountability');
     this.touch('serviceAccountActorId');
+  }
+
+  setAlertKinds(kindIds: string[]): void {
+    this.alertKinds.set(kindIds);
+    this.touch('alertKinds');
   }
 
   toggleTool(selector: string, selected: boolean): void {
@@ -241,6 +261,7 @@ export class NhAssistantAgentWorkSetupComponent extends RunConfigForm {
       maxTokensPerRun: toNumber(this.maxTokensPerRun()),
       dailyToolCalls: toNumber(this.dailyToolCalls()),
       dailyTokens: toNumber(this.dailyTokens()),
+      alertKinds: this.alertKinds(),
       expectedVersion: this.savedSettingsVersion(),
       reason: null
     }).pipe(tap(saved => this.savedSettingsVersion.set(saved.version))));

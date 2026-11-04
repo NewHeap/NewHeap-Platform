@@ -43,9 +43,10 @@ A script reads its run through frozen values and works through platform function
   `ai-script-tool-refused`, a tool the run may not use with `ai-script-unknown-tool`, and one write more
   than the ceiling allows with `ai-script-mutation-limit`;
 - `alerts.raise({ kind, key, urgency, parameters, recipients, expiresAt, subject })` and
-  `alerts.resolve({ kind, key, subject })` for the kinds the agent lists with `Alerts(...)`; a kind that
-  asks for it resolves by omission when the run's script raised it no more, never on a run on the whole
-  application;
+  `alerts.resolve({ kind, key, subject })` for the kinds the agent lists, with `Alerts(...)` in code or in
+  the run settings of an agent created in the administration (SPM-395); another kind stops the script with
+  `ai-script-runtime-error`, and a kind that asks for it resolves by omission when the run's script
+  raised it no more, never on a run on the whole application;
 - `await propose({ tool, input, rationale })`, the rules' path of `NhAssistantRuleContext.ProposeAsync`;
 - `done(summary)`, `handOver(reason)` or `useSkill(skillId, reason)` once; text the script returns is
   its summary otherwise.

@@ -65,6 +65,7 @@ internal static class NhAssistantAgentPackageParts
     public static NhAssistantPackageRunSettings RunSettingsOf(AssistantAgentRunConfiguration row)
     {
         ArgumentNullException.ThrowIfNull(row);
+        var alertKinds = NhAssistantDataAlertKinds.Read(row.AlertKindsJson) ?? [];
         return new NhAssistantPackageRunSettings(
             row.Accountability,
             row.DelegateFromInitiator,
@@ -83,7 +84,12 @@ internal static class NhAssistantAgentPackageParts
             row.MaxFileBytes,
             row.MaxFilePages,
             row.MaxFilesPerTurn,
-            row.MaxFileTokensPerTurn);
+            row.MaxFileTokensPerTurn)
+        {
+            // Written only when there are any, so the hash of run settings without them is the one they
+            // had before the list existed and no linked agent reads as changed locally.
+            AlertKinds = alertKinds.Count == 0 ? null : alertKinds
+        };
     }
 
     public static NhAssistantPackageSkill SkillOf(AssistantAgentSkillDefinition row)
@@ -303,7 +309,11 @@ internal static class NhAssistantAgentPackageParts
             part.MaxFileBytes,
             part.MaxFilePages,
             part.MaxFilesPerTurn,
-            part.MaxFileTokensPerTurn);
+            part.MaxFileTokensPerTurn)
+        {
+            // The package's list replaces the host's: left out lists none.
+            AlertKinds = part.AlertKinds ?? []
+        };
     }
 
     public static NhAssistantDataSkillRequest RequestOf(

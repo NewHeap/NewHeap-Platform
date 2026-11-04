@@ -43,9 +43,10 @@ A script reads its run through frozen values and works through platform function
   `ai-script-tool-refused`, a tool the run may not use with `ai-script-unknown-tool`, and one write more
   than the ceiling allows with `ai-script-mutation-limit`;
 - `alerts.raise({ kind, key, urgency, parameters, recipients, expiresAt, subject })` and
-  `alerts.resolve({ kind, key, subject })` for the kinds the agent lists with `Alerts(...)`; a kind that
-  asks for it resolves by omission when the run's script raised it no more, never on a run on the whole
-  application;
+  `alerts.resolve({ kind, key, subject })` for the kinds the agent lists, with `Alerts(...)` in code or in
+  the run settings of an agent created in the administration (SPM-395); another kind stops the script with
+  `ai-script-runtime-error`, and a kind that asks for it resolves by omission when the run's script
+  raised it no more, never on a run on the whole application;
 - `await propose({ tool, input, rationale })`, the rules' path of `NhAssistantRuleContext.ProposeAsync`;
 - `done(summary)`, `handOver(reason)` or `useSkill(skillId, reason)` once; text the script returns is
   its summary otherwise.
@@ -122,6 +123,11 @@ executable reference.
 
 - SPM-393 — The document check's rules are a rule script that an administrator dry-runs and another administrator sets live, which warns about a project due within three days without a document and asks the review board through the one write its ceiling allows
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleRuleScriptsComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleRuleScriptsComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+- SPM-395 — The project reminder, an agent created in the administration, lists the alert kind it may raise in its run settings, and its rule script raises it while a kind it does not list is refused
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAlertKindsAsDataComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAlertKindsAsDataComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)

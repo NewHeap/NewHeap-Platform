@@ -144,7 +144,17 @@ public sealed record NhAssistantPackageRunSettings(
     int? MaxFileBytes = null,
     int? MaxFilePages = null,
     int? MaxFilesPerTurn = null,
-    int? MaxFileTokensPerTurn = null);
+    int? MaxFileTokensPerTurn = null)
+{
+    /// <summary>
+    /// The alert kinds the run settings list, ordered by id (FB93): written only when there are any, so
+    /// the hash of run settings without them is the one they had before the list existed. Left out lists
+    /// none. The import refuses a kind the importing host does not register as a save does
+    /// (<c>alertKinds: not-found</c>); a host before this field refuses such a package as an unknown
+    /// property.
+    /// </summary>
+    public IReadOnlyList<string>? AlertKinds { get; init; }
+}
 
 /// <summary>
 /// The live version of a data skill, mapped to <see cref="NhAssistantDataSkillRequest"/> on import.

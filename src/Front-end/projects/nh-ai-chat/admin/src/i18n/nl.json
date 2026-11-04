@@ -758,6 +758,14 @@
         "back": "Terug naar agents",
         "title": "Runconfiguratie van {{name}}",
         "description": "Vaardigheden en triggers die het beheer zonder deploy toevoegt, gemaakt van de bouwstenen die de applicatie registreert. Nieuwe vaardigheden en triggers starten in schaduw, waar niemand een melding krijgt en niets wordt uitgevoerd.",
+        "alert-kinds": {
+          "title": "Attenties die het mag geven",
+          "hint": "De soorten attenties die zijn regels, regelscripts en taalmodel mogen geven; een ander soort wordt geweigerd. De applicatie legt elk soort vast: de teksten, wie het krijgt en wanneer.",
+          "empty": "De applicatie registreert geen soorten attenties.",
+          "missing": "De applicatie registreert dit soort niet meer, dus de attenties ervan worden geweigerd. Vink het uit om een andere lijst op te slaan.",
+          "model": "Ook het taalmodel mag het geven, zodra je dat onder Uitrol aanzet.",
+          "none": "Geen"
+        },
         "problems": {
           "kind": {
             "agent": "Runinstellingen:",
@@ -766,7 +774,8 @@
             "trigger": "Trigger {{id}}:",
             "consultation": "Raadpleging over {{id}}:",
             "hand-off": "Overdracht over {{id}}:",
-            "trigger-candidate": "Kandidaat van trigger {{id}}:"
+            "trigger-candidate": "Kandidaat van trigger {{id}}:",
+            "alert-kind": "Soort attentie {{id}}:"
           },
           "code": {
             "unknown-agent": "de agent kan niet meer zelfstandig werken.",
@@ -778,6 +787,7 @@
             "unknown-rule-handler": "de regels bestaan niet meer.",
             "unknown-event": "de gebeurtenis bestaat niet meer.",
             "unknown-filter": "een filter van de gebeurtenis bestaat niet meer, dus de trigger start niets totdat je het verwijdert.",
+            "unknown-alert-kind": "de applicatie registreert dit soort attentie niet meer, dus de attenties ervan worden geweigerd.",
             "unknown-subject-set": "de set onderwerpen bestaat niet meer.",
             "unknown-skill": "de vaardigheid bestaat niet meer.",
             "invalid-schedule": "het schema of de tijdzone is niet geldig.",
@@ -1299,7 +1309,9 @@
             "view-policy-default": "iedereen die de agent mag gebruiken",
             "shadow": "Hij werkt in schaduw: zijn runs gaan naar schaduwthreads die alleen beheerders zien.",
             "latest": "Laatste runs",
-            "more-runs": "En {{count}} eerdere runs bij zijn runs."
+            "more-runs": "En {{count}} eerdere runs bij zijn runs.",
+            "alert-kinds": "Attenties die het mag geven:",
+            "no-alert-kinds": "Geen, dus zijn regels geven geen attenties."
           },
           "entry": {
             "works-on": "Wijzigen waaraan hij werkt",

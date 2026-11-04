@@ -683,6 +683,9 @@
       },
       "project-missing-document": {
         "name": "Project zonder document vlak voor de deadline"
+      },
+      "project-review-reminder": {
+        "name": "Herinnering om het project te bekijken"
       }
     }
   },
