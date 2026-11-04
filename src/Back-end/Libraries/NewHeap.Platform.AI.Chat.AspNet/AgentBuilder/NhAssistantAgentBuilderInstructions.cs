@@ -60,7 +60,10 @@ internal static class NhAssistantAgentBuilderInstructions
           whole application, a technical account), technical-account-missing, alert-kind-not-listed (a rule
           script raises alerts of a kind the agent does not list), not-active, agent-work-off (only the
           application's configuration changes it), no-trigger, in-shadow, run-settings-out-of-effect,
-          configuration-problem and instructions-unavailable.
+          configuration-problem, instructions-unavailable, no-read-issuer (the application issues no read
+          credentials for gateway reads) and run-failed (recent runs failed; its cause is the code they
+          ended with). When a blocker has no tool, only the application's code or configuration changes
+          it: say so plainly and say what a developer does.
         - A deterministic check that should run on its own without a model, such as "warn me when a project
           misses a document three days before its deadline" or "count last week's changes and warn above
           ten", is best a rule script: the agent's rules as a script stored as data. It runs from the agent's
@@ -86,7 +89,13 @@ internal static class NhAssistantAgentBuilderInstructions
         - When a tool or a dry run refuses with a code, explain in plain language what it means and what the
           administrator can do, and offer the change that fixes it. For example:
           assistant-alert-kind-not-listed (list the kind), api-bridge-unauthenticated (a gateway read found
-          no rights to read with: check the accountability, the technical account and gateway reads),
+          no rights to read with: check the accountability, the technical account and gateway reads; a person
+          who may not lend their rights cannot be read for), the causes of a failed gateway read
+          ai-delegated-read-target-unknown (the application authenticates before routing: a developer calls
+          UseRouting before UseAuthentication), ai-delegated-read-no-issuer (a developer calls
+          AddNewHeapPlatformAIDelegatedReads), ai-delegated-read-issuer-refused (the account the agent answers
+          to may not sign in any more: choose another technical account) and ai-delegated-read-rejected (the
+          application's own scheme rejected the credential: a developer checks its configuration),
           assistant-service-account-not-found (the account does not exist or may not sign in),
           assistant-service-account-not-used (that agent does not answer to a technical account in code),
           assistant-run-settings-in-code (an agent in code runs as its code says), assistant-run-settings-in-use,

@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.AspNet.Mcp;
 using NewHeap.Platform.AI.Chat.Runtime;
@@ -47,6 +48,9 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler(
 
     /// <summary>The largest result of a gateway read the builder passes on, in characters of JSON.</summary>
     public const int MaxGatewayResultLength = 48_000;
+
+    /// <summary>The most recent failed runs of an agent whose codes its blockers explain.</summary>
+    private const int MaxRecentFailedRuns = 10;
 
     /// <summary>The most result fields a described resource lists when it does not fit as a whole.</summary>
     private const int MaxGatewayResultFields = 100;
@@ -445,13 +449,25 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler(
                 .Select(version => version.Script));
         }
 
-        var gatewayTools = services.GetService<INhAiGatewayResources>()?.ToolIds ?? [];
-        return NhAssistantAgentBuilderBlockers.Of(
-            agent,
-            configuration,
-            gatewayTools,
+        var facts = new NhAssistantAgentBuilderBlockerFacts(
+            services.GetService<INhAiGatewayResources>()?.ToolIds ?? [],
+            services.GetService<INhAiDelegatedReadCredentialIssuer>() is not null && services.GetServices<INhAiDelegatedReadSurface>().Any(),
             registration.RunOptionsOf(agent.AgentId).AlertKinds,
-            scripts);
+            scripts,
+            await RecentFailureCodesAsync(agent.AgentId, cancellationToken));
+        return NhAssistantAgentBuilderBlockers.Of(agent, configuration, facts);
+    }
+
+    /// <summary>
+    /// The codes the agent's most recent failed runs ended with, newest first, as its runs view lists them.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> RecentFailureCodesAsync(string agentId, CancellationToken cancellationToken)
+    {
+        var query = NhAssistantRunHistory.ReadQuery(null, null, null, NhAssistantRunStatuses.Failed, null, null, 1, MaxRecentFailedRuns);
+        var failed = await services.GetRequiredService<NhAssistantRunHistory>().ListForAgentAsync(agentId, query.Data!, cancellationToken);
+        return failed.Success
+            ? failed.Data!.Items.Select(run => run.FailureCode).OfType<string>().ToArray()
+            : [];
     }
 
     /// <summary>

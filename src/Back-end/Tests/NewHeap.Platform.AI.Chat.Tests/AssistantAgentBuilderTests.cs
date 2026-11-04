@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
+using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentBuilder;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
@@ -417,6 +418,49 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
             ["weekly-count", "late.order"],
             NhAssistantAgentBuilderBlockers.RaisedKindsOf("alerts.raise({ kind: 'weekly-count', key: 'w' });\nalerts.raise({kind:\"late.order\"}); alerts.raise({ kind: 'weekly-count' });"));
         Assert.Empty(NhAssistantAgentBuilderBlockers.RaisedKindsOf("done('Nothing.');"));
+    }
+
+    [Fact]
+    public void The_blockers_name_why_recent_runs_failed_and_a_host_that_issues_no_read_credentials()
+    {
+        var agent = new AspNet.AgentRuns.NhAssistantAgentInEffectDto(
+            "weekly-count", "admin", 2, "Weekly count", "Counts.", "Count.", "hash", ["shop-gateway.*"], NhAiAutonomyLevel.Propose, "chat", "active")
+        {
+            State = new AspNet.AgentRuns.NhAssistantAgentState("weekly-count", "active", true, null, null, null, 0, 0, 0)
+        };
+        var configuration = new AspNet.AgentRuns.NhAssistantAgentConfigurationDto(
+            "weekly-count",
+            ["shop-gateway.*"],
+            [],
+            [],
+            [],
+            [],
+            [],
+            "admin",
+            new AspNet.AgentRuns.NhAssistantAgentRunSettingsDto(1, "service-account", "service-1", false, true, "restricted", null, 3, null, null, 4, 10, null, null, null, DateTimeOffset.UnixEpoch, Administrator, null, true, null));
+
+        var blockers = NhAssistantAgentBuilderBlockers.Of(
+            agent,
+            configuration,
+            new NhAssistantAgentBuilderBlockerFacts(
+                ["shop-gateway.query"],
+                false,
+                [],
+                [],
+                [NhAiDelegatedReadFailureCodes.TargetUnknown, NhAiDelegatedReadFailureCodes.IssuerRefused, NhAiDelegatedReadFailureCodes.TargetUnknown, "api-bridge-unauthenticated"]));
+
+        var noIssuer = Assert.Single(blockers, blocker => blocker.Code == "no-read-issuer");
+        Assert.Null(noIssuer.Fix);
+        var failed = blockers.Where(blocker => blocker.Code == "run-failed").ToArray();
+        Assert.Equal(
+            [NhAiDelegatedReadFailureCodes.TargetUnknown, NhAiDelegatedReadFailureCodes.IssuerRefused, "api-bridge-unauthenticated"],
+            failed.Select(blocker => blocker.Cause));
+        Assert.Contains("UseRouting before UseAuthentication", failed[0].Message, StringComparison.Ordinal);
+        Assert.Null(failed[0].Fix);
+        Assert.Equal((NhAssistantAgentBuilderTools.SaveRunSettings, "serviceAccountActorId"), (failed[1].Fix, failed[1].Setting));
+        Assert.Equal("accountability", failed[2].Setting);
+        // A technical account that answers and gateway reads that are on block nothing of their own.
+        Assert.DoesNotContain(blockers, blocker => blocker.Code is "gateway-reads-off" or "gateway-reads-need-accountability" or "technical-account-missing");
     }
 
     private static async Task<NhAssistantApprovalPresentation> PresentAsync(NhAssistantAgentBuilderPresenter presenter, string toolId, object input, string culture)

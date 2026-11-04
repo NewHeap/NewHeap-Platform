@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Runtime;
 
@@ -9,7 +10,14 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentBuilder;
 /// what it means in plain words and the tool that changes it, or <see langword="null"/> when only code
 /// changes it.
 /// </summary>
-internal sealed record NhAssistantAgentBuilderBlocker(string Code, string Setting, string Message, string? Fix);
+internal sealed record NhAssistantAgentBuilderBlocker(string Code, string Setting, string Message, string? Fix)
+{
+    /// <summary>
+    /// For <see cref="NhAssistantAgentBuilderBlockerCodes.RunFailed"/>: the code the agent's recent runs
+    /// failed with, such as a cause of a failed gateway read.
+    /// </summary>
+    public string? Cause { get; init; }
+}
 
 /// <summary>
 /// The codes of <see cref="NhAssistantAgentBuilderBlocker"/>, which the builder's instructions explain.
@@ -28,22 +36,39 @@ internal static class NhAssistantAgentBuilderBlockerCodes
     public const string AgentWorkOff = "agent-work-off";
     public const string NoTrigger = "no-trigger";
     public const string InShadow = "in-shadow";
+    public const string NoIssuer = "no-read-issuer";
+    public const string RunFailed = "run-failed";
 }
 
 /// <summary>
+/// What the blockers of one agent are found from, next to its definition and run configuration.
+/// </summary>
+/// <param name="GatewayToolIds">The tools of the application's API gateway; empty without one.</param>
+/// <param name="IssuesReadCredentials">Whether the host issues delegated read credentials for gateway reads.</param>
+/// <param name="ListedAlertKinds">The alert kinds the agent's rules may raise.</param>
+/// <param name="RuleScripts">The live and candidate rule scripts of the agent and its skills.</param>
+/// <param name="RecentFailureCodes">The codes the agent's most recent failed runs ended with, newest first.</param>
+internal sealed record NhAssistantAgentBuilderBlockerFacts(
+    IReadOnlyCollection<string> GatewayToolIds,
+    bool IssuesReadCredentials,
+    IReadOnlyCollection<string> ListedAlertKinds,
+    IReadOnlyList<string> RuleScripts,
+    IReadOnlyList<string> RecentFailureCodes);
+
+/// <summary>
 /// Finds the blockers of one agent from what the administration reads of it: its definition and state, its
-/// run configuration, the gateway's tools and the alert kinds its rules may raise. It only reads.
+/// run configuration, the gateway's tools, the alert kinds its rules may raise and why its recent runs
+/// failed. It only reads.
 /// </summary>
 internal static partial class NhAssistantAgentBuilderBlockers
 {
     public static IReadOnlyList<NhAssistantAgentBuilderBlocker> Of(
         NhAssistantAgentInEffectDto agent,
         NhAssistantAgentConfigurationDto? configuration,
-        IReadOnlyCollection<string> gatewayToolIds,
-        IReadOnlyCollection<string> listedAlertKinds,
-        IReadOnlyList<string> ruleScripts)
+        NhAssistantAgentBuilderBlockerFacts facts)
     {
         ArgumentNullException.ThrowIfNull(agent);
+        ArgumentNullException.ThrowIfNull(facts);
         var blockers = new List<NhAssistantAgentBuilderBlocker>();
         var fromAdministration = string.Equals(agent.Source, NhAssistantAgentSources.Admin, StringComparison.Ordinal);
         var runSettings = configuration?.RunSettings;
@@ -88,11 +113,12 @@ internal static partial class NhAssistantAgentBuilderBlockers
 
         if (runs)
         {
-            AddRights(blockers, agent, runSettings, codeRun, gatewayToolIds, fromAdministration);
-            AddAlerts(blockers, listedAlertKinds, ruleScripts, fromAdministration);
+            AddRights(blockers, agent, runSettings, codeRun, facts, fromAdministration);
+            AddAlerts(blockers, facts.ListedAlertKinds, facts.RuleScripts, fromAdministration);
             AddWork(blockers, agent, configuration!);
         }
 
+        AddRecentFailures(blockers, facts.RecentFailureCodes, fromAdministration);
         return blockers;
     }
 
@@ -113,9 +139,10 @@ internal static partial class NhAssistantAgentBuilderBlockers
         NhAssistantAgentInEffectDto agent,
         NhAssistantAgentRunSettingsDto? runSettings,
         NhAssistantCodeRunSettingsDto? codeRun,
-        IReadOnlyCollection<string> gatewayToolIds,
+        NhAssistantAgentBuilderBlockerFacts facts,
         bool fromAdministration)
     {
+        var gatewayToolIds = facts.GatewayToolIds;
         var accountability = runSettings?.Accountability ?? codeRun?.Accountability ?? NhAssistantAccountabilities.Agent;
         var gatewayReads = runSettings?.AllowGatewayReads ?? codeRun?.AllowGatewayReads ?? false;
         var fix = fromAdministration ? NhAssistantAgentBuilderTools.SaveRunSettings : null;
@@ -136,6 +163,15 @@ internal static partial class NhAssistantAgentBuilderBlockers
                 "accountability",
                 "The agent answers to itself, so a run without a person has nobody whose rights a gateway read uses. Gateway reads need the subject's responsible person or a technical account (service-account) as its accountability.",
                 fix));
+        }
+
+        if ((usesGateway || gatewayReads) && !facts.IssuesReadCredentials)
+        {
+            blockers.Add(new(
+                NhAssistantAgentBuilderBlockerCodes.NoIssuer,
+                "host",
+                "The application issues no delegated read credentials, so every gateway read fails with ai-delegated-read-no-issuer. Only the application's code changes it: a developer calls AddNewHeapPlatformAIDelegatedReads, or registers an issuer of its own with UseIssuer.",
+                null));
         }
 
         var technicalAccount = runSettings is not null ? runSettings.ServiceAccountActorId : agent.State.ServiceAccount?.ActorId;
@@ -222,6 +258,53 @@ internal static partial class NhAssistantAgentBuilderBlockers
                 "trigger:" + trigger.TriggerId,
                 $"The trigger {trigger.TriggerId} works in shadow: the runs it starts have no effects.",
                 NhAssistantAgentBuilderTools.SetShadow));
+        }
+    }
+
+    /// <summary>
+    /// Why the agent's recent runs failed, once per code, with the setting each cause points to: the
+    /// causes of a failed gateway read (FB96), a read without rights and an alert of a kind it does not list.
+    /// </summary>
+    private static void AddRecentFailures(
+        List<NhAssistantAgentBuilderBlocker> blockers,
+        IReadOnlyList<string> failureCodes,
+        bool fromAdministration)
+    {
+        var rights = fromAdministration ? NhAssistantAgentBuilderTools.SaveRunSettings : NhAssistantAgentBuilderTools.SetTechnicalAccount;
+        foreach (var code in failureCodes.Distinct(StringComparer.Ordinal))
+        {
+            var (setting, message, fix) = code switch
+            {
+                NhAiDelegatedReadFailureCodes.TargetUnknown => (
+                    "host",
+                    "The application authenticates the read credential before routing knows its target, so the gateway refuses it. Only its code changes it: a developer calls UseRouting before UseAuthentication, or without endpoint routing lets the API bridge authenticate for the target.",
+                    (string?)null),
+                NhAiDelegatedReadFailureCodes.NoIssuer => (
+                    "host",
+                    "The application issues no delegated read credentials. Only its code changes it: a developer calls AddNewHeapPlatformAIDelegatedReads, or registers an issuer of its own.",
+                    null),
+                NhAiDelegatedReadFailureCodes.IssuerRefused => (
+                    "serviceAccountActorId",
+                    "The issuer refused the person or technical account the run reads for. Check that the account the agent answers to may still sign in, or choose another one.",
+                    rights),
+                NhAiDelegatedReadFailureCodes.Rejected => (
+                    "host",
+                    "The application's own scheme rejected the read credential. Only its configuration changes it: a developer checks the delegated read scheme and the API's own address.",
+                    null),
+                "api-bridge-unauthenticated" => (
+                    "accountability",
+                    "A gateway read found no rights to read with. Check the accountability, the technical account and gateway reads; a person who may not lend their rights cannot be read for.",
+                    rights),
+                NhAssistantAlertCodes.KindNotListed => (
+                    "alertKinds",
+                    "A run raised an alert of a kind the agent does not list.",
+                    fromAdministration ? NhAssistantAgentBuilderTools.SaveRunSettings : null),
+                _ => (
+                    "run",
+                    $"Recent runs failed with {code}.",
+                    null)
+            };
+            blockers.Add(new(NhAssistantAgentBuilderBlockerCodes.RunFailed, setting, message, fix) { Cause = code });
         }
     }
 
