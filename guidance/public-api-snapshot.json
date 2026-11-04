@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.108",
   "backEnd": {
-    "hash": "cff8e11cd94b39a3ddffa9292fc3dd96adad3446bead003736c7c9e1e65ae6f8",
-    "declarationCount": 13647,
+    "hash": "c0ede4f1819efdd0067dcd2ea2781cd045253d3609ba8a8ceeddc66c65dc27c1",
+    "declarationCount": 13659,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2447,6 +2447,34 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public const string NoCard = \"The approval card of this change cannot be built, so it is not proposed. Read the agent again and make the change in smaller steps.\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public const string Summary = \"The approval card cannot name this change in full: its ids or names are too long to show. Use shorter ones.\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public const string Notice = \"The approval card cannot say in full what this change does to whose rights the agent uses or what it removes. Use shorter ids or make the change in smaller steps.\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public const string TooMany = \"The approval card cannot show every value of whose rights this change alters in a field of its own. Make the change in smaller steps.\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public const string Size = \"The approval card cannot show this change within its size: the values of whose rights it alters or what it removes take too much room. Make them shorter or make the change in smaller steps.\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public static string TooLong(string what) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public static string Broken(string rule) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
         "declaration": "public Texts Texts { get; } = texts;"
       },
       {
@@ -2463,11 +2491,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
-        "declaration": "public void AddField(string label, string? value) {"
+        "declaration": "public void Refuse(string reason) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
-        "declaration": "public void AddGiven(NhAssistantAgentBuilderInput input, IReadOnlyList<string> properties) {"
+        "declaration": "public void AddField(string label, string? value, string what) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public void AddGiven(NhAssistantAgentBuilderInput input, IReadOnlyList<string> properties, IReadOnlySet<string> inFull) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
@@ -2479,7 +2511,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
-        "declaration": "public NhAssistantApprovalPresentation ToPresentation(string toolName) {"
+        "declaration": "public (NhAssistantApprovalPresentation? Card, string? Refusal) ToPresentation(string toolName) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
@@ -2500,6 +2532,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
         "declaration": "public string TakesOver => dutch ? \"Neemt over\" : \"Takes over\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string TakesOverTools => dutch ? \"Neemt de tools over\" : \"Takes over the tools\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string Cleared => dutch ? \"gewist (de standaard geldt)\" : \"cleared (the default applies)\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string NoTechnicalAccount => dutch ? \"geen (een eerder ingesteld technisch account vervalt)\" : \"none (a technical account set before is removed)\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
@@ -2603,11 +2647,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
-        "declaration": "public string TakesOverOf(NhAssistantAgentInEffectDto variant, NhAssistantAgentWorksOn? worksOn) {"
+        "declaration": "public (string Settings, string Tools) TakesOverOf(NhAssistantAgentInEffectDto variant, NhAssistantAgent? definition, bool toAgentInAdministration) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
-        "declaration": "public string PromotionNotice(string variantId, string liveId) {"
+        "declaration": "public string PromotionNotice(string variantId, string liveId, bool toAgentInAdministration) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
@@ -26432,6 +26476,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
         "declaration": "public async Task<AssistantMcpServer?> UpdateMcpServerAsync( string id, Action<AssistantMcpServer> apply, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",
+        "declaration": "public async Task<bool> SetMcpHeadlessUseAsync( string id, string headlessUse, string expectedAuthMode, string expectedConnectionScope, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAdminStore.cs",

@@ -348,13 +348,13 @@ internal static class NhAssistantAgentBuilderTools
         Write(
             SaveHandOff,
             "builder_save_hand_off",
-            "Adds or changes a hand-off defined as data, after the administrator approves it in the chat: the agents in sources may hand work on subjects of the type to this agent, within the ceiling in code, with a description for their models, a follow-up to the source and a daily limit per source and subject. expectedVersion is its current version, left out for a new one.",
+            "Adds or changes a hand-off defined as data, after the administrator approves it in the chat: the agents in sources may hand work on subjects of the type to this agent, within the ceiling in code, with a description for their models, a follow-up to the source and a daily limit per source and subject. A change names only what changes: a field it leaves out keeps the current value and null clears the description; a new one needs its sources. expectedVersion is its current version, left out for a new one.",
             Schema.Object([
                 ("agentId", Schema.Id("The agent that accepts the work."), true),
                 ("subjectType", Schema.Id("The object type of the work."), true),
                 ("expectedVersion", Schema.Integer("The hand-off's current version; leave it out for a new one."), false),
-                ("sources", Schema.Texts("The agents that may hand off to it."), true),
-                ("description", Schema.Text("When the sources hand off, for their models.", 512), false),
+                ("sources", Schema.Texts("The agents that may hand off to it, in full; needed for a new one."), false),
+                ("description", Schema.NullableText("When the sources hand off, for their models; null for none.", 512), false),
                 ("notifySource", Schema.Flag("The source hears back when the work is done."), false),
                 ("maxPerSubjectPerDay", Schema.Integer("The daily limit per source and subject, at most the ceiling's."), false),
                 ("reason", Schema.Reason(), false)
@@ -480,11 +480,11 @@ internal static class NhAssistantAgentBuilderTools
         Write(
             PromoteShadowVariant,
             "builder_promote_shadow_variant",
-            "Copies the definition of a shadow variant created in the administration (agentId) onto its live agent as the live agent's next version, after the administrator approves it in the chat, and then deletes the variant. expectedVersion is the live agent's version. With moveSkills the variant's data skills become versions of the live agent's skills; with asPackageVersion a variant linked to one agent package becomes that package's next version.",
+            "Copies the definition of a shadow variant created in the administration (agentId) onto its live agent as the live agent's next version, after the administrator approves it in the chat, and then deletes the variant. expectedVersion is the live agent's version and expectedVariantVersion the variant's, as builder_read_agent shows them; a changed variant is refused. With moveSkills the variant's data skills become versions of the live agent's skills; with asPackageVersion a variant linked to one agent package becomes that package's next version.",
             Schema.Object([
                 ("agentId", Schema.Id("The shadow variant's id."), true),
                 ("expectedVersion", Schema.Integer("The live agent's current version."), true),
-                ("expectedVariantVersion", Schema.Integer("The variant's version that was evaluated."), false),
+                ("expectedVariantVersion", Schema.Integer("The variant's current version, as builder_read_agent shows it; a changed variant is refused."), true),
                 ("moveSkills", Schema.Flag("The variant's data skills move to the live agent."), false),
                 ("asPackageVersion", Schema.Flag("The variant becomes its package's next version."), false),
                 ("uncarriedParts", Schema.Choice("With asPackageVersion: unlink (default) or relink the live agent's linked parts the variant does not carry.", ["unlink", "relink"]), false),
@@ -586,16 +586,28 @@ internal static class NhAssistantAgentBuilderTools
             return new JsonObject { ["type"] = "integer", ["minimum"] = 0, ["description"] = description };
         }
 
-        /// <summary>The schema of <paramref name="schema"/> that <c>null</c> also fits, which clears the value.</summary>
+        /// <summary>
+        /// The schema of <paramref name="schema"/> that <c>null</c> also fits, which clears the value: a type
+        /// with <c>null</c> next to it, as the gateway's tools publish a nullable text, and for a choice the
+        /// <c>anyOf</c> of the choice and <c>null</c>, as the generated tools publish a nullable value, so no
+        /// <c>null</c> is put in an enum.
+        /// </summary>
         public static JsonObject Nullable(JsonObject schema)
         {
             var nullable = (JsonObject)schema.DeepClone();
-            nullable["type"] = new JsonArray(schema["type"]!.GetValue<string>(), "null");
-            if (nullable["enum"] is JsonArray choices)
+            if (nullable["enum"] is not null)
             {
-                choices.Add(null);
+                var description = nullable["description"]?.DeepClone();
+                nullable.Remove("description");
+                var wrapped = new JsonObject { ["anyOf"] = new JsonArray(nullable, new JsonObject { ["type"] = "null" }) };
+                if (description is not null)
+                {
+                    wrapped["description"] = description;
+                }
+                return wrapped;
             }
 
+            nullable["type"] = new JsonArray(schema["type"]!.GetValue<string>(), "null");
             return nullable;
         }
 

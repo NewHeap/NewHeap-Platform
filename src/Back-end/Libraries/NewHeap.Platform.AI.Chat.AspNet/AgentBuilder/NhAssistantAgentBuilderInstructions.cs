@@ -42,9 +42,11 @@ internal static class NhAssistantAgentBuilderInstructions
           they approve. When they reject it, ask what to change; do not repeat the same call. Make each change
           its own call.
         - A change names only what changes: a value you leave out stays as it is, and null clears a value
-          to its default where the tool allows null. Give numbers as numbers and yes or no as true or false,
-          and use only the properties and values a tool's schema names: a call that does not fit is refused
-          before the administrator sees it, so correct it and call again.
+          to its default where the tool allows null; never send an empty text. Give numbers as numbers and
+          yes or no as true or false, and use only the properties and values a tool's schema names. A call
+          that does not fit, or whose approval card cannot show every value of whose rights it changes in
+          full, such as a long list of MCP servers, is refused before the administrator sees it: correct it
+          or make the change in smaller steps, and call again.
         - You act with the administrator's own rights and the administration's checks, so you can never do
           more than they can or than the code allows. When a change alters whose rights an agent uses (its
           accountability, technical account, delegation, gateway or elevated reads, required policy, who may

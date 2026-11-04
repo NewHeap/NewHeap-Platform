@@ -203,7 +203,9 @@ internal sealed partial class NhAssistantMcpAdministration(
     /// Changes only whether the server's tools serve runs without a person (<c>headlessUse</c>), checked as
     /// the server editor's save checks that field: a valid value that fits the server's authentication mode
     /// and connection scope. Every other setting, the connection and the secret stay as they are, also when
-    /// another administrator changed them meanwhile, because only this one column is written. Audited as
+    /// another administrator changed them meanwhile, because only this one column is written, and only while
+    /// the authentication mode and connection scope it was checked against are still stored: after a change
+    /// of them meanwhile it is checked once more against the new ones. Audited as
     /// <see cref="NhAssistantAuditEventKind.AdminMcpServerUpdated"/>.
     /// </summary>
     public async Task<TaskResult<AssistantMcpServer>> SetHeadlessUseAsync(
@@ -214,22 +216,30 @@ internal sealed partial class NhAssistantMcpAdministration(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         ArgumentNullException.ThrowIfNull(headlessUse);
-        var existing = await store.FindMcpServerAsync(id, cancellationToken);
-        if (existing is null)
+        AssistantMcpServer? updated = null;
+        for (var attempt = 0; attempt < 2 && updated is null; attempt++)
         {
-            return NotFound<AssistantMcpServer>();
+            var existing = await store.FindMcpServerAsync(id, cancellationToken);
+            if (existing is null)
+            {
+                return NotFound<AssistantMcpServer>();
+            }
+            if (!NhAssistantMcpHeadlessUses.IsValid(headlessUse)
+                || !modes.FitsHeadlessUse(headlessUse, existing.AuthMode, existing.ConnectionScope))
+            {
+                return TaskResult<AssistantMcpServer>.Failed(NhAssistantValidationErrors.Failed("headlessUse", NhAssistantFieldErrors.Invalid));
+            }
+            if (await store.SetMcpHeadlessUseAsync(id, headlessUse, existing.AuthMode, existing.ConnectionScope, cancellationToken))
+            {
+                updated = await store.FindMcpServerAsync(id, cancellationToken);
+            }
         }
-        if (!NhAssistantMcpHeadlessUses.IsValid(headlessUse)
-            || !modes.FitsHeadlessUse(headlessUse, existing.AuthMode, existing.ConnectionScope))
-        {
-            return TaskResult<AssistantMcpServer>.Failed(NhAssistantValidationErrors.Failed("headlessUse", NhAssistantFieldErrors.Invalid));
-        }
-
-        var updated = await store.UpdateMcpServerAsync(id, server => server.HeadlessUse = headlessUse, cancellationToken);
         if (updated is null)
         {
-            // Another administrator deleted the server meanwhile.
-            return NotFound<AssistantMcpServer>();
+            // Deleted meanwhile, or its authentication changed twice while this was checked.
+            return await store.FindMcpServerAsync(id, cancellationToken) is null
+                ? NotFound<AssistantMcpServer>()
+                : TaskResult<AssistantMcpServer>.Failed(NhAssistantAdminErrorCodes.VersionConflict, "The server was changed by someone else.");
         }
         await cache.InvalidateAsync(id);
         await AuditAsync(NhAssistantAuditEventKind.AdminMcpServerUpdated, id, actorId, cancellationToken);

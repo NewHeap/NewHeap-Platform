@@ -233,6 +233,16 @@ public sealed class AssistantAgentBuilderAdministrationTests(AssistantDatabaseFi
         Assert.Equal(
             ("organization", true, "Planning (renamed)", false, "bearer"),
             (stored.GetProperty("headlessUse").GetString(), stored.GetProperty("hasSecret").GetBoolean(), stored.GetProperty("displayName").GetString(), stored.GetProperty("isEnabled").GetBoolean(), stored.GetProperty("authMode").GetString()));
+
+        // The write holds to the authentication the value was checked against: after another change of it,
+        // nothing is written.
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var store = scope.ServiceProvider.GetRequiredService<NhAssistantAdminStore>();
+            Assert.False(await store.SetMcpHeadlessUseAsync("planning", "never", "none", "organization", CancellationToken.None));
+            Assert.Equal("organization", (await store.FindMcpServerAsync("planning", CancellationToken.None))!.HeadlessUse);
+            Assert.True(await store.SetMcpHeadlessUseAsync("planning", "organization", "bearer", "organization", CancellationToken.None));
+        }
     }
 
     [Theory]
@@ -313,8 +323,8 @@ public sealed class AssistantAgentBuilderAdministrationTests(AssistantDatabaseFi
     public async Task The_builder_refuses_input_its_card_could_read_otherwise_and_a_change_keeps_what_it_leaves_out(AssistantTestProvider provider)
     {
         var model = new NhAiScriptedChatClient()
-            .RespondWithFunctionCall("builder_save_run_settings", new { input = new { agentId = Weekly, expectedVersion = 1, elevatedReads = (string?)null } })
-            .RespondWithFunctionCall("builder_update_agent", new { input = new { agentId = Weekly, expectedVersion = 1, mcpServerIds = (string[]?)null } })
+            .RespondWithFunctionCall("builder_update_agent", new { input = new { agentId = Weekly, expectedVersion = 1, requiredPolicy = "   " } })
+            .RespondWithFunctionCall("builder_update_agent", new { input = new { agentId = Weekly, expectedVersion = 1, mcpServerIds = Enumerable.Range(0, 10).Select(index => $"server-{index}-{new string('s', 32)}").ToArray() } })
             .RespondWithFunctionCall("builder_save_skill", new { input = new { agentId = Weekly, skillId = "notes", expectedVersion = "1", description = "Writes short notes." } })
             .RespondWithFunctionCall("builder_save_skill", new { input = new { agentId = Weekly, skillId = "notes", expectedVersion = 1, description = "Writes short notes." } })
             .RespondWithText("Only the description changed.")
@@ -333,17 +343,19 @@ public sealed class AssistantAgentBuilderAdministrationTests(AssistantDatabaseFi
         using var administrator = app.CreateClient(Admin, admin: true);
         var conversation = await CreateConversationAsync(administrator, Builder);
 
-        // Input the card and the change could read differently is refused before anything is proposed: null
-        // for a setting that has no default to clear to, null for a list, and a number as a string.
+        // Input the card and the change could read differently, or that its card cannot show in full, is
+        // refused before anything is proposed: a blank policy, more MCP servers than the card shows, and a
+        // number as a string.
         var asked = await SendAsync(administrator, conversation, "Give the notes skill a shorter description.");
         var refused = asked.Where(evt => evt.Name == "tool.completed").Select(evt => evt.Data).ToArray();
         Assert.Equal(3, refused.Length);
         Assert.All(refused, result => Assert.Equal(("failed", NhAiToolFailureCodes.InputInvalid), (result.GetProperty("status").GetString(), result.GetProperty("resultCode").GetString())));
-        foreach (var (index, property) in new[] { (0, "elevatedReads"), (1, "mcpServerIds"), (2, "expectedVersion") })
+        foreach (var (index, property) in new[] { (0, "requiredPolicy"), (1, "mcpServerIds"), (2, "expectedVersion") })
         {
             Assert.Contains(property, FunctionResult(model, index).GetRawText(), StringComparison.Ordinal);
         }
-        Assert.Equal(1, (await ConfigurationAsync(app)).RunSettings!.Version);
+        Assert.Equal(1, (await AgentAsync(app)).Version);
+        Assert.Empty((await AgentAsync(app)).McpServerIds);
 
         // The card shows the version and the value that change; what the call leaves out stays.
         var approval = Assert.Single(asked, evt => evt.Name == "approval.required").Data;
@@ -365,6 +377,53 @@ public sealed class AssistantAgentBuilderAdministrationTests(AssistantDatabaseFi
         Assert.Equal(
             (2, "0 6 * * 1", "Europe/Amsterdam", "Count the week before."),
             (triggerNow.Version, triggerNow.Cron, triggerNow.TimeZone, triggerNow.Message));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_change_of_a_hand_off_keeps_what_it_leaves_out_and_null_and_whole_numbers_read_as_meant(AssistantTestProvider provider)
+    {
+        const string Target = "project-assistant";
+        var model = new NhAiScriptedChatClient()
+            // Models often send null for what they leave out and a version as 1.0.
+            .RespondWithFunctionCall("builder_save_hand_off", new { input = new { agentId = Target, subjectType = "project", expectedVersion = 1.0, maxPerSubjectPerDay = 2, reason = (string?)null } })
+            .RespondWithText("Only the daily limit changed.");
+        await using var app = await StartAsync(
+            model,
+            provider,
+            configure: services => services.Remove(services.Single(descriptor => descriptor.ImplementationType == typeof(NhAssistantStartupValidator))),
+            more: assistant => assistant
+                .ConfigureAgent(Target, _ => { })
+                .UseHandOffsAsData(handOffs => handOffs.Allow("project", rule => rule.To(Target).FromAgentsCreatedInAdministration())));
+        await CreateWeeklyAsync(app, runSettings: true);
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var saved = await scope.ServiceProvider.GetRequiredService<INhAssistantDataHandOffs>().SaveAsync(
+                Target,
+                "project",
+                new NhAssistantDataHandOffRequest([Weekly], "Hands over projects that need a count.", NotifySource: true, MaxPerSubjectPerDay: 3),
+                Admin);
+            Assert.True(saved.Success, string.Join(", ", saved.AllErrorMessages));
+        }
+        using var administrator = app.CreateClient(Admin, admin: true);
+        var conversation = await CreateConversationAsync(administrator, Builder);
+
+        var asked = await SendAsync(administrator, conversation, "Let the weekly count hand over at most two projects a day.");
+        var card = Assert.Single(asked, evt => evt.Name == "approval.required").Data.GetProperty("presentation");
+        var shown = card.GetProperty("fields").EnumerateArray()
+            .ToDictionary(field => field.GetProperty("label").GetString()!, field => field.GetProperty("value").GetString());
+        Assert.Equal("1", shown.GetValueOrDefault("Version") ?? shown["Versie"]);
+        Assert.DoesNotContain(shown.Keys, label => label is "Reason" or "Reden" or "Sources" or "Bronnen");
+        await DecideAsync(administrator, conversation, Assert.Single(asked, evt => evt.Name == "approval.required").Data, "approve");
+
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var handOff = Assert.Single((await scope.ServiceProvider.GetRequiredService<INhAssistantDataHandOffs>().GetAsync(Target))!.DataHandOffs);
+            Assert.Equal(
+                (2, "Hands over projects that need a count.", true, 2, Weekly),
+                (handOff.Version, handOff.Description, handOff.NotifySource, handOff.MaxPerSubjectPerDay, string.Join(",", handOff.Sources)));
+        }
     }
 
     [Theory]
@@ -461,7 +520,8 @@ public sealed class AssistantAgentBuilderAdministrationTests(AssistantDatabaseFi
         AssistantTestProvider provider,
         bool gateway = false,
         InMemoryMcpServers? mcp = null,
-        Action<IServiceCollection>? configure = null)
+        Action<IServiceCollection>? configure = null,
+        Func<NhAssistantBuilder, NhAssistantBuilder>? more = null)
     {
         return AssistantWebApplication.StartAsync(
             database,
@@ -508,7 +568,8 @@ public sealed class AssistantAgentBuilderAdministrationTests(AssistantDatabaseFi
                     .Title((_, _) => "Many changes last week")
                     .Text((_, _) => "More changes than the threshold.")
                     .Recipients(NhAssistantAlertRecipients.SubjectResponsible))
-                .UseRuleScriptsAsData(scripts => scripts.ForAgentsCreatedInAdministration()),
+                .UseRuleScriptsAsData(scripts => scripts.ForAgentsCreatedInAdministration())
+                .Apply(more),
             provider: provider);
     }
 
@@ -671,5 +732,14 @@ public sealed class AssistantAgentBuilderAdministrationTests(AssistantDatabaseFi
                     : TaskResult<JsonElement>.Failed("api-bridge-not-found", "The resource does not exist or is not available to you."));
             }
         }
+    }
+}
+
+/// <summary>Lets a test add to the assistant's registration in the builder chain.</summary>
+internal static class AssistantBuilderTestExtensions
+{
+    public static NhAssistantBuilder Apply(this NhAssistantBuilder builder, Func<NhAssistantBuilder, NhAssistantBuilder>? more)
+    {
+        return more is null ? builder : more(builder);
     }
 }

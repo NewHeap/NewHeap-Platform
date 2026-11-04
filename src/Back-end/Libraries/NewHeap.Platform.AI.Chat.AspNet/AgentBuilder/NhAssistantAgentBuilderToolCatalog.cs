@@ -96,6 +96,14 @@ internal sealed class NhAssistantAgentBuilderToolCatalog : INhAiAttestedToolCata
             return await RefuseInputAsync(descriptor, refusal!, services, cancellationToken);
         }
 
+        // A write is proposed only with its own card, valid in every language it is shown in and showing every
+        // value of whose rights it alters and what it removes; never with the generic summary instead.
+        if (tool.Approval == NhAiApprovalRequirement.Required
+            && await NhAssistantAgentBuilderPresenter.RefusalOfCardAsync(services, tool, accepted, cancellationToken) is { } cardRefusal)
+        {
+            return await RefuseInputAsync(descriptor, cardRefusal, services, cancellationToken);
+        }
+
         var invoker = services.GetRequiredService<INhAiToolInvoker>();
         var handler = services.GetRequiredService<NhAssistantAgentBuilderToolHandler>();
         return await invoker.InvokeAsync(
@@ -106,9 +114,9 @@ internal sealed class NhAssistantAgentBuilderToolCatalog : INhAiAttestedToolCata
     }
 
     /// <summary>
-    /// Refuses a call whose input does not fit the tool's schema, as a refused argument shape is: the outcome
-    /// of the call and a content-free audit record name the code, and the message names the property, never
-    /// its value.
+    /// Refuses a call whose input does not fit the tool's schema, or whose approval card cannot show it, as a
+    /// refused argument shape is: the outcome of the call and a content-free audit record name the code, and
+    /// the message names the property, never its value.
     /// </summary>
     private static async Task<TaskResult<JsonNode>> RefuseInputAsync(
         NhAiToolDescriptor descriptor,

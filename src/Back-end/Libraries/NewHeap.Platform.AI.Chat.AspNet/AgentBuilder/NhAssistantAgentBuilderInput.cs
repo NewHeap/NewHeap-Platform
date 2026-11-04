@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using NewHeap.Platform.AI.Chat.Runtime;
@@ -7,11 +8,14 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentBuilder;
 /// <summary>
 /// The input of one call of an agent builder tool, as the model sent it. It is untrusted, so it is checked
 /// against the tool's schema before the call becomes a proposal: a property the tool does not take, a
-/// missing required property, <c>null</c> where the schema does not allow it, a value of another JSON type
-/// (no number as a string, no string as a flag), a value outside its choices and a text or list that is too
-/// long are refused before anything is shown or runs. The approval card and the handler read the same
-/// checked input with the same accessors, so what the card says is what runs. A property that is left out
-/// reads as not given; <c>null</c>, where the schema allows it, clears a value.
+/// missing required property, <c>null</c> for a required property or where the schema does not allow it, a
+/// value of another JSON type (no number as a string, no string as a flag), a blank text, a value outside its
+/// choices and a text or list that is too long are refused before anything is shown or runs. Two forms models
+/// often send are read as what they mean, before the check and the same for the card and the handler:
+/// <c>null</c> for an optional property that takes no <c>null</c> is left out, and a whole number written as
+/// <c>1.0</c> is that number. The approval card and the handler read the same checked input with the same
+/// accessors, so what the card says is what runs. A property that is left out reads as not given;
+/// <c>null</c>, where the schema allows it, clears a value, and it is the only way to clear one.
 /// </summary>
 internal sealed class NhAssistantAgentBuilderInput
 {
@@ -40,8 +44,75 @@ internal sealed class NhAssistantAgentBuilderInput
             return (null, "The input must be an object of the properties the tool's schema names.");
         }
 
-        var refusal = CheckObject(string.Empty, value, schema);
-        return refusal is null ? (new NhAssistantAgentBuilderInput(value.Clone()), null) : (null, refusal);
+        var node = (JsonObject)JsonNode.Parse(value.GetRawText())!;
+        Normalize(node, schema);
+        var normalized = JsonSerializer.SerializeToElement(node);
+        var refusal = CheckObject(string.Empty, normalized, schema);
+        return refusal is null ? (new NhAssistantAgentBuilderInput(normalized), null) : (null, refusal);
+    }
+
+    /// <summary>
+    /// Reads two forms as what the schema means, in place: <c>null</c> for an optional property whose schema
+    /// takes no <c>null</c> is left out, so it keeps what the agent has, and an integral number written with a
+    /// fraction or an exponent where the schema wants a whole number is that whole number. Anything else is
+    /// left as it is for the check.
+    /// </summary>
+    private static JsonNode? Normalize(JsonNode? node, JsonObject schema)
+    {
+        switch (node)
+        {
+            case JsonObject value when schema["properties"] is JsonObject properties:
+            {
+                var required = (schema["required"] as JsonArray ?? []).Select(item => item!.GetValue<string>()).ToHashSet(StringComparer.Ordinal);
+                foreach (var (name, child) in value.ToArray())
+                {
+                    if (properties[name] is not JsonObject propertySchema)
+                    {
+                        continue;
+                    }
+                    if (child is null)
+                    {
+                        if (!TypesOf(propertySchema).Contains("null") && !required.Contains(name))
+                        {
+                            value.Remove(name);
+                        }
+                        continue;
+                    }
+
+                    var normalized = Normalize(child, propertySchema);
+                    if (!ReferenceEquals(normalized, child))
+                    {
+                        value[name] = normalized;
+                    }
+                }
+                return value;
+            }
+            case JsonArray items when schema["items"] is JsonObject itemSchema:
+            {
+                for (var index = 0; index < items.Count; index++)
+                {
+                    var normalized = Normalize(items[index], itemSchema);
+                    if (!ReferenceEquals(normalized, items[index]))
+                    {
+                        items[index] = normalized;
+                    }
+                }
+                return items;
+            }
+            case JsonValue number when number.GetValueKind() == JsonValueKind.Number && TypesOf(schema).Contains("integer"):
+            {
+                var text = number.ToJsonString();
+                return !long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out _)
+                    && decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var exact)
+                    && exact == decimal.Truncate(exact)
+                    && exact >= long.MinValue
+                    && exact <= long.MaxValue
+                        ? JsonValue.Create((long)exact)
+                        : number;
+            }
+            default:
+                return node;
+        }
     }
 
     /// <summary>
@@ -93,6 +164,21 @@ internal sealed class NhAssistantAgentBuilderInput
                 ? null
                 : $"'{Bounded(name)}' may not be null. Leave it out to keep what the agent has.";
         }
+        if (schema["anyOf"] is JsonArray branches)
+        {
+            // A value fits the first branch it fits; null was checked above.
+            string? first = null;
+            foreach (var branch in branches.OfType<JsonObject>().Where(branch => !TypesOf(branch).SetEquals(["null"])))
+            {
+                var refusal = Check(name, value, branch);
+                if (refusal is null)
+                {
+                    return null;
+                }
+                first ??= refusal;
+            }
+            return first ?? $"'{Bounded(name)}' does not fit its schema.";
+        }
 
         switch (value.ValueKind)
         {
@@ -108,9 +194,11 @@ internal sealed class NhAssistantAgentBuilderInput
                 {
                     return $"'{Bounded(name)}' is longer than its schema allows.";
                 }
-                // A blank text says nothing: a value that may be cleared is cleared with null.
-                return string.IsNullOrWhiteSpace(text) && !types.Contains("null")
-                    ? $"'{Bounded(name)}' may not be blank. Leave it out to keep what the agent has."
+                // A blank text says nothing, and the card could not show it: null is the only way to clear.
+                return string.IsNullOrWhiteSpace(text)
+                    ? types.Contains("null")
+                        ? $"'{Bounded(name)}' may not be blank. Send null to clear it, or leave it out to keep what the agent has."
+                        : $"'{Bounded(name)}' may not be blank. Leave it out to keep what the agent has."
                     : null;
             }
             case JsonValueKind.Number when types.Contains("integer"):
@@ -159,8 +247,14 @@ internal sealed class NhAssistantAgentBuilderInput
         }
     }
 
+    /// <summary>The JSON types a schema takes, also those of the branches of its <c>anyOf</c>.</summary>
     private static HashSet<string> TypesOf(JsonObject schema)
     {
+        if (schema["anyOf"] is JsonArray branches)
+        {
+            return branches.OfType<JsonObject>().SelectMany(TypesOf).ToHashSet(StringComparer.Ordinal);
+        }
+
         return schema["type"] switch
         {
             JsonValue single => [single.GetValue<string>()],
@@ -172,7 +266,7 @@ internal sealed class NhAssistantAgentBuilderInput
     /// <summary>A bound of the schema as a number, whatever numeric type it was written with.</summary>
     private static long NumberOf(JsonValue bound)
     {
-        return long.Parse(bound.ToJsonString(), System.Globalization.CultureInfo.InvariantCulture);
+        return long.Parse(bound.ToJsonString(), CultureInfo.InvariantCulture);
     }
 
     private static string Bounded(string name)

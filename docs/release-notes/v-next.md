@@ -93,20 +93,34 @@
   card and the change read the same checked input: a number given as a string, a string given as yes or no,
   `null` for a property that does not allow it, an empty text, a value outside its choices or bounds, and a
   property the tool does not take are refused with `ai-tool-input-invalid`, naming the property, and nothing
-  is proposed. `null` clears a value only where the schema allows it (for example a retry count, a budget, a
-  profile, a policy or a skill's instructions); the card then says the default applies.
-- The card shows every value the call gives, also when more values than the card's fields share a field, and
-  says when a value is in full only in the technical details.
-- `builder_save_skill`, `builder_save_trigger` and `builder_save_consultation` keep what a change leaves out,
-  as the card says (a trigger while its source stays the same); a description is needed only for a new skill
-  or consultation.
+  is proposed. A blank text is refused also where `null` clears, and `null` clears a value only where the
+  schema allows it (for example a retry count, a budget, a profile, a policy or a skill's instructions); the
+  card then says the default applies. Two forms models often send are read as meant, for the card and the
+  change alike: `null` for an optional property that takes no `null` is left out, so it keeps what the agent
+  has, and a whole number written as `1.0` is that number. A nullable choice is published as the `anyOf` of the
+  choice and `null`, as the generated tools publish nullable values, without `null` in its enum.
+- A builder write is proposed only with its own valid card, in English and Dutch, that shows every value of
+  whose rights it changes and what it removes; a call whose card cannot be built within the presentation's
+  limits is refused with `ai-tool-input-invalid` and a message that says what to shorten or split, instead of
+  being proposed with the generic summary. The values of whose rights (such as the required policy, MCP
+  servers, run and view policies, accountability and technical account, consultation routes and the parts a
+  removal names) have fields of their own, first and in full. The other values follow, sharing fields when
+  needed, each shortened as far as the card needs to keep within its limits also as stored JSON with its
+  escapes; the card then says the technical details show them in full.
+- `builder_save_skill`, `builder_save_trigger`, `builder_save_consultation` and `builder_save_hand_off` keep what
+  a change leaves out, as the card says (a trigger while its source stays the same); a description is needed
+  only for a new skill or consultation, and the sources only for a new hand-off.
 - The card says that a change alters whose rights an agent uses also for who may run it, who sees its results
-  for the whole application, and a required policy that is cleared. The card of `builder_promote_shadow_variant`
-  names the live agent and what it takes over: tools, required policy, autonomy, what it works on and its run
-  and view policies.
+  for the whole application, and a required policy that is cleared; another accountability without a
+  technical account named shows that the technical account is removed. `builder_promote_shadow_variant` needs
+  the variant's version (`expectedVariantVersion`), so a variant changed after its card is refused; its card
+  names the live agent and what it takes over, the settings of whose rights first: the required policy, run
+  and view policies, autonomy, what it works on, model profile, classification, compositions and scripts for an
+  agent created in the administration, then the tools in a field of their own.
 - `builder_set_mcp_headless_use` changes only whether the server serves runs without a person, checked as the
-  server editor checks that field; what another administrator changed between the card and the approval, the
-  connection and the secret stay.
+  server editor checks that field and written only while the server's authentication mode and connection
+  scope are still those it was checked against; what another administrator changed between the card and the
+  approval, the connection and the secret stay.
 - The builder's policy checks the administration policy without a resource, as the administration's endpoints
   do, so a policy that decides by a resource lets a person use the builder only where the screens let them in.
 - The administration refuses to assign an MCP server to the builder (`PUT admin/mcp-servers/{id}/agents/nh-agent-builder`
@@ -115,7 +129,7 @@
 
 | Breaking change | Required action |
 |---|---|
-| The builder's tools refuse input that does not fit their schema instead of reading it leniently, and `builder_save_skill`, `builder_save_trigger` and `builder_save_consultation` keep what a change leaves out instead of clearing it. | None: the builder corrects a refused call itself. Decide or let expire the builder's waiting approvals before the upgrade. |
+| The builder's tools refuse input that does not fit their schema, or whose card cannot show it in full, instead of reading it leniently or proposing it with the generic summary; `builder_save_skill`, `builder_save_trigger`, `builder_save_consultation` and `builder_save_hand_off` keep what a change leaves out instead of clearing it; `builder_promote_shadow_variant` requires `expectedVariantVersion`. | None: the builder corrects a refused call itself. Decide or let expire the builder's waiting approvals before the upgrade. |
 | An MCP server assigned to the agent builder is no longer offered to its turns, and the administration refuses such an assignment. | Remove an existing assignment with `DELETE admin/mcp-servers/{id}/agents/nh-agent-builder` if you want it gone from the list. |
 
 ## @newheap/platform-ai-chat: the agent builder follows its changes (FB94)

@@ -860,6 +860,32 @@ internal sealed class NhAssistantAdminStore(NhAssistantDbContextFactory contextF
     }
 
     /// <summary>
+    /// Sets only whether a server's tools serve runs without a person, in one statement and only while
+    /// its authentication mode and connection scope are still those <paramref name="headlessUse"/> was
+    /// checked against; <see langword="false"/> when the server does not exist or another change altered
+    /// them meanwhile.
+    /// </summary>
+    public async Task<bool> SetMcpHeadlessUseAsync(
+        string id,
+        string headlessUse,
+        string expectedAuthMode,
+        string expectedConnectionScope,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var now = DateTimeOffset.UtcNow;
+        return await context.McpServers
+            .Where(server => server.Id == id
+                && server.AuthMode == expectedAuthMode
+                && server.ConnectionScope == expectedConnectionScope)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(server => server.HeadlessUse, headlessUse)
+                    .SetProperty(server => server.UpdatedAt, now),
+                cancellationToken) > 0;
+    }
+
+    /// <summary>
     /// Records the outcome of a connection without changing the server's version, so cached
     /// connections stay valid.
     /// </summary>
