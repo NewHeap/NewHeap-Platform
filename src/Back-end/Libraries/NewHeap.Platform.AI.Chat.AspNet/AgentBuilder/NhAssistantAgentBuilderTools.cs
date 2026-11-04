@@ -240,42 +240,42 @@ internal static class NhAssistantAgentBuilderTools
                 ("allowGatewayReads", Schema.Flag("Runs read through the application's API gateway with the accountable person's or account's rights."), false),
                 ("elevatedReads", Schema.Choice("restricted shields reads with the accountable rights from thread readers without the tool's policies; deny refuses them.", ["restricted", "deny"]), false),
                 ("approvalPolicy", Schema.NullableText("An approval policy from the catalog.", 128), false),
-                ("retryCount", Schema.Integer("Automatic retries after a transient failure, 0 to 10."), false),
-                ("dailyToolCalls", Schema.Integer("With dailyTokens, the daily budget of tool calls per scope."), false),
-                ("dailyTokens", Schema.Integer("With dailyToolCalls, the daily budget of tokens per scope."), false),
-                ("maxConcurrentRuns", Schema.Integer("1 to 100."), false),
-                ("maxRunsPerSubjectPerDay", Schema.Integer("1 to 1,000."), false),
-                ("maxTokensPerRun", Schema.Integer("The token ceiling of one run."), false),
+                ("retryCount", Schema.Nullable(Schema.Integer("Automatic retries after a transient failure, 0 to 10; null for the default.")), false),
+                ("dailyToolCalls", Schema.Nullable(Schema.Integer("With dailyTokens, the daily budget of tool calls per scope; null for none.")), false),
+                ("dailyTokens", Schema.Nullable(Schema.LongInteger("With dailyToolCalls, the daily budget of tokens per scope; null for none.")), false),
+                ("maxConcurrentRuns", Schema.Nullable(Schema.Integer("1 to 100; null for the default.")), false),
+                ("maxRunsPerSubjectPerDay", Schema.Nullable(Schema.Integer("1 to 1,000; null for the default.")), false),
+                ("maxTokensPerRun", Schema.Nullable(Schema.LongInteger("The token ceiling of one run; null for none.")), false),
                 ("triageProfile", Schema.NullableText("A model profile that chooses the skill of a run no trigger routed.", 128), false),
                 ("ruleHandler", Schema.NullableText("A rule handler from the catalog.", 128), false),
                 ("alertKinds", Schema.Texts("The alert kinds from the catalog that the agent's rule scripts and model may raise, in full; an empty list lists none."), false),
                 ("acceptsFiles", Schema.Flag("People's messages and the agent's tools may give it files, within the application's limits."), false),
-                ("maxFileBytes", Schema.Integer("With acceptsFiles: the largest file in bytes, at most the application's."), false),
-                ("maxFilePages", Schema.Integer("With acceptsFiles: the most pages of one file."), false),
-                ("maxFilesPerTurn", Schema.Integer("With acceptsFiles: the most files of one turn."), false),
-                ("maxFileTokensPerTurn", Schema.Integer("With acceptsFiles: the most estimated file tokens of one turn."), false),
+                ("maxFileBytes", Schema.Nullable(Schema.Integer("With acceptsFiles: the largest file in bytes, at most the application's; null for the application's.")), false),
+                ("maxFilePages", Schema.Nullable(Schema.Integer("With acceptsFiles: the most pages of one file; null for the application's.")), false),
+                ("maxFilesPerTurn", Schema.Nullable(Schema.Integer("With acceptsFiles: the most files of one turn; null for the application's.")), false),
+                ("maxFileTokensPerTurn", Schema.Nullable(Schema.Integer("With acceptsFiles: the most estimated file tokens of one turn; null for the application's.")), false),
                 ("reason", Schema.Reason(), false)
             ]),
             (handler, call, token) => handler.SaveRunSettingsAsync(call, token)),
         Write(
             SaveSkill,
             "builder_save_skill",
-            "Adds a data skill or saves its next version, after the administrator approves it in the chat. Send the whole skill. A new skill starts in shadow; a change of a skill applies live or, with apply shadow, becomes its candidate next to the live version. expectedVersion is the live version the change is made on, left out for a new skill.",
+            "Adds a data skill or saves its next version, after the administrator approves it in the chat. A change names only what changes: a field it leaves out keeps the live value and null clears it; a new skill needs its description. A new skill starts in shadow; a change of a skill applies live or, with apply shadow, becomes its candidate next to the live version. expectedVersion is the live version the change is made on, left out for a new skill.",
             Schema.Object([
                 ("agentId", Schema.Id("The agent's id."), true),
                 ("skillId", Schema.Id("The skill's id, lowercase dash-case."), true),
                 ("expectedVersion", Schema.Integer("The skill's live version; leave it out for a new skill."), false),
-                ("description", Schema.Text("What the skill does.", 512), true),
-                ("instructions", Schema.Text("The skill's instructions for its model.", 20_000), false),
+                ("description", Schema.Text("What the skill does; needed for a new skill.", 512), false),
+                ("instructions", Schema.NullableText("The skill's instructions for its model; null for none.", 20_000), false),
                 ("tools", Schema.Texts("The tool selectors of the skill, within the agent's own."), false),
-                ("ruleHandler", Schema.Text("A rule handler from the catalog the skill works by.", 128), false),
-                ("profile", Schema.Text("A model profile from the catalog.", 128), false),
-                ("approvalPolicy", Schema.Text("An approval policy from the catalog.", 128), false),
-                ("maxTokensPerRun", Schema.Integer("The token ceiling of one run in the skill."), false),
-                ("dailyToolCalls", Schema.Integer("With dailyTokens, the skill's daily budget of tool calls."), false),
-                ("dailyTokens", Schema.Integer("With dailyToolCalls, the skill's daily budget of tokens."), false),
+                ("ruleHandler", Schema.NullableText("A rule handler from the catalog the skill works by; null for none.", 128), false),
+                ("profile", Schema.NullableText("A model profile from the catalog; null for the agent's.", 128), false),
+                ("approvalPolicy", Schema.NullableText("An approval policy from the catalog; null for the agent's.", 128), false),
+                ("maxTokensPerRun", Schema.Nullable(Schema.LongInteger("The token ceiling of one run in the skill; null for the agent's.")), false),
+                ("dailyToolCalls", Schema.Nullable(Schema.Integer("With dailyTokens, the skill's daily budget of tool calls; null for none.")), false),
+                ("dailyTokens", Schema.Nullable(Schema.LongInteger("With dailyToolCalls, the skill's daily budget of tokens; null for none.")), false),
                 ("apply", Schema.Choice("For a change: live (default) or shadow, as a candidate.", [NhAssistantSkillApplyModes.Live, NhAssistantSkillApplyModes.Shadow]), false),
-                ("dataClassification", Schema.Choice("The classification of the data its model calls carry.", Classifications), false),
+                ("dataClassification", Schema.Nullable(Schema.Choice("The classification of the data its model calls carry; null for the agent's.", Classifications)), false),
                 ("acceptsFiles", Schema.Flag("A run in the skill reads files, when its agent accepts them too."), false),
                 ("reason", Schema.Reason(), false)
             ]),
@@ -283,21 +283,21 @@ internal static class NhAssistantAgentBuilderTools
         Write(
             SaveTrigger,
             "builder_save_trigger",
-            "Adds a data trigger or saves its next version, after the administrator approves it in the chat. Send the whole trigger: an event trigger names a trigger event and may select its filters; a schedule names a cron expression and a subject set from the catalog (without one it runs for the whole application). A new trigger starts in shadow; a change applies live or, with apply shadow, becomes its candidate.",
+            "Adds a data trigger or saves its next version, after the administrator approves it in the chat. A change names only what changes: a field it leaves out keeps the live value and null clears it, and a change of source starts from that source's defaults. An event trigger names a trigger event and may select its filters; a schedule names a cron expression and a subject set from the catalog (without one it runs for the whole application). A new trigger starts in shadow; a change applies live or, with apply shadow, becomes its candidate.",
             Schema.Object([
                 ("agentId", Schema.Id("The agent's id."), true),
                 ("triggerId", Schema.Id("The trigger's id, lowercase dash-case."), true),
                 ("expectedVersion", Schema.Integer("The trigger's live version; leave it out for a new trigger."), false),
                 ("source", Schema.Choice("event or schedule.", ["event", "schedule"]), true),
-                ("skill", Schema.Id("The skill the runs work in; leave it out to let the agent's rules or triage choose."), false),
+                ("skill", Schema.Nullable(Schema.Id("The skill the runs work in; null to let the agent's rules or triage choose.")), false),
                 ("event", Schema.Text("For an event trigger: a trigger event from the catalog.", 128), false),
                 ("filters", Schema.Texts("For an event trigger: names of the event's filters that must all accept an event."), false),
                 ("cron", Schema.Text("For a schedule: a five- or six-field cron expression.", 128), false),
-                ("timeZone", Schema.Text("For a schedule: an IANA time zone id; UTC by default.", 128), false),
-                ("subjectSet", Schema.Text("For a schedule: a subject set from the catalog.", 128), false),
-                ("message", Schema.Text("For a schedule: what every run receives.", 2_000), false),
+                ("timeZone", Schema.NullableText("For a schedule: an IANA time zone id; null for UTC.", 128), false),
+                ("subjectSet", Schema.NullableText("For a schedule: a subject set from the catalog; null for the whole application.", 128), false),
+                ("message", Schema.NullableText("For a schedule: what every run receives; null for none.", 2_000), false),
                 ("conflict", Schema.Choice("What happens while a run on the subject is active.", ["coalesce", "queue", "supersede", "ignore"]), false),
-                ("debounceSeconds", Schema.Integer("For an event trigger: the window in which events coalesce, at most 3,600."), false),
+                ("debounceSeconds", Schema.Nullable(Schema.Integer("For an event trigger: the window in which events coalesce, at most 3,600; null for the default.")), false),
                 ("apply", Schema.Choice("For a change: live (default) or shadow, as a candidate.", [NhAssistantSkillApplyModes.Live, NhAssistantSkillApplyModes.Shadow]), false),
                 ("reason", Schema.Reason(), false)
             ]),
@@ -320,27 +320,27 @@ internal static class NhAssistantAgentBuilderTools
         Write(
             SaveConsultation,
             "builder_save_consultation",
-            "Adds or changes the consultation defined as data that lets other assistants consult the agent about subjects of one type, within the ceiling in code, after the administrator approves it in the chat: who may ask (minimumRole and askerPolicy), how its proposals are decided (routes), the proposal role and policy, its limits, the request tool, MCP exposure and the classification of its answers. Send the whole consultation; expectedVersion is its current version, left out for a new one.",
+            "Adds or changes the consultation defined as data that lets other assistants consult the agent about subjects of one type, within the ceiling in code, after the administrator approves it in the chat: who may ask (minimumRole and askerPolicy), how its proposals are decided (routes), the proposal role and policy, its limits, the request tool, MCP exposure and the classification of its answers. A change names only what changes: a field it leaves out keeps the current value and null clears it; a new one needs its description. expectedVersion is its current version, left out for a new one.",
             Schema.Object([
                 ("agentId", Schema.Id("The agent's id."), true),
                 ("subjectType", Schema.Id("The object type the consultation is about."), true),
                 ("expectedVersion", Schema.Integer("The consultation's current version; leave it out for a new one."), false),
-                ("description", Schema.Text("What asking agents may consult it about.", NhAssistantAgentConfigurationLimits.MaxConsultationDescriptionLength), true),
-                ("instructions", Schema.Text("Instructions for the consulted agent's turn.", NhAssistantAgentConfigurationLimits.MaxConsultationInstructionsLength), false),
+                ("description", Schema.Text("What asking agents may consult it about; needed for a new one.", NhAssistantAgentConfigurationLimits.MaxConsultationDescriptionLength), false),
+                ("instructions", Schema.NullableText("Instructions for the consulted agent's turn; null for none.", NhAssistantAgentConfigurationLimits.MaxConsultationInstructionsLength), false),
                 ("minimumRole", Schema.Choice("The role on the subject the asking person needs.", ["reader", "participant", "approver"]), false),
-                ("askerPolicy", Schema.Text("An agent policy from the catalog the asking person must pass.", 256), false),
+                ("askerPolicy", Schema.NullableText("An agent policy from the catalog the asking person must pass; null for none.", 256), false),
                 ("routes", Schema.Texts("How its proposals are decided: asker-decides and at most one of subject-asker-rights and subject-agent-rights; none keeps it read-only."), false),
                 ("proposalRole", Schema.Choice("The role the asking person needs before the agent may propose.", ["reader", "participant", "approver"]), false),
-                ("proposalPolicy", Schema.Text("An approval policy from the catalog.", 128), false),
+                ("proposalPolicy", Schema.NullableText("An approval policy from the catalog; null for the agent's.", 128), false),
                 ("toolSelectors", Schema.Texts("The tools the consulted agent is offered, within its own; all of them by default."), false),
-                ("maxToolCalls", Schema.Integer("0 to 32."), false),
-                ("timeoutSeconds", Schema.Integer("1 to 600."), false),
-                ("maxAnswerChars", Schema.Integer("200 to 32,000."), false),
-                ("maxHistoryMessages", Schema.Integer("0 to 200."), false),
+                ("maxToolCalls", Schema.Nullable(Schema.Integer("0 to 32; null for the default.")), false),
+                ("timeoutSeconds", Schema.Nullable(Schema.Integer("1 to 600; null for the default.")), false),
+                ("maxAnswerChars", Schema.Nullable(Schema.Integer("200 to 32,000; null for the default.")), false),
+                ("maxHistoryMessages", Schema.Nullable(Schema.Integer("0 to 200; null for the default.")), false),
                 ("allowRequests", Schema.Flag("Also offers the request tool, when the ceiling allows requests."), false),
                 ("requestsOnly", Schema.Flag("It takes requests only; needs allowRequests."), false),
                 ("exposeToMcp", Schema.Flag("MCP clients may see its tools, when the ceiling allows it."), false),
-                ("dataClassification", Schema.Choice("The classification of its answers; the agent's by default.", Classifications), false),
+                ("dataClassification", Schema.Nullable(Schema.Choice("The classification of its answers; null for the agent's.", Classifications)), false),
                 ("startsOff", Schema.Flag("For a new consultation: it starts off until it is switched on."), false),
                 ("reason", Schema.Reason(), false)
             ]),
@@ -510,14 +510,6 @@ internal static class NhAssistantAgentBuilderTools
             (handler, call, token) => handler.RemoveAsync(call, token))
     ];
 
-    /// <summary>
-    /// Whether <paramref name="toolId"/> is one of the tools that change something, each of which waits
-    /// for the administrator's approval.
-    /// </summary>
-    public static bool IsWrite(string toolId)
-    {
-        return All.Any(tool => tool.Id == toolId && tool.Approval == NhAiApprovalRequirement.Required);
-    }
 
     private static NhAssistantAgentBuilderTool Read(
         string id,
@@ -582,9 +574,29 @@ internal static class NhAssistantAgentBuilderTools
             return Text("Why, in one sentence; kept with the change.", 500);
         }
 
+        /// <summary>A whole number from 0 that fits an <see cref="int"/>.</summary>
         public static JsonObject Integer(string description)
         {
-            return new JsonObject { ["type"] = "integer", ["description"] = description };
+            return new JsonObject { ["type"] = "integer", ["minimum"] = 0, ["maximum"] = int.MaxValue, ["description"] = description };
+        }
+
+        /// <summary>A whole number from 0 that fits a <see cref="long"/>, such as a number of tokens.</summary>
+        public static JsonObject LongInteger(string description)
+        {
+            return new JsonObject { ["type"] = "integer", ["minimum"] = 0, ["description"] = description };
+        }
+
+        /// <summary>The schema of <paramref name="schema"/> that <c>null</c> also fits, which clears the value.</summary>
+        public static JsonObject Nullable(JsonObject schema)
+        {
+            var nullable = (JsonObject)schema.DeepClone();
+            nullable["type"] = new JsonArray(schema["type"]!.GetValue<string>(), "null");
+            if (nullable["enum"] is JsonArray choices)
+            {
+                choices.Add(null);
+            }
+
+            return nullable;
         }
 
         public static JsonObject Flag(string description)

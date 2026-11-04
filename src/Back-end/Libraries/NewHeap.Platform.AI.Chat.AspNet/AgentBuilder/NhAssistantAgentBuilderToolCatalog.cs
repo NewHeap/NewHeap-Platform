@@ -88,12 +88,12 @@ internal sealed class NhAssistantAgentBuilderToolCatalog : INhAiAttestedToolCata
         JsonElement input,
         CancellationToken cancellationToken)
     {
-        // Input the tool does not take, such as a secret, is refused before the invoker runs: it never
-        // becomes a proposal, an approval card or a stored argument.
-        var (accepted, unknown) = NhAssistantAgentBuilderInput.Read(input, tool.Input.Properties);
+        // Input that does not fit the tool's schema, such as a secret or a number sent as text, is refused
+        // before the invoker runs: it never becomes a proposal, an approval card or a stored argument.
+        var (accepted, refusal) = NhAssistantAgentBuilderInput.Read(input, tool.Input.Schema);
         if (accepted is null)
         {
-            return await RefuseInputAsync(descriptor, unknown!, services, cancellationToken);
+            return await RefuseInputAsync(descriptor, refusal!, services, cancellationToken);
         }
 
         var invoker = services.GetRequiredService<INhAiToolInvoker>();
@@ -106,16 +106,16 @@ internal sealed class NhAssistantAgentBuilderToolCatalog : INhAiAttestedToolCata
     }
 
     /// <summary>
-    /// Refuses a call whose input names a property the tool does not take, as a refused argument shape is:
-    /// the outcome of the call and a content-free audit record name the code, never a value.
+    /// Refuses a call whose input does not fit the tool's schema, as a refused argument shape is: the outcome
+    /// of the call and a content-free audit record name the code, and the message names the property, never
+    /// its value.
     /// </summary>
     private static async Task<TaskResult<JsonNode>> RefuseInputAsync(
         NhAiToolDescriptor descriptor,
-        string property,
+        string message,
         IServiceProvider services,
         CancellationToken cancellationToken)
     {
-        var message = NhAssistantAgentBuilderToolHandler.UnknownInputMessage(property);
         NhAiToolOutcomeCapture.Record(TaskResult.Failed(NhAiToolFailureCodes.InputInvalid, message), null);
         var record = new NhAiAuditRecord(
             Guid.NewGuid(),

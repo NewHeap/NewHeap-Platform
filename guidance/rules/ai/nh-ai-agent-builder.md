@@ -33,9 +33,11 @@ the hash of its content; its id and version are part of the builder's prompt ver
 
 It is the agent `NhAssistantAgentBuilderIds.AgentId` (`nh-agent-builder`) with the policy
 `NhAssistantAgentBuilderIds.Policy`, which requires the assistant's access policy and its administration
-policy together: nobody else sees it, chats with it or is offered its tools, and a person who loses the
-administration policy cannot continue a chat with it. Its id is reserved and its definition is the
-platform's: the administration refuses an agent created with its id and a change of its definition
+policy together, the latter without a resource as the administration's endpoints check it: nobody else sees
+it, chats with it or is offered its tools, and a person who loses the administration policy cannot continue
+a chat with it. It gets no MCP server (`agentId: not-allowed`) and its turns load none. Its id is reserved
+and its definition is the platform's: the administration refuses an agent created with its id and a change
+of its definition
 (`id: not-allowed`), and no builder tool works on the builder itself. No other agent is offered its tools
 (`NhAssistantAgentBuilderIds.ToolIdPrefix`, `assistant.agent-builder.*`), whatever its tool selectors say;
 they are not exported to MCP clients and the administration's tool list leaves them out. An application whose
@@ -65,10 +67,18 @@ who chats:
   assignment), `builder_set_mcp_headless_use`, `builder_set_switch` (tools without approval, the alert model),
   `builder_set_groups`, `builder_promote_shadow_variant` and `builder_remove`.
 
-Input that a call leaves out keeps what the agent has: nothing is reset that the administrator did not
-mention. A change of whose rights an agent uses (accountability, technical account, delegation, gateway or
-elevated reads, required policy, MCP servers and their use without a person, consultation routes) and every
-removal get a card whose notice says so plainly, in English and Dutch.
+Input that a call leaves out keeps what the agent has, also for the skills, triggers (while their source
+stays the same) and consultations their services store whole: nothing is reset that the administrator did
+not mention. Every call's input is checked against its tool's schema before it becomes a proposal, and the
+card and the change read the same checked input: a number as a string, a string as yes or no, `null` where
+the schema has none, an empty text, a value outside its choices or bounds and an unknown property are
+refused (`ai-tool-input-invalid`); `null` clears a value only where the schema allows it, and the card says
+the default applies. The card shows every value the call gives. A change of whose rights an agent uses
+(accountability, technical account, delegation, gateway or elevated reads, required policy, who may run it
+or see its results for the whole application, MCP servers and their use without a person, consultation
+routes, the promotion of a shadow variant, whose card names the live agent and what it takes over) and every
+removal get a card whose notice says so plainly, in English and Dutch. `builder_set_mcp_headless_use` changes
+only the server's use without a person; its connection, secret and other settings stay.
 
 Every call runs only in a person's own chat with the builder, never in a run, a consultation or another
 agent's turn (`assistant-forbidden`), and with the person as the actor through `INhAssistantAgentConfiguration`,
@@ -132,12 +142,18 @@ after an approval whose card says so, and a later change that names only the con
 removal waits for a card that names what goes, a rejection removes nothing, an agent in code is not deleted
 and an agent created in the administration is, audited for the person; an existing MCP server is listed
 without its secret, a call that sends a secret is refused before any approval, the assignment and the use
-without a person change after their approvals and the server keeps its secret; the gateway's resources are
+without a person change after their approvals and the server keeps its secret and what another
+administrator changed meanwhile; input its card could read otherwise is refused before any approval, and a
+change of a skill or a trigger keeps what it leaves out; the builder gets no MCP server and loads none,
+also with an assignment stored before; an administration policy that decides by a resource lets nobody use
+the builder where the screens refuse them; the gateway's resources are
 read with the administrator's rights, the blockers name gateway reads, the accountability, an unlisted alert
 kind and the missing trigger, the builder lists the kind after an approval whose card names it and the blocker is gone, and the guidance reaches the builder after the rules and before the
 application context and no other agent. Without a database: 27 tools, every write needs an approval, no
-tool takes a secret, every write's card keeps within the presentation's limits in English and Dutch, a
-change of rights and every removal say so, a call outside a person's chat with the builder is refused, the
+tool takes a secret, every write's card keeps within the presentation's limits in English and Dutch with the
+longest input its schema allows, input of the wrong type, null or an unknown property is refused, the card
+shows the values that change, a promotion names the live agent and what it takes over, a change of rights
+and every removal say so, a call outside a person's chat with the builder is refused, the
 guidance is checked, the blockers name why recent runs failed and a host without read credentials, and the
 API bridge's gateway resources find and describe only what the person may use. In the administration, an
 Angular spec on the mock API proves the chat on the Build tab with its page context, "New agent with help"

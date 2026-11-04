@@ -199,6 +199,43 @@ internal sealed partial class NhAssistantMcpAdministration(
         return TaskResult<AssistantMcpServer>.Succeeded(updated);
     }
 
+    /// <summary>
+    /// Changes only whether the server's tools serve runs without a person (<c>headlessUse</c>), checked as
+    /// the server editor's save checks that field: a valid value that fits the server's authentication mode
+    /// and connection scope. Every other setting, the connection and the secret stay as they are, also when
+    /// another administrator changed them meanwhile, because only this one column is written. Audited as
+    /// <see cref="NhAssistantAuditEventKind.AdminMcpServerUpdated"/>.
+    /// </summary>
+    public async Task<TaskResult<AssistantMcpServer>> SetHeadlessUseAsync(
+        string id,
+        string headlessUse,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        ArgumentNullException.ThrowIfNull(headlessUse);
+        var existing = await store.FindMcpServerAsync(id, cancellationToken);
+        if (existing is null)
+        {
+            return NotFound<AssistantMcpServer>();
+        }
+        if (!NhAssistantMcpHeadlessUses.IsValid(headlessUse)
+            || !modes.FitsHeadlessUse(headlessUse, existing.AuthMode, existing.ConnectionScope))
+        {
+            return TaskResult<AssistantMcpServer>.Failed(NhAssistantValidationErrors.Failed("headlessUse", NhAssistantFieldErrors.Invalid));
+        }
+
+        var updated = await store.UpdateMcpServerAsync(id, server => server.HeadlessUse = headlessUse, cancellationToken);
+        if (updated is null)
+        {
+            // Another administrator deleted the server meanwhile.
+            return NotFound<AssistantMcpServer>();
+        }
+        await cache.InvalidateAsync(id);
+        await AuditAsync(NhAssistantAuditEventKind.AdminMcpServerUpdated, id, actorId, cancellationToken);
+        return TaskResult<AssistantMcpServer>.Succeeded(updated);
+    }
+
     public async Task<TaskResult> DeleteAsync(string id, string actorId, CancellationToken cancellationToken)
     {
         if (await store.FindMcpServerAsync(id, cancellationToken) is { } existing && NhAssistantMcpAuthModes.IsOAuth(existing.AuthMode))

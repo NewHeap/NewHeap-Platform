@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using NewHeap.Platform.AI.Chat.Runtime;
@@ -6,12 +5,18 @@ using NewHeap.Platform.AI.Chat.Runtime;
 namespace NewHeap.Platform.AI.Chat.AspNet.AgentBuilder;
 
 /// <summary>
-/// The input of one call of an agent builder tool, as the model sent it. It is untrusted: a property the
-/// tool does not take and a value of the wrong type are refused before anything runs, and a property that
-/// is left out or <c>null</c> reads as not given.
+/// The input of one call of an agent builder tool, as the model sent it. It is untrusted, so it is checked
+/// against the tool's schema before the call becomes a proposal: a property the tool does not take, a
+/// missing required property, <c>null</c> where the schema does not allow it, a value of another JSON type
+/// (no number as a string, no string as a flag), a value outside its choices and a text or list that is too
+/// long are refused before anything is shown or runs. The approval card and the handler read the same
+/// checked input with the same accessors, so what the card says is what runs. A property that is left out
+/// reads as not given; <c>null</c>, where the schema allows it, clears a value.
 /// </summary>
 internal sealed class NhAssistantAgentBuilderInput
 {
+    private const int MaxReportedNameLength = 64;
+
     private readonly JsonElement _value;
 
     private NhAssistantAgentBuilderInput(JsonElement value)
@@ -20,31 +25,160 @@ internal sealed class NhAssistantAgentBuilderInput
     }
 
     /// <summary>
-    /// The input of <paramref name="value"/> for a tool that takes <paramref name="properties"/>, or the name
-    /// of the first property it does not take; <c>input</c> when the value is no object.
+    /// The input of <paramref name="value"/> checked against <paramref name="schema"/>, a tool's input
+    /// schema, or why it is refused, naming the property but never its value.
     /// </summary>
-    public static (NhAssistantAgentBuilderInput? Input, string? Refused) Read(JsonElement value, IReadOnlyCollection<string> properties)
+    public static (NhAssistantAgentBuilderInput? Input, string? Refused) Read(JsonElement value, JsonObject schema)
     {
+        ArgumentNullException.ThrowIfNull(schema);
         if (value.ValueKind == JsonValueKind.Undefined || value.ValueKind == JsonValueKind.Null)
         {
             value = JsonSerializer.SerializeToElement(new JsonObject());
         }
         if (value.ValueKind != JsonValueKind.Object)
         {
-            return (null, "input");
+            return (null, "The input must be an object of the properties the tool's schema names.");
         }
 
+        var refusal = CheckObject(string.Empty, value, schema);
+        return refusal is null ? (new NhAssistantAgentBuilderInput(value.Clone()), null) : (null, refusal);
+    }
+
+    /// <summary>
+    /// Why <paramref name="value"/> does not fit the object schema <paramref name="schema"/>, or
+    /// <see langword="null"/> when it does.
+    /// </summary>
+    private static string? CheckObject(string path, JsonElement value, JsonObject schema)
+    {
+        var properties = schema["properties"] as JsonObject ?? [];
         foreach (var property in value.EnumerateObject())
         {
-            if (!properties.Contains(property.Name))
+            var name = path + property.Name;
+            if (properties[property.Name] is not JsonObject propertySchema)
             {
-                return (null, NhAssistantContent.Bound(property.Name, 64));
+                return $"The tool does not take '{Bounded(name)}'. Use only the properties its schema names; the agent builder never takes or handles secrets.";
+            }
+            if (Check(name, property.Value, propertySchema) is { } refusal)
+            {
+                return refusal;
+            }
+        }
+        foreach (var required in (schema["required"] as JsonArray ?? []).Select(item => item!.GetValue<string>()))
+        {
+            if (!value.TryGetProperty(required, out _))
+            {
+                return $"Give {path + required}.";
             }
         }
 
-        return (new NhAssistantAgentBuilderInput(value.Clone()), null);
+        return schema["maxProperties"] is JsonValue maximum && value.EnumerateObject().Count() > NumberOf(maximum)
+            ? $"'{Bounded(path.TrimEnd('.'))}' has more properties than its schema allows."
+            : null;
     }
 
+    /// <summary>
+    /// Why one value does not fit its schema: its JSON type, <c>null</c>, its choices, its length, the size
+    /// of a list and its items; <see langword="null"/> when it fits. A schema without a type takes any value.
+    /// </summary>
+    private static string? Check(string name, JsonElement value, JsonObject schema)
+    {
+        var types = TypesOf(schema);
+        if (types.Count == 0)
+        {
+            return null;
+        }
+        if (value.ValueKind == JsonValueKind.Null)
+        {
+            return types.Contains("null")
+                ? null
+                : $"'{Bounded(name)}' may not be null. Leave it out to keep what the agent has.";
+        }
+
+        switch (value.ValueKind)
+        {
+            case JsonValueKind.String when types.Contains("string"):
+            {
+                var text = value.GetString()!;
+                if (schema["enum"] is JsonArray choices
+                    && !choices.Any(choice => choice is JsonValue item && item.TryGetValue<string>(out var allowed) && string.Equals(allowed, text, StringComparison.Ordinal)))
+                {
+                    return $"'{Bounded(name)}' is not one of the values its schema names.";
+                }
+                if (schema["maxLength"] is JsonValue maxLength && text.Length > NumberOf(maxLength))
+                {
+                    return $"'{Bounded(name)}' is longer than its schema allows.";
+                }
+                // A blank text says nothing: a value that may be cleared is cleared with null.
+                return string.IsNullOrWhiteSpace(text) && !types.Contains("null")
+                    ? $"'{Bounded(name)}' may not be blank. Leave it out to keep what the agent has."
+                    : null;
+            }
+            case JsonValueKind.Number when types.Contains("integer"):
+            {
+                if (!value.TryGetInt64(out var number))
+                {
+                    return $"'{Bounded(name)}' must be a whole number.";
+                }
+                return schema["minimum"] is JsonValue minimum && number < NumberOf(minimum)
+                    || schema["maximum"] is JsonValue maximum && number > NumberOf(maximum)
+                    ? $"'{Bounded(name)}' is outside the range its schema allows."
+                    : null;
+            }
+            case JsonValueKind.True or JsonValueKind.False when types.Contains("boolean"):
+                return null;
+            case JsonValueKind.Array when types.Contains("array"):
+            {
+                var count = value.GetArrayLength();
+                if (schema["maxItems"] is JsonValue maxItems && count > NumberOf(maxItems)
+                    || schema["minItems"] is JsonValue minItems && count < NumberOf(minItems))
+                {
+                    return $"'{Bounded(name)}' has another number of items than its schema allows.";
+                }
+                if (schema["items"] is JsonObject itemSchema)
+                {
+                    var index = 0;
+                    foreach (var item in value.EnumerateArray())
+                    {
+                        if (Check($"{name}[{index}]", item, itemSchema) is { } refusal)
+                        {
+                            return refusal;
+                        }
+                        index++;
+                    }
+                }
+                return null;
+            }
+            case JsonValueKind.Object when types.Contains("object"):
+                return schema["properties"] is JsonObject
+                    ? CheckObject(name + ".", value, schema)
+                    : schema["maxProperties"] is JsonValue maxProperties && value.EnumerateObject().Count() > NumberOf(maxProperties)
+                        ? $"'{Bounded(name)}' has more properties than its schema allows."
+                        : null;
+            default:
+                return $"'{Bounded(name)}' has the wrong type: send it as {string.Join(" or ", types.Where(type => type != "null"))}, as its schema says.";
+        }
+    }
+
+    private static HashSet<string> TypesOf(JsonObject schema)
+    {
+        return schema["type"] switch
+        {
+            JsonValue single => [single.GetValue<string>()],
+            JsonArray several => several.Select(item => item!.GetValue<string>()).ToHashSet(StringComparer.Ordinal),
+            _ => []
+        };
+    }
+
+    /// <summary>A bound of the schema as a number, whatever numeric type it was written with.</summary>
+    private static long NumberOf(JsonValue bound)
+    {
+        return long.Parse(bound.ToJsonString(), System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static string Bounded(string name)
+    {
+        return NhAssistantContent.Bound(name, MaxReportedNameLength);
+    }
     /// <summary>
     /// Whether the input gives <paramref name="name"/> a value other than <c>null</c>.
     /// </summary>
@@ -99,14 +233,10 @@ internal sealed class NhAssistantAgentBuilderInput
         {
             return null;
         }
+        // A number only: the card reads the same value, so a number sent as text is refused, never parsed.
         if (property.ValueKind == JsonValueKind.Number && property.TryGetInt32(out var number))
         {
             return number;
-        }
-        if (property.ValueKind == JsonValueKind.String
-            && int.TryParse(property.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
-        {
-            return parsed;
         }
 
         throw new NhAssistantAgentBuilderInputException(name);
