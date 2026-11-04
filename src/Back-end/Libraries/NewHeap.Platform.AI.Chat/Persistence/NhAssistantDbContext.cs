@@ -850,6 +850,7 @@ public sealed class NhAssistantDbContext : DbContext
             settings.Property(item => item.ApprovalPolicyId).HasMaxLength(128);
             settings.Property(item => item.TriageProfileName).HasMaxLength(128);
             settings.Property(item => item.RuleHandlerName).HasMaxLength(NhAssistantBlockNames.MaxLength);
+            settings.Property(item => item.AlertKindsJson).HasMaxLength(NhAssistantDataAlertKinds.MaxJsonLength);
             settings.Property(item => item.CreatedBy).HasMaxLength(256).IsRequired();
             settings.Property(item => item.UpdatedBy).HasMaxLength(256).IsRequired();
             settings.Property(item => item.Reason).HasMaxLength(NhAssistantLimits.MaxStateReasonCharacters);

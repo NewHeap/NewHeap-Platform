@@ -5,7 +5,8 @@ import {
   AdminAlertKindNumbers,
   AdminAlertKinds,
   AlertUrgency,
-  NH_ASSISTANT_ALERT_URGENCIES
+  NH_ASSISTANT_ALERT_URGENCIES,
+  RunAlertKind
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockResult, mockFailure as failure } from './nh-assistant-mock-admin-shared';
 
@@ -32,6 +33,16 @@ export class NhAssistantMockAlertKinds {
     for (const kind of kinds ?? exampleKinds()) {
       this.kinds.set(kind.id, structuredClone(kind));
     }
+  }
+
+  /**
+   * Every kind as the run catalog lists it (FB93), ordered by id: what the run settings of an agent created
+   * in the administration may list. A kind in `modelKindIds` has a template for an agent's model.
+   */
+  runCatalogKinds(modelKindIds: ReadonlySet<string>): RunAlertKind[] {
+    return [...this.kinds.values()]
+      .sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0)
+      .map(kind => ({ id: kind.id, displayNameKey: kind.displayNameKey, urgency: kind.urgency, raisedByModel: modelKindIds.has(kind.id) }));
   }
 
   /** Answers `admin/alert-kinds` and `admin/alert-kinds/{id}`; `segments` start after `admin`. */

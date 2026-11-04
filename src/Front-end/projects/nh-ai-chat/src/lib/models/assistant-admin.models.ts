@@ -1615,7 +1615,31 @@ export interface RunCatalog {
    * or missing while they never get them.
    */
   compositionCeiling?: CompositionCeiling | null;
+  /**
+   * Every alert kind the application registers with `AddAlertKind`, ordered by id: what the run
+   * settings of an agent created here may list (FB93); missing on older servers.
+   */
+  alertKinds?: RunAlertKind[];
 }
+
+/**
+ * An alert kind the run settings of an agent created in the administration may list, as the run
+ * catalog shows it. Its texts, recipients and delivery stay as the application declares them.
+ */
+export interface RunAlertKind {
+  id: string;
+  /** The front-end translation key of the kind's name. */
+  displayNameKey: string;
+  urgency: AlertUrgency;
+  /**
+   * The kind has a template for an agent's model, so the agent's model may raise it too once an
+   * administrator switches it on for the agent.
+   */
+  raisedByModel: boolean;
+}
+
+/** The most alert kinds the run settings of an agent created in the administration list. */
+export const NH_ASSISTANT_MAX_RUN_ALERT_KINDS = 20;
 
 /** The features `UseCompositionsAsData` allows for agents created in the administration. */
 export interface CompositionCeiling {
@@ -1811,17 +1835,19 @@ export interface AssistantAccount {
 }
 
 /** Which part of the run configuration a problem concerns. */
-export type RunConfigurationProblemKind = 'agent' | 'skill' | 'candidate' | 'trigger' | 'trigger-candidate' | 'consultation' | 'hand-off';
+export type RunConfigurationProblemKind = 'agent' | 'skill' | 'candidate' | 'trigger' | 'trigger-candidate' | 'consultation' | 'hand-off' | 'alert-kind';
 
 /**
  * Data that is out of effect because it no longer fits the code, for example after a deploy removed
  * a profile, policy, rule handler, event or subject set it names. A consultation defined as data may
- * also stay in effect without the parts that no longer fit, each with a problem.
+ * also stay in effect without the parts that no longer fit, each with a problem. An alert kind the run
+ * settings list that the code no longer registers (kind `alert-kind`, code `unknown-alert-kind`) leaves
+ * the run settings in effect without it, and its alerts are refused.
  */
 export interface RunConfigurationProblem {
   agentId: string;
   kind: RunConfigurationProblemKind;
-  /** The agent, skill or trigger id; the subject type of a consultation. */
+  /** The agent, skill, trigger or alert kind id; the subject type of a consultation. */
   id: string;
   /** Such as `unknown-event` or `tool-not-covered`. */
   code: string;
@@ -1864,6 +1890,11 @@ export interface AgentRunSettings extends LowerFileLimits {
    */
   acceptsFiles?: boolean;
   /**
+   * The kinds of alert the agent's rules, rule scripts and model may raise, ordered by id (FB93); missing on
+   * older servers. A kind the code no longer registers stays listed with a problem of kind `alert-kind`.
+   */
+  alertKinds?: string[];
+  /**
    * The link of the run settings (part `runSettings`) to the agent package it was imported from, with its locked
    * fields, which the administration shows read-only; missing when it is not linked.
    */
@@ -1898,6 +1929,13 @@ export interface AgentRunSettingsRequest extends LowerFileLimits {
   reason?: string | null;
   /** People's messages and the agent's tools may give it files; `false` by default. */
   acceptsFiles?: boolean;
+  /**
+   * The kinds of alert the agent may raise, out of the run catalog's `alertKinds`: at most
+   * `NH_ASSISTANT_MAX_RUN_ALERT_KINDS` distinct ids. An empty list lists none; `null` or left out keeps
+   * the kinds the settings list, none for new settings. A kind the code does not register fails with
+   * `alertKinds: not-found`, a malformed id or too many with `alertKinds: invalid`.
+   */
+  alertKinds?: string[] | null;
 }
 
 /** A skill the agent declares in code; it cannot change here. */
@@ -1974,6 +2012,11 @@ export interface CodeRunSettings {
   elevatedReads?: 'restricted' | 'deny';
   /** The agent reads through the application's data gateway (`AllowGatewayReads()`); missing on older servers. */
   allowGatewayReads?: boolean;
+  /**
+   * The kinds of alert the agent's rules may raise (`Alerts(...)`), ordered by id; they change only in code.
+   * Missing on older servers.
+   */
+  alertKinds?: string[];
 }
 
 /**

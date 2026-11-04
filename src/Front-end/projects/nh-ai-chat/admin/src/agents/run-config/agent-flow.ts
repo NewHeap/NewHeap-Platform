@@ -163,6 +163,9 @@ export function problemStep(problem: RunConfigurationProblem): AgentFlowStepId {
     case 'skill':
     case 'candidate':
       return 'skills';
+    case 'alert-kind':
+      // An alert kind the application no longer registers concerns what the agent produces.
+      return 'results';
     default:
       if (problem.code === 'unknown-policy') {
         return 'approval';

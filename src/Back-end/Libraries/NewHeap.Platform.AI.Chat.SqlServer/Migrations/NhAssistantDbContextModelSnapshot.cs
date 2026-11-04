@@ -710,6 +710,10 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
 
+                    b.Property<string>("AlertKindsJson")
+                        .HasMaxLength(1342)
+                        .HasColumnType("nvarchar(1342)");
+
                     b.Property<bool>("AllowGatewayReads")
                         .HasColumnType("bit");
 

@@ -470,7 +470,7 @@ internal sealed class NhAiRuleScriptEngine(NhAiScriptingOptions options, NhAiScr
 
             return run.AlertKinds.Contains(kind, StringComparer.Ordinal)
                 ? null
-                : "alert kind '" + (kind.Length > 64 ? kind[..64] : kind) + "' is not listed by the agent with Alerts(...).";
+                : "alert kind '" + (kind.Length > 64 ? kind[..64] : kind) + "' is not listed by the agent, with Alerts(...) in code or in its run settings.";
         }
 
         private NhAiSubjectRef SubjectOf(JsonElement input)

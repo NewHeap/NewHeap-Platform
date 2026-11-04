@@ -109,7 +109,10 @@ export class NhAssistantMockAdmin {
       },
       now,
       this.accounts,
-      this.instructionAssets);
+      this.instructionAssets,
+      // The kinds the application registers, as the alert kinds of the administration list them; a kind
+      // an agent's model may raise has a template.
+      this.alertKinds.runCatalogKinds(new Set(Object.values(admin.alertModel ?? {}).flat().map(kind => kind.kindId))));
     this.handOffs = new NhAssistantMockHandOffs(admin, {
       find: agentId => this.agents.find(agentId),
       all: () => this.agents.all(),

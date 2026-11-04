@@ -298,6 +298,21 @@ const PLAYGROUND_ALERT_KINDS: AdminAlertKind[] = [
     delivery: { mode: 'daily-digest', digestTimes: ['07:30'], workdaysOnly: true, immediatelyFrom: 'urgent', quietHours: null },
     numbers: { raised: 3, delivered: 2, read: 1, dismissed: 0, resolvedBeforeReading: 1, withheld: 0, muted: 0 },
     shadow: []
+  },
+  {
+    // SPM-395: the kind no agent in code lists; the project reminder created in the administration lists
+    // it in its run settings, so the run settings form and the flow show it.
+    id: 'project-review-reminder',
+    displayNameKey: 'nh-assistant.alert-kinds.project-review-reminder.name',
+    urgency: 'info',
+    required: false,
+    administratorMayChange: { switchOff: true, digestTimes: true, workdaysOnly: true, immediatelyFrom: true, quietHours: true },
+    codeDelivery: { mode: 'immediately', digestTimes: [], workdaysOnly: false, immediatelyFrom: null, quietHours: null },
+    settings: { enabled: true, delivery: null, version: 0, changedBy: null, changedAt: null, reason: null },
+    enabled: true,
+    delivery: { mode: 'immediately', digestTimes: [], workdaysOnly: false, immediatelyFrom: null, quietHours: null },
+    numbers: { raised: 0, delivered: 0, read: 0, dismissed: 0, resolvedBeforeReading: 0, withheld: 0, muted: 0 },
+    shadow: []
   }
 ];
 
@@ -853,6 +868,31 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
             reason: 'Let the project assistant ask the starter'
           }
         ]
+      },
+      {
+        // SPM-395: the project reminder created in the administration, whose run settings list the alert
+        // kind it may raise; its rules are a rule script on the API, which the lab does not run.
+        source: 'admin',
+        id: 'sample-project-reminder',
+        displayName: 'Project reminder',
+        description: 'Reminds the owner of a project to review it.',
+        instructions: 'Remind the owner of the project to review it.',
+        toolSelectors: ['project-documents.read'],
+        mcpServerIds: [],
+        requiredPolicy: null,
+        autonomy: 'propose',
+        offeredInChat: false,
+        worksOnSubjectTypes: ['project'],
+        worksOnAllSubjects: false,
+        worksOnApplication: false,
+        runConfiguration: {
+          runSettings: {
+            accountability: 'agent',
+            retryCount: 0,
+            alertKinds: ['project-review-reminder'],
+            reason: 'The reminder raises the review reminder'
+          }
+        }
       },
       {
         source: 'code',

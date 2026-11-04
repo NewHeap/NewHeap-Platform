@@ -131,7 +131,8 @@ public static class NhAssistantPackageLockFields
 
     /// <summary>
     /// The fields of the run settings of an agent created in the administration. The technical
-    /// account is not one: it never travels and stays free.
+    /// account is not one: it never travels and stays free. <c>alertKinds</c> is the list of alert
+    /// kinds the agent may raise (FB93).
     /// </summary>
     public static IReadOnlyList<string> RunSettings { get; } =
     [
@@ -147,7 +148,8 @@ public static class NhAssistantPackageLockFields
         "maxTokensPerRun",
         "triageProfile",
         "ruleHandler",
-        "files"
+        "files",
+        "alertKinds"
     ];
 
     /// <summary>The fields of a data skill.</summary>

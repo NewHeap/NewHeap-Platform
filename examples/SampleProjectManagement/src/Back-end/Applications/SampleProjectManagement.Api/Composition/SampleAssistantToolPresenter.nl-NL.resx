@@ -61,6 +61,8 @@
   <data name="AlertProjectDueTodayTitle" xml:space="preserve"><value>{0} moet vandaag af</value></data>
   <data name="AlertProjectMissingDocumentTitle" xml:space="preserve"><value>{0} heeft nog geen document terwijl de deadline nadert</value></data>
   <data name="AlertProjectMissingDocumentText" xml:space="preserve"><value>De deadline valt binnen drie dagen en het project bewaart nog geen document, zoals het plan.</value></data>
+  <data name="AlertProjectReviewReminderTitle" xml:space="preserve"><value>Tijd om {0} te bekijken</value></data>
+  <data name="AlertProjectReviewReminderText" xml:space="preserve"><value>De projectherinnering vraagt je naar het project, de taken en de deadline te kijken.</value></data>
   <data name="AlertProjectDueTodayText" xml:space="preserve"><value>Er staan nog {1} taken open; de deadline is vandaag, {0}.</value></data>
   <data name="DeadlineWatchWarned" xml:space="preserve"><value>Het project moet vandaag af en heeft {0} open taken; de eigenaar en de mensen die eraan werken zijn gewaarschuwd.</value></data>
   <data name="DeadlineWatchClear" xml:space="preserve"><value>Het project moet niet vandaag af met open taken; er is niets om voor te waarschuwen.</value></data>

@@ -499,7 +499,26 @@ public sealed record NhAssistantRunCatalogDto(
     /// agent; <see langword="null"/> while they never get them.
     /// </summary>
     public NhAssistantCompositionCeilingDto? CompositionCeiling { get; init; }
+
+    /// <summary>
+    /// Every alert kind the application registers with <c>AddAlertKind</c>, ordered by id: what the run
+    /// settings of an agent created in the administration may list (FB93). NewHeap registers none of its
+    /// own.
+    /// </summary>
+    public IReadOnlyList<NhAssistantRunAlertKindDto> AlertKinds { get; init; } = [];
 }
+
+/// <summary>
+/// An alert kind the run settings of an agent created in the administration may list, as the run catalog
+/// shows it.
+/// </summary>
+/// <param name="Id">The kind's id.</param>
+/// <param name="DisplayNameKey">The front-end translation key of the kind's name.</param>
+/// <param name="Urgency">The kind's urgency: <c>info</c>, <c>warning</c> or <c>urgent</c>.</param>
+/// <param name="RaisedByModel">The kind has a template for an agent's model
+/// (<c>RaisedByModel</c>), so the agent's model may raise it too once an administrator switches it on
+/// for the agent.</param>
+public sealed record NhAssistantRunAlertKindDto(string Id, string DisplayNameKey, string Urgency, bool RaisedByModel);
 
 /// <summary>
 /// The features <c>UseCompositionsAsData</c> allows for agents created in the administration.
@@ -1203,6 +1222,12 @@ public sealed record NhAssistantCodeRunSettingsDto(
     /// (<c>AllowGatewayReads()</c>).
     /// </summary>
     public bool AllowGatewayReads { get; init; }
+
+    /// <summary>
+    /// The kinds of alert the agent's rules may raise and resolve (<c>Alerts(...)</c>), ordered by id;
+    /// empty for an agent that raises none. The administration shows them read-only.
+    /// </summary>
+    public IReadOnlyList<string> AlertKinds { get; init; } = [];
 }
 
 /// <param name="Accountability"><c>agent</c>, <c>subject-responsible</c> or
@@ -1256,6 +1281,14 @@ public sealed record NhAssistantAgentRunSettingsDto(
     /// The most estimated file tokens of one turn; <see langword="null"/> keeps the application's.
     /// </summary>
     public int? MaxFileTokensPerTurn { get; init; }
+
+    /// <summary>
+    /// The kinds of alert the agent's rules, rule scripts and model may raise and resolve, as the
+    /// settings list them, ordered by id; empty for none (FB93). A kind the code no longer registers
+    /// stays listed with a problem of kind <c>alert-kind</c> (<c>unknown-alert-kind</c>), and its alerts
+    /// are refused.
+    /// </summary>
+    public IReadOnlyList<string> AlertKinds { get; init; } = [];
 
     /// <summary>
     /// The link of the run settings (part <c>runSettings</c>) to the agent package they were imported
@@ -1320,7 +1353,21 @@ public sealed record NhAssistantAgentRunSettingsRequest(
     int? MaxFileBytes = null,
     int? MaxFilePages = null,
     int? MaxFilesPerTurn = null,
-    int? MaxFileTokensPerTurn = null);
+    int? MaxFileTokensPerTurn = null)
+{
+    /// <summary>
+    /// The kinds of alert the agent's rules, rule scripts and model may raise and resolve (FB93), out
+    /// of those the code registers with <c>AddAlertKind</c>, as the run catalog lists them
+    /// (<see cref="NhAssistantRunCatalogDto.AlertKinds"/>): at most
+    /// <see cref="NhAssistantAgentConfigurationLimits.MaxAlertKinds"/> distinct kind ids, in any order.
+    /// An empty list lists none; <see langword="null"/> keeps the kinds the settings list, none for new
+    /// settings. A malformed id or more than the bound fails with the field error
+    /// <c>alertKinds: invalid</c>, a kind the code does not register with <c>alertKinds: not-found</c>.
+    /// The kind in code stays the ceiling: its texts, recipients and delivery, and the administrator's
+    /// settings of the kind apply as for an agent in code.
+    /// </summary>
+    public IReadOnlyList<string>? AlertKinds { get; init; }
+}
 
 public sealed record NhAssistantCodeSkillDto(string SkillId, string Description)
 {
@@ -1778,7 +1825,15 @@ internal sealed class NhAssistantAgentConfiguration(
             ConsultationCeiling = NhAssistantConsultationCeilingDto.From(registration.ConsultationsAsData),
             AgentMetadata = services.GetRequiredService<INhAssistantAgentMetadata>().ListEntries(),
             InstructionAssets = services.GetRequiredService<NhAssistantInstructionAssets>().Supported,
-            CompositionCeiling = NhAssistantCompositionCeilingDto.From(registration.CompositionsAsData)
+            CompositionCeiling = NhAssistantCompositionCeilingDto.From(registration.CompositionsAsData),
+            AlertKinds = registration.AlertKinds.Values
+                .OrderBy(kind => kind.Id, StringComparer.Ordinal)
+                .Select(kind => new NhAssistantRunAlertKindDto(
+                    kind.Id,
+                    kind.DisplayNameKey,
+                    NhAssistantAlertUrgencyNames.Of(kind.Urgency),
+                    kind.ModelTemplate is not null))
+                .ToArray()
         };
     }
 
@@ -2106,7 +2161,8 @@ internal sealed class NhAssistantAgentConfiguration(
             MaxTokensPerRun = code.MaxTokensPerRun,
             MaxConsultationsPerTurn = code.MaxConsultationsPerTurn,
             ElevatedReads = NhAssistantElevatedReadNames.NameOf(code.ElevatedReads),
-            AllowGatewayReads = code.AllowGatewayReads
+            AllowGatewayReads = code.AllowGatewayReads,
+            AlertKinds = code.AlertKinds
         };
     }
 
@@ -2133,13 +2189,15 @@ internal sealed class NhAssistantAgentConfiguration(
         {
             return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(NhAssistantErrorCodes.RunSettingsInCode, "The agent is registered in code.");
         }
-        if (PrepareRunSettings(agentId, request, actorId, out var settings) is { } refused)
+
+        // A request without alert kinds keeps the ones the settings list (FB93).
+        var before = await store.FindRunSettingsAsync(agentId, cancellationToken);
+        if (PrepareRunSettings(agentId, request, actorId, out var settings, before) is { } refused)
         {
             return TaskResult<NhAssistantAgentRunSettingsDto>.Failed(refused);
         }
 
         // A package's locks hold on run settings as on every part (PK9); the technical account is free.
-        var before = await store.FindRunSettingsAsync(agentId, cancellationToken);
         if (await Locks.CheckChangeAsync(
                 agentId,
                 NhAssistantPackagePartKinds.RunSettings,
@@ -2183,14 +2241,17 @@ internal sealed class NhAssistantAgentConfiguration(
     /// <summary>
     /// The checks of a save of run settings that need nothing but the request and the code, and the
     /// row it would store: the request's fields, the gateway reads the host can issue, and the
-    /// approval policy, triage profile and rule handler the code registers. Saving and importing a
-    /// package share them; the agent, its locks and its technical account are checked apart.
+    /// approval policy, triage profile, rule handler and alert kinds the code registers. Saving and
+    /// importing a package share them; the agent, its locks and its technical account are checked
+    /// apart. A request without alert kinds keeps those of <paramref name="stored"/>, unchecked: a kind
+    /// the code no longer registers stays a problem of the run configuration until it is removed.
     /// </summary>
     internal TaskResult? PrepareRunSettings(
         string agentId,
         NhAssistantAgentRunSettingsRequest request,
         string actorId,
-        out AssistantAgentRunConfiguration? prepared)
+        out AssistantAgentRunConfiguration? prepared,
+        AssistantAgentRunConfiguration? stored = null)
     {
         prepared = null;
         var reason = request.Reason;
@@ -2222,6 +2283,25 @@ internal sealed class NhAssistantAgentConfiguration(
                 "allowGatewayReads",
                 NhAssistantFieldErrors.Invalid);
         }
+
+        // FB93: the alert kinds the agent may raise, out of those the code registers; each once.
+        string? alertKindsJson;
+        if (request.AlertKinds is { } requestedKinds)
+        {
+            var kindIds = requestedKinds
+                .Select(kindId => kindId?.Trim() ?? string.Empty)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            var wellFormed = NhAssistantDataAlertKinds.IsValid(kindIds);
+            errors
+                .Require(wellFormed, "alertKinds", NhAssistantFieldErrors.Invalid)
+                .Require(!wellFormed || kindIds.All(validator.IsRegisteredAlertKind), "alertKinds", NhAssistantFieldErrors.NotFound);
+            alertKindsJson = NhAssistantDataAlertKinds.Write(kindIds);
+        }
+        else
+        {
+            alertKindsJson = stored?.AlertKindsJson;
+        }
         if (!errors.IsEmpty)
         {
             return errors.ToResult();
@@ -2249,6 +2329,7 @@ internal sealed class NhAssistantAgentConfiguration(
             MaxFilePages = request.MaxFilePages,
             MaxFilesPerTurn = request.MaxFilesPerTurn,
             MaxFileTokensPerTurn = request.MaxFileTokensPerTurn,
+            AlertKindsJson = alertKindsJson,
             UpdatedAt = DateTimeOffset.UtcNow,
             UpdatedBy = actorId,
             Reason = reason
@@ -3830,7 +3911,8 @@ internal sealed class NhAssistantAgentConfiguration(
             MaxFileBytes = item.MaxFileBytes,
             MaxFilePages = item.MaxFilePages,
             MaxFilesPerTurn = item.MaxFilesPerTurn,
-            MaxFileTokensPerTurn = item.MaxFileTokensPerTurn
+            MaxFileTokensPerTurn = item.MaxFileTokensPerTurn,
+            AlertKinds = NhAssistantDataAlertKinds.Read(item.AlertKindsJson) ?? []
         };
     }
 

@@ -99,6 +99,19 @@
     </div>
   </fieldset>
 
+  @if (showsAlertKinds()) {
+    <nh-assistant-alert-kinds-field
+      [group]="true"
+      [kinds]="catalogAlertKinds() ?? []"
+      [selected]="alertKinds()"
+      [idPrefix]="id"
+      [locked]="locked('alertKinds')"
+      [lock]="lockOf('alertKinds')"
+      [errorKey]="errorKey('alertKinds')"
+      [errorParams]="fieldError('alertKinds')?.params"
+      (selectedChange)="setAlertKinds($event)" />
+  }
+
   <fieldset class="group">
     <legend>{{ 'nh-assistant.admin.run-config.limits.title' | translate }}</legend>
     <p class="muted" [id]="id + '-limits-hint'">{{ 'nh-assistant.admin.run-config.budget-hint' | translate }}</p>

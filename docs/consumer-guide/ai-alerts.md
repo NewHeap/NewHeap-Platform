@@ -49,8 +49,24 @@ assistant
         .Alerts("task-due-today"));
 ```
 
-An agent lists the kinds its rules may raise with `Alerts(...)`; startup refuses a kind that is not
-registered. Rules raise alerts with `NhAssistantRuleResult.Done(...).WithAlerts(...)` and resolve them
+An agent in code lists the kinds its rules may raise with `Alerts(...)`; startup refuses a kind that
+is not registered. An agent created in the administration lists them in its run settings instead
+(FB93, SPM-395): `alertKinds` of `PUT admin/agents/{id}/run-settings`
+(`NhAssistantAgentRunSettingsRequest.AlertKinds`), out of every kind the code registers, which
+`GET admin/run-catalog` lists with its name key, urgency and whether a model may raise it
+(`NhAssistantRunCatalogDto.AlertKinds`). A save refuses a malformed id or more than
+`NhAssistantAgentConfigurationLimits.MaxAlertKinds` kinds with `alertKinds: invalid` and a kind the
+code does not register with `alertKinds: not-found`; a request without the list keeps the stored one
+and an empty list lists none. The listed kinds become the agent's `NhAssistantAgentRunOptions.AlertKinds`,
+so its rules, rule scripts and model raise them as an agent in code does, in shadow as shadow alerts.
+The kind in code stays the ceiling: its texts, recipients and delivery, with the administrator's
+settings of the kind. A listed kind a later deploy removes leaves the run settings in effect without
+it, with the run configuration problem of kind `alert-kind` (`unknown-alert-kind`), and its alerts
+are refused until it is registered again or cleared. Agent packages carry the list
+(`NhAssistantPackageRunSettings.AlertKinds`, lockable as `alertKinds`) and their import refuses a
+kind the host does not register. Apply the `AgentRunSettingsAlertKinds` migration of the SQL Server
+or PostgreSQL assistant storage first. The administration's run settings form and its guided setup
+tick the kinds; the Build tab and the flow show them, an agent in code's read-only. Rules raise alerts with `NhAssistantRuleResult.Done(...).WithAlerts(...)` and resolve them
 with `ResolveAlerts(...)`; both apply when the rules end. A rule result that raises or resolves a kind
 its agent does not list fails the run with `assistant-alert-kind-not-listed` and applies none of its
 alerts, so the mistake shows in the runs view instead of silently warning nobody. A paused or stopped
@@ -404,6 +420,8 @@ storage before the first switch.
 ## Avoid
 
 - Raising a proposal, or an application message in a thread, to warn a person about an object.
+- Registering an extra agent in code only to list a kind for an agent created in the administration;
+  list the kind in that agent's run settings, and keep the kind itself in code.
 - Building the text of an alert in one language when it is raised, or putting the text into the key.
 - A key that changes every round, such as a timestamp or a count, which warns people every round.
 - Resolving every alert of a kind by hand in each round when the kind can `ResolveWhenNotRaised()`, or
@@ -450,7 +468,11 @@ it and let it expire, then move the application's clock past the retention and a
 purged it. Name a person without `Reader`, a person of another division and a person the principal
 factory no longer rebuilds, and assert they get no delivery and an `AgentAlertRecipientDropped` audit.
 Assert that an unlisted kind fails the run, that a shadow run's alerts reach nobody and that a paused
-agent raises nothing. For the delivery, move the application's clock to 07:30 in a person's time zone
+agent raises nothing. For an agent created in the administration, list a kind in its run settings and
+assert that its rules and rule scripts raise it and are refused another kind, that a save refuses a kind
+the code does not register at `alertKinds`, and that a stored kind the code no longer registers is a
+problem of kind `alert-kind` while the run settings stay in effect, on SQL Server and PostgreSQL
+(SPM-395). For the delivery, move the application's clock to 07:30 in a person's time zone
 and assert one digest per person and digest time with its counts, an immediate alert on its own, a
 person in another zone at their own 07:30 and a digest across a change to or from daylight saving time.
 Assert that a person who lost `Reader` before the delivery gets nothing, that a muted kind is withheld
@@ -509,6 +531,11 @@ alert as the model's, on SQL Server and PostgreSQL. In Angular, render the Rollo
 
 - SPM-392 — The deadline watch warns a project's owner and the people working on it about a project due today, once per day, in the morning or afternoon digest where each person works and never at night, and resolves the warning when the tasks are done; a person chooses their own digest times and mutes the project for a while, and an administrator switches the warning off or moves it within the bounds of its code, and the deadline reviewer's model warns about a deliverable due soon through its kind's template, first in shadow
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleDeadlineAlertsComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleDeadlineAlertsComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+- SPM-395 — The project reminder, an agent created in the administration, lists the alert kind it may raise in its run settings, and its rule script raises it while a kind it does not list is refused
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAlertKindsAsDataComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAlertKindsAsDataComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.resx)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.nl-NL.resx)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)

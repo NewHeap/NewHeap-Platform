@@ -51,7 +51,7 @@ export const NH_ASSISTANT_PACKAGE_LOCK_FIELDS: Readonly<Record<AgentPackagePartK
   agent: ['displayName', 'description', 'instructions', 'toolSelectors', 'requiredPolicy', 'autonomy', 'offeredInChat', 'worksOn', 'profile', 'dataClassification'],
   runSettings: [
     'accountability', 'delegateFromInitiator', 'allowGatewayReads', 'elevatedReads', 'approvalPolicy', 'retryCount', 'dailyBudget',
-    'maxConcurrentRuns', 'maxRunsPerSubjectPerDay', 'maxTokensPerRun', 'triageProfile', 'ruleHandler', 'files'
+    'maxConcurrentRuns', 'maxRunsPerSubjectPerDay', 'maxTokensPerRun', 'triageProfile', 'ruleHandler', 'files', 'alertKinds'
   ],
   skill: ['description', 'instructions', 'tools', 'profile', 'ruleHandler', 'maxTokensPerRun', 'dailyBudget', 'approvalPolicy', 'dataClassification', 'files'],
   trigger: ['skill', 'source', 'event', 'filters', 'cron', 'timeZone', 'subjectSet', 'message', 'conflict', 'debounceSeconds'],
@@ -166,6 +166,11 @@ export interface PackageRunSettings {
   maxFilePages?: number | null;
   maxFilesPerTurn?: number | null;
   maxFileTokensPerTurn?: number | null;
+  /**
+   * The alert kinds the run settings list, ordered by id (FB93); written only when there are any, and left out
+   * lists none. The import refuses a kind the importing host does not register (`alertKinds: not-found`).
+   */
+  alertKinds?: string[];
 }
 
 /** The live version of a data skill. */

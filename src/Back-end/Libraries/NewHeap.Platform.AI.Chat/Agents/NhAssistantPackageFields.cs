@@ -71,7 +71,8 @@ internal static class NhAssistantPackageFields
             ["maxTokensPerRun"] = Number(row.MaxTokensPerRun),
             ["triageProfile"] = Text(row.TriageProfileName),
             ["ruleHandler"] = Text(row.RuleHandlerName),
-            ["files"] = Files(row.AcceptsFiles, row.MaxFileBytes, row.MaxFilePages, row.MaxFilesPerTurn, row.MaxFileTokensPerTurn)
+            ["files"] = Files(row.AcceptsFiles, row.MaxFileBytes, row.MaxFilePages, row.MaxFilesPerTurn, row.MaxFileTokensPerTurn),
+            ["alertKinds"] = Array(row.AlertKindsJson)
         };
     }
 

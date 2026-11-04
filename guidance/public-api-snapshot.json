@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.108",
   "backEnd": {
-    "hash": "b3ceb610f90ab3f7085951c8835739a9855a2762413fa9627d7ee3ba5529a575",
-    "declarationCount": 13527,
+    "hash": "b93ab9b8c5ef8dde17d66446bef9f0d187ea5d4af2bb957e21056a839ad03ca3",
+    "declarationCount": 13552,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2951,6 +2951,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public IReadOnlyList<NhAssistantRunAlertKindDto> AlertKinds { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public sealed record NhAssistantRunAlertKindDto(string Id, string DisplayNameKey, string Urgency, bool RaisedByModel);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public sealed record NhAssistantCompositionCeilingDto(bool Compositions, bool Scripts) {"
       },
       {
@@ -3267,6 +3275,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public IReadOnlyList<string> AlertKinds { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public sealed record NhAssistantAgentRunSettingsDto( int Version, string Accountability, string? ServiceAccountActorId, bool DelegateFromInitiator, bool AllowGatewayReads, string ElevatedReads, string? ApprovalPolicy, int RetryCount, int? DailyToolCalls, long? DailyTokens, int MaxConcurrentRuns, int MaxRunsPerSubjectPerDay, long? MaxTokensPerRun, string? TriageProfile, string? RuleHandler, DateTimeOffset ChangedAt, string ChangedBy, string? Reason, bool InEffect, string? Problem) {"
       },
       {
@@ -3291,11 +3303,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public IReadOnlyList<string> AlertKinds { get; init; } = [];"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NhAssistantPackagePartLinkDto? Package { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
-        "declaration": "public sealed record NhAssistantAgentRunSettingsRequest( string? Accountability, string? ServiceAccountActorId = null, bool DelegateFromInitiator = false, bool AllowGatewayReads = false, string? ElevatedReads = null, string? ApprovalPolicy = null, int? RetryCount = null, int? DailyToolCalls = null, long? DailyTokens = null, int? MaxConcurrentRuns = null, int? MaxRunsPerSubjectPerDay = null, long? MaxTokensPerRun = null, string? TriageProfile = null, string? RuleHandler = null, int? ExpectedVersion = null, string? Reason = null, bool AcceptsFiles = false, int? MaxFileBytes = null, int? MaxFilePages = null, int? MaxFilesPerTurn = null, int? MaxFileTokensPerTurn = null);"
+        "declaration": "public sealed record NhAssistantAgentRunSettingsRequest( string? Accountability, string? ServiceAccountActorId = null, bool DelegateFromInitiator = false, bool AllowGatewayReads = false, string? ElevatedReads = null, string? ApprovalPolicy = null, int? RetryCount = null, int? DailyToolCalls = null, long? DailyTokens = null, int? MaxConcurrentRuns = null, int? MaxRunsPerSubjectPerDay = null, long? MaxTokensPerRun = null, string? TriageProfile = null, string? RuleHandler = null, int? ExpectedVersion = null, string? Reason = null, bool AcceptsFiles = false, int? MaxFileBytes = null, int? MaxFilePages = null, int? MaxFilesPerTurn = null, int? MaxFileTokensPerTurn = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public IReadOnlyList<string>? AlertKinds { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -4087,7 +4107,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
-        "declaration": "public sealed record NhAssistantPackageRunSettings( string Accountability, bool DelegateFromInitiator = false, bool AllowGatewayReads = false, string? ElevatedReads = null, string? ApprovalPolicy = null, int? RetryCount = null, int? DailyToolCalls = null, long? DailyTokens = null, int? MaxConcurrentRuns = null, int? MaxRunsPerSubjectPerDay = null, long? MaxTokensPerRun = null, string? TriageProfile = null, string? RuleHandler = null, bool AcceptsFiles = false, int? MaxFileBytes = null, int? MaxFilePages = null, int? MaxFilesPerTurn = null, int? MaxFileTokensPerTurn = null);"
+        "declaration": "public sealed record NhAssistantPackageRunSettings( string Accountability, bool DelegateFromInitiator = false, bool AllowGatewayReads = false, string? ElevatedReads = null, string? ApprovalPolicy = null, int? RetryCount = null, int? DailyToolCalls = null, long? DailyTokens = null, int? MaxConcurrentRuns = null, int? MaxRunsPerSubjectPerDay = null, long? MaxTokensPerRun = null, string? TriageProfile = null, string? RuleHandler = null, bool AcceptsFiles = false, int? MaxFileBytes = null, int? MaxFilePages = null, int? MaxFilesPerTurn = null, int? MaxFileTokensPerTurn = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public IReadOnlyList<string>? AlertKinds { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
@@ -11114,6 +11138,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261104103159_AgentRunSettingsAlertKinds.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261104103159_AgentRunSettingsAlertKinds.cs",
+        "declaration": "public partial class AgentRunSettingsAlertKinds : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261104103159_AgentRunSettingsAlertKinds.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261104103159_AgentRunSettingsAlertKinds.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -12171,6 +12211,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261103134759_RuleScripts.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261104103150_AgentRunSettingsAlertKinds.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261104103150_AgentRunSettingsAlertKinds.cs",
+        "declaration": "public partial class AgentRunSettingsAlertKinds : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261104103150_AgentRunSettingsAlertKinds.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261104103150_AgentRunSettingsAlertKinds.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -15155,6 +15211,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public const int MaxAlertKinds = 20;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
         "declaration": "public static class NhAssistantDataClassificationNames {"
       },
       {
@@ -15228,6 +15288,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
         "declaration": "public const string TriggerCandidateKind = \"trigger-candidate\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public const string AlertKindKind = \"alert-kind\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public const string UnknownAlertKind = \"unknown-alert-kind\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
@@ -15423,6 +15491,26 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public const int MaxJsonLength = NhAssistantAgentConfigurationLimits.MaxAlertKinds * (NhAssistantAlertLimits.MaxKindIdLength + 3) + 2;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public static IReadOnlyList<string>? Read(string? json) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public static string? Write(IReadOnlyCollection<string> kindIds) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public static IReadOnlyList<string> Normalize(IEnumerable<string> kindIds) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public static bool IsValid(IReadOnlyCollection<string> kindIds) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
         "declaration": "public static IReadOnlyList<string>? Read(string? json) {"
       },
       {
@@ -15464,6 +15552,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
         "declaration": "public string? ValidateRunSettings(AssistantAgentRunConfiguration settings) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
+        "declaration": "public bool IsRegisteredAlertKind(string kindId) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunConfiguration.cs",
@@ -16784,6 +16876,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
         "declaration": "public ValueTask<IReadOnlyList<string>> SelectRecipientsAsync( NhAssistantAlertRecipientContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
+        "declaration": "public static bool IsValidKindId(string? kindId) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
@@ -20756,6 +20852,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
         "declaration": "public int? MaxFileTokensPerTurn { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
+        "declaration": "public string? AlertKindsJson { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
@@ -58371,7 +58471,14 @@
       "AlertModelParameter",
       "AlertModelRequest",
       "AlertModelVersion",
-      "AlertModelMode"
+      "AlertModelMode",
+      "NhAssistantRunCatalogDto.AlertKinds",
+      "NhAssistantRunAlertKindDto",
+      "NhAssistantAgentConfigurationLimits.MaxAlertKinds",
+      "NhAssistantRunConfigurationProblems.AlertKindKind",
+      "NhAssistantRunConfigurationProblems.UnknownAlertKind",
+      "RunAlertKind",
+      "NH_ASSISTANT_MAX_RUN_ALERT_KINDS"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",
