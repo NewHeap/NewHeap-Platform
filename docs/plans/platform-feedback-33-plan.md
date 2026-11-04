@@ -33,7 +33,11 @@ cases are authoritative.
 
 ## Status
 
-Decided by Lars on 2026-11-04, all as advised. Not built yet: train 37 waits for "Bouw train 37".
+Decided by Lars on 2026-11-04, all as advised. Built on 2026-11-04 in train 37 and verified together: lanes AL
+and GD in parallel, then BW. A security review of the builder's wider rights ran three rounds; every approval
+card now shows what runs, and a builder write whose own card cannot be built is refused instead of proposed.
+Promoting a shadow variant as its package's next version stays in the screens (BW25). The choices of the lanes
+are AL1–AL8, GD1–GD8 and BW1–BW26, all for Lars to review.
 
 ## Decisions
 
