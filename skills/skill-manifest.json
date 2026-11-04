@@ -110,6 +110,7 @@
       },
       "references": [
         "references/consumer-bootstrap-sequence.md",
+        "references/consumer-companist-hosting.md",
         "references/consumer-management-portal.md",
         "references/consumer-optional-infrastructure.md",
         "references/consumer-scope-gate.md",
@@ -145,7 +146,8 @@
         "references/authentication-passkeys.md",
         "references/authentication-session-lifecycle.md",
         "references/authentication-two-factor.md",
-        "references/authorization-permissions.md"
+        "references/authorization-permissions.md",
+        "references/consumer-companist-hosting.md"
       ]
     },
     {

@@ -59105,6 +59105,11 @@
       "NewHeapPlatformAspNetCommonConfigurator",
       "NhCommonModule"
     ],
+    "nh-consumer-companist-hosting": [
+      "NhPlatformClaimTypes",
+      "NhReturnUrls",
+      "AddNewHeapAuthenticationForwarding"
+    ],
     "nh-consumer-management-portal": [
       "DbEntityProtectedNhBaseController",
       "NhBaseApiService",

@@ -402,5 +402,12 @@
       "expectedRules": ["nh-ai-agent-builder", "nh-ai-rule-scripts"],
       "expectedOutcome": "The backend calls AddAgentBuilder with a model profile; only people who pass the assistant's access policy and its administration policy can chat with the builder; the builder reads the catalog and the agent's settings, and every save or step live is a proposal the administrator approves in the chat, acting with the administrator's own rights through the administration services, so ceilings, versions, audits and four eyes still apply; it never changes grants, technical accounts, MCP credentials or ceilings and never deletes; a discovery policy that allow-lists tools lets the builder's tool prefix through; the administration shows the builder on the agent page and for a new agent."
     }
+    ,{
+      "id": "consumer-companist-hosting",
+      "skill": "newheap-consumer-development",
+      "prompt": "Make a new NewHeap management portal ready to host in Companist with employee login and current application permissions.",
+      "expectedRules": ["nh-consumer-companist-hosting"],
+      "expectedOutcome": "Use the v2 hosting manifest and whole-value Compose mappings, declare managed Companist Auth registration, keep tokens in the BFF, validate the exact tenant/environment/application/deployment scope and project current application permissions into NewHeap claims. Run the hosting validator and real login/revocation checks; do not grant users automatically or block unrelated apps on optional integration advice."
+    }
 ]
 }
