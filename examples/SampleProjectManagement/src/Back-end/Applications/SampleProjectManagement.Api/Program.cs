@@ -376,6 +376,8 @@ builder.Services.AddSampleProjectDeadlines();
 builder.Services.AddSampleDeadlineAlerts();
 // SPM-393: the document check's rules are a rule script an administrator writes, dry-runs and sets live.
 builder.Services.AddSampleRuleScripts();
+// SPM-395: an agent created in the administration lists the alert kinds it may raise in its run settings.
+builder.Services.AddSampleAlertKindsAsData();
 // SPM-394: the agent builder helps administrators build agents and their rule scripts, each change after their approval.
 builder.Services.AddSampleAgentBuilder();
 if (builder.Environment.IsDevelopment())
