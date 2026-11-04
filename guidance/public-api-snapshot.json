@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.108",
   "backEnd": {
-    "hash": "c0ede4f1819efdd0067dcd2ea2781cd045253d3609ba8a8ceeddc66c65dc27c1",
-    "declarationCount": 13659,
+    "hash": "5478d32a0a5e470f77485cfa1736b64cc52bdc94c989f7ec1cf08e0d18effdff",
+    "declarationCount": 13673,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2447,6 +2447,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public bool Requires(NhAiToolDescriptor descriptor) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public async ValueTask<NhAssistantRequiredPresentation> PresentRequiredAsync( NhAssistantApprovalPresentationContext context, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
         "declaration": "public const string NoCard = \"The approval card of this change cannot be built, so it is not proposed. Read the agent again and make the change in smaller steps.\";"
       },
       {
@@ -2499,7 +2507,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
-        "declaration": "public void AddGiven(NhAssistantAgentBuilderInput input, IReadOnlyList<string> properties, IReadOnlySet<string> inFull) {"
+        "declaration": "public void AddList(string label, IReadOnlyList<string> items, string what) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public void AddGiven( NhAssistantAgentBuilderInput input, System.Text.Json.Nodes.JsonObject schema, IReadOnlySet<string> inFull, IReadOnlySet<string> capabilities) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
@@ -2536,6 +2548,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
         "declaration": "public string TakesOverTools => dutch ? \"Neemt de tools over\" : \"Takes over the tools\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string MovesSkills => dutch ? \"Neemt deze vaardigheden mee, direct live\" : \"Moves these skills, live at once\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string MayDo => dutch ? \"Wat het mag\" : \"What it may do\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string None => dutch ? \"geen\" : \"none\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
+        "declaration": "public string PartOf(string label, int part, int parts) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
@@ -2643,15 +2671,15 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
-        "declaration": "public string PromotionSummary(string variantId, string liveId, bool moveSkills, bool asPackageVersion) {"
+        "declaration": "public string PromotionSummary(string variantId, string liveId, bool moveSkills) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
-        "declaration": "public (string Settings, string Tools) TakesOverOf(NhAssistantAgentInEffectDto variant, NhAssistantAgent? definition, bool toAgentInAdministration) {"
+        "declaration": "public string TakesOverOf(NhAssistantAgentInEffectDto variant, NhAssistantAgent? definition, bool toAgentInAdministration) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
-        "declaration": "public string PromotionNotice(string variantId, string liveId, bool toAgentInAdministration) {"
+        "declaration": "public string PromotionNotice(string variantId, string liveId, bool toAgentInAdministration, bool moveSkills) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderPresenter.cs",
@@ -31475,6 +31503,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public string? CardRefusal { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public IReadOnlyList<Guid> Superseded { get; init; } = [];"
       },
       {
@@ -31579,6 +31611,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+        "declaration": "public bool RequiresOwnCard(NhAiToolDescriptor descriptor) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+        "declaration": "public static TimeSpan RequiredPresenterTimeout { get; } = TimeSpan.FromSeconds(10);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
         "declaration": "public async Task<NhAssistantLocalizedApprovalPresentation> ResolveApprovalInCulturesAsync( NhAiToolDescriptor descriptor, object arguments, NhAiInvocationContext invocationContext, CultureInfo culture, CancellationToken cancellationToken) {"
       },
       {
@@ -31592,6 +31632,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
         "declaration": "public static NhAssistantApprovalPresentation? Deserialize(string? json) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+        "declaration": "public string? Refusal { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+        "declaration": "public const string NotShown = \"Nothing was proposed: the approval card of this change cannot be shown for data of its classification.\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+        "declaration": "public const string TimedOut = \"Nothing was proposed: the approval card of this change could not be built in time. Try again.\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
+        "declaration": "public const string Failed = \"Nothing was proposed: the approval card of this change could not be built. Read the agent again and make the change in smaller steps.\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolStepRuntime.cs",

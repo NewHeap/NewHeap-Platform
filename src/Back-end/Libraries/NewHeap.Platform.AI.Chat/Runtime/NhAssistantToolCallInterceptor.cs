@@ -698,6 +698,11 @@ internal sealed class NhAssistantToolCallInterceptor(
                     NhAssistantErrorCodes.ProposalNotPlaced,
                     row.Id);
             }
+            if (requested is { CardRefusal: { } cardRefusal })
+            {
+                // The tool's own approval card could not be built: nothing waits, and the model reads why.
+                return NhAssistantCallOutcome.Failed(CardRefusalResult(cardRefusal), NhAiToolFailureCodes.InputInvalid, row.Id);
+            }
             if (requested is { PolicyRefusal: { } policyRefusal })
             {
                 // The application's selector refused (FB19): nothing waits, and the model, the rules or the
@@ -1558,6 +1563,17 @@ internal sealed class NhAssistantToolCallInterceptor(
             context,
             culture,
             cancellationToken);
+        if (presentations.Refusal is { } cardRefusal)
+        {
+            // The tool's proposal needs its own presenter's card, which could not be built: nothing is
+            // proposed with another card or the generic summary.
+            if (route?.Route == NhAssistantConsultationRoutes.AskerDecides)
+            {
+                NhAssistantConsultationProposals.ReleaseAskerDecision(consultation!);
+            }
+            return await RefuseWithoutCardAsync(descriptor, row, cardRefusal, cancellationToken);
+        }
+
         var presentation = presentations.Presentation;
         if (presentation is not null)
         {
@@ -2229,6 +2245,67 @@ internal sealed class NhAssistantToolCallInterceptor(
     }
 
     /// <summary>
+    /// Ends a call whose proposal needs its own presenter's card when that card could not be built
+    /// (<see cref="INhAssistantRequiredToolPresenter"/>): nothing is recorded, the call reads
+    /// <c>not-executed</c> with <c>ai-tool-input-invalid</c>, the model reads why, and the content-free audit
+    /// records it.
+    /// </summary>
+    private async Task<NhAssistantRecordedProposal> RefuseWithoutCardAsync(
+        NhAiToolDescriptor descriptor,
+        AssistantToolInvocation row,
+        string refusal,
+        CancellationToken cancellationToken)
+    {
+        var result = CardRefusalResult(refusal);
+        row.Status = NhAssistantToolCallStatuses.NotExecuted;
+        row.ResultCode = NhAiToolFailureCodes.InputInvalid;
+        row.ResultJson = NhAssistantContent.SerializeResult(result);
+        row.CompletedAt = DateTimeOffset.UtcNow;
+        if (state.Scope.Consultation is null)
+        {
+            await store.UpdateToolInvocationAsync(row, cancellationToken);
+            await EmitCompletedAsync(row, NhAssistantContent.ResultPreview(row.ResultJson, row.DataClassification));
+        }
+
+        await RecordBusinessEventAsync(
+            new NhAssistantAuditEvent(
+                NhAssistantAuditEventKind.ToolInvoked,
+                state.Conversation.Id,
+                state.Scope.TurnId,
+                state.Scope.OwnerActorId,
+                state.Scope.Agent.Id,
+                state.Scope.Agent.Version,
+                DateTimeOffset.UtcNow)
+            {
+                ToolId = descriptor.Id,
+                ToolVersion = descriptor.Version,
+                InvocationId = row.Id,
+                ResultCode = NhAiToolFailureCodes.InputInvalid,
+                StartedAt = row.StartedAt,
+                CompletedAt = row.CompletedAt
+            },
+            cancellationToken);
+        return new NhAssistantRecordedProposal(Guid.Empty, Guid.Empty, NhAiApprovalMode.Deferred, false)
+        {
+            Outcome = NhAssistantProposeOutcome.Refused,
+            CardRefusal = refusal
+        };
+    }
+
+    /// <summary>The result the model reads when the approval card its proposal needs could not be built.</summary>
+    private static JsonElement CardRefusalResult(string refusal)
+    {
+        return JsonSerializer.SerializeToElement(
+            new Dictionary<string, object?>
+            {
+                ["success"] = false,
+                ["code"] = NhAiToolFailureCodes.InputInvalid,
+                ["message"] = refusal
+            },
+            NhAssistantContent.JsonOptions);
+    }
+
+    /// <summary>
     /// The result the model reads when the approval policy of its proposal could not be chosen.
     /// </summary>
     private static JsonElement PolicyRefusalResult(string code)
@@ -2527,6 +2604,12 @@ internal sealed record NhAssistantRecordedProposal(
     /// <see cref="NhAssistantErrorCodes.ApprovalPolicySelectorTimedOut"/>.
     /// </summary>
     public string? PolicyRefusal { get; init; }
+
+    /// <summary>
+    /// Why nothing was proposed: the approval card the tool's proposal needs could not be built, as the
+    /// model reads it.
+    /// </summary>
+    public string? CardRefusal { get; init; }
 
     /// <summary>
     /// The pending proposals a newly recorded one replaced.

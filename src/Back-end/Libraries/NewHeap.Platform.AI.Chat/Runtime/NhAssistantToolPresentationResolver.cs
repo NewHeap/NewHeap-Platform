@@ -7,7 +7,8 @@ namespace NewHeap.Platform.AI.Chat.Runtime;
 internal sealed class NhAssistantToolPresentationResolver(
     IEnumerable<INhAssistantToolPresenter> presenters,
     ILogger<NhAssistantToolPresentationResolver> logger,
-    INhAssistantPresentationCultures? presentationCultures = null)
+    INhAssistantPresentationCultures? presentationCultures = null,
+    TimeSpan? requiredPresenterTimeout = null)
 {
     public const int MaxDisplayNameLength = NhAssistantPresentationLimits.MaxDisplayNameLength;
     public const int MaxSummaryLength = NhAssistantPresentationLimits.MaxSummaryLength;
@@ -102,9 +103,26 @@ internal sealed class NhAssistantToolPresentationResolver(
     }
 
     /// <summary>
+    /// Whether the proposal of <paramref name="descriptor"/> needs one presenter's own card
+    /// (<see cref="INhAssistantRequiredToolPresenter"/>), so no card prepared elsewhere stands in for it.
+    /// </summary>
+    public bool RequiresOwnCard(NhAiToolDescriptor descriptor)
+    {
+        return _presenters.OfType<INhAssistantRequiredToolPresenter>().Any(item => item.Requires(descriptor));
+    }
+
+    /// <summary>
+    /// How long a presenter whose own card a proposal needs may take (<see cref="INhAssistantRequiredToolPresenter"/>);
+    /// after it the proposal is refused, not made with the generic summary.
+    /// </summary>
+    public static TimeSpan RequiredPresenterTimeout { get; } = TimeSpan.FromSeconds(10);
+
+    /// <summary>
     /// Presents an approval in <paramref name="culture"/> and, when the application supports more UI
     /// cultures, in each of them, so every viewer later reads it in their own language. The
-    /// presenter runs with the current culture set to the culture it presents in.
+    /// presenter runs with the current culture set to the culture it presents in. A tool whose proposal
+    /// needs one presenter's own card gets that card in every culture or a refusal, never another
+    /// presenter's card or the generic summary.
     /// </summary>
     public async Task<NhAssistantLocalizedApprovalPresentation> ResolveApprovalInCulturesAsync(
         NhAiToolDescriptor descriptor,
@@ -113,12 +131,17 @@ internal sealed class NhAssistantToolPresentationResolver(
         CultureInfo culture,
         CancellationToken cancellationToken)
     {
-        var presentation = await ResolveApprovalAsync(descriptor, arguments, invocationContext, culture, cancellationToken);
         var others = (presentationCultures?.GetCultures() ?? [])
             .Where(other => !string.Equals(other.Name, culture.Name, StringComparison.OrdinalIgnoreCase))
             .DistinctBy(other => other.Name, StringComparer.OrdinalIgnoreCase)
             .Take(MaxLocalizedCultures - 1)
             .ToArray();
+        if (_presenters.OfType<INhAssistantRequiredToolPresenter>().FirstOrDefault(item => item.Requires(descriptor)) is { } required)
+        {
+            return await ResolveRequiredAsync(required, descriptor, arguments, invocationContext, [culture, .. others], cancellationToken);
+        }
+
+        var presentation = await ResolveApprovalAsync(descriptor, arguments, invocationContext, culture, cancellationToken);
         if (presentation is null || others.Length == 0)
         {
             return new NhAssistantLocalizedApprovalPresentation(presentation, null);
@@ -241,6 +264,84 @@ internal sealed class NhAssistantToolPresentationResolver(
         }
     }
 
+    /// <summary>
+    /// The card of a presenter a proposal needs, in each culture, or why there is none: its refusal, a
+    /// card that breaks a limit, a failure or a timeout.
+    /// </summary>
+    private async Task<NhAssistantLocalizedApprovalPresentation> ResolveRequiredAsync(
+        INhAssistantRequiredToolPresenter presenter,
+        NhAiToolDescriptor descriptor,
+        object arguments,
+        NhAiInvocationContext invocationContext,
+        IReadOnlyList<CultureInfo> cultures,
+        CancellationToken cancellationToken)
+    {
+        if (descriptor.DataClassification >= NhAiDataClassification.Confidential)
+        {
+            return Refused(NhAssistantRequiredPresentation.NotShown);
+        }
+
+        var localized = new Dictionary<string, NhAssistantApprovalPresentation>(StringComparer.OrdinalIgnoreCase);
+        foreach (var culture in cultures)
+        {
+            var (previousCulture, previousUiCulture) = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
+            CultureInfo.CurrentCulture = culture;
+            CultureInfo.CurrentUICulture = culture;
+            NhAssistantRequiredPresentation result;
+            try
+            {
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeout.CancelAfter(requiredPresenterTimeout ?? RequiredPresenterTimeout);
+                result = await presenter
+                    .PresentRequiredAsync(new NhAssistantApprovalPresentationContext(descriptor, arguments, invocationContext, culture), timeout.Token)
+                    .AsTask()
+                    .WaitAsync(timeout.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                logger.LogWarning(
+                    "Assistant tool presenter {PresenterType} timed out for tool {ToolId}; its proposal is refused.",
+                    presenter.GetType().FullName,
+                    descriptor.Id);
+                return Refused(NhAssistantRequiredPresentation.TimedOut);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+            {
+                logger.LogWarning(
+                    "Assistant tool presenter {PresenterType} failed for tool {ToolId} with {ExceptionType}; its proposal is refused.",
+                    presenter.GetType().FullName,
+                    descriptor.Id,
+                    exception.GetType().FullName ?? exception.GetType().Name);
+                return Refused(NhAssistantRequiredPresentation.Failed);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = previousCulture;
+                CultureInfo.CurrentUICulture = previousUiCulture;
+            }
+
+            if (result.Card is not { } card)
+            {
+                return Refused(result.Refusal ?? NhAssistantRequiredPresentation.Failed);
+            }
+            if (NhAssistantPresentationLimits.FindBrokenRule(card) is { } rule)
+            {
+                LogDropped((INhAssistantToolPresenter)presenter, descriptor.Id, culture, rule, "required approval presentation");
+                return Refused(NhAssistantRequiredPresentation.Failed);
+            }
+            localized.TryAdd(culture.Name, card);
+        }
+
+        return new NhAssistantLocalizedApprovalPresentation(
+            localized[cultures[0].Name],
+            localized.Count > 1 ? JsonSerializer.Serialize(localized, NhAssistantContent.JsonOptions) : null);
+
+        static NhAssistantLocalizedApprovalPresentation Refused(string reason)
+        {
+            return new NhAssistantLocalizedApprovalPresentation(null, null) { Refusal = reason };
+        }
+    }
+
     private async Task<NhAssistantApprovalPresentation?> ResolveInCultureAsync(
         NhAiToolDescriptor descriptor,
         object arguments,
@@ -327,7 +428,40 @@ internal sealed class NhAssistantToolPresentationResolver(
 /// </summary>
 internal sealed record NhAssistantLocalizedApprovalPresentation(
     NhAssistantApprovalPresentation? Presentation,
-    string? LocalizedJson);
+    string? LocalizedJson)
+{
+    /// <summary>
+    /// Why the tool's proposal is not recorded: its required presenter built no card
+    /// (<see cref="INhAssistantRequiredToolPresenter"/>), as a message the model can act on.
+    /// </summary>
+    public string? Refusal { get; init; }
+}
+
+/// <summary>
+/// A presenter whose own card a tool's proposal needs, such as the agent builder's for its writes: the
+/// proposal is recorded only with the card it builds, valid in every culture it is presented in, never
+/// with another presenter's card or the generic summary. When it builds none, fails or takes longer than
+/// <see cref="NhAssistantToolPresentationResolver.RequiredPresenterTimeout"/>, nothing is proposed and the
+/// model reads why. It is registered as an <see cref="INhAssistantToolPresenter"/> as well.
+/// </summary>
+internal interface INhAssistantRequiredToolPresenter
+{
+    bool Requires(NhAiToolDescriptor descriptor);
+
+    ValueTask<NhAssistantRequiredPresentation> PresentRequiredAsync(
+        NhAssistantApprovalPresentationContext context,
+        CancellationToken cancellationToken);
+}
+
+/// <summary>The card a required presenter built, or why it built none.</summary>
+internal sealed record NhAssistantRequiredPresentation(NhAssistantApprovalPresentation? Card, string? Refusal)
+{
+    public const string NotShown = "Nothing was proposed: the approval card of this change cannot be shown for data of its classification.";
+
+    public const string TimedOut = "Nothing was proposed: the approval card of this change could not be built in time. Try again.";
+
+    public const string Failed = "Nothing was proposed: the approval card of this change could not be built. Read the agent again and make the change in smaller steps.";
+}
 
 /// <summary>
 /// The UI cultures an approval is presented in besides the culture it was made in. The ASP.NET

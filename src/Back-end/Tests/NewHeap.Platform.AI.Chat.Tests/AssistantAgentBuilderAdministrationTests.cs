@@ -324,7 +324,7 @@ public sealed class AssistantAgentBuilderAdministrationTests(AssistantDatabaseFi
     {
         var model = new NhAiScriptedChatClient()
             .RespondWithFunctionCall("builder_update_agent", new { input = new { agentId = Weekly, expectedVersion = 1, requiredPolicy = "   " } })
-            .RespondWithFunctionCall("builder_update_agent", new { input = new { agentId = Weekly, expectedVersion = 1, mcpServerIds = Enumerable.Range(0, 10).Select(index => $"server-{index}-{new string('s', 32)}").ToArray() } })
+            .RespondWithFunctionCall("builder_update_agent", new { input = new { agentId = Weekly, expectedVersion = 1, mcpServerIds = Enumerable.Range(0, 64).Select(index => $"server-{index}-{new string('s', 32)}").ToArray() } })
             .RespondWithFunctionCall("builder_save_skill", new { input = new { agentId = Weekly, skillId = "notes", expectedVersion = "1", description = "Writes short notes." } })
             .RespondWithFunctionCall("builder_save_skill", new { input = new { agentId = Weekly, skillId = "notes", expectedVersion = 1, description = "Writes short notes." } })
             .RespondWithText("Only the description changed.")
@@ -349,7 +349,10 @@ public sealed class AssistantAgentBuilderAdministrationTests(AssistantDatabaseFi
         var asked = await SendAsync(administrator, conversation, "Give the notes skill a shorter description.");
         var refused = asked.Where(evt => evt.Name == "tool.completed").Select(evt => evt.Data).ToArray();
         Assert.Equal(3, refused.Length);
-        Assert.All(refused, result => Assert.Equal(("failed", NhAiToolFailureCodes.InputInvalid), (result.GetProperty("status").GetString(), result.GetProperty("resultCode").GetString())));
+        Assert.All(refused, result => Assert.Equal(NhAiToolFailureCodes.InputInvalid, result.GetProperty("resultCode").GetString()));
+        // The schema refuses before the call runs; a card that cannot be built refuses at the proposal, after
+        // the gate, so the call did not run either.
+        Assert.Equal(["failed", "not-executed", "failed"], refused.Select(result => result.GetProperty("status").GetString()));
         foreach (var (index, property) in new[] { (0, "requiredPolicy"), (1, "mcpServerIds"), (2, "expectedVersion") })
         {
             Assert.Contains(property, FunctionResult(model, index).GetRawText(), StringComparison.Ordinal);

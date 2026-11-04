@@ -719,6 +719,11 @@ internal sealed class NhAssistantProposals(
             }
 
             var presented = await PresentAsync(admission, capture, cancellationToken);
+            if (presented.Refusal is { } cardRefusal)
+            {
+                // The tool's proposal needs its own presenter's card, which could not be built.
+                return TaskResult<NhAssistantProposalResult>.Failed(NhAiToolFailureCodes.InputInvalid, cardRefusal);
+            }
             if (presented.Presentation is not null)
             {
                 capture.Call.DisplayName = NhAssistantContent.Bound(presented.Presentation.ToolDisplayName, NhAssistantPresentationLimits.MaxDisplayNameLength);
@@ -882,16 +887,18 @@ internal sealed class NhAssistantProposals(
 
         /// <summary>
         /// The application's prepared presentations, the one of the culture the proposal is made in first;
-        /// without them the application's tool presenters present it in every supported UI culture.
+        /// without them, or for a tool whose proposal needs its own presenter's card, the application's tool
+        /// presenters present it in every supported UI culture.
         /// </summary>
         private async Task<NhAssistantLocalizedApprovalPresentation> PresentAsync(
             Admission admission,
             Capture capture,
             CancellationToken cancellationToken)
         {
-            if (presentations.Count == 0)
+            var resolver = services.GetRequiredService<NhAssistantToolPresentationResolver>();
+            if (presentations.Count == 0 || resolver.RequiresOwnCard(admission.Descriptor))
             {
-                return await services.GetRequiredService<NhAssistantToolPresentationResolver>().ResolveApprovalInCulturesAsync(
+                return await resolver.ResolveApprovalInCulturesAsync(
                     admission.Descriptor,
                     capture.Input,
                     capture.Context,

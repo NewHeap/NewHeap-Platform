@@ -769,16 +769,6 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler
             return Missing("expectedVersion");
         }
 
-        var uncarriedParts = input.Text("uncarriedParts") switch
-        {
-            null or "unlink" => NhAssistantUncarriedParts.Unlink,
-            "relink" => NhAssistantUncarriedParts.Relink,
-            _ => (NhAssistantUncarriedParts?)null
-        };
-        if (uncarriedParts is null)
-        {
-            return Invalid("uncarriedParts");
-        }
 
         var promoted = await Definitions.PromoteShadowVariantAsync(
             variantId,
@@ -788,8 +778,8 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler
                 input.Int("expectedVariantVersion"),
                 input.Text("reason"))
             {
-                AsPackageVersion = input.Bool("asPackageVersion") ?? false,
-                UncarriedParts = uncarriedParts.Value
+                // A package's next version carries parts the card cannot show: the screens promote it.
+                AsPackageVersion = false
             },
             call.Person,
             cancellationToken);

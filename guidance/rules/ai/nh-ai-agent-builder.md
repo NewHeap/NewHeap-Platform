@@ -74,15 +74,17 @@ proposal, and the card and the change read the same checked input: a number as a
 no, `null` where the schema has none, a blank text, a value outside its choices or bounds and an unknown
 property are refused (`ai-tool-input-invalid`); `null` clears a value only where the schema allows it, and the
 card says the default applies. `null` for an optional property that takes none reads as left out, and a whole
-number written as `1.0` as that number. A write is proposed only with its own valid card in English and
-Dutch: the values of whose rights it changes and what it removes have fields of their own, first and in
-full, the other values follow, shortened as far as the card needs to fit also as stored JSON, and a call
-whose card cannot be built so is refused with a message that says what to shorten or split, never proposed
-with the generic summary. A change of whose rights an agent uses (accountability, technical account,
-delegation, gateway or elevated reads, required policy, who may run it or see its results for the whole
-application, MCP servers and their use without a person, consultation routes, the promotion of a shadow
-variant, whose card names the live agent and what it takes over, at the variant's version the call must
-name) and every removal get a card whose notice says so plainly. `builder_set_mcp_headless_use` changes only
+number written as `1.0` as that number. A write is proposed only with the builder's own valid card, built
+for the proposal after the invoker's gate in every culture: the values of whose rights it changes and what it
+removes have fields of their own, first and in full, what an agent, skill or consultation may do follows,
+never shortened, with lists spanning fields, and the other values follow, shortened as far as the card needs
+to fit also as stored JSON. A call whose card cannot be built so, or whose presenter fails or times out, is
+not proposed and reads why; no other card stands in. A change of whose rights an agent uses (accountability,
+technical account, delegation, gateway or elevated reads, required policy, who may run it or see its results
+for the whole application, MCP servers and their use without a person, consultation routes, the promotion of a
+shadow variant, whose card names the live agent and what it takes over, at the variant's version the call must
+name; a variant that becomes its package's next version is promoted in the screens) and every removal get a
+card whose notice says so plainly. `builder_set_mcp_headless_use` changes only
 the server's use without a person, while its authentication is still what it was checked against; its
 connection, secret and other settings stay.
 
@@ -163,7 +165,8 @@ longest input its schema allows or refuses it with a reason, values of whose rig
 their own while escaped and non-Latin values are shortened until the stored card fits, input of the wrong
 type, a blank text, null or an unknown property is refused, the card shows the values that change, a
 promotion names the live agent and what it takes over and refuses another version of the variant, a
-change of rights and every removal say so, a call outside a person's chat with the builder is refused, the
+write whose card cannot be built or whose presenter fails, times out or builds none is not proposed and no
+other card stands in, what an agent may do is never shortened and spans fields, a change of rights and every removal say so, a call outside a person's chat with the builder is refused, the
 guidance is checked, the blockers name why recent runs failed and a host without read credentials, and the
 API bridge's gateway resources find and describe only what the person may use. In the administration, an
 Angular spec on the mock API proves the chat on the Build tab with its page context, "New agent with help"
