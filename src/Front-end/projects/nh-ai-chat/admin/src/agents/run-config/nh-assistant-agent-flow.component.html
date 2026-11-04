@@ -324,6 +324,17 @@
             }
 
             @case ('results') {
+              @if (alertKinds(); as kinds) {
+                <!-- The alerts its rules, rule scripts and model may raise: its run settings', or its code's. -->
+                <p data-flow-alert-kinds>
+                  <span class="flow-label">{{ 'nh-assistant.admin.run-config.flow.results.alert-kinds' | translate }}</span>&ngsp;
+                  @for (kindId of kinds; track kindId; let last = $last) {
+                    <strong [attr.data-flow-alert-kind]="kindId" [class.error-text]="!alertKindRegistered(kindId)">{{ alertKindNameKeys(kindId) | nhAssistantTranslate: kindId }}</strong>{{ last ? '' : ', ' }}
+                  } @empty {
+                    <span class="muted">{{ 'nh-assistant.admin.run-config.flow.results.no-alert-kinds' | translate }}</span>
+                  }
+                </p>
+              }
               <p data-flow-groups>
                 <span class="flow-label">{{ 'nh-assistant.admin.run-config.flow.results.groups' | translate }}</span>&ngsp;
                 @if (groups().length > 0) {

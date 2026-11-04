@@ -53,7 +53,7 @@ import {
 } from './agent-flow';
 import { NhAssistantAccountLabelComponent } from '../../nh-assistant-account-names';
 import { consultationRows, consultationsClosed } from './consultations';
-import { describePolicy } from './run-config-shared';
+import { alertKindNameKeys, describePolicy, isRegisteredAlertKind } from './run-config-shared';
 
 let nextId = 0;
 
@@ -211,6 +211,15 @@ export class NhAssistantAgentFlowComponent implements OnInit {
     const groups = this.catalog()?.agentGroups ?? [];
     return (this.agent().groups ?? []).map(id => groups.find(group => group.id === id)?.name ?? id);
   });
+  /**
+   * The alert kinds the agent may raise (FB93), by id: from its run settings for an agent created here,
+   * from its code otherwise; `null` while unknown, such as on an older server.
+   */
+  readonly alertKinds = computed(() => {
+    const configuration = this.configuration();
+    const settings = configuration.source === 'admin' ? configuration.runSettings : configuration.codeRunSettings;
+    return settings?.alertKinds ?? null;
+  });
   /** Whether the agent can be put in groups: every agent except a shadow variant. */
   readonly groupable = computed(() => !this.agent().shadowOf);
   /** The warnings of each step: problems of the run configuration and what keeps the agent from working. */
@@ -275,6 +284,16 @@ export class NhAssistantAgentFlowComponent implements OnInit {
         this.runsLoading.set(false);
       }
     });
+  }
+
+  /** The keys of an alert kind's name, as the run catalog names it; none for a kind it no longer lists. */
+  alertKindNameKeys(kindId: string): string[] {
+    return alertKindNameKeys(this.catalog(), kindId);
+  }
+
+  /** Whether the application still registers an alert kind the agent lists. */
+  alertKindRegistered(kindId: string): boolean {
+    return isRegisteredAlertKind(this.catalog(), kindId);
   }
 
   open(entry: AgentFlowEntry): void {

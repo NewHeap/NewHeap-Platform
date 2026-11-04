@@ -51,7 +51,7 @@ import { NhAssistantAgentWorkSetupComponent } from './run-config/nh-assistant-ag
 import { NhAssistantRunSettingsFormComponent } from './run-config/nh-assistant-run-settings-form.component';
 import { NhAssistantSkillFormComponent, SkillFormSaved } from './run-config/nh-assistant-skill-form.component';
 import { NhAssistantTriggerFormComponent } from './run-config/nh-assistant-trigger-form.component';
-import { describePolicy, runConfigLimits } from './run-config/run-config-shared';
+import { alertKindNameKeys, describePolicy, isRegisteredAlertKind, runConfigLimits } from './run-config/run-config-shared';
 import { TriggerChange, isConflict, triggerChanges, triggerFieldKeys, versionSummary } from './run-config/trigger-versions';
 import { NhAssistantAgentStateControlComponent } from './page/nh-assistant-agent-state-control.component';
 import { startNhAssistantAdminTranslations } from '../i18n/nh-assistant-admin-translations';
@@ -309,6 +309,16 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
     const summary = this.catalog()?.approvalPolicySummaries?.find(item => item.name === name);
     return summary ? describePolicy(summary, (key, params) => this.translate.instant(key, params) as string) : null;
   });
+
+  /** The keys of an alert kind's name, as the run catalog names it; none for a kind it no longer lists. */
+  alertKindNameKeys(kindId: string): string[] {
+    return alertKindNameKeys(this.catalog(), kindId);
+  }
+
+  /** Whether the application still registers an alert kind the agent lists. */
+  alertKindRegistered(kindId: string): boolean {
+    return isRegisteredAlertKind(this.catalog(), kindId);
+  }
 
   constructor() {
     startNhAssistantAdminTranslations();

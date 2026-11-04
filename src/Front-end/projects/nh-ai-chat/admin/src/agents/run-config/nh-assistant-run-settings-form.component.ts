@@ -12,6 +12,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAccountPickerComponent } from './nh-assistant-account-picker.component';
+import { NhAssistantAlertKindsFieldComponent, alertKindsToSave } from './nh-assistant-alert-kinds-field.component';
 import { NhAssistantFileLimitsFieldsComponent } from './nh-assistant-file-limits-fields.component';
 import { NhAssistantPackageLockComponent } from '../agent-packages/nh-assistant-package-lock.component';
 import { NhAssistantPackageLockedMarkComponent } from '../agent-packages/nh-assistant-package-locked-mark.component';
@@ -39,8 +40,8 @@ const defaults = { retries: '3', concurrent: '4', perSubject: '10' };
 
 /**
  * The run settings of an agent created in the administration, as questions: who the agent answers to,
- * how it works, who approves its proposals, and its limits, with the rarely changed options under
- * "Advanced". Errors appear at their fields and next to the actions.
+ * how it works, who approves its proposals, the alerts it may raise and its limits, with the rarely
+ * changed options under "Advanced". Errors appear at their fields and next to the actions.
  */
 @Component({
   selector: 'nh-assistant-run-settings-form',
@@ -51,6 +52,7 @@ const defaults = { retries: '3', concurrent: '4', perSubject: '10' };
     NhAssistantIconComponent,
     NhAssistantPickerComponent,
     NhAssistantAccountPickerComponent,
+    NhAssistantAlertKindsFieldComponent,
     NhAssistantFileLimitsFieldsComponent,
     NhAssistantPackageLockComponent,
     NhAssistantPackageLockedMarkComponent
@@ -81,7 +83,8 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
   protected readonly fields = [
     'accountability', 'serviceAccountActorId', 'ruleHandler', 'approvalPolicy', 'triageProfile', 'retryCount',
     'maxConcurrentRuns', 'maxRunsPerSubjectPerDay', 'maxTokensPerRun', 'dailyToolCalls', 'dailyTokens',
-    'elevatedReads', 'allowGatewayReads', 'reason', 'maxFileBytes', 'maxFilePages', 'maxFilesPerTurn', 'maxFileTokensPerTurn'
+    'elevatedReads', 'allowGatewayReads', 'reason', 'maxFileBytes', 'maxFilePages', 'maxFilesPerTurn', 'maxFileTokensPerTurn',
+    'alertKinds'
   ];
 
   readonly accountability = signal<AgentAccountability>('service-account');
@@ -102,10 +105,19 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
   /** The agent's lower file limits, next to accepting files; empty keeps the application's. */
   readonly fileLimits = new FileLimitsDraft();
   readonly elevatedReads = signal<AgentElevatedReads>('restricted');
+  /** The alert kinds the agent may raise, by id (FB93); none for a new agent. */
+  readonly alertKinds = signal<string[]>([]);
   readonly reason = signal('');
   readonly advancedOpen = signal(false);
 
   readonly accountSearch = computed(() => this.catalog()?.accountSearch === true);
+  /** Every alert kind the application registers; `null` for a server that lists none in its catalog. */
+  readonly catalogAlertKinds = computed(() => this.catalog()?.alertKinds ?? null);
+  /** The alerts show while the application registers a kind or the settings list one. */
+  readonly showsAlertKinds = computed(() => {
+    const kinds = this.catalogAlertKinds();
+    return kinds !== null && (kinds.length > 0 || this.alertKinds().length > 0);
+  });
   readonly rules = computed(() => ruleOptions(this.catalog()));
   readonly profiles = computed(() => profileOptions(this.catalog()));
   readonly policies = computed(() => {
@@ -145,6 +157,7 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
     this.acceptsFiles.set(settings?.acceptsFiles ?? false);
     this.fileLimits.load(settings);
     this.elevatedReads.set(settings?.elevatedReads ?? 'restricted');
+    this.alertKinds.set([...(settings?.alertKinds ?? [])]);
     this.advancedOpen.set(this.advancedInUse());
   }
 
@@ -167,6 +180,12 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
     if (this.acceptsFiles()) {
       this.fileLimits.check(errors, this.catalog()?.fileLimits);
     }
+    // An unchanged list is kept as it is; a changed one names only kinds the application registers.
+    const alertKinds = alertKindsToSave(this.alertKinds(), this.settings()?.alertKinds);
+    const registered = this.catalogAlertKinds();
+    if (alertKinds && registered && alertKinds.some(kindId => !registered.some(kind => kind.id === kindId))) {
+      errors['alertKinds'] = { code: 'not-found' };
+    }
 
     const request: AgentRunSettingsRequest = {
       accountability: this.accountability(),
@@ -186,9 +205,15 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
       expectedVersion: this.settings()?.version ?? null,
       reason: blank(this.reason()),
       acceptsFiles: this.acceptsFiles(),
-      ...this.fileLimits.toRequest(this.acceptsFiles())
+      ...this.fileLimits.toRequest(this.acceptsFiles()),
+      ...(alertKinds ? { alertKinds } : {})
     };
     this.submit(errors, () => this.admin.saveRunSettings(this.agentId(), request), settings => this.saved.emit(settings));
+  }
+
+  setAlertKinds(kindIds: string[]): void {
+    this.alertKinds.set(kindIds);
+    this.touch('alertKinds');
   }
 
   protected override mapServerErrors(errors: RunConfigErrors): RunConfigErrors {

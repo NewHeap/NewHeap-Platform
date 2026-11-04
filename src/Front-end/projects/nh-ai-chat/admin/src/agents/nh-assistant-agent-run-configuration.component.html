@@ -69,6 +69,16 @@
                   <span class="muted block">{{ sentence }}</span>
                 }
               </dd>
+              @if (settings.alertKinds !== undefined) {
+                <dt>{{ 'nh-assistant.admin.run-config.alert-kinds.title' | translate }}</dt>
+                <dd data-settings-alert-kinds>
+                  @for (kindId of settings.alertKinds; track kindId; let last = $last) {
+                    <span [attr.data-alert-kind]="kindId" [class.error-text]="!alertKindRegistered(kindId)">{{ alertKindNameKeys(kindId) | nhAssistantTranslate: kindId }}</span>{{ last ? '' : ', ' }}
+                  } @empty {
+                    <span class="muted">{{ 'nh-assistant.admin.run-config.alert-kinds.none' | translate }}</span>
+                  }
+                </dd>
+              }
               <dt>{{ 'nh-assistant.admin.agents.version-label' | translate }}</dt>
               <dd>
                 {{ 'nh-assistant.admin.agents.version' | translate: { version: settings.version } }}
@@ -825,6 +835,17 @@
       </dd>
       <dt>{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}</dt>
       <dd data-code-setting="approval-policy">{{ code.approvalPolicy ?? ('nh-assistant.admin.run-config.settings.approval.default' | translate) }}</dd>
+      @if (code.alertKinds !== undefined) {
+        <!-- The kinds the agent lists with Alerts(...), which change only in code. -->
+        <dt>{{ 'nh-assistant.admin.run-config.alert-kinds.title' | translate }}</dt>
+        <dd data-code-setting="alert-kinds">
+          @for (kindId of code.alertKinds; track kindId; let last = $last) {
+            <span [attr.data-alert-kind]="kindId">{{ alertKindNameKeys(kindId) | nhAssistantTranslate: kindId }}</span>{{ last ? '' : ', ' }}
+          } @empty {
+            <span class="muted">{{ 'nh-assistant.admin.run-config.alert-kinds.none' | translate }}</span>
+          }
+        </dd>
+      }
       @if (code.retryCount !== undefined) {
         <dt>{{ 'nh-assistant.admin.run-config.settings.retries' | translate }}</dt>
         <dd data-code-setting="retries">{{ code.retryCount | number }}</dd>

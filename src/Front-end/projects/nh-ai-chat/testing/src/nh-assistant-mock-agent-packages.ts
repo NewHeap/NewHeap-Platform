@@ -142,7 +142,7 @@ const formatShapes: Readonly<Record<string, { required: readonly string[]; optio
     optional: [
       'delegateFromInitiator', 'allowGatewayReads', 'elevatedReads', 'approvalPolicy', 'retryCount', 'dailyToolCalls', 'dailyTokens',
       'maxConcurrentRuns', 'maxRunsPerSubjectPerDay', 'maxTokensPerRun', 'triageProfile', 'ruleHandler', 'acceptsFiles', 'maxFileBytes',
-      'maxFilePages', 'maxFilesPerTurn', 'maxFileTokensPerTurn'
+      'maxFilePages', 'maxFilesPerTurn', 'maxFileTokensPerTurn', 'alertKinds'
     ]
   },
   skill: {
@@ -972,6 +972,8 @@ export class NhAssistantMockAgentPackages {
         const account = settings.accountability === 'service-account' ? options.serviceAccounts?.[agent.id] ?? null : null;
         return this.context.call('PUT', `${agentPath}/run-settings`, {
           ...settings,
+          // The package's alert kinds replace the host's: left out lists none.
+          alertKinds: settings['alertKinds'] ?? [],
           serviceAccountActorId: account,
           expectedVersion: host?.configuration?.runSettings?.version ?? null
         });
@@ -1476,7 +1478,9 @@ function runSettingsOf(settings: NonNullable<AgentRunConfiguration['runSettings'
     maxFileBytes: settings.maxFileBytes ?? null,
     maxFilePages: settings.maxFilePages ?? null,
     maxFilesPerTurn: settings.maxFilesPerTurn ?? null,
-    maxFileTokensPerTurn: settings.maxFileTokensPerTurn ?? null
+    maxFileTokensPerTurn: settings.maxFileTokensPerTurn ?? null,
+    // Written only when there are any, so the hash of run settings without them stays as it was.
+    ...((settings.alertKinds ?? []).length > 0 ? { alertKinds: [...settings.alertKinds!] } : {})
   };
 }
 

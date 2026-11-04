@@ -111,6 +111,20 @@ export function focusFirstInvalid(form: HTMLElement | null | undefined): void {
   invalid?.scrollIntoView?.({ block: 'center' });
 }
 
+/**
+ * The keys an alert kind's name is translated with, as the run catalog names it; empty for a kind the
+ * application no longer registers, which shows its id.
+ */
+export function alertKindNameKeys(catalog: RunCatalog | null | undefined, kindId: string): string[] {
+  const kind = catalog?.alertKinds?.find(item => item.id === kindId);
+  return kind ? [kind.displayNameKey] : [];
+}
+
+/** Whether the run catalog still lists the alert kind; while it is unknown every kind counts as listed. */
+export function isRegisteredAlertKind(catalog: RunCatalog | null | undefined, kindId: string): boolean {
+  return catalog?.alertKinds === undefined || catalog.alertKinds.some(kind => kind.id === kindId);
+}
+
 export function ruleOptions(catalog: RunCatalog | null): NhAssistantPickerOption[] {
   return (catalog?.ruleHandlers ?? []).map(block => ({ value: block.name, label: block.name, description: block.description }));
 }
