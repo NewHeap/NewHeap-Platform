@@ -3101,10 +3101,13 @@
       "categoryId": "17",
       "title": "Scope-driven consumer bootstrap",
       "surface": "plain-language scope gate, versioned profile bootstrap and post-bootstrap inspector",
-      "outcome": "An empty repository receives only the confirmed service, API or management capabilities, retains extension seams for deferred work, restores the profile-relevant NewHeap packages before feature work, supports explicit external identity ownership for federated BFF portals, and fails validation when structure or integration patterns drift.",
+      "outcome": "An empty repository receives only the confirmed service, API or management capabilities, retains extension seams for deferred work, restores the profile-relevant NewHeap packages before feature work, supports explicit external identity ownership for federated BFF portals, and fails validation when structure or integration patterns drift. For a Companist target, the portable inspector validates the optional hosting contract and managed identity mappings. A consumer-owned executable projection demonstrates rejecting mismatched subject, tenant, OS, application, deployment and audience, rebuilding current catalog permissions without copying credentials or stale token grants; full OIDC and live hosting remain consumer acceptance tests.",
       "implementation": "implemented",
       "evidence": [
-        "src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs"
+        "src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs",
+        "src/Back-end/Tests/ConsumerBootstrap/companist-hosting.test.mjs",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleHostedAccessContext.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/HostedAccessContextSamplesTests.cs"
       ]
     },
     {

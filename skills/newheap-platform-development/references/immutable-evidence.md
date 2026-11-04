@@ -142,6 +142,10 @@ Source release: `newheap-platform-plugin-v1.13.108`
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.108/docs/consumer-guide/consumer-bootstrap-sequence.md)
 
+## Consumer Companist Hosting
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.108/docs/consumer-guide/consumer-companist-hosting.md)
+
 ## Consumer Management Portal
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.108/docs/consumer-guide/consumer-management-portal.md)
