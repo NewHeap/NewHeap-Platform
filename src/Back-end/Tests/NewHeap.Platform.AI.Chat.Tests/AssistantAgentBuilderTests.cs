@@ -345,6 +345,11 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
         Assert.Contains("met wiens rechten agent project-assistant werkt", dutch.Notice, StringComparison.Ordinal);
         Assert.Contains(dutch.Fields, field => field.Label == "Verantwoording" && field.Value == "service-account");
 
+        // Another accountability without a technical account named removes the technical account, and says so.
+        var away = await PresentAsync(presenter, NhAssistantAgentBuilderTools.SaveRunSettings, new { agentId = AgentId, accountability = "subject-responsible" }, "en-US");
+        Assert.Contains(away.Fields, field => field.Label == "Technical account" && field.Value == "none (a technical account set before is removed)");
+        Assert.Contains("(Accountability, Technical account)", away.Notice, StringComparison.Ordinal);
+
         // A change of the budget alone is no change of rights, and the card names the value.
         var budget = await PresentAsync(presenter, NhAssistantAgentBuilderTools.SaveRunSettings, new { agentId = AgentId, maxConcurrentRuns = 2, approvalPolicy = "review" }, "en-US");
         Assert.Equal("The agent builder works with your own rights. Nothing changes until you approve this.", budget.Notice);
@@ -366,11 +371,12 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
             Assert.Contains("whose rights", (await PresentAsync(presenter, toolId, input, "en-US")).Notice, StringComparison.Ordinal);
         }
 
-        // Clearing who sees the whole application's results says so, as do the other values of a definition.
+        // Clearing who sees the whole application's results says so in a field of its own first, then the
+        // other values of a definition.
         var view = await PresentAsync(presenter, NhAssistantAgentBuilderTools.UpdateAgent, new { agentId = AgentId, expectedVersion = 1, viewPolicy = (string?)null, compositions = true, dataClassification = "confidential", offeredInChat = false }, "en-US");
         Assert.Contains("Who sees its results for the whole application", view.Notice, StringComparison.Ordinal);
         Assert.Equal(
-            [("Agent", AgentId), ("Version", "1"), ("Offered in the chat", "no"), ("Who sees its results for the whole application", "cleared (the default applies)"), ("Classification", "confidential"), ("Compositions", "yes")],
+            [("Agent", AgentId), ("Who sees its results for the whole application", "cleared (the default applies)"), ("Version", "1"), ("Offered in the chat", "no"), ("Classification", "confidential"), ("Compositions", "yes")],
             view.Fields.Select(field => (field.Label, field.Value)));
 
         // Every removal names what goes.
@@ -381,16 +387,25 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
         Assert.StartsWith("Let op: dit verwijdert de agent zelf", verwijderd.Notice, StringComparison.Ordinal);
         Assert.StartsWith("Note: this removes the assignment of MCP server planning", (await PresentAsync(presenter, NhAssistantAgentBuilderTools.SetMcpServer, new { agentId = AgentId, serverId = "planning", assigned = false }, "en-US")).Notice, StringComparison.Ordinal);
 
-        // Every card of every write keeps within the presentation's limits, with the longest input its schema
-        // allows, and says when a value is in full only in the technical details.
-        var cutCards = 0;
+        // With the longest input its schema allows, every write has its own card within the presentation's
+        // limits, saying when a value is in full only in the technical details, or it is refused with a
+        // reason before it is proposed; never the generic summary.
+        var (cards, cutCards, refused) = (0, 0, 0);
         foreach (var tool in NhAssistantAgentBuilderTools.All.Where(tool => tool.Approval == NhAiApprovalRequirement.Required))
         {
-            var longest = LongestInput(tool);
-            Assert.Null(NhAssistantAgentBuilderInput.Read(longest, tool.Input.Schema).Refused);
-            foreach (var culture in new[] { "en-US", "nl-NL" })
+            var (longest, _) = NhAssistantAgentBuilderInput.Read(LongestInput(tool), tool.Input.Schema);
+            Assert.NotNull(longest);
+            foreach (var language in new[] { false, true })
             {
-                var card = await PresentAsync(presenter, tool.Id, longest, culture);
+                var (card, refusal) = await presenter.BuildAsync(tool, longest, language, CancellationToken.None);
+                if (card is null)
+                {
+                    Assert.False(string.IsNullOrWhiteSpace(refusal), tool.Id);
+                    refused++;
+                    continue;
+                }
+
+                cards++;
                 Assert.Null(NhAssistantPresentationLimits.FindBrokenRule(card));
                 if (card.Fields.Any(field => field.Value.EndsWith('…')))
                 {
@@ -399,7 +414,98 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
                 }
             }
         }
-        Assert.True(cutCards > 0);
+        Assert.True(cards > 0 && cutCards > 0 && refused > 0, $"{cards} cards, {cutCards} shortened, {refused} refused");
+    }
+
+    [Fact]
+    public async Task Every_value_of_whose_rights_has_a_field_of_its_own_in_full_or_the_change_is_refused()
+    {
+        var presenter = Presenter();
+        var update = NhAssistantAgentBuilderTools.All.Single(tool => tool.Id == NhAssistantAgentBuilderTools.UpdateAgent);
+        var policy = new string('p', 256);
+
+        // Long other values do not push the rights off the card: those come first, in full.
+        var (card, refusal) = await BuildAsync(presenter, update, new
+        {
+            agentId = AgentId,
+            expectedVersion = 4,
+            displayName = new string('n', 256),
+            description = new string('d', 512),
+            toolSelectors = Enumerable.Range(0, 10).Select(index => $"tools.{index}.{new string('t', 90)}").ToArray(),
+            requiredPolicy = policy,
+            mcpServerIds = new[] { "planning", "billing" },
+            runPolicy = "app.operators",
+            viewPolicy = (string?)null
+        });
+        Assert.Null(refusal);
+        Assert.Null(NhAssistantPresentationLimits.FindBrokenRule(card!));
+        Assert.Equal(
+            [("Agent", AgentId), ("Required policy", policy), ("MCP servers", "planning, billing"), ("Who may run it for the whole application", "app.operators"), ("Who sees its results for the whole application", "cleared (the default applies)")],
+            card!.Fields.Take(5).Select(field => (field.Label, field.Value)));
+        Assert.Contains("technical details", card.Notice, StringComparison.Ordinal);
+
+        // A value of whose rights that cannot be shown in full refuses the change, naming it.
+        var (none, why) = await BuildAsync(presenter, update, new
+        {
+            agentId = AgentId,
+            expectedVersion = 4,
+            mcpServerIds = Enumerable.Range(0, 10).Select(index => $"server-{index}-{new string('s', 32)}").ToArray()
+        });
+        Assert.Null(none);
+        Assert.Contains("'mcpServerIds'", why, StringComparison.Ordinal);
+
+        // So do values of whose rights that together do not fit the stored card, with their escapes.
+        var (tooBig, size) = await BuildAsync(presenter, update, new
+        {
+            agentId = AgentId,
+            expectedVersion = 4,
+            requiredPolicy = new string('<', 256),
+            runPolicy = new string('\'', 256),
+            viewPolicy = new string('&', 256)
+        });
+        Assert.Null(tooBig);
+        Assert.Contains("within its size", size, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Values_with_escapes_or_other_scripts_are_shortened_until_the_stored_card_fits_and_rights_stay_whole()
+    {
+        var presenter = Presenter();
+        var update = NhAssistantAgentBuilderTools.All.Single(tool => tool.Id == NhAssistantAgentBuilderTools.UpdateAgent);
+        var settings = NhAssistantAgentBuilderTools.All.Single(tool => tool.Id == NhAssistantAgentBuilderTools.SaveRunSettings);
+        var policy = string.Concat(Enumerable.Repeat("é日", 100));
+
+        foreach (var dutch in new[] { false, true })
+        {
+            var (card, refusal) = await presenter.BuildAsync(update, Read(update, new
+            {
+                agentId = AgentId,
+                expectedVersion = 4,
+                displayName = new string('<', 256),
+                description = string.Concat(Enumerable.Repeat("Ω\"'&", 128)),
+                toolSelectors = new[] { new string('>', 256), "😀" + new string('ж', 200) },
+                requiredPolicy = policy
+            }), dutch, CancellationToken.None);
+            Assert.Null(refusal);
+            Assert.Null(NhAssistantPresentationLimits.FindBrokenRule(card!));
+            Assert.Contains(card!.Fields, field => field.Value == policy);
+            Assert.Matches("technical details|technische details", card.Notice);
+
+            // A reason or a text of escapes alone does not drop the card either.
+            var (reasons, none) = await presenter.BuildAsync(settings, Read(settings, new
+            {
+                agentId = AgentId,
+                accountability = "service-account",
+                serviceAccountActorId = "операции-1",
+                approvalPolicy = new string('\'', 128),
+                triageProfile = new string('<', 128),
+                ruleHandler = new string('&', 128),
+                reason = new string('"', 500)
+            }), dutch, CancellationToken.None);
+            Assert.Null(none);
+            Assert.Null(NhAssistantPresentationLimits.FindBrokenRule(reasons!));
+            Assert.Contains(reasons!.Fields, field => field.Value == "операции-1");
+        }
     }
 
     [Fact]
@@ -410,17 +516,35 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
         {
             State = new AspNet.AgentRuns.NhAssistantAgentState("planner-next", "active", true, null, null, null, 0, 0, 0),
             ShadowOf = "planner",
-            RequiredPolicy = "app.planners"
+            RequiredPolicy = "app.planners",
+            DataClassification = NhAiDataClassification.Confidential
         };
-        var presenter = Presenter(services => services.AddSingleton<AspNet.AgentRuns.INhAssistantAgentDirectory>(new OneAgentDirectory(variant)));
+        var live = new AspNet.AgentRuns.NhAssistantAgentInEffectDto(
+            "planner", "admin", 3, "Planner", "Plans.", "Plan.", "hash", ["projects.*"], NhAiAutonomyLevel.Propose, "chat", "active")
+        {
+            State = new AspNet.AgentRuns.NhAssistantAgentState("planner", "active", true, null, null, null, 0, 0, 0)
+        };
+        var presenter = Presenter(services => services.AddSingleton<AspNet.AgentRuns.INhAssistantAgentDirectory>(new KnownAgents(variant, live)));
 
-        var card = await PresentAsync(presenter, NhAssistantAgentBuilderTools.PromoteShadowVariant, new { agentId = "planner-next", expectedVersion = 3, moveSkills = true }, "en-US");
+        var card = await PresentAsync(presenter, NhAssistantAgentBuilderTools.PromoteShadowVariant, new { agentId = "planner-next", expectedVersion = 3, expectedVariantVersion = 2, moveSkills = true }, "en-US");
 
         Assert.Equal("Copies the definition of shadow variant planner-next onto live agent planner as its next version, with its skills, then deletes the variant.", card.Summary);
         Assert.Contains(card.Fields, field => field.Label == "Live agent" && field.Value == "planner");
-        Assert.Contains(card.Fields, field => field.Label == "Takes over" && field.Value == "tools: projects.*, mail.send; required policy: app.planners; autonomy: execute");
+        // The settings of whose rights come before the tools, which have a field of their own.
+        Assert.Contains(card.Fields, field => field.Label == "Takes over"
+            && field.Value == "required policy: app.planners; autonomy: execute; model profile: chat; classification: confidential; compositions: no; scripts: no");
+        Assert.Contains(card.Fields, field => field.Label == "Takes over the tools" && field.Value == "projects.*, mail.send");
         Assert.Contains("whose rights agent planner works with", card.Notice, StringComparison.Ordinal);
+        Assert.Contains("the model profile, the classification, the compositions and scripts and the tools", card.Notice, StringComparison.Ordinal);
         Assert.Contains("the variant is deleted", card.Notice, StringComparison.Ordinal);
+
+        // The card is of the variant at the version the call names, which the promotion holds it to: another
+        // version is refused before it is proposed, and the version is required.
+        var promote = NhAssistantAgentBuilderTools.All.Single(tool => tool.Id == NhAssistantAgentBuilderTools.PromoteShadowVariant);
+        var (changed, refusal) = await BuildAsync(presenter, promote, new { agentId = "planner-next", expectedVersion = 3, expectedVariantVersion = 1 });
+        Assert.Null(changed);
+        Assert.Contains("version 2", refusal, StringComparison.Ordinal);
+        Assert.Contains("expectedVariantVersion", NhAssistantAgentBuilderInput.Read(JsonSerializer.SerializeToElement(new { agentId = "planner-next", expectedVersion = 3 }), promote.Input.Schema).Refused, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -429,18 +553,23 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
     [InlineData(NhAssistantAgentBuilderTools.SetLive, """{"agentId":"a","part":"rule-script","version":"1"}""", "version")]
     [InlineData(NhAssistantAgentBuilderTools.Remove, """{"agentId":"a","part":"skill-candidate","skillId":"s","version":"2"}""", "version")]
     [InlineData(NhAssistantAgentBuilderTools.SetShadow, """{"agentId":"a","part":"agent","shadow":"true"}""", "shadow")]
-    [InlineData(NhAssistantAgentBuilderTools.SaveRunSettings, """{"agentId":"a","elevatedReads":null}""", "elevatedReads")]
-    [InlineData(NhAssistantAgentBuilderTools.SaveRunSettings, """{"agentId":"a","accountability":null}""", "accountability")]
     [InlineData(NhAssistantAgentBuilderTools.SaveRunSettings, """{"agentId":"a","accountability":""}""", "accountability")]
-    [InlineData(NhAssistantAgentBuilderTools.SaveRunSettings, """{"agentId":"a","delegateFromInitiator":null}""", "delegateFromInitiator")]
-    [InlineData(NhAssistantAgentBuilderTools.SaveRunSettings, """{"agentId":"a","allowGatewayReads":null}""", "allowGatewayReads")]
     [InlineData(NhAssistantAgentBuilderTools.SaveRunSettings, """{"agentId":"a","retryCount":-1}""", "retryCount")]
-    [InlineData(NhAssistantAgentBuilderTools.UpdateAgent, """{"agentId":"a","expectedVersion":1,"mcpServerIds":null}""", "mcpServerIds")]
+    [InlineData(NhAssistantAgentBuilderTools.SaveRunSettings, """{"agentId":"a","serviceAccountActorId":"  "}""", "serviceAccountActorId")]
+    [InlineData(NhAssistantAgentBuilderTools.SaveRunSettings, """{"agentId":"a","approvalPolicy":""}""", "approvalPolicy")]
+    [InlineData(NhAssistantAgentBuilderTools.UpdateAgent, """{"agentId":"a","expectedVersion":1,"requiredPolicy":"  "}""", "requiredPolicy")]
+    [InlineData(NhAssistantAgentBuilderTools.UpdateAgent, """{"agentId":"a","expectedVersion":1,"runPolicy":" "}""", "runPolicy")]
+    [InlineData(NhAssistantAgentBuilderTools.UpdateAgent, """{"agentId":"a","expectedVersion":1,"viewPolicy":"\t"}""", "viewPolicy")]
     [InlineData(NhAssistantAgentBuilderTools.UpdateAgent, """{"agentId":"a","expectedVersion":1,"autonomy":"Execute"}""", "autonomy")]
     [InlineData(NhAssistantAgentBuilderTools.UpdateAgent, """{"agentId":"a","expectedVersion":1,"toolSelectors":["projects.*",""]}""", "toolSelectors[1]")]
     [InlineData(NhAssistantAgentBuilderTools.UpdateAgent, """{"agentId":"a","expectedVersion":1.5}""", "expectedVersion")]
+    [InlineData(NhAssistantAgentBuilderTools.UpdateAgent, """{"agentId":"a","expectedVersion":null}""", "expectedVersion")]
+    [InlineData(NhAssistantAgentBuilderTools.SetTechnicalAccount, """{"agentId":"a","actorId":" "}""", "actorId")]
+    [InlineData(NhAssistantAgentBuilderTools.SaveConsultation, """{"agentId":"a","subjectType":"project","askerPolicy":"  "}""", "askerPolicy")]
+    [InlineData(NhAssistantAgentBuilderTools.SaveSkill, """{"agentId":"a","skillId":"notes","dataClassification":"secret"}""", "dataClassification")]
     [InlineData(NhAssistantAgentBuilderTools.SetMcpServer, """{"agentId":"a","serverId":"planning","assigned":true,"secret":"guess"}""", "secret")]
     [InlineData(NhAssistantAgentBuilderTools.SetTechnicalAccount, """{"agentId":"a"}""", "actorId")]
+    [InlineData(NhAssistantAgentBuilderTools.SetTechnicalAccount, """{"agentId":null,"actorId":"service-1"}""", "agentId")]
     public void Input_that_the_card_and_the_handler_could_read_differently_is_refused_before_a_proposal(string toolId, string json, string property)
     {
         var tool = NhAssistantAgentBuilderTools.All.Single(item => item.Id == toolId);
@@ -449,6 +578,29 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
 
         Assert.Null(input);
         Assert.Contains(property, refusal, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Null_for_an_optional_property_is_left_out_and_a_whole_number_with_a_fraction_is_that_number()
+    {
+        Assert.Equal(1, Accepted(NhAssistantAgentBuilderTools.SetLive, """{"agentId":"a","part":"rule-script","version":1.0,"skillId":null,"expectedRevision":2e0,"reason":null}""", input =>
+        {
+            Assert.False(input.Given("skillId"));
+            Assert.False(input.Given("reason"));
+            Assert.Equal(2, input.Int("expectedRevision"));
+            return input.Int("version");
+        }));
+        // Null for a setting that takes none keeps it, as leaving it out does, for the card and the handler.
+        Assert.Equal(0, Accepted(NhAssistantAgentBuilderTools.SaveRunSettings, """{"agentId":"a","elevatedReads":null,"accountability":null,"delegateFromInitiator":null,"allowGatewayReads":null,"expectedVersion":null}""", input =>
+            new[] { "elevatedReads", "accountability", "delegateFromInitiator", "allowGatewayReads", "expectedVersion" }.Count(input.Given)));
+        Assert.False(Accepted(NhAssistantAgentBuilderTools.UpdateAgent, """{"agentId":"a","expectedVersion":1,"mcpServerIds":null}""", input => input.Given("mcpServerIds")));
+        // Null where the schema allows it clears: a nullable choice is an anyOf of the choice and null,
+        // without null in its enum.
+        Assert.True(Accepted(NhAssistantAgentBuilderTools.SaveSkill, """{"agentId":"a","skillId":"notes","dataClassification":null}""", input => input.Given("dataClassification") && !input.Has("dataClassification")));
+        var classification = (System.Text.Json.Nodes.JsonObject)NhAssistantAgentBuilderTools.All.Single(tool => tool.Id == NhAssistantAgentBuilderTools.SaveSkill)
+            .Input.Schema["properties"]!["dataClassification"]!;
+        Assert.Equal(2, classification["anyOf"]!.AsArray().Count);
+        Assert.DoesNotContain("null", classification["anyOf"]![0]!["enum"]!.ToJsonString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -481,6 +633,30 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
         {
             Assert.Contains(expected, shown, StringComparison.Ordinal);
         }
+
+        // A hand-off's change keeps what it leaves out, as the card says.
+        var handOff = await PresentAsync(presenter, NhAssistantAgentBuilderTools.SaveHandOff, new { agentId = AgentId, subjectType = "project", expectedVersion = 1, maxPerSubjectPerDay = 2 }, "en-US");
+        Assert.EndsWith("fields it does not name stay as they are.", handOff.Summary, StringComparison.Ordinal);
+    }
+
+    private static T Accepted<T>(string toolId, string json, Func<NhAssistantAgentBuilderInput, T> read)
+    {
+        var tool = NhAssistantAgentBuilderTools.All.Single(item => item.Id == toolId);
+        var (input, refusal) = NhAssistantAgentBuilderInput.Read(JsonSerializer.Deserialize<JsonElement>(json), tool.Input.Schema);
+        Assert.True(input is not null, refusal);
+        return read(input!);
+    }
+
+    private static NhAssistantAgentBuilderInput Read(NhAssistantAgentBuilderTool tool, object value)
+    {
+        var (input, refusal) = NhAssistantAgentBuilderInput.Read(JsonSerializer.SerializeToElement(value), tool.Input.Schema);
+        Assert.True(input is not null, refusal);
+        return input!;
+    }
+
+    private static Task<(NhAssistantApprovalPresentation? Card, string? Refusal)> BuildAsync(NhAssistantAgentBuilderPresenter presenter, NhAssistantAgentBuilderTool tool, object value)
+    {
+        return presenter.BuildAsync(tool, Read(tool, value), dutch: false, CancellationToken.None);
     }
 
     private static NhAssistantAgentBuilderPresenter Presenter(Action<IServiceCollection>? configure = null)
@@ -504,6 +680,11 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
 
     private static System.Text.Json.Nodes.JsonNode? LongestValue(System.Text.Json.Nodes.JsonObject schema)
     {
+        if (schema["anyOf"] is System.Text.Json.Nodes.JsonArray branches)
+        {
+            return LongestValue((System.Text.Json.Nodes.JsonObject)branches[0]!);
+        }
+
         var type = schema["type"] is System.Text.Json.Nodes.JsonArray types ? types[0]!.GetValue<string>() : schema["type"]?.GetValue<string>();
         return type switch
         {
@@ -521,19 +702,19 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
         };
     }
 
-    /// <summary>A directory that knows one agent, the shadow variant a promotion's card reads.</summary>
-    private sealed class OneAgentDirectory(AspNet.AgentRuns.NhAssistantAgentInEffectDto agent) : AspNet.AgentRuns.INhAssistantAgentDirectory
+    /// <summary>A directory that knows the agents a promotion's card reads: the variant and its live agent.</summary>
+    private sealed class KnownAgents(params AspNet.AgentRuns.NhAssistantAgentInEffectDto[] agents) : AspNet.AgentRuns.INhAssistantAgentDirectory
     {
         public Task<AspNet.AgentRuns.NhAssistantAgentInEffectDto?> GetAsync(string agentId, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(agentId == agent.AgentId ? agent : null);
+            return Task.FromResult(agents.FirstOrDefault(agent => agent.AgentId == agentId));
         }
 
         public Task<IReadOnlyList<AspNet.AgentRuns.NhAssistantAgentInEffectDto>> ListAsync(
             AspNet.AgentRuns.NhAssistantAgentDirectoryFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
-            return Task.FromResult<IReadOnlyList<AspNet.AgentRuns.NhAssistantAgentInEffectDto>>([agent]);
+            return Task.FromResult<IReadOnlyList<AspNet.AgentRuns.NhAssistantAgentInEffectDto>>(agents);
         }
     }
     [Fact]

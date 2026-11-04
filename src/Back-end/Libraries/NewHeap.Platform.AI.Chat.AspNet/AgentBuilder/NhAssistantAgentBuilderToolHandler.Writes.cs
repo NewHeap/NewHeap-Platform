@@ -370,12 +370,20 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler
         {
             return TargetRefused(call);
         }
-        if (Required(input, "subjectType", "sources") is { } missing)
+        if (Required(input, "subjectType") is { } missing)
         {
             return missing;
         }
 
-        var sources = input.Texts("sources")!;
+        // The service stores the whole hand-off: what the call leaves out keeps the current value, as the
+        // card says, and null clears the description.
+        var subjectType = input.Text("subjectType")!;
+        var current = (await HandOffs.GetAsync(agentId, cancellationToken))?.DataHandOffs
+            .FirstOrDefault(handOff => string.Equals(handOff.SubjectType, subjectType, StringComparison.Ordinal));
+        if ((input.Texts("sources") ?? current?.Sources) is not { } sources)
+        {
+            return Missing("sources");
+        }
         if (sources.Any(NhAssistantAgentBuilderIds.IsAgentBuilder))
         {
             return Itself();
@@ -383,12 +391,12 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler
 
         var saved = await HandOffs.SaveAsync(
             agentId,
-            input.Text("subjectType")!,
+            subjectType,
             new NhAssistantDataHandOffRequest(
                 sources,
-                input.Text("description"),
-                input.Bool("notifySource") ?? false,
-                input.Int("maxPerSubjectPerDay"),
+                Pick(input, "description", current?.Description),
+                input.Bool("notifySource") ?? current?.NotifySource ?? false,
+                input.Int("maxPerSubjectPerDay") ?? current?.MaxPerSubjectPerDay,
                 input.Int("expectedVersion"),
                 input.Text("reason")),
             call.Person,
