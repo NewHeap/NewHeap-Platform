@@ -44,3 +44,6 @@ Run the bootstrap without `--skip-install`, then run `inspect-newheap-consumer.m
   - [src/Back-end/Applications/SampleProjectManagement.CommonConsole/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.CommonConsole/Program.cs)
 - SPM-217 — Scope-driven consumer bootstrap
   - [src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs](../../examples/SampleProjectManagement/src/Back-end/Tests/ConsumerBootstrap/consumer-bootstrap.test.mjs)
+  - [src/Back-end/Tests/ConsumerBootstrap/companist-hosting.test.mjs](../../examples/SampleProjectManagement/src/Back-end/Tests/ConsumerBootstrap/companist-hosting.test.mjs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleHostedAccessContext.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleHostedAccessContext.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/HostedAccessContextSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/HostedAccessContextSamplesTests.cs)

@@ -50,6 +50,7 @@ The default target is `codex`, which writes the complete suite under `.agents/sk
 - [background-operation-suspension](./background-operation-suspension.md) — 1 rule
 - [background-processing](./background-processing.md) — 1 rule
 - [consumer-bootstrap-sequence](./consumer-bootstrap-sequence.md) — 1 rule
+- [consumer-companist-hosting](./consumer-companist-hosting.md) — 1 rule
 - [consumer-management-portal](./consumer-management-portal.md) — 1 rule
 - [consumer-optional-infrastructure](./consumer-optional-infrastructure.md) — 1 rule
 - [consumer-scope-gate](./consumer-scope-gate.md) — 1 rule
@@ -68,4 +69,4 @@ The default target is `codex`, which writes the complete suite under `.agents/sk
 
 ## Maintenance
 
-Edit the atomic files under `guidance/rules`, update the linked sample case, and run `npm run guidance:generate` and `npm run guidance:validate`. There are 55 validated rules.
+Edit the atomic files under `guidance/rules`, update the linked sample case, and run `npm run guidance:generate` and `npm run guidance:validate`. There are 56 validated rules.

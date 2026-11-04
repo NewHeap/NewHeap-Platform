@@ -34,6 +34,7 @@
 - background-operation-suspension: ./background-operation-suspension.md
 - background-processing: ./background-processing.md
 - consumer-bootstrap-sequence: ./consumer-bootstrap-sequence.md
+- consumer-companist-hosting: ./consumer-companist-hosting.md
 - consumer-management-portal: ./consumer-management-portal.md
 - consumer-optional-infrastructure: ./consumer-optional-infrastructure.md
 - consumer-scope-gate: ./consumer-scope-gate.md

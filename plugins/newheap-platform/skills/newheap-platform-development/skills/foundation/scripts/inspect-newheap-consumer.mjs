@@ -1,5 +1,6 @@
 import { access, readdir, readFile, stat } from 'node:fs/promises';
 import { extname, relative, resolve } from 'node:path';
+import { validateCompanistHosting } from './validate-companist-hosting.mjs';
 
 const args = process.argv.slice(2);
 const modeIndex = args.indexOf('--mode');
@@ -196,5 +197,6 @@ if (mode === 'validate') {
   if (!manifest?.features?.elasticsearch && report.optionalInfrastructure.elasticsearch.length > 0) warning('elasticsearch-untracked', 'Elasticsearch exists but is not enabled in newheap-consumer.json.');
 }
 
+report.issues.push(...await validateCompanistHosting(root));
 console.log(JSON.stringify(report, null, 2));
 if (mode !== 'inventory' && report.issues.some(issue => issue.severity === 'error')) process.exitCode = 1;

@@ -23,6 +23,7 @@ Read only the reference needed for the current setup task:
 - [scope gate](references/consumer-scope-gate.md) when the product outcome does not yet determine the foundation;
 - [bootstrap sequence](references/consumer-bootstrap-sequence.md) for an empty repository or foundation audit;
 - [management portal](references/consumer-management-portal.md) for a confirmed interactive administration interface;
+- [Companist hosting](references/consumer-companist-hosting.md) when Companist is the deployment target, including managed sign-in, claims, runtime mappings, readiness and migrations;
 - [optional infrastructure](references/consumer-optional-infrastructure.md) for Aspire, Docker or Elasticsearch;
 - [package sources](references/package-sources.md) for installation, restore, source cleanup or coordinated package upgrades.
 

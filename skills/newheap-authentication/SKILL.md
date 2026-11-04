@@ -5,6 +5,8 @@ description: Implement or review NewHeap consumer authentication and authorizati
 
 # NewHeap authentication
 
+Read [Companist hosting and identity](references/consumer-companist-hosting.md) when an app uses Companist Auth or is prepared for Companist hosting; it covers the BFF, current claims projection and per-deployment identity contract.
+
 Keep consumer-specific identity and resource rules in the consuming application while preserving NewHeap's standard endpoints, cookies and refresh-token behavior unless the requested protocol explicitly changes them.
 
 Read [authentication session lifecycle](references/authentication-session-lifecycle.md) for refresh rotation, logout revocation, password-driven session invalidation, compatible rollout or Microsoft OAuth sign-in. Read [authentication overrides](references/authentication-overrides.md) for token customization, claim hydration or removed-user behavior. Read [authorization permissions](references/authorization-permissions.md) for application, division or resource scopes. Read [two-factor authentication](references/authentication-two-factor.md) for authenticator apps, recovery codes, e-mail codes, second-factor challenges, required enrollment, remembered devices, two-factor administration or the two-factor components. Read [passkeys](references/authentication-passkeys.md) for passwordless sign-in or passkeys as a second factor. Read only the references whose boundaries the task crosses.
