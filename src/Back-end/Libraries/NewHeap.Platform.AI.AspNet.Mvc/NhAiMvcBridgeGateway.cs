@@ -788,7 +788,7 @@ internal static class NhAiMvcBridgeGatewayFunctions
             cancellationToken);
     }
 
-    private static async Task<TaskResult<JsonElement?>> SearchAsync(
+    internal static async Task<TaskResult<JsonElement?>> SearchAsync(
         NhAiMvcBridgeGatewayModel gateway,
         IServiceProvider services,
         JsonElement input,
@@ -843,7 +843,7 @@ internal static class NhAiMvcBridgeGatewayFunctions
         return TaskResult<JsonElement?>.Succeeded(JsonSerializer.SerializeToElement(result, AIJsonUtilities.DefaultOptions));
     }
 
-    private static async Task<TaskResult<JsonElement?>> DescribeAsync(
+    internal static async Task<TaskResult<JsonElement?>> DescribeAsync(
         NhAiMvcBridgeGatewayModel gateway,
         IServiceProvider services,
         JsonElement input,

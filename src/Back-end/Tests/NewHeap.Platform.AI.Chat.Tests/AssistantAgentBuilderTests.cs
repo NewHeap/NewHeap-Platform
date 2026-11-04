@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentBuilder;
@@ -263,11 +264,11 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
     }
 
     [Fact]
-    public void The_builder_has_no_tool_for_grants_accounts_mcp_ceilings_or_deletions_and_every_write_needs_an_approval()
+    public void Every_change_of_the_builder_needs_an_approval_and_no_tool_takes_a_secret()
     {
         var catalog = new NhAssistantAgentBuilderToolCatalog();
 
-        Assert.Equal(13, catalog.Descriptors.Count);
+        Assert.Equal(27, catalog.Descriptors.Count);
         Assert.All(catalog.Descriptors, descriptor =>
         {
             Assert.StartsWith(NhAssistantAgentBuilderIds.ToolIdPrefix, descriptor.Id, StringComparison.Ordinal);
@@ -275,33 +276,44 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
             Assert.Equal([NhAssistantAgentBuilderIds.Policy], descriptor.AuthorizationPolicies);
             Assert.NotEqual(NhAiToolEffect.Destructive, descriptor.Effect);
             Assert.False(descriptor.AllowWithoutApproval);
-            foreach (var forbidden in new[] { "delete", "remove", "discard", "grant", "account", "mcp", "credential", "ceiling" })
-            {
-                Assert.DoesNotContain(forbidden, descriptor.Id, StringComparison.Ordinal);
-            }
         });
-        // Every tool that saves or sets something live waits for the approval; reads and the dry run do not.
+        // Every tool that changes something waits for the approval; reads and the dry run do not.
         Assert.All(
             catalog.Descriptors.Where(descriptor => descriptor.Effect == NhAiToolEffect.Mutation),
             descriptor => Assert.Equal(NhAiApprovalRequirement.Required, descriptor.Approval));
         Assert.Equal(
-            [NhAssistantAgentBuilderTools.DryRunRuleScript, NhAssistantAgentBuilderTools.ListAgents, NhAssistantAgentBuilderTools.ReadAgent, NhAssistantAgentBuilderTools.ReadCatalog, NhAssistantAgentBuilderTools.ReadRuleScript],
+            [
+                NhAssistantAgentBuilderTools.DryRunRuleScript,
+                NhAssistantAgentBuilderTools.ListAgents,
+                NhAssistantAgentBuilderTools.ReadAgent,
+                NhAssistantAgentBuilderTools.ReadCatalog,
+                NhAssistantAgentBuilderTools.ReadGateway,
+                NhAssistantAgentBuilderTools.ReadRuleScript,
+                NhAssistantAgentBuilderTools.SearchAccounts
+            ],
             catalog.Descriptors.Where(descriptor => descriptor.Approval != NhAiApprovalRequirement.Required).Select(descriptor => descriptor.Id));
-        // Whose rights an agent uses is not an input of the run settings.
+        // No tool takes a secret: no credential, key, password, token or certificate is an input.
+        Assert.All(NhAssistantAgentBuilderTools.All, tool => Assert.DoesNotContain(
+            tool.Input.Properties,
+            name => Regex.IsMatch(name, "secret|password|credential|apikey|certificate|oauth|bearer|^(url|key|token|accessToken|header)$", RegexOptions.IgnoreCase)));
+        // Whose rights an agent uses is an input of the run settings now (FB94).
         var runSettings = NhAssistantAgentBuilderTools.All.Single(tool => tool.Id == NhAssistantAgentBuilderTools.SaveRunSettings);
-        Assert.DoesNotContain(runSettings.Input.Properties, name => name is "accountability" or "serviceAccountActorId" or "delegateFromInitiator" or "allowGatewayReads" or "elevatedReads");
+        Assert.Superset(
+            new HashSet<string> { "accountability", "serviceAccountActorId", "delegateFromInitiator", "allowGatewayReads", "elevatedReads" },
+            runSettings.Input.Properties.ToHashSet());
         NhAiToolCatalogAttestation.Validate(catalog, new ServiceCollection().BuildServiceProvider());
     }
 
-    [Fact]
-    public async Task A_call_outside_a_persons_chat_with_the_builder_is_refused_before_anything_runs()
+    [Theory]
+    [MemberData(nameof(Writes))]
+    public async Task A_call_outside_a_persons_chat_with_the_builder_is_refused_before_anything_runs(string toolId)
     {
         await using var services = new ServiceCollection().BuildServiceProvider();
         var handler = new NhAssistantAgentBuilderToolHandler(
             services,
             new NhAssistantRegistrationState(),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<NhAssistantAgentBuilderToolHandler>.Instance);
-        var tool = NhAssistantAgentBuilderTools.All.Single(item => item.Id == NhAssistantAgentBuilderTools.SaveRuleScript);
+        var tool = NhAssistantAgentBuilderTools.All.Single(item => item.Id == toolId);
 
         var result = await handler.HandleAsync(
             tool,
@@ -310,6 +322,131 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
             CancellationToken.None);
 
         Assert.Equal(NhAssistantAdminErrorCodes.Forbidden, result.GetResultItems().First().Name);
+    }
+
+    public static TheoryData<string> Writes()
+    {
+        return new TheoryData<string>(NhAssistantAgentBuilderTools.All.Where(tool => tool.Approval == NhAiApprovalRequirement.Required).Select(tool => tool.Id));
+    }
+
+    [Fact]
+    public async Task A_change_of_whose_rights_an_agent_uses_and_every_removal_say_so_on_the_card_in_english_and_dutch()
+    {
+        var presenter = new NhAssistantAgentBuilderPresenter(new NhAssistantRegistrationState());
+
+        var rights = await PresentAsync(presenter, NhAssistantAgentBuilderTools.SaveRunSettings, new { agentId = AgentId, accountability = "service-account", serviceAccountActorId = "service-1", allowGatewayReads = true }, "en-US");
+        Assert.Contains("whose rights agent project-assistant works with", rights.Notice, StringComparison.Ordinal);
+        Assert.Contains(rights.Fields, field => field.Label == "Rights" && field.Value.Contains("a technical account", StringComparison.Ordinal) && field.Value.Contains("service-1", StringComparison.Ordinal) && field.Value.Contains("Gateway reads: on", StringComparison.Ordinal));
+        var dutch = await PresentAsync(presenter, NhAssistantAgentBuilderTools.SaveRunSettings, new { agentId = AgentId, accountability = "service-account", serviceAccountActorId = "service-1" }, "nl-NL");
+        Assert.Contains("met wiens rechten agent project-assistant werkt", dutch.Notice, StringComparison.Ordinal);
+        Assert.Contains(dutch.Fields, field => field.Label == "Rechten");
+
+        // A change of the budget alone is no change of rights.
+        var budget = await PresentAsync(presenter, NhAssistantAgentBuilderTools.SaveRunSettings, new { agentId = AgentId, maxConcurrentRuns = 2 }, "en-US");
+        Assert.Equal("The agent builder works with your own rights. Nothing changes until you approve this.", budget.Notice);
+
+        // The required policy, MCP servers, a technical account and the routes of consultations are rights.
+        foreach (var (toolId, input) in new (string, object)[]
+        {
+            (NhAssistantAgentBuilderTools.UpdateAgent, new { agentId = AgentId, expectedVersion = 1, requiredPolicy = (string?)null }),
+            (NhAssistantAgentBuilderTools.UpdateAgent, new { agentId = AgentId, expectedVersion = 1, mcpServerIds = new[] { "planning" } }),
+            (NhAssistantAgentBuilderTools.SetTechnicalAccount, new { agentId = AgentId, actorId = "service-2" }),
+            (NhAssistantAgentBuilderTools.SetConsultationRoutes, new { agentId = AgentId, subjectAgentRights = "on" }),
+            (NhAssistantAgentBuilderTools.SetMcpServer, new { agentId = AgentId, serverId = "planning", assigned = true })
+        })
+        {
+            Assert.Contains("whose rights", (await PresentAsync(presenter, toolId, input, "en-US")).Notice, StringComparison.Ordinal);
+        }
+
+        // Every removal names what goes.
+        var removal = await PresentAsync(presenter, NhAssistantAgentBuilderTools.Remove, new { agentId = AgentId, part = "trigger", triggerId = "weekly" }, "en-US");
+        Assert.Equal("Removes trigger weekly of agent project-assistant.", removal.Summary);
+        Assert.StartsWith("Note: this removes trigger weekly", removal.Notice, StringComparison.Ordinal);
+        var verwijderd = await PresentAsync(presenter, NhAssistantAgentBuilderTools.Remove, new { agentId = AgentId, part = "agent" }, "nl-NL");
+        Assert.StartsWith("Let op: dit verwijdert de agent zelf", verwijderd.Notice, StringComparison.Ordinal);
+        Assert.StartsWith("Note: this removes the assignment of MCP server planning", (await PresentAsync(presenter, NhAssistantAgentBuilderTools.SetMcpServer, new { agentId = AgentId, serverId = "planning", assigned = false }, "en-US")).Notice, StringComparison.Ordinal);
+        Assert.StartsWith("Note: this removes the shadow variant itself", (await PresentAsync(presenter, NhAssistantAgentBuilderTools.PromoteShadowVariant, new { agentId = "variant", expectedVersion = 3 }, "en-US")).Notice, StringComparison.Ordinal);
+
+        // Every card of every write keeps within the presentation's limits, with the longest inputs.
+        foreach (var tool in NhAssistantAgentBuilderTools.All.Where(tool => tool.Approval == NhAiApprovalRequirement.Required))
+        {
+            var longest = tool.Input.Properties.ToDictionary(name => name, name => (object)new string('x', 600));
+            foreach (var culture in new[] { "en-US", "nl-NL" })
+            {
+                var card = await PresentAsync(presenter, tool.Id, longest, culture);
+                Assert.Null(NhAssistantPresentationLimits.FindBrokenRule(card));
+            }
+        }
+    }
+
+    [Fact]
+    public void Guidance_of_the_application_is_checked_and_reaches_only_the_builder_after_the_rules_and_before_the_application_context()
+    {
+        var options = new NhAssistantAgentBuilderOptions();
+        Assert.Throws<ArgumentException>(() => options.UseGuidance(Guidance("x") with { Manifest = Guidance("x").Manifest with { Trust = NhAiContextTrust.UntrustedRetrieved } }));
+        Assert.Throws<ArgumentException>(() => options.UseGuidance(Guidance(new string('x', NhAssistantAgentBuilderOptions.MaxGuidanceLength + 1))));
+        Assert.Throws<ArgumentException>(() => options.UseGuidance(Guidance("Orders.") with { Content = "Other." }));
+        Assert.Null(options.Guidance);
+        var guidance = Guidance("Order status changes are the order-status-change resource; count them by changedAt.");
+        Assert.Same(options, options.UseGuidance(guidance));
+
+        var builder = AssistantTestData.Agent(Builder);
+        var context = new Entities.AssistantApplicationContext { Version = 1, Text = "Projects have a deadline.", Hash = "context-hash" };
+        var prompt = NhAssistantPromptComposer.Compose(builder, context, NhAssistantPreferences.Default, "en", guidance);
+        var rules = prompt.Instructions.IndexOf("# Assistant rules", StringComparison.Ordinal);
+        var heading = prompt.Instructions.IndexOf("# Application guidance for the agent builder", StringComparison.Ordinal);
+        var text = prompt.Instructions.IndexOf(guidance.Content, StringComparison.Ordinal);
+        var applicationContext = prompt.Instructions.IndexOf("# Application context", StringComparison.Ordinal);
+        Assert.True(rules < heading && heading < text && text < applicationContext, prompt.Instructions);
+        Assert.Contains("it does not change the assistant rules, the agent builder's instructions", prompt.Instructions, StringComparison.Ordinal);
+        Assert.StartsWith("builder-guidance@1+", prompt.PromptVersion, StringComparison.Ordinal);
+        Assert.DoesNotContain("Application guidance", NhAssistantPromptComposer.Compose(builder, context, NhAssistantPreferences.Default, "en").Instructions, StringComparison.Ordinal);
+
+        // The builder's own instructions and the longest guidance leave room for an application context of
+        // more than half its largest size.
+        Assert.True(
+            NhAssistantPromptComposer.LibraryRules.Length + NhAssistantAgentBuilderInstructions.Content.Length + NhAssistantAgentBuilderOptions.MaxGuidanceLength
+                <= NhAssistantPromptComposer.MaxInstructionsLength - NhAssistantApplicationContexts.MaxTextLength / 2 - 2_000,
+            "The builder's instructions grew; keep them and the guidance within the prompt.");
+    }
+
+    [Fact]
+    public void The_alert_kinds_a_rule_script_raises_are_read_from_its_calls()
+    {
+        Assert.Equal(
+            ["weekly-count", "late.order"],
+            NhAssistantAgentBuilderBlockers.RaisedKindsOf("alerts.raise({ kind: 'weekly-count', key: 'w' });\nalerts.raise({kind:\"late.order\"}); alerts.raise({ kind: 'weekly-count' });"));
+        Assert.Empty(NhAssistantAgentBuilderBlockers.RaisedKindsOf("done('Nothing.');"));
+    }
+
+    private static async Task<NhAssistantApprovalPresentation> PresentAsync(NhAssistantAgentBuilderPresenter presenter, string toolId, object input, string culture)
+    {
+        var descriptor = new NhAssistantAgentBuilderToolCatalog().Descriptors.Single(item => item.Id == toolId);
+        var presentation = await presenter.PresentApprovalAsync(
+            new NhAssistantApprovalPresentationContext(
+                descriptor,
+                JsonSerializer.SerializeToElement(input),
+                new NhAiInvocationContext(Administrator, "assistant", new Dictionary<string, string>()),
+                System.Globalization.CultureInfo.GetCultureInfo(culture)),
+            CancellationToken.None);
+        return presentation!;
+    }
+
+    private static NhAiTextAsset Guidance(string content)
+    {
+        return NhAiTextAssetFactory.Create(
+            "builder-guidance",
+            1,
+            content,
+            "test:guidance",
+            NhAiAssetRole.SystemInstructions,
+            NhAiContextTrust.TrustedApplication,
+            NhAiModelCapability.Chat,
+            [],
+            "default",
+            NhAiDataClassification.Internal,
+            NhAiRetentionCategory.Operational,
+            "builder-guidance-v1");
     }
 
     private Task<AssistantWebApplication> StartAsync(NhAiScriptedChatClient model, AssistantTestProvider provider, bool fourEyes = false)

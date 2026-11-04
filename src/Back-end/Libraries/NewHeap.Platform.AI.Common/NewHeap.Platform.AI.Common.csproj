@@ -26,5 +26,7 @@
     <InternalsVisibleTo Include="NewHeap.Platform.AI.AspNet.Mvc" />
     <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat" />
     <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat.AspNet" />
+    <!-- The agent builder's tests stand in for the gateway's resources (INhAiGatewayResources). -->
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat.Tests" />
   </ItemGroup>
 </Project>

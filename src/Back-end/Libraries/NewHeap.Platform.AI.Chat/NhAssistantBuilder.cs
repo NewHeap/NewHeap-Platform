@@ -1395,6 +1395,13 @@ internal sealed class NhAssistantRegistrationState
 
     public NhAiTextAsset? DefaultApplicationContext { get; set; }
 
+    /// <summary>
+    /// The application's own guidance for the agent builder (<c>UseGuidance</c> of <c>AddAgentBuilder</c>),
+    /// which only the builder reads, after the platform's rules and before the application context;
+    /// <see langword="null"/> without it.
+    /// </summary>
+    public NhAiTextAsset? AgentBuilderGuidance { get; set; }
+
     public NhAssistantLimits Limits { get; set; } = new();
 
     /// <summary>

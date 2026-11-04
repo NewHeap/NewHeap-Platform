@@ -81,20 +81,60 @@ internal sealed class NhAssistantAgentBuilderToolCatalog : INhAiAttestedToolCata
             services);
     }
 
-    private static Task<TaskResult<JsonNode>> InvokeAsync(
+    private static async Task<TaskResult<JsonNode>> InvokeAsync(
         NhAiToolDescriptor descriptor,
         NhAssistantAgentBuilderTool tool,
         IServiceProvider services,
         JsonElement input,
         CancellationToken cancellationToken)
     {
+        // Input the tool does not take, such as a secret, is refused before the invoker runs: it never
+        // becomes a proposal, an approval card or a stored argument.
+        var (accepted, unknown) = NhAssistantAgentBuilderInput.Read(input, tool.Input.Properties);
+        if (accepted is null)
+        {
+            return await RefuseInputAsync(descriptor, unknown!, services, cancellationToken);
+        }
+
         var invoker = services.GetRequiredService<INhAiToolInvoker>();
         var handler = services.GetRequiredService<NhAssistantAgentBuilderToolHandler>();
-        return invoker.InvokeAsync(
+        return await invoker.InvokeAsync(
             descriptor,
             input,
             (context, token) => handler.HandleAsync(tool, input, context, token),
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Refuses a call whose input names a property the tool does not take, as a refused argument shape is:
+    /// the outcome of the call and a content-free audit record name the code, never a value.
+    /// </summary>
+    private static async Task<TaskResult<JsonNode>> RefuseInputAsync(
+        NhAiToolDescriptor descriptor,
+        string property,
+        IServiceProvider services,
+        CancellationToken cancellationToken)
+    {
+        var message = NhAssistantAgentBuilderToolHandler.UnknownInputMessage(property);
+        NhAiToolOutcomeCapture.Record(TaskResult.Failed(NhAiToolFailureCodes.InputInvalid, message), null);
+        var record = new NhAiAuditRecord(
+            Guid.NewGuid(),
+            descriptor.Id,
+            descriptor.Version,
+            null,
+            null,
+            NhAiOutcomeKind.TerminalFailure,
+            DateTimeOffset.UtcNow)
+        {
+            ResultCode = NhAiToolFailureCodes.InputInvalid,
+            Origin = NhAiToolCallOrigins.Current
+        };
+        foreach (var sink in services.GetServices<INhAiAuditSink>())
+        {
+            await sink.WriteAsync(record, cancellationToken);
+        }
+
+        return TaskResult<JsonNode>.Failed(NhAiToolFailureCodes.InputInvalid, message);
     }
 
     private static NhAiToolDescriptor CreateDescriptor(NhAssistantAgentBuilderTool tool)

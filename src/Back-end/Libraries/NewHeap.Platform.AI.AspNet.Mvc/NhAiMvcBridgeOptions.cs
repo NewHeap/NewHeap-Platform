@@ -243,6 +243,8 @@ public sealed class NhAiMvcBridgeBuilder
         _options.Gateway = gateway;
         // Agents that use the application map read the gateway's resources through it.
         _services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAiApplicationMapSource, NhAiMvcBridgeApplicationMapSource>());
+        // NewHeap's agent builder searches and describes them with the administrator's own rights.
+        _services.TryAddScoped<INhAiGatewayResources, NhAiMvcBridgeGatewayResources>();
         configure?.Invoke(new NhAiMvcBridgeGatewayBuilder(_services, gateway));
         return this;
     }
