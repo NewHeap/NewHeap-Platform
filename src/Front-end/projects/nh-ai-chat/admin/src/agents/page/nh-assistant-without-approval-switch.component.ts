@@ -22,6 +22,8 @@ import {
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
 import { maxStateReason } from '../agent-operations';
+import { readMayChangeAgentRights } from '../agent-rights';
+import { NhAssistantAgentRightsHintComponent } from '../nh-assistant-agent-rights-hint.component';
 import { startNhAssistantAdminTranslations } from '../../i18n/nh-assistant-admin-translations';
 
 let nextId = 0;
@@ -32,12 +34,13 @@ let nextId = 0;
  * Each change explains what it does and takes an optional note before it applies. With `candidate`, the
  * numbers of the view per kind of action, going live from a kind the numbers do not mark as a candidate
  * says which thresholds they miss before it applies; the administrator decides. The switched tool comes
- * back through `changed`.
+ * back through `changed`. Going live lets the tool run without a person, so it takes the agent rights policy;
+ * shadow and off stay open to everybody here.
  */
 @Component({
   selector: 'nh-assistant-without-approval-switch',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
+  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantAgentRightsHintComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'without-approval-switch',
@@ -52,14 +55,19 @@ let nextId = 0;
           <button
             type="button"
             [class.secondary]="mode !== 'live'"
+            [class.primary]="mode === 'live'"
             [attr.data-without-approval-action]="mode"
-            [disabled]="disabled() || busy() || change() !== null"
+            [attr.aria-describedby]="rightsLocked(mode) ? id + '-rights' : null"
+            [disabled]="disabled() || busy() || change() !== null || rightsLocked(mode)"
             (click)="ask(mode)">
             {{ 'nh-assistant.admin.agent-page.rollout.without-approval.action.' + mode | translate }}
           </button>
         }
       }
     </span>
+    @if (applies() && rightsLocked('live') && modes().includes('live')) {
+      <nh-assistant-agent-rights-hint [hintId]="id + '-rights'" />
+    }
     @if (change(); as mode) {
       <form class="change-form" [attr.data-without-approval-form]="mode" (submit)="$event.preventDefault(); apply()">
         <p class="muted">{{ 'nh-assistant.admin.agent-page.rollout.without-approval.explain.' + mode | translate: { tool: tool().toolId } }}</p>
@@ -104,6 +112,7 @@ let nextId = 0;
 })
 export class NhAssistantWithoutApprovalSwitchComponent {
   private readonly admin = inject(NhAssistantAdminApiService);
+  private readonly mayChangeRights = readMayChangeAgentRights();
   private subscription?: Subscription;
 
   /** The agent the switch belongs to. */
@@ -155,7 +164,16 @@ export class NhAssistantWithoutApprovalSwitchComponent {
     inject(DestroyRef).onDestroy(() => this.subscription?.unsubscribe());
   }
 
+  /** Whether the person may not put the switch in a mode, which only going live takes the rights for. */
+  rightsLocked(mode: WithoutApprovalMode): boolean {
+    return mode === 'live' && !this.mayChangeRights();
+  }
+
   ask(mode: WithoutApprovalMode): void {
+    if (this.rightsLocked(mode)) {
+      return;
+    }
+
     this.error.set(null);
     this.reason.set('');
     this.change.set(mode);

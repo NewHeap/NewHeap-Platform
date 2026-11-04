@@ -11,7 +11,10 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// <c>POST agents/{id}/reset</c> and <c>DELETE admin/agents/{id}</c> do: agents created at runtime and
 /// overrides of agents in code, with the same checks, versions, package locks and audit. It also
 /// promotes a shadow variant created as data onto its live agent. It authorizes nothing itself: the
-/// application calls it for an administrator or a process it authorized, and passes their actor id.
+/// application calls it for an administrator or a process it authorized, and passes their actor id. Under
+/// <c>UseAgentRightsPolicy</c> a person who does not pass that policy gets
+/// <c>assistant-agent-rights-forbidden</c> for a change of an agent's rights; an actor the platform knows as no
+/// person does not.
 /// <c>INhAssistantAgentConfiguration.CreateAgentAsync</c> creates agents; read them as they are in
 /// effect with <see cref="INhAssistantAgentDirectory"/>.
 /// </summary>
@@ -28,7 +31,9 @@ public interface INhAssistantAgentDefinitions
     /// (<c>requiredPolicy: not-found</c> for a policy the application does not know, <c>metadata:
     /// not-allowed</c> and <c>instructionsAsset: not-allowed</c> for an agent in code, and the checks
     /// of the administration), <c>{field}: locked</c> or <c>assistant-package-locked</c> for a field an
-    /// agent package locks, and <c>assistant-mcp-server-not-found</c>. Audited as
+    /// agent package locks, <c>assistant-mcp-server-not-found</c>, and
+    /// <c>assistant-service-account-not-permitted</c> for tools added to an agent that answers to a technical account
+    /// when the account could do something with them that a person who is the actor may not. Audited as
     /// <c>AdminAgentUpdated</c>, with <c>AdminAgentMetadataChanged</c> per metadata entry it changes.
     /// </summary>
     Task<TaskResult<NhAssistantAgentInEffectDto>> UpdateAsync(

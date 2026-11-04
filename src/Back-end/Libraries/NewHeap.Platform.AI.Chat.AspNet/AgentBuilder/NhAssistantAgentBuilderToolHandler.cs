@@ -183,6 +183,8 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler(
             .OrderBy(tool => tool.Id, StringComparer.Ordinal)
             .ToArray();
         var run = Configuration.GetCatalog();
+        var personMayChangeRights = await services.GetRequiredService<NhAssistantAgentRightsGate>()
+            .PersonMayChangeAsync(call.Person, cancellationToken);
         var alertKinds = registration.AlertKinds.Values
             .OrderBy(kind => kind.Id, StringComparer.Ordinal)
             .Select(kind => new CatalogAlertKind(
@@ -211,7 +213,9 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler(
             gateway = gateway is null
                 ? null
                 : new { tools = gateway.ToolIds.Order(StringComparer.Ordinal).ToArray() },
-            mcpServers = await McpServersAsync(cancellationToken)
+            mcpServers = await McpServersAsync(cancellationToken),
+            mayChangeAgentRights = personMayChangeRights && !registration.AgentBuilderWithoutRightsChanges,
+            agentRightsInScreens = personMayChangeRights
         });
     }
 

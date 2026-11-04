@@ -202,6 +202,17 @@ internal sealed class NhAssistantPlannedPart(string agentId, string kind, string
     /// </summary>
     public IReadOnlyDictionary<string, string>? Fields { get; set; }
 
+    /// <summary>
+    /// What the part changes of the agent's rights (<see cref="NhAssistantBuilder.UseAgentRightsPolicy"/>).
+    /// </summary>
+    public IReadOnlyList<string> RightsChanges { get; set; } = [];
+
+    /// <summary>
+    /// For the definition of an agent that exists: the technical account it answers to after the import, whose
+    /// rights more tools would put to more use; <see langword="null"/> for an agent that answers to none.
+    /// </summary>
+    public string? TechnicalAccount { get; set; }
+
     public bool Refused => Outcome == NhAssistantPackagePartOutcomes.Refused;
 
     /// <summary>
@@ -259,7 +270,8 @@ internal sealed class NhAssistantPlannedPart(string agentId, string kind, string
             Errors.Count == 0 ? null : Errors.ToDictionary(item => item.Key, item => item.Value.ToArray(), StringComparer.Ordinal),
             LockedFields)
         {
-            CandidateVersion = AsCandidate && SavedVersion is { } version ? version : null
+            CandidateVersion = AsCandidate && SavedVersion is { } version ? version : null,
+            RightsChanges = RightsChanges.Count == 0 ? null : RightsChanges
         };
     }
 

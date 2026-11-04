@@ -15,6 +15,9 @@
       <h5 [id]="id + '-title'">{{ 'nh-assistant.admin.agents.consultation-routes.title' | translate }}</h5>
     </header>
     <p class="muted">{{ 'nh-assistant.admin.agents.consultation-routes.description' | translate }}</p>
+    @if (!mayChangeRights()) {
+      <nh-assistant-agent-rights-hint [hintId]="id + '-rights'" />
+    }
     <nh-assistant-account-names-error [names]="accountNames" />
     @if (current.changedAt) {
       <p class="muted" data-routes-changed>
@@ -56,9 +59,9 @@
               type="button"
               [attr.data-route-action]="action"
               [attr.aria-expanded]="isChanging(route.route, action)"
-              [attr.aria-describedby]="route.allowed ? null : id + '-' + route.route + '-not-allowed'"
+              [attr.aria-describedby]="actionDescribedBy(route)"
               [attr.aria-label]="('nh-assistant.admin.agents.consultation-routes.action.' + action | translate) + ': ' + ('nh-assistant.admin.agents.consultation-routes.route.' + route.route | translate)"
-              [disabled]="busy() || (action === 'on' && !route.allowed)"
+              [disabled]="busy() || !mayChangeRights() || (action === 'on' && !route.allowed)"
               (click)="ask(route, action)">
               {{ 'nh-assistant.admin.agents.consultation-routes.action.' + action | translate }}
             </button>
@@ -69,7 +72,8 @@
                 data-route-action="code"
                 [attr.aria-expanded]="isChanging(route.route, 'code')"
                 [attr.aria-label]="('nh-assistant.admin.agents.consultation-routes.action.code' | translate) + ': ' + ('nh-assistant.admin.agents.consultation-routes.route.' + route.route | translate)"
-                [disabled]="busy()"
+                [attr.aria-describedby]="mayChangeRights() ? null : id + '-rights'"
+                [disabled]="busy() || !mayChangeRights()"
                 (click)="ask(route, 'code')">
                 {{ 'nh-assistant.admin.agents.consultation-routes.action.code' | translate }}
               </button>

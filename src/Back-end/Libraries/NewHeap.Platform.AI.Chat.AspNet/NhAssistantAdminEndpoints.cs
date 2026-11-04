@@ -78,6 +78,7 @@ internal static class NhAssistantAdminEndpoints
             .WithSummary("Create an agent")
             .WithDescription("Creates an administrator agent, which starts active. With shadowOf it is a data shadow variant of that live agent within UseShadowVariantsAsData: it receives the live agent's triggers, always works in shadow and is never offered in the chat (409 assistant-shadow-variants-not-allowed outside the ceiling, 409 assistant-configuration-limit beyond its number of variants, field errors shadowOf not-found or invalid). isEnabled is accepted and ignored.")
             .Produces<NhAssistantAdminAgentDto>(StatusCodes.Status201Created)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         admin.MapPut("agents/{id}", UpdateAgentAsync)
@@ -85,6 +86,7 @@ internal static class NhAssistantAdminEndpoints
             .WithSummary("Update an agent")
             .WithDescription("Updates or overrides an agent when expectedVersion is current; otherwise 409. An omitted mcpServerIds keeps the agent's MCP assignments, which PUT and DELETE mcp-servers/{id}/agents/{agentId} change one by one; an empty list removes them all. isEnabled is accepted and ignored: the run state changes with POST agents/{id}/state.")
             .Produces<NhAssistantAdminAgentDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
@@ -93,6 +95,7 @@ internal static class NhAssistantAdminEndpoints
             .WithSummary("Reset a code agent")
             .WithDescription("Restores a code agent to its code definition and removes its MCP assignments. The run state stays as it is.")
             .Produces<NhAssistantAdminAgentDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         admin.MapPost("agents/{id}/kill-switch", SetKillSwitchAsync)
@@ -145,6 +148,7 @@ internal static class NhAssistantAdminEndpoints
             .WithSummary("Change the technical account of an agent")
             .WithDescription("actorId: the account that answers for the agent's new runs; it must exist and be allowed to sign in. null: the account in code answers again. Started runs and their proposals keep their account. An agent that does not answer to a technical account in code cannot change (409).")
             .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentState>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
@@ -153,6 +157,7 @@ internal static class NhAssistantAdminEndpoints
             .WithSummary("Switch the routes of an agent's consultations")
             .WithDescription("Each route on, off or code (a route left out keeps its switch): askerDecides lets the person who asked decide a consulted agent's proposal in their own chat, where it executes with their own rights; subjectAgentRights lets the subject's approvers other than the asker decide it, after which it executes with the agent's own rights; subjectAskerRights lets the subject's approvers decide it, after which it executes with the asker's rights. Code is the ceiling: switching on a route that no consultation in code allows, or switching an agent without consultations, returns 409. Proposals already recorded keep their route. The reason has at most 500 characters.")
             .Produces<NewHeap.Platform.AI.Chat.AspNet.AgentRuns.NhAssistantAgentState>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
@@ -188,6 +193,7 @@ internal static class NhAssistantAdminEndpoints
             .WithSummary("Promote a shadow variant onto its live agent")
             .WithDescription("Copies the definition of the shadow variant {id}, created as data, onto its live agent as the live agent's next version when expectedVersion is the live agent's version (and expectedVariantVersion, when sent, the variant's), with the checks, package locks and audit of an update; then deletes the variant, which never goes live itself. The live agent keeps its display name, MCP assignments, metadata, run settings, triggers, state and shadow mode; an agent in code takes only the fields it can override. With moveSkills the variant's data skills become the next live versions of the live agent's skills of the same id, or new skills, which start in shadow. With asPackageVersion a variant whose every part is linked to one agent package becomes that package's next version of the live agent in one transaction: its parts apply with the import's rules (locks, hashes, run settings, skills, triggers, consultations, hand-offs and metadata; the live agent keeps its display name and chat offer, and an agent in code its run settings), the live agent is linked to the variant's package id and version and leaves the package it belonged to, and the variant is deleted with its links; the answer then carries the package with every part's outcome. The live agent's linked parts that the variant does not carry stay as they are and lose their link, unless uncarriedParts is relink: then they stay linked to the variant's package version with the locks and hash of their link, reported as kept-linked. 400 uncarriedParts: invalid for another value than unlink or relink and uncarriedParts: not-allowed for relink without asPackageVersion. 404 for an unknown agent and 404 assistant-package-not-linked for a part of the variant without a link, 400 moveSkills: not-allowed with asPackageVersion, 409 assistant-not-shadow-variant for an agent that is no data variant, 409 assistant-shadow-variants-not-allowed when the live agent may no longer have data variants, 409 assistant-version-conflict for a stale version, 409 assistant-skill-in-code for a skill the live agent has in code and 409 assistant-package-refused (parts: invalid with parts.{part}.{field}) when the import would refuse a part, changing nothing. Audited as AdminAgentShadowVariantPromoted, with the result promoted-as-package-version and the package for a package version.")
             .Produces<NhAssistantShadowVariantPromotedDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
@@ -206,6 +212,7 @@ internal static class NhAssistantAdminEndpoints
             .WithSummary("Connect an MCP server")
             .WithDescription("Stores an MCP server; the secret is protected and never returned. headlessUse starts at never unless the body sets organization. Invalid fields answer 400 assistant-validation with errors per field (id, displayName, url, authMode, headerName, secret, secretReference, userName, clientCertificateReference, transport, connectionScope, requiredPolicy, headlessUse and the dotted oauth.scopes, oauth.clientId, oauth.clientSecret, oauth.clientSecretReference, oauth.organizationAccountLabel, oauth.confirmAuthorization); a reference that names no available secret or certificate is not-found at its field. Confirming the authorization runs discovery (502 when it fails); a secret resolver that fails answers 503 assistant-mcp-secret-unavailable.")
             .Produces<NhAssistantMcpServerDto>(StatusCodes.Status201Created)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status502BadGateway)
@@ -215,6 +222,7 @@ internal static class NhAssistantAdminEndpoints
             .WithSummary("Update an MCP server")
             .WithDescription("Updates a server. An omitted secret is kept and an empty secret is cleared; an omitted headlessUse is kept. Field errors, discovery and secret failures answer as for creating a server.")
             .Produces<NhAssistantMcpServerDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status502BadGateway)
@@ -303,6 +311,7 @@ internal static class NhAssistantAdminEndpoints
             .WithSummary("Update an MCP tool")
             .WithDescription("Enables or disables a tool, sets its effect and overrides its description. A remoteName that no sync has seen yet, such as a tool of a server the host cannot reach yet, stores these reviewed settings as a tool with status missing and awaitingSync: no turn offers it until the first sync that sees it makes it available with them. Such a name has at most 128 characters (remoteName: too-long), no control characters and no other spelling of a stored tool's name (remoteName: invalid); a server holds at most 100 of them (409 assistant-configuration-limit). A tool the server no longer offers cannot be enabled (400 assistant-mcp-tool-disabled).")
             .Produces<NhAssistantMcpToolDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
@@ -311,6 +320,7 @@ internal static class NhAssistantAdminEndpoints
             .WithSummary("Assign an MCP server to an agent")
             .WithDescription("Assigns the server to the agent, in code or created in the administration, so its enabled tools are offered in the agent's turns. Only the assignment changes: the agent's definition, version and package links stay, so an editor that holds the agent's version saves without a conflict. Assigning an assigned server changes nothing. An agent with 32 servers gets no more (400, mcpServerIds: too-long), and the agent builder gets none (400, agentId: not-allowed); an unknown server or agent answers 404. Audited as AdminMcpServerAssignmentChanged (assigned).")
             .Produces<NhAssistantMcpServerDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
         admin.MapDelete("mcp-servers/{id}/agents/{agentId}", UnassignMcpServerAsync)

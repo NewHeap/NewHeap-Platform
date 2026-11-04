@@ -80,7 +80,106 @@ internal sealed partial class NhAssistantAgentPackageService
 
         await CheckAgainstHostAsync(plan, stored, cancellationToken);
         PrepareLinks(plan);
+        MarkRightsChanges(plan, stored);
         return (null, plan);
+    }
+
+    /// <summary>
+    /// Says of every part the import creates or changes what it changes of the agent's rights, as saving the part
+    /// would. An import keeps the agent's MCP assignments.
+    /// </summary>
+    private void MarkRightsChanges(NhAssistantPackagePlan plan, NhAssistantStoredRunConfiguration stored)
+    {
+        foreach (var part in plan.Parts.Where(part => part.Outcome is NhAssistantPackagePartOutcomes.Created or NhAssistantPackagePartOutcomes.Changed))
+        {
+            part.RightsChanges = part.Row switch
+            {
+                AssistantAgent row => NhAssistantAgentRights.OfDefinition(part.Current as AssistantAgent, row, null, LendsRights(plan, stored, part.AgentId)),
+                AssistantAgentRunConfiguration row => NhAssistantAgentRights.OfRunSettings(part.Current as AssistantAgentRunConfiguration, row),
+                AssistantAgentSkillDefinition row => NhAssistantAgentRights.OfSkill(part.Current as AssistantAgentSkillDefinition, row),
+                AssistantAgentConsultationDefinition row => NhAssistantAgentRights.OfConsultation(part.Current as AssistantAgentConsultationDefinition, row),
+                _ => []
+            };
+            if (part is { Row: AssistantAgent, Current: AssistantAgent current })
+            {
+                part.TechnicalAccount = TechnicalAccountOf(plan, stored, current);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The technical account the agent answers to after the import: the one an administrator bound, otherwise the one
+    /// in code or in the run settings it would have; <see langword="null"/> for an agent that answers to none.
+    /// </summary>
+    private string? TechnicalAccountOf(NhAssistantPackagePlan plan, NhAssistantStoredRunConfiguration stored, AssistantAgent row)
+    {
+        if (registration.CodeAgentRuns.TryGetValue(row.Id, out var code))
+        {
+            return code.Accountability == NhAiAgentAccountability.ServiceAccount
+                ? row.ServiceAccountActorId ?? code.ServiceAccountActorId
+                : null;
+        }
+
+        var settings = plan.PartsOf(row.Id, NhAssistantPackagePartKinds.RunSettings).FirstOrDefault()?.Row as AssistantAgentRunConfiguration
+            ?? stored.AgentRuns.FirstOrDefault(item => item.AgentId == row.Id);
+        return settings?.Accountability == NhAssistantAccountabilities.ServiceAccount
+            ? row.ServiceAccountActorId ?? settings.ServiceAccountActorId
+            : null;
+    }
+
+    /// <summary>
+    /// Whether the agent's runs use another account's rights after the import.
+    /// </summary>
+    private bool LendsRights(NhAssistantPackagePlan plan, NhAssistantStoredRunConfiguration stored, string agentId)
+    {
+        if (registration.CodeAgentRuns.TryGetValue(agentId, out var code))
+        {
+            return code.Accountability != NhAiAgentAccountability.Agent;
+        }
+
+        var settings = plan.PartsOf(agentId, NhAssistantPackagePartKinds.RunSettings).FirstOrDefault()?.Row as AssistantAgentRunConfiguration
+            ?? stored.AgentRuns.FirstOrDefault(item => item.AgentId == agentId);
+        return settings is not null && settings.Accountability != NhAssistantAccountabilities.Agent;
+    }
+
+    /// <summary>
+    /// The refusal of a plan that changes an agent's rights by a person who may not, with the field errors
+    /// <c>parts.{part}.{field}</c>, or that gives an agent that answers to a technical account tools whose rights the
+    /// person does not hold.
+    /// </summary>
+    private async ValueTask<TaskResult?> CheckRightsAsync(NhAssistantPackagePlan plan, string actorId, CancellationToken cancellationToken)
+    {
+        var changes = plan.Parts
+            .SelectMany(part => part.RightsChanges.Select(field => "parts." + part.Part + "." + field))
+            .ToArray();
+        if (await services.GetRequiredService<INhAssistantAgentRightsGate>()
+                .CheckAsync(plan.Package.Package.Id, changes, actorId, cancellationToken) is { } refused)
+        {
+            return refused;
+        }
+
+        var lentTools = services.GetRequiredService<INhAssistantLentToolsCheck>();
+        foreach (var part in plan.Parts)
+        {
+            if (part is not { TechnicalAccount: { } account, Current: AssistantAgent current, Row: AssistantAgent row })
+            {
+                continue;
+            }
+
+            var check = await lentTools.CheckAddedToolsAsync(
+                part.AgentId,
+                NhAssistantAgentRights.SelectorsOf(current.ToolSelectorsJson),
+                NhAssistantAgentRights.SelectorsOf(row.ToolSelectorsJson),
+                account,
+                actorId,
+                cancellationToken);
+            if (!check.Success)
+            {
+                return check;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

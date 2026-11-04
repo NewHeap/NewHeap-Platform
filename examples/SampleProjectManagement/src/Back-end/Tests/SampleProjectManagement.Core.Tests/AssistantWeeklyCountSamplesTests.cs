@@ -86,8 +86,10 @@ public sealed class AssistantWeeklyCountSamplesTests(AssistantWeeklyCountSampleH
 
         try
         {
-            // The administrator may read projects, so the gateway shows them its project resources.
+            // The administrator may read projects, so the gateway shows them its project resources, and has the
+            // role that may change whose rights an agent uses.
             using var author = host.CreateClient("spm-396-author", true, "app.project.view");
+            author.DefaultRequestHeaders.Add(SampleTestAuthenticationHandler.RolesHeader, SampleAgentBuilderComposition.AgentRightsRole);
             var chat = await CreateConversationAsync(author);
 
             // The gateway's resources are read at once, with the administrator's own rights.

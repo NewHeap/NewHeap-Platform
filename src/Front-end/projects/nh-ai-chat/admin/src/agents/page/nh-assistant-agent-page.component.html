@@ -498,7 +498,7 @@
   @if (current.source === 'code' && current.serviceAccount) {
     <div class="subsection" data-guardrails-account>
       <h5 class="part-title">{{ 'nh-assistant.admin.agent-page.build.access.account' | translate }}</h5>
-      <nh-assistant-agent-account-control [agent]="current" [accountSearch]="accountSearch()" [names]="names()" [disabled]="busy()" (changed)="onStateChanged($event)" />
+      <nh-assistant-agent-account-control [agent]="current" [accountSearch]="accountSearch()" [names]="names()" [disabled]="busy()" [mayChangeRights]="mayChangeRights()" (changed)="onStateChanged($event)" />
     </div>
   }
 </ng-template>

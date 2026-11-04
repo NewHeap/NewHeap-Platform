@@ -23,6 +23,9 @@
       "edit": "Bewerken",
       "delete": "Verwijderen",
       "confirm-delete": "Verwijderen bevestigen",
+      "agent-rights": {
+        "hint": "Iemand met toestemming om agentrechten te wijzigen kan wijzigen wat hier is uitgeschakeld."
+      },
       "enabled": "Aan",
       "disabled": "Uit",
       "enable": "Aanzetten",
@@ -417,6 +420,7 @@
         "title": "MCP-servers",
         "description": "Koppel externe MCP-servers. Hun tools staan standaard uit en gelden als wijziging met goedkeuring tot je ze als alleen-lezen markeert.",
         "new": "Nieuwe server",
+        "view": "Instellingen bekijken",
         "empty": "Nog geen MCP-servers.",
         "test": "Verbinding testen",
         "testing": "Verbinding testen",
@@ -836,6 +840,7 @@
           "routes-required": "Kies minstens één route, of laat hem alleen antwoorden.",
           "tools-not-allowed": "Een gekozen tool valt buiten de eigen tools van de agent. Haal het vinkje weg, of voeg de tool eerst aan de agent toe.",
           "locked": "Een agentpakket vergrendelt dit veld. Ontkoppel het onderdeel eerst om het te wijzigen.",
+          "rights-required": "Om dit te wijzigen heb je toestemming nodig om agentrechten te wijzigen.",
           "region-not-permitted": "Dit modelprofiel mag niet draaien in de regio waarin de applicatie werkt, en zijn terugvalprofielen ook niet. Kies een profiel dat de regio toestaat."
         },
         "settings": {
@@ -2017,7 +2022,9 @@
           "agent-exists-in-code": "Op deze host heeft een agent in code dit id; de agent van het pakket kan hem niet vervangen.",
           "take-over": "De bestaande agent overnemen",
           "take-over-hint": "Het pakket vervangt zijn configuratie en koppelt hem.",
-          "refused-one": "De import weigert {{count}} onderdeel. Herstel het pakket of de host en controleer opnieuw."
+          "refused-one": "De import weigert {{count}} onderdeel. Herstel het pakket of de host en controleer opnieuw.",
+          "rights-changes": "Wijzigt agentrechten: {{fields}}.",
+          "rights-required": "Dit pakket wijzigt agentrechten in {{parts}}, dus voor de import heb je toestemming nodig om die te wijzigen. Iemand met die toestemming kan het importeren."
         },
         "fields": {
           "display-name": "Naam",
@@ -2065,7 +2072,10 @@
           "sources": "Agents die mogen overdragen",
           "notify-source": "Laat de bron weten hoe het afliep",
           "max-per-subject-per-day": "Overdrachten per bron en object per dag",
-          "value": "Waarde"
+          "value": "Waarde",
+          "service-account-actor-id": "Technisch account",
+          "run-policy": "Wie hem mag uitvoeren",
+          "view-policy": "Wie zijn resultaten mag zien"
         },
         "reset-locked": "Pakket {{package}} vergrendelt velden van de definitie. Ontkoppel ze eerst om de agent terug te zetten."
       },

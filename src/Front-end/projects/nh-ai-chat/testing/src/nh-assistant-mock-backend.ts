@@ -174,6 +174,7 @@ export class NhAssistantMockBackend {
   /** Agent packages: their endpoints, and the locks and links of every other administration request. */
   private readonly agentPackages = new NhAssistantMockAgentPackages({
     call: (method, path, body) => this.adminCall(method, path, body),
+    agentRights: () => this.admin.agentRights,
     codeDefinition: agentId => this.admin.codeDefinition(agentId),
     snapshot: () => {
       const restores = [this.admin.snapshot(), this.agentMetadata.snapshot(), this.boards.snapshot()];
@@ -327,6 +328,11 @@ export class NhAssistantMockBackend {
   setCanAdminister(canAdminister: boolean): void {
     this.admin.setCanAdminister(canAdminister);
     this.canAdministerState.set(canAdminister);
+  }
+
+  /** Switches whether the caller passes the application's agent rights policy (`mayChangeAgentRights`). */
+  setMayChangeAgentRights(mayChange: boolean): void {
+    this.admin.agentRights.set(mayChange);
   }
 
   /** Replaces the tools a simulated MCP server lists; the next sync picks them up. */

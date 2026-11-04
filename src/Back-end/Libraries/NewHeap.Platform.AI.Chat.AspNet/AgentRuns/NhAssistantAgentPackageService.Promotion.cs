@@ -92,6 +92,10 @@ internal sealed partial class NhAssistantAgentPackageService
         {
             return TaskResult<NhAssistantAgentPackageImportDto>.Failed(PromotionRefusal(plan));
         }
+        if (await CheckRightsAsync(plan, actorId, cancellationToken) is { } rightsRefused)
+        {
+            return TaskResult<NhAssistantAgentPackageImportDto>.Failed(rightsRefused);
+        }
         if (!await WriteAsync(plan, actorId, cancellationToken))
         {
             return TaskResult<NhAssistantAgentPackageImportDto>.Failed(

@@ -28,14 +28,12 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
     /// <summary>The run settings that decide whose rights an agent's runs use.</summary>
     private static readonly string[] RunSettingsRights = ["accountability", "serviceAccountActorId", "delegateFromInitiator", "allowGatewayReads", "elevatedReads"];
 
-    /// <summary>The parts of an agent's definition that decide who reaches it, what it may use and who sees its results.</summary>
-    private static readonly string[] DefinitionRights = ["requiredPolicy", "mcpServerIds", "runPolicy", "viewPolicy"];
+    private static readonly string[] DefinitionRights = [.. NhAssistantAgentRights.DefinitionFields];
 
     /// <summary>Who may consult an agent.</summary>
     private static readonly string[] ConsultationRights = ["routes", "askerPolicy", "minimumRole"];
 
-    /// <summary>Who decides a consultation's proposal and with whose rights it executes.</summary>
-    private static readonly string[] RouteRights = ["askerDecides", "subjectAgentRights", "subjectAskerRights"];
+    private static readonly string[] RouteRights = [.. NhAssistantAgentRights.RouteFields];
 
     public ValueTask<string?> GetDisplayNameAsync(NhAssistantToolDisplayNameContext context, CancellationToken cancellationToken)
     {
@@ -152,6 +150,10 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
             {
                 return (null, null);
             }
+            if (await RefusalOfRightsAsync(card, cancellationToken) is { } notAllowed)
+            {
+                return (null, notAllowed);
+            }
 
             card.AddGiven(input, tool.Input.Schema, ShownInFullOf(tool), CapabilitiesOf(tool));
             return card.ToPresentation(NameOf(tool.Id, dutch));
@@ -162,6 +164,67 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
             // handler refuses it as well.
             return (null, $"'{exception.Property}' cannot be read as its schema says. Send it as a value its schema allows.");
         }
+    }
+
+    /// <summary>
+    /// Why a call that changes an agent's rights is refused, before anyone sees a card they could approve to no
+    /// effect: the person of the chat may not change them anywhere
+    /// (<see cref="NhAssistantBuilder.UseAgentRightsPolicy"/>), which the services hold in any case, or the
+    /// application keeps them out of the builder (<see cref="NhAssistantAgentBuilderOptions.WithoutRightsChanges"/>),
+    /// which this check alone holds. It runs when the call proposes and again before it executes.
+    /// </summary>
+    private async Task<string?> RefusalOfRightsAsync(Card card, CancellationToken cancellationToken)
+    {
+        if (card.RightsChanges.Count == 0)
+        {
+            return null;
+        }
+
+        if (services.GetService<NhAssistantAgentRightsGate>() is { Enabled: true } gate
+            && NhAssistantExecutionScope.CurrentTurn?.OwnerActorId is { } person
+            && !await gate.PersonMayChangeAsync(person, cancellationToken))
+        {
+            return Refusals.Rights(card.RightsChanges);
+        }
+
+        return registration.AgentBuilderWithoutRightsChanges ? Refusals.RightsInScreens(card.RightsChanges) : null;
+    }
+
+    /// <summary>
+    /// Says that more tools or more autonomy change an agent's rights when its runs use another account's rights,
+    /// which they then put to more use. Asked only while the application set the agent rights policy or keeps rights
+    /// out of the builder.
+    /// </summary>
+    private async Task AddLentRightsAsync(
+        Card card,
+        string agentId,
+        IReadOnlyList<string>? selectors,
+        NhAiAutonomyLevel? autonomy,
+        CancellationToken cancellationToken)
+    {
+        var asked = registration.AgentBuilderWithoutRightsChanges
+            || services.GetService<NhAssistantAgentRightsGate>() is { Enabled: true };
+        if ((selectors is null && autonomy is null)
+            || !asked
+            || services.GetService<INhAssistantAgentDirectory>() is not { } directory
+            || services.GetService<INhAssistantAgentConfiguration>() is not { } configuration
+            || await directory.GetAsync(agentId, cancellationToken) is not { } current)
+        {
+            return;
+        }
+
+        var run = await configuration.GetAsync(agentId, cancellationToken);
+        var accountability = run?.RunSettings?.Accountability ?? run?.CodeRunSettings?.Accountability;
+        if (accountability is null or NhAssistantAccountabilities.Agent)
+        {
+            return;
+        }
+
+        card.RightsChanges.UnionWith(NhAssistantAgentRights.OfCapabilities(
+            current.ToolSelectors,
+            selectors ?? current.ToolSelectors,
+            current.Autonomy,
+            autonomy ?? current.Autonomy));
     }
 
     /// <summary>
@@ -226,12 +289,21 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
                         ? $"Maakt de nieuwe agent '{input.Text("displayName")}' aan in het beheer, zonder run-instellingen, vaardigheden, triggers of MCP-servers."
                         : $"Creates the new agent '{input.Text("displayName")}' in the administration, without run settings, skills, triggers or MCP servers.");
                 card.Rights(new[] { "requiredPolicy", "runPolicy", "viewPolicy" }.Where(input.Given).ToArray());
+                // On a new agent a required policy only narrows who reaches it: the card says so, the policy lets it.
+                card.RightsChanges.Remove("requiredPolicy");
                 return true;
             case NhAssistantAgentBuilderTools.UpdateAgent:
                 card.Summary = dutch
                     ? $"Wijzigt de definitie van agent {agentId} als zijn volgende versie; velden die niet genoemd worden blijven zoals ze zijn."
                     : $"Changes the definition of agent {agentId} as its next version; fields it does not name stay as they are.";
                 card.Rights(DefinitionRights.Where(input.Given).ToArray());
+                await AddLentRightsAsync(
+                    card,
+                    agentId,
+                    input.Texts("toolSelectors"),
+                    Enum.TryParse<NhAiAutonomyLevel>(input.Text("autonomy"), ignoreCase: true, out var autonomy) ? autonomy : null,
+                    cancellationToken);
+                await RefuseLentToolsAsync(card, agentId, input.Texts("toolSelectors"), cancellationToken);
                 return true;
             case NhAssistantAgentBuilderTools.SaveRunSettings:
                 card.Summary = dutch
@@ -247,11 +319,14 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
                     settings.Add("serviceAccountActorId");
                 }
                 card.Rights(settings);
+                // The policy also covers who decides its proposals, which is not whose rights it uses.
+                card.RightsChanges.UnionWith(NhAssistantAgentRights.RunSettingsFields.Where(input.Given));
                 return true;
             case NhAssistantAgentBuilderTools.SaveSkill:
                 card.Summary = dutch
                     ? $"Slaat vaardigheid {input.Text("skillId")} van agent {agentId} op: {Apply(input, texts)}; velden die niet genoemd worden blijven zoals ze zijn."
                     : $"Saves skill {input.Text("skillId")} of agent {agentId}: {Apply(input, texts)}; fields it does not name stay as they are.";
+                card.RightsChanges.UnionWith(NhAssistantAgentRights.SkillFields.Where(input.Given));
                 return true;
             case NhAssistantAgentBuilderTools.SaveTrigger:
                 card.Summary = dutch
@@ -272,6 +347,7 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
                     ? $"Slaat de raadpleging over {input.Text("subjectType")} van agent {agentId} op: andere assistenten mogen de agent daarover raadplegen; velden die niet genoemd worden blijven zoals ze zijn."
                     : $"Saves the consultation about {input.Text("subjectType")} of agent {agentId}: other assistants may consult the agent about it; fields it does not name stay as they are.";
                 card.Rights(ConsultationRights.Where(input.Given).ToArray());
+                card.RightsChanges.UnionWith(NhAssistantAgentRights.ConsultationFields.Where(input.Given));
                 return true;
             case NhAssistantAgentBuilderTools.SaveHandOff:
                 card.Summary = dutch
@@ -339,6 +415,10 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
                     ? $"Wijzigt alleen of de tools van MCP-server {mcp} worden aangeboden in runs zonder persoon: {input.Text("headlessUse")}."
                     : $"Changes only whether the tools of MCP server {mcp} are offered in runs without a person: {input.Text("headlessUse")}.";
                 card.Notice = texts.HeadlessUseNotice(mcp ?? "?");
+                if (input.Text("headlessUse") != NhAssistantMcpHeadlessUses.Never)
+                {
+                    card.RightsChanges.Add(NhAssistantAgentRights.HeadlessUse);
+                }
                 return true;
             case NhAssistantAgentBuilderTools.SetSwitch:
                 var tool = input.Text("toolId") ?? input.Text("kindId");
@@ -353,6 +433,7 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
                 if (input.Text("part") == NhAssistantAgentBuilderTools.SwitchParts.ToolWithoutApproval && mode == "live")
                 {
                     card.Notice = texts.WithoutApprovalNotice(agentId, tool ?? "?");
+                    card.RightsChanges.Add(NhAssistantAgentRights.WithoutApprovalMode);
                 }
                 return true;
             case NhAssistantAgentBuilderTools.SetGroups:
@@ -417,6 +498,29 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
             card.AddList(texts.MovesSkills, skills ?? [], "the skills the promotion moves");
         }
         card.Notice = texts.PromotionNotice(variantId, liveId, toAgentInAdministration, moveSkills);
+
+        // The live agent takes the variant's definition: it changes rights when a policy or more tools come along.
+        if (!string.Equals(variant.RequiredPolicy, live?.RequiredPolicy, StringComparison.Ordinal))
+        {
+            card.RightsChanges.Add("requiredPolicy");
+        }
+        await AddLentRightsAsync(card, liveId, variant.ToolSelectors, variant.Autonomy, cancellationToken);
+        await RefuseLentToolsAsync(card, liveId, variant.ToolSelectors, cancellationToken);
+    }
+
+    /// <summary>
+    /// Refuses a call that gives an agent tools whose rights its technical account holds and the person of the chat
+    /// does not, before they see a card they could approve to no effect; the administration holds this in any case.
+    /// </summary>
+    private async Task RefuseLentToolsAsync(Card card, string agentId, IReadOnlyList<string>? selectors, CancellationToken cancellationToken)
+    {
+        if (selectors is not null
+            && NhAssistantExecutionScope.CurrentTurn?.OwnerActorId is { } person
+            && services.GetService<NhAssistantAgentAdministration>() is { } administration
+            && await administration.CheckAddedToolsAsync(agentId, selectors, person, cancellationToken) is not null)
+        {
+            card.Refuse(Refusals.LentTools);
+        }
     }
 
     private static string RemovalOf(NhAssistantAgentBuilderInput input, Texts texts)
@@ -558,6 +662,18 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
     /// </summary>
     private static class Refusals
     {
+        public const string LentTools = NhAssistantErrorCodes.ServiceAccountNotPermitted + ": the agent answers to a technical account, and with these new tools it could do things through that account that this person may not do themself. Leave those tools out, and tell the person that someone who holds those rights adds them.";
+
+        public static string Rights(IEnumerable<string> changes)
+        {
+            return $"{NhAssistantErrorCodes.AgentRightsForbidden}: this person may not change whose rights an agent uses, who reaches it, who decides its proposals or what runs without approval ({string.Join(", ", changes)}). Leave these out: what a call leaves out keeps what the agent has. Tell the person that someone with that permission makes this change.";
+        }
+
+        public static string RightsInScreens(IEnumerable<string> changes)
+        {
+            return $"The application keeps whose rights an agent uses, who reaches it, who decides its proposals and what runs without approval out of the agent builder ({string.Join(", ", changes)}). Leave these out: what a call leaves out keeps what the agent has. Tell the person which setting it is and that they change it on the agent's page in the administration's screens.";
+        }
+
         public const string NoCard = "The approval card of this change cannot be built, so it is not proposed. Read the agent again and make the change in smaller steps.";
 
         public const string Summary = "The approval card cannot name this change in full: its ids or names are too long to show. Use shorter ones.";
@@ -612,6 +728,11 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
         public string Summary { get; set; } = string.Empty;
 
         public string? Notice { get; set; }
+
+        /// <summary>
+        /// What the call changes that takes the agent rights policy, as the call names it.
+        /// </summary>
+        public SortedSet<string> RightsChanges { get; } = new(StringComparer.Ordinal);
 
         /// <summary>Refuses the card, with the first reason given.</summary>
         public void Refuse(string reason)
@@ -729,6 +850,7 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
         {
             if (settings.Count > 0)
             {
+                RightsChanges.UnionWith(settings);
                 Notice ??= Texts.RightsNotice(AgentId, settings.Select(Texts.LabelOf).Distinct(StringComparer.Ordinal).ToArray());
             }
         }

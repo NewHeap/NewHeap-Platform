@@ -59,8 +59,11 @@
     </div>
   </fieldset>
 
-  <fieldset class="group" data-consultation-askers>
+  <fieldset class="group" data-consultation-askers [attr.aria-describedby]="rightsLocked('minimumRole') ? id + '-who-rights' : null">
     <legend>{{ 'nh-assistant.admin.run-config.consultations.form.who' | translate }}</legend>
+    @if (rightsLocked('minimumRole')) {
+      <nh-assistant-agent-rights-hint [hintId]="id + '-who-rights'" />
+    }
     <div class="field">
       <span class="label" [id]="id + '-minimum-role-label'">{{ 'nh-assistant.admin.run-config.consultations.form.minimum-role' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('minimumRole')" /></span>
       <div
@@ -101,8 +104,11 @@
     </div>
   </fieldset>
 
-  <fieldset class="group" data-consultation-proposals>
+  <fieldset class="group" data-consultation-proposals [attr.aria-describedby]="rightsLocked('routes') ? id + '-do-rights' : null">
     <legend>{{ 'nh-assistant.admin.run-config.consultations.form.do' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('routes')" /></legend>
+    @if (rightsLocked('routes')) {
+      <nh-assistant-agent-rights-hint [hintId]="id + '-do-rights'" />
+    }
     <div class="choices" role="radiogroup" [attr.aria-label]="'nh-assistant.admin.run-config.consultations.form.do' | translate">
       <label class="choice" [class.selected]="mode() === 'answer'">
         <input type="radio" [name]="id + '-mode'" value="answer" [disabled]="locked('routes')" [checked]="mode() === 'answer'" (change)="setMode('answer')" />
@@ -192,6 +198,8 @@
           <nh-assistant-icon name="warning" />{{ 'nh-assistant.admin.run-config.consultations.form.policy-warning.' + warning | translate }}
         </p>
       }
+    } @else if (errorKey('routes'); as key) {
+      <p class="field-error" [id]="id + '-routes-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('routes')?.params }}</p>
     }
   </fieldset>
 
@@ -284,7 +292,7 @@
           <div class="checks">
             <label class="check described">
               <input type="checkbox" [disabled]="locked('exposeToMcp')" [checked]="exposeToMcp()" [attr.aria-invalid]="fieldError('exposeToMcp') ? true : null"
-                [attr.aria-describedby]="describedBy(null, 'exposeToMcp', id + '-mcp-error')"
+                [attr.aria-describedby]="describedBy(rightsLocked('exposeToMcp') ? id + '-mcp-rights' : null, 'exposeToMcp', id + '-mcp-error')"
                 (change)="exposeToMcp.set(checked($event)); touch('exposeToMcp')" />
               <span>
                 <span>{{ 'nh-assistant.admin.run-config.consultations.form.mcp' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('exposeToMcp')" /></span>
@@ -292,6 +300,9 @@
               </span>
             </label>
           </div>
+          @if (rightsLocked('exposeToMcp')) {
+            <nh-assistant-agent-rights-hint [hintId]="id + '-mcp-rights'" />
+          }
         } @else {
           <p class="muted" data-mcp-closed>{{ 'nh-assistant.admin.run-config.consultations.form.mcp-closed' | translate }}</p>
         }

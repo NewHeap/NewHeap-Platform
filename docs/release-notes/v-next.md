@@ -1,1 +1,7 @@
 # v-next
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: more tools on an agent with a technical account
+
+| Breaking change | Required action |
+|---|---|
+| Adding tools to an agent that answers to a technical account, in the administration, the agent builder, a promotion or an agent package, now fails with `403 assistant-service-account-not-permitted` when the account may use a tool the person may not, also for the account in code. | Let someone who holds those rights add the tool, or add it from application code with an actor the platform knows as no person. |

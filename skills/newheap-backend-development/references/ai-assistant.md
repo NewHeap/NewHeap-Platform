@@ -11,7 +11,7 @@ Use only the rules that apply to the current consumer task.
 
 ## Let administrators build agents with the agent builder, every change after their approval
 
-Switch the agent builder on with AddAgentBuilder and a model profile, optionally with guidance of the application's own (UseGuidance); administrators chat with it on an agent's Build tab and with New agent with help; it does what they can do in the administration's screens except secrets, reads the catalog, the agents with their blockers, accounts and the API gateway's resources, dry-runs rule scripts, and every change waits for their approval in the chat and runs with their own rights through the administration's services.
+Switch the agent builder on with AddAgentBuilder and a model profile, optionally with guidance of the application's own (UseGuidance); administrators chat with it on an agent's Build tab and with New agent with help; it does what they can do in the administration's screens except secrets, reads the catalog, the agents with their blockers, accounts and the API gateway's resources, dry-runs rule scripts, and every change waits for their approval in the chat and runs with their own rights through the administration's services; UseAgentRightsPolicy says who may change an agent's rights anywhere and WithoutRightsChanges keeps those settings out of the builder and in the screens.
 
 ## Preferred approach
 
@@ -97,11 +97,42 @@ agent's turn (`assistant-forbidden`), and with the person as the actor through `
 `INhAssistantMcpServers`, `INhAssistantDataHandOffs`, `INhAssistantWithoutApprovalSwitches`,
 `INhAssistantAlertModelSwitches` and `INhAssistantAgentGroups`. Their validation, versions, ceilings, package
 locks, four eyes and audit apply unchanged: a technical account that would lend the agent rights the person
-does not hold is refused (`assistant-service-account-not-permitted`), a rule script's write outside the
+does not hold is refused (`assistant-service-account-not-permitted`), and so are new tools on an agent that answers
+to one when the account may use them and the person may not, before any card; a rule script's write outside the
 ceiling fails with `assistant-rule-script-write-not-allowed`, and under four eyes the person who saved a
 version, also through the builder, cannot set it live (`assistant-rule-script-four-eyes`). A rule script
 version records the person as author and the builder as `AuthorAgentId`, and its audit names the builder as
 `AskingAgentId`.
+
+Two settings decide about an agent's rights: whose rights it uses (accountability, technical account,
+delegation, gateway and elevated reads), who reaches it (required, run and view policy, MCP servers and their
+settings, a consultation's routes, asker policy, roles and visibility to MCP clients), who decides its proposals
+(approval policies, a consultation's proposal policy) and what runs without approval. They answer different
+questions, and an application may use both.
+
+- `UseAgentRightsPolicy(policy)` on the assistant's builder says **who**. A person needs that policy on top of
+  the administration policy to change those settings, in the administration's screens, through the builder and
+  through an import or promotion of an agent package alike; the application registers the policy and startup
+  fails when it does not exist. Use it when the people who manage agents should not lend anyone's rights, for
+  example a project manager who builds agents next to an administrator who decides about rights. A person
+  without it gets `403 assistant-agent-rights-forbidden` with a field error `rights-required` per setting, and
+  `GET admin/run-catalog` says `mayChangeAgentRights`, so the administration disables those fields beforehand.
+- `AddAgentBuilder(builder => builder.WithoutRightsChanges())` says **where**. The builder stays on for
+  instructions, skills, triggers, consultations, tools and rule scripts, and those settings stay in the screens
+  for everyone, also for an administrator. It is a ceiling on the builder, not on a person: the same person still
+  changes them in the screens, so it is no second pair of eyes. Use it when changes of rights should be a
+  deliberate step in a screen rather than something a chat proposes.
+
+Both compare what a save would store with what is stored, so saving a value again needs nothing. New plain run
+settings, answering to the agent itself, a new consultation with its defaults and a required policy on a new agent,
+which only narrows who reaches it, stay open. So does what only takes something away: removing an MCP server,
+disabling its tool, using it never without a person, and switching a tool's run without approval off or to shadow.
+On an agent whose runs use another account's rights, more tools or more autonomy count as well, because they put
+those rights to more use. Application code with an actor the platform knows as no person decides for itself, as it
+does for a technical account. `builder_read_catalog` tells the builder with `mayChangeAgentRights` whether it may
+change them here and with `agentRightsInScreens` whether this person may change them in the screens, so it names
+the setting and where to change it instead of proposing; a call that names such a setting anyway is refused before
+an approval card. The preview of an agent package says per part what it changes in `rightsChanges`.
 
 It never handles secrets: no tool takes or returns MCP credentials, keys or other secrets; MCP servers are
 listed without their address, connection, references or credentials; and a call that names a property its
@@ -137,6 +168,10 @@ with the builder, and never on the builder's own page.
   the code's ceilings; those stay in the administration's screens and in code.
 - Putting rules in the guidance that the builder must obey: it is background, and the platform's rules and
   the builder's instructions win.
+- Treating `WithoutRightsChanges` as a limit on a person: use `UseAgentRightsPolicy` when someone may not change
+  an agent's rights at all, because the screens stay open otherwise.
+- Relying on a person's approval card as a second pair of eyes: with one administrator the person who asks is the
+  person who approves.
 
 ## Verification
 
@@ -175,7 +210,16 @@ API bridge's gateway resources find and describe only what the person may use. I
 Angular spec on the mock API proves the chat on the Build tab with its page context, "New agent with help"
 continuing on the created agent's page with the same chat, the page going back to the agents after the
 builder removed its agent, no builder on its own page and nothing for a person who may not chat with it.
-SPM-394 is the executable reference for building a rule script with the builder, SPM-396 for an
+Under `UseAgentRightsPolicy`, on SQL Server and PostgreSQL: a person without the policy creates an agent with plain
+run settings, and is refused with the settings named when lending rights, changing a required policy, widening the
+tools of an agent that uses another account's rights, assigning an MCP server or changing its settings, binding a
+technical account, switching consultation routes, or going live without approval, with nothing stored; saving the
+same value again and what only takes away go ahead; a person with the policy and application code go ahead; an
+agent package that changes rights says so in its preview and its import stores nothing for a person without the
+policy; and the builder refuses such a call before any card. Under `WithoutRightsChanges` the builder refuses
+them for everyone and names the screens, and the same person changes them in the screens. A policy the application
+did not register stops the start. SPM-394 is the executable reference for building a rule script with the builder
+and for who changes an agent's rights, SPM-396 for an
 application-wide weekly count through the gateway with a technical account, gateway reads and a listed
 alert kind (FB93).
 
@@ -338,7 +382,8 @@ refuses every reservation, host start fails.
 
 ## Administration and personalization
 
-Register an admin policy with `UseAdminPolicy` (or `NewHeap:AI:Assistant:AdminPolicy`,
+Separate who manages agents from who decides about their rights with `UseAgentRightsPolicy`, see
+`nh-ai-agent-builder`. Register an admin policy with `UseAdminPolicy` (or `NewHeap:AI:Assistant:AdminPolicy`,
 default `app.assistant.admin`); startup fails when it does not exist, because
 `MapNewHeapAssistant` also maps the `admin/*` endpoints behind the access and admin
 policies. `GET status` reports `canAdminister`. Every assistant endpoint (chat, administration,

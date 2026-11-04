@@ -120,6 +120,7 @@
   <nh-assistant-agent-package-import-dialog
     [agents]="agents()"
     [accountSearch]="accountSearch()"
+    [mayChangeRights]="mayChangeRights()"
     (imported)="refreshAgents()"
     (closed)="importing.set(false)" />
 }

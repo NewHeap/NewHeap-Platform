@@ -15,6 +15,8 @@ services.AddNewHeapAssistant(assistant => assistant
     .UseAccessPolicy("app.assistant.access")
     .UseChatProfile("project-assistant-chat")
     .UseAdminPolicy("app.assistant.admin")
+    // Optional: who may change whose rights an agent uses, who reaches it and what runs without approval.
+    .UseAgentRightsPolicy("app.assistant.agent-rights")
     .UseDefaultApplicationContext(applicationContextAsset)
     .UseTimeZone("Europe/Amsterdam")
     .UseTurnContextProvider<ApplicationTurnContextProvider>()

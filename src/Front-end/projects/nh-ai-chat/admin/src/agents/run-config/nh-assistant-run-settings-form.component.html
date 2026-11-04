@@ -4,9 +4,12 @@
     <nh-assistant-package-lock [lock]="lock()" [agentId]="agentId()" part="runSettings" [unlinkable]="false" />
   }
 
-  <fieldset class="group" [attr.aria-describedby]="id + '-who-explain'">
+  <fieldset class="group" [attr.aria-describedby]="id + '-who-explain' + (rightsLocked('accountability') ? ' ' + id + '-who-rights' : '')">
     <legend>{{ 'nh-assistant.admin.run-config.settings.who.title' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('accountability')" /></legend>
     <p class="muted" [id]="id + '-who-explain'">{{ 'nh-assistant.admin.run-config.settings.who.explain' | translate }}</p>
+    @if (rightsLocked('accountability')) {
+      <nh-assistant-agent-rights-hint [hintId]="id + '-who-rights'" />
+    }
     <div class="choices" role="radiogroup" [attr.aria-label]="'nh-assistant.admin.run-config.settings.who.title' | translate">
       @for (option of accountabilities; track option) {
         <label class="choice" [class.selected]="accountability() === option">
@@ -28,6 +31,7 @@
           [inputId]="id + '-service-account'"
           [value]="serviceAccount()"
           [searchable]="accountSearch()"
+          [disabled]="rightsLocked('serviceAccountActorId')"
           [invalid]="fieldError('serviceAccountActorId') !== null"
           [describedBy]="describedBy(id + '-service-account-hint', 'serviceAccountActorId', id + '-service-account-error')"
           (valueChange)="serviceAccount.set($event); touch('serviceAccountActorId')" />
@@ -79,7 +83,7 @@
     </fieldset>
   </fieldset>
 
-  <fieldset class="group">
+  <fieldset class="group" [attr.aria-describedby]="rightsLocked('approvalPolicy') ? id + '-approval-rights' : null">
     <legend>{{ 'nh-assistant.admin.run-config.settings.approval.title' | translate }}</legend>
     <div class="field">
       <label [for]="id + '-policy'">{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('approvalPolicy')" /></label>
@@ -93,6 +97,9 @@
         [describedBy]="describedBy(id + '-policy-hint', 'approvalPolicy', id + '-policy-error')"
         (valueChange)="approvalPolicy.set($event); touch('approvalPolicy')" />
       <p class="hint" [id]="id + '-policy-hint'">{{ 'nh-assistant.admin.run-config.settings.approval.hint' | translate }}</p>
+      @if (rightsLocked('approvalPolicy')) {
+        <nh-assistant-agent-rights-hint [hintId]="id + '-approval-rights'" />
+      }
       @if (errorKey('approvalPolicy'); as key) {
         <p class="field-error" [id]="id + '-policy-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('approvalPolicy')?.params }}</p>
       }
@@ -153,6 +160,9 @@
     <summary>{{ 'nh-assistant.admin.run-config.advanced.title' | translate }}</summary>
     <div class="stack">
       <p class="muted">{{ 'nh-assistant.admin.run-config.advanced.explain' | translate }}</p>
+      @if (rightsLocked('elevatedReads')) {
+        <nh-assistant-agent-rights-hint [hintId]="id + '-advanced-rights'" />
+      }
       <div class="grid">
         <div class="field">
           <label [for]="id + '-retries'">{{ 'nh-assistant.admin.run-config.settings.retries' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('retryCount')" /></label>
@@ -204,7 +214,7 @@
           <p class="field-error" [id]="id + '-triage-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('triageProfile')?.params }}</p>
         }
       </div>
-      <fieldset class="field" [disabled]="locked('elevatedReads')">
+      <fieldset class="field" [disabled]="locked('elevatedReads')" [attr.aria-describedby]="rightsLocked('elevatedReads') ? id + '-advanced-rights' : null">
         <legend>{{ 'nh-assistant.admin.run-config.settings.elevated-reads' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('elevatedReads')" /></legend>
         <p class="hint">{{ 'nh-assistant.admin.run-config.settings.elevated-reads-hint' | translate }}</p>
         @for (mode of elevatedReadModes; track mode) {
@@ -218,22 +228,29 @@
         }
       </fieldset>
       <label class="check">
-        <input type="checkbox" [disabled]="locked('allowGatewayReads')" [checked]="allowGatewayReads()" [attr.aria-invalid]="fieldError('allowGatewayReads') ? true : null" (change)="allowGatewayReads.set(checked($event)); touch('allowGatewayReads')" />
+        <input type="checkbox" [disabled]="locked('allowGatewayReads')" [checked]="allowGatewayReads()" [attr.aria-invalid]="fieldError('allowGatewayReads') ? true : null"
+          [attr.aria-describedby]="describedBy(rightsLocked('allowGatewayReads') ? id + '-advanced-rights' : null, 'allowGatewayReads', id + '-gateway-error')"
+          (change)="allowGatewayReads.set(checked($event)); touch('allowGatewayReads')" />
         <span>
           {{ 'nh-assistant.admin.run-config.settings.gateway-reads' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('allowGatewayReads')" />
           <span class="muted block">{{ 'nh-assistant.admin.run-config.settings.gateway-reads-hint' | translate }}</span>
         </span>
       </label>
       @if (errorKey('allowGatewayReads'); as key) {
-        <p class="field-error"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('allowGatewayReads')?.params }}</p>
+        <p class="field-error" [id]="id + '-gateway-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('allowGatewayReads')?.params }}</p>
       }
       <label class="check">
-        <input type="checkbox" [disabled]="locked('delegateFromInitiator')" [checked]="delegateFromInitiator()" (change)="delegateFromInitiator.set(checked($event))" />
+        <input type="checkbox" [disabled]="locked('delegateFromInitiator')" [checked]="delegateFromInitiator()" [attr.aria-invalid]="fieldError('delegateFromInitiator') ? true : null"
+          [attr.aria-describedby]="describedBy(rightsLocked('delegateFromInitiator') ? id + '-advanced-rights' : null, 'delegateFromInitiator', id + '-delegate-error')"
+          (change)="delegateFromInitiator.set(checked($event)); touch('delegateFromInitiator')" />
         <span>
           {{ 'nh-assistant.admin.run-config.settings.delegate' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('delegateFromInitiator')" />
           <span class="muted block">{{ 'nh-assistant.admin.run-config.settings.delegate-hint' | translate }}</span>
         </span>
       </label>
+      @if (errorKey('delegateFromInitiator'); as key) {
+        <p class="field-error" [id]="id + '-delegate-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('delegateFromInitiator')?.params }}</p>
+      }
     </div>
   </details>
 

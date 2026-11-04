@@ -320,6 +320,7 @@
       "assistant-network": "De assistent is niet bereikbaar. Controleer je verbinding en probeer het opnieuw.",
       "assistant-unauthenticated": "Je sessie is verlopen. Log opnieuw in om de assistent te gebruiken.",
       "assistant-forbidden": "Je hebt geen toegang tot de assistent.",
+      "assistant-agent-rights-forbidden": "Dit wijzigt de rechten van een agent, en daarvoor heb je geen toestemming. Vraag het iemand die die wel heeft.",
       "assistant-not-found": "Het item bestaat niet meer. Laad opnieuw en probeer het nog eens.",
       "assistant-conversation-busy": "De assistent is nog bezig met dit gesprek. Probeer het zo opnieuw.",
       "assistant-invalid-response": "De assistent gaf een onverwacht antwoord.",

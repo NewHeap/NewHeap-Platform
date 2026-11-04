@@ -320,6 +320,7 @@
       "assistant-network": "The assistant cannot be reached. Check your connection and try again.",
       "assistant-unauthenticated": "Your session has ended. Sign in again to use the assistant.",
       "assistant-forbidden": "You do not have access to the assistant.",
+      "assistant-agent-rights-forbidden": "This changes an agent's rights, which takes a permission you do not have. Ask someone who has it.",
       "assistant-not-found": "The item no longer exists. Reload and try again.",
       "assistant-conversation-busy": "The assistant is still busy with this conversation. Try again in a moment.",
       "assistant-invalid-response": "The assistant sent an unexpected response.",

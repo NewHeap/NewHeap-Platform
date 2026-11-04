@@ -302,6 +302,7 @@
               [agentId]="config.agentId"
               [subjectTypes]="catalog()?.subjectTypes ?? []"
               [refresh]="loads()"
+              [mayChangeRights]="mayChangeRights()"
               (changed)="changed.emit()" />
           }
         </section>

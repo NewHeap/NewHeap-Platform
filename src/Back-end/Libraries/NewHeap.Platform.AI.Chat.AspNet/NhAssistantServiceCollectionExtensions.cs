@@ -186,6 +186,9 @@ public static class NhAssistantServiceCollectionExtensions
             // A completed request posts its answer where it was asked (FB29).
             services.TryAddScoped<NhAssistantRequestAnswers>();
             services.TryAddScoped<NhAssistantServiceAccountBinding>();
+            services.TryAddScoped<INhAssistantLentToolsCheck>(provider => provider.GetRequiredService<NhAssistantServiceAccountBinding>());
+            services.TryAddScoped<NhAssistantAgentRightsGate>();
+            services.TryAddScoped<INhAssistantAgentRightsGate>(provider => provider.GetRequiredService<NhAssistantAgentRightsGate>());
             services.TryAddScoped<NhAssistantAgentControl>();
             services.TryAddScoped<INhAssistantAgentControl>(provider => provider.GetRequiredService<NhAssistantAgentControl>());
             // FB82: an administrator's switches that let one agent run a tool without approval.
@@ -416,6 +419,12 @@ internal sealed class NhAssistantStartupValidator(
         {
             throw new InvalidOperationException(
                 $"The assistant admin policy '{adminPolicy}' is not registered. Register it or call UseAdminPolicy.");
+        }
+
+        if (state.AgentRightsPolicy is { } agentRightsPolicy && await policyProvider.GetPolicyAsync(agentRightsPolicy) is null)
+        {
+            throw new InvalidOperationException(
+                $"The agent rights policy '{agentRightsPolicy}' (UseAgentRightsPolicy) is not registered.");
         }
 
         foreach (var (kind, systemPolicy) in new[] { ("read", state.SystemReadPolicy), ("approve", state.SystemApprovePolicy) })

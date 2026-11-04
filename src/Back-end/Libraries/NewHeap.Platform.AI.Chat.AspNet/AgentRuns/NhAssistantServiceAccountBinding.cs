@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.Common;
@@ -17,12 +16,14 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// (the platform's impersonation permission), or the person holds every right the account would lend
 /// the agent, that is every authorization policy of the agent's tools that the account passes against
 /// the agent without a division. A binding by application code with a technical actor id, which the
-/// platform knows as no person, is the application's own decision.
+/// platform knows as no person, is the application's own decision. More tools on an agent that answers to an
+/// account lend its rights as well, so they are held to the same rule for the tools they add
+/// (<see cref="CheckAddedToolsAsync"/>).
 /// </summary>
 internal sealed class NhAssistantServiceAccountBinding(
     IServiceProvider services,
     IAuthorizationService authorization,
-    IEnumerable<INhAiToolCatalog> catalogs)
+    IEnumerable<INhAiToolCatalog> catalogs) : INhAssistantLentToolsCheck
 {
     private const string Purpose = "service-account";
 
@@ -67,7 +68,51 @@ internal sealed class NhAssistantServiceAccountBinding(
             return TaskResult.Succeeded();
         }
 
-        var caller = await CallerAsync(callerActorId, principals!, subject, cancellationToken);
+        return await CheckHeldAsync(agentId, account, callerActorId, subject, ToolsOf(toolSelectors), cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<TaskResult> CheckAddedToolsAsync(
+        string agentId,
+        IReadOnlyList<string> selectorsBefore,
+        IReadOnlyList<string> selectorsAfter,
+        string accountActorId,
+        string callerActorId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ArgumentNullException.ThrowIfNull(selectorsBefore);
+        ArgumentNullException.ThrowIfNull(selectorsAfter);
+        ArgumentException.ThrowIfNullOrWhiteSpace(accountActorId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(callerActorId);
+
+        var principals = services.GetService<INhAiPrincipalFactory>();
+        var subject = new NhAiSubjectInfo(new NhAiSubjectRef("agent", agentId), NhAiSubjectInfo.CreateScopeKey(null, null));
+        var account = principals is null ? null : await principals.CreateAsync(accountActorId, subject, cancellationToken);
+        // An account that may no longer sign in lends nothing, and a person's own account lends what they hold.
+        if (account is null || string.Equals(accountActorId, callerActorId, StringComparison.Ordinal))
+        {
+            return TaskResult.Succeeded();
+        }
+
+        var added = ToolsOf(selectorsAfter)
+            .Where(descriptor => !selectorsBefore.Any(selector => NhAssistantRegistrationState.Covers(selector, descriptor.Id)));
+        return await CheckHeldAsync(agentId, account, callerActorId, subject, added, cancellationToken);
+    }
+
+    /// <summary>
+    /// Whether the caller holds every right <paramref name="account"/> would lend the agent through
+    /// <paramref name="tools"/>; a caller the platform knows as no person and one who may act as any user do.
+    /// </summary>
+    private async Task<TaskResult> CheckHeldAsync(
+        string agentId,
+        ClaimsPrincipal account,
+        string callerActorId,
+        NhAiSubjectInfo subject,
+        IEnumerable<NhAiToolDescriptor> tools,
+        CancellationToken cancellationToken)
+    {
+        var caller = await NhAssistantCallerPrincipal.ResolveAsync(services, agentId, callerActorId, cancellationToken);
         if (caller is null)
         {
             // Application code that binds with an operator or job id the platform knows as no person.
@@ -80,7 +125,7 @@ internal sealed class NhAssistantServiceAccountBinding(
         }
 
         var resource = new NhAiSubjectAuthorizationResource(subject.Subject, subject.ScopeKey, null, Purpose);
-        foreach (var descriptor in ToolsOf(toolSelectors))
+        foreach (var descriptor in tools)
         {
             if (await PassesAsync(account, resource, descriptor, cancellationToken)
                 && !await PassesAsync(caller, resource, descriptor, cancellationToken))
@@ -92,26 +137,6 @@ internal sealed class NhAssistantServiceAccountBinding(
         }
 
         return TaskResult.Succeeded();
-    }
-
-    /// <summary>
-    /// The caller's principal: the request's user when the caller sent the request, otherwise the
-    /// principal the factory rebuilds; <see langword="null"/> for a caller the platform knows as no
-    /// person.
-    /// </summary>
-    private async Task<ClaimsPrincipal?> CallerAsync(
-        string callerActorId,
-        INhAiPrincipalFactory principals,
-        NhAiSubjectInfo subject,
-        CancellationToken cancellationToken)
-    {
-        if (services.GetService<IHttpContextAccessor>()?.HttpContext is { } httpContext
-            && await NhAiRequestActor.IsAsync(httpContext, callerActorId, services, cancellationToken))
-        {
-            return httpContext.User;
-        }
-
-        return await principals.CreateAsync(callerActorId, subject, cancellationToken);
     }
 
     /// <summary>

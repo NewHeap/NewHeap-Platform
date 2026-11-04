@@ -26,6 +26,7 @@ internal static class NhAssistantWithoutApprovalEndpoints
             .WithSummary("Switch whether an agent runs a tool without approval")
             .WithDescription("mode off, shadow or live with expectedVersion, the switch's current version (0 before the first switch), and an optional reason of at most 500 characters, which is kept with the version and left out of the audit. Live only from shadow (409 assistant-without-approval-shadow-first); a tool that does not allow it in code, is not among the agent's tools, or an agent without work of its own answers 409 assistant-without-approval-not-allowed; a stale version 409 assistant-version-conflict. Every change is the next version, audited as AdminAgentToolWithoutApprovalChanged, and applies to the next call on every host; the same mode again changes nothing. Only an agent's own work runs without approval: never a person's chat, a consultation, a rule turn, a shadow run or a call for another object.")
             .Produces<NhAssistantWithoutApprovalSwitchDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);

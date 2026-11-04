@@ -35,6 +35,7 @@ let nextId = 0;
         [value]="value()"
         [selectedLabel]="label()"
         [search]="search"
+        [disabled]="disabled()"
         [invalid]="invalid()"
         [describedBy]="fieldDescribedBy()"
         [placeholder]="'nh-assistant.admin.run-config.account.search-placeholder' | translate"
@@ -48,6 +49,7 @@ let nextId = 0;
         autocomplete="off"
         maxlength="256"
         [id]="inputId()"
+        [disabled]="disabled()"
         [value]="value() ?? ''"
         [attr.aria-invalid]="invalid() ? true : null"
         [attr.aria-describedby]="fieldDescribedBy()"
@@ -84,6 +86,7 @@ let nextId = 0;
       font-size: 12px;
     }
     input[aria-invalid='true'] { border-color: var(--nha-danger, #b42318); }
+    input:disabled { cursor: not-allowed; opacity: .6; }
     .account-name { margin: 4px 2px 0; color: var(--nha-text-muted, #667085); font-size: 12px; overflow-wrap: anywhere; }
     .lookup-error {
       display: flex;
@@ -120,6 +123,8 @@ export class NhAssistantAccountPickerComponent {
   /** Whether the application offers an account search (`RunCatalog.accountSearch`). */
   readonly searchable = input(false);
   readonly invalid = input(false);
+  /** The account shows, with its name, but does not change here. */
+  readonly disabled = input(false);
   readonly describedBy = input<string | null>(null);
   readonly valueChange = output<string>();
 

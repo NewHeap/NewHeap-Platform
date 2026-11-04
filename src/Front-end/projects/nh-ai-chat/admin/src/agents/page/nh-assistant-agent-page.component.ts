@@ -47,6 +47,7 @@ import {
   worksOnSummary
 } from '../agent-texts';
 import { agentWork, hasRunConfiguration, offeredInChat, runsOnItsOwn, skillsInShadow } from '../agent-operations';
+import { mayChangeAgentRights } from '../agent-rights';
 import { NhAssistantAdminAgentEditorComponent, NhAssistantAgentEditorSection, nhAssistantSelectorMatches } from '../nh-assistant-admin-agent-editor.component';
 import { NhAssistantAgentMetadataComponent } from '../metadata/nh-assistant-agent-metadata.component';
 import { NhAssistantAgentCompositionActivityComponent } from '../nh-assistant-agent-composition-activity.component';
@@ -179,6 +180,8 @@ export class NhAssistantAgentPageComponent {
   readonly testUnavailable = signal(false);
 
   readonly name = computed(() => agentDisplayName(this.translate, this.agent()));
+  /** Whether the person may change an agent's rights, which its technical account is. */
+  readonly mayChangeRights = computed(() => mayChangeAgentRights(this.catalog()));
   readonly work = computed(() => agentWork(this.agent()));
   readonly hasRunConfiguration = computed(() => hasRunConfiguration(this.agent()));
   readonly runs = computed(() => runsOnItsOwn(this.agent()));

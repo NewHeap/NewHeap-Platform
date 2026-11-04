@@ -3,6 +3,9 @@
     <div>
       <h3 [id]="id + '-title'">{{ 'nh-assistant.admin.tools.title' | translate: { name: server().displayName } }}</h3>
       <p class="muted">{{ 'nh-assistant.admin.tools.description' | translate }}</p>
+      @if (!mayChangeRights()) {
+        <nh-assistant-agent-rights-hint [hintId]="id + '-rights'" />
+      }
     </div>
     <div class="actions">
       <button class="secondary" type="button" (click)="closed.emit()">{{ 'nh-assistant.admin.tools.back' | translate }}</button>
@@ -61,13 +64,18 @@
               <input
                 type="checkbox"
                 [checked]="draft(tool).isEnabled"
-                [disabled]="tool.status === 'missing' && !tool.awaitingSync"
+                [disabled]="(tool.status === 'missing' && !tool.awaitingSync) || enableRightsLocked(tool)"
+                [attr.aria-describedby]="enableRightsLocked(tool) ? id + '-rights' : null"
                 (change)="change(tool, { isEnabled: checked($event) })" />
               <span>{{ 'nh-assistant.admin.tools.enabled' | translate }}</span>
             </label>
             <div class="field">
               <label [for]="id + '-effect-' + $index">{{ 'nh-assistant.admin.tools.effect' | translate }}</label>
-              <select [id]="id + '-effect-' + $index" (change)="change(tool, { effect: $any(value($event)) })">
+              <select
+                [id]="id + '-effect-' + $index"
+                [disabled]="settingsRightsLocked(tool)"
+                [attr.aria-describedby]="settingsRightsLocked(tool) ? id + '-rights' : null"
+                (change)="change(tool, { effect: $any(value($event)) })">
                 @for (effect of effects; track effect) {
                   <option [value]="effect" [selected]="draft(tool).effect === effect">{{ 'nh-assistant.admin.effect.' + effect | translate }}</option>
                 }
@@ -82,13 +90,14 @@
               maxlength="1000"
               [id]="id + '-override-' + $index"
               [value]="draft(tool).descriptionOverride"
-              [attr.aria-describedby]="id + '-override-hint-' + $index"
+              [disabled]="settingsRightsLocked(tool)"
+              [attr.aria-describedby]="id + '-override-hint-' + $index + (settingsRightsLocked(tool) ? ' ' + id + '-rights' : '')"
               (input)="change(tool, { descriptionOverride: value($event) })" />
             <p class="hint" [id]="id + '-override-hint-' + $index">{{ 'nh-assistant.admin.tools.description-override-hint' | translate }}</p>
           </div>
 
           <div class="card-actions">
-            <button class="primary" type="button" [disabled]="!isDirty(tool) || savingTool() !== null" (click)="save(tool)">
+            <button class="primary" type="button" [disabled]="!isDirty(tool) || savingTool() !== null || settingsRightsLocked(tool)" (click)="save(tool)">
               {{ (savingTool() === tool.remoteName ? 'nh-assistant.admin.saving' : 'nh-assistant.admin.tools.save') | translate }}
             </button>
             @if (savedTool() === tool.remoteName) {

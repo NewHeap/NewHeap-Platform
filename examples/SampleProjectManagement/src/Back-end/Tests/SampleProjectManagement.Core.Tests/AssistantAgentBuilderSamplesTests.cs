@@ -1,7 +1,11 @@
 using System.Net;
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
+using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.Chat;
+using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Test;
+using NewHeap.Platform.Common.Identity.Claims;
 using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.Core.Services;
 using SampleProjectManagement.DAL.Entities;
@@ -17,7 +21,8 @@ namespace SampleProjectManagement.Core.Tests;
 /// which changes nothing, and proposes to set it live. Under the document check's four eyes the
 /// administrator who saved it through the builder cannot set it live, also not with an approval; another
 /// administrator does, in their own chat with the builder. A person without the administration policy
-/// never reaches the builder. The scripted model answers people's chats only, so no run takes its steps.
+/// never reaches the builder. The scripted model answers people's chats only, so no run takes its steps. A project
+/// manager builds with it too, and only an administrator changes whose rights an agent uses.
 /// </summary>
 public sealed class AssistantAgentBuilderSamplesTests(AssistantAgentBuilderSampleHost host) : IClassFixture<AssistantAgentBuilderSampleHost>
 {
@@ -118,6 +123,95 @@ public sealed class AssistantAgentBuilderSamplesTests(AssistantAgentBuilderSampl
         }
     }
 
+    /// <summary>
+    /// A project manager passes the administration policy and builds with the builder, but only an administrator
+    /// changes whose rights an agent uses: in the screens, and in the builder before any card is shown.
+    /// </summary>
+    [Fact]
+    public async Task SPM_394_a_project_manager_builds_agents_and_only_an_administrator_changes_whose_rights_they_use()
+    {
+        const string Agent = "spm-394-rights";
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("builder_read_catalog", new { input = new { query = "project" } })
+            .RespondWithFunctionCall("builder_save_run_settings", new { input = new { agentId = Agent, accountability = "subject-responsible", expectedVersion = 1 } })
+            .RespondWithFunctionCall("builder_save_run_settings", new { input = new { agentId = Agent, maxConcurrentRuns = 2, expectedVersion = 1 } })
+            .RespondWithText("Only the concurrency changed; an administrator changes whose rights it uses.");
+        host.Model.UseForChats(model);
+
+        try
+        {
+            await AgentWithPlainRunSettingsAsync(Agent);
+            using var manager = host.CreateClient("spm-394-manager", admin: true);
+            using var administrator = host.CreateClient("spm-394-administrator", admin: true);
+            administrator.DefaultRequestHeaders.Add(SampleTestAuthenticationHandler.RolesHeader, SampleAgentBuilderComposition.AgentRightsRole);
+
+            // The administration says so beforehand; the screens refuse it with what it was about.
+            Assert.False(await MayChangeRightsAsync(manager));
+            Assert.True(await MayChangeRightsAsync(administrator));
+            var runSettings = $"/api/assistant/admin/agents/{Agent}/run-settings";
+            var body = AssistantSampleHost.Json(new { accountability = "subject-responsible", expectedVersion = 1 });
+            using var refused = await manager.PutAsync(runSettings, body, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+            var failure = await AssistantSampleHost.ReadJsonAsync(refused);
+            Assert.Equal(NhAssistantErrorCodes.AgentRightsForbidden, failure.GetProperty("code").GetString());
+            Assert.Equal(NhAssistantFieldErrors.RightsRequired, failure.GetProperty("errors").GetProperty("accountability")[0].GetString());
+
+            // The builder tells the model, refuses the change before any card, and makes the other one.
+            var chat = await CreateConversationAsync(manager);
+            var asked = await host.SendAsync(manager, chat, "Let the responsible person's rights count and run two at a time.");
+            Assert.False(Result(model, 0).GetProperty("data").GetProperty("mayChangeAgentRights").GetBoolean());
+            Assert.Contains(NhAssistantErrorCodes.AgentRightsForbidden, Result(model, 1).GetRawText(), StringComparison.Ordinal);
+            await host.DecideAsync(manager, chat, Assert.Single(asked, evt => evt.Name == "approval.required").Data, "approve");
+            var stored = await RunSettingsAsync(Agent);
+            Assert.Equal((NhAssistantAccountabilities.Agent, 2), (stored.Accountability, stored.MaxConcurrentRuns));
+
+            // The administrator makes the change in the screen.
+            using var changed = await administrator.PutAsync(
+                runSettings,
+                AssistantSampleHost.Json(new { accountability = "subject-responsible", maxConcurrentRuns = 2, expectedVersion = 2 }),
+                TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+            Assert.Equal(NhAssistantAccountabilities.SubjectResponsible, (await RunSettingsAsync(Agent)).Accountability);
+            Assert.Equal(0, model.RemainingSteps);
+        }
+        finally
+        {
+            host.Model.Use(new SampleAssistantChatClient());
+        }
+    }
+
+    private async Task AgentWithPlainRunSettingsAsync(string agentId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var configuration = scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>();
+        // Application code, with an actor the platform knows as no person, decides for itself.
+        var created = await configuration.CreateAgentAsync(
+            new NhAssistantAgentRequest(agentId, "Rights example", "Shows who changes an agent's rights.", "Answer briefly.", ["project.*"], NhAiAutonomyLevel.Propose),
+            "sample-setup");
+        Assert.True(created.Success, string.Join(", ", created.AllErrorMessages));
+        var saved = await configuration.SaveRunSettingsAsync(agentId, new NhAssistantAgentRunSettingsRequest(NhAssistantAccountabilities.Agent), "sample-setup");
+        Assert.True(saved.Success, string.Join(", ", saved.AllErrorMessages));
+    }
+
+    private async Task<NhAssistantAgentRunSettingsDto> RunSettingsAsync(string agentId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return (await scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>().GetAsync(agentId))!.RunSettings!;
+    }
+
+    private static async Task<bool> MayChangeRightsAsync(HttpClient client)
+    {
+        using var response = await client.GetAsync("/api/assistant/admin/run-catalog", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return (await AssistantSampleHost.ReadJsonAsync(response)).GetProperty("mayChangeAgentRights").GetBoolean();
+    }
+
+    private static JsonElement Result(NhAiScriptedChatClient model, int index)
+    {
+        var result = model.FunctionResults[index].Result;
+        return result is JsonElement element ? element : JsonSerializer.SerializeToElement(result);
+    }
+
     private async Task<NhAssistantRuleScriptDto> RuleScriptAsync()
     {
         await using var scope = host.Services.CreateAsyncScope();
@@ -144,5 +238,159 @@ public sealed class AssistantAgentBuilderSampleHost(SamplePostgreSqlServer postg
     {
         base.ConfigureAssistant(services);
         services.AddSampleAgentBuilder();
+    }
+}
+
+/// <summary>
+/// SPM-394 with <c>WithoutRightsChanges</c> (FB97): the builder stays on for what it is good at while the settings
+/// of whose rights an agent uses stay in the screens, also for an administrator, and it says where to change them.
+/// </summary>
+public sealed class AssistantAgentBuilderCeilingSamplesTests(AssistantAgentBuilderCeilingSampleHost host) : IClassFixture<AssistantAgentBuilderCeilingSampleHost>
+{
+    private const string Agent = "spm-394-ceiling";
+
+    [Fact]
+    public async Task SPM_394_the_builder_leaves_whose_rights_an_agent_uses_to_the_screens()
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("builder_read_catalog", new { input = new { query = "project" } })
+            .RespondWithFunctionCall("builder_save_run_settings", new { input = new { agentId = Agent, accountability = "subject-responsible", expectedVersion = 1 } })
+            .RespondWithText("You change whose rights it uses on the agent's page.");
+        host.Model.UseForChats(model);
+
+        try
+        {
+            await using (var scope = host.Services.CreateAsyncScope())
+            {
+                var configuration = scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>();
+                var created = await configuration.CreateAgentAsync(
+                    new NhAssistantAgentRequest(Agent, "Ceiling example", "Shows the builder's ceiling.", "Answer briefly.", ["project.*"], NhAiAutonomyLevel.Propose),
+                    "sample-setup");
+                Assert.True(created.Success, string.Join(", ", created.AllErrorMessages));
+                Assert.True((await configuration.SaveRunSettingsAsync(Agent, new NhAssistantAgentRunSettingsRequest(NhAssistantAccountabilities.Agent), "sample-setup")).Success);
+            }
+
+            using var administrator = host.CreateClient("spm-394-ceiling-administrator", admin: true);
+            administrator.DefaultRequestHeaders.Add(SampleTestAuthenticationHandler.RolesHeader, SampleAgentBuilderComposition.AgentRightsRole);
+            using var conversation = await administrator.PostAsync(
+                "/api/assistant/conversations",
+                AssistantSampleHost.Json(new { agentId = SampleAgentBuilderComposition.AgentId }),
+                TestContext.Current.CancellationToken);
+            var chat = (await AssistantSampleHost.ReadJsonAsync(conversation)).GetProperty("id").GetGuid();
+
+            // The catalog shows the ceiling, the change gets no card and the answer can name the screen.
+            var asked = await host.SendAsync(administrator, chat, "Let the responsible person's rights count.");
+            Assert.DoesNotContain(asked, evt => evt.Name == "approval.required");
+            var catalog = JsonSerializer.SerializeToElement(model.FunctionResults[0].Result).GetProperty("data");
+            Assert.False(catalog.GetProperty("mayChangeAgentRights").GetBoolean());
+            Assert.True(catalog.GetProperty("agentRightsInScreens").GetBoolean());
+            Assert.Contains("screens", JsonSerializer.SerializeToElement(model.FunctionResults[1].Result).GetRawText(), StringComparison.Ordinal);
+
+            // The same administrator changes it in the screen.
+            using var changed = await administrator.PutAsync(
+                $"/api/assistant/admin/agents/{Agent}/run-settings",
+                AssistantSampleHost.Json(new { accountability = "subject-responsible", expectedVersion = 1 }),
+                TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+            Assert.Equal(0, model.RemainingSteps);
+        }
+        finally
+        {
+            host.Model.Use(new SampleAssistantChatClient());
+        }
+    }
+}
+
+/// <summary>
+/// SPM-394: more tools on an agent that answers to a technical account put that account's rights to more use, so an
+/// administrator who may not use a tool that the account may use does not add it, and one who may does.
+/// </summary>
+public sealed class AssistantAgentMoreToolsSamplesTests(AssistantAgentMoreToolsSampleHost host) : IClassFixture<AssistantAgentMoreToolsSampleHost>
+{
+    private const string Agent = "spm-394-more-tools";
+
+    [Fact]
+    public async Task SPM_394_only_an_administrator_who_holds_the_rights_gives_an_agent_with_a_technical_account_more_tools()
+    {
+        var cancellation = TestContext.Current.CancellationToken;
+        var account = await host.CreatePersonAsync(AssistantAgentMoreToolsSampleHost.CompleteTasksPermission);
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var configuration = scope.ServiceProvider.GetRequiredService<INhAssistantAgentConfiguration>();
+            // Application code, with an actor the platform knows as no person, decides for itself.
+            var created = await configuration.CreateAgentAsync(
+                new NhAssistantAgentRequest(Agent, "More tools", "Shows who gives an agent more tools.", "Answer briefly.", [ProjectAiReviewTools.DraftIntakeNoteToolId], NhAiAutonomyLevel.Propose),
+                "sample-setup");
+            Assert.True(created.Success, string.Join(", ", created.AllErrorMessages));
+            var saved = await configuration.SaveRunSettingsAsync(
+                Agent,
+                new NhAssistantAgentRunSettingsRequest(NhAssistantAccountabilities.ServiceAccount, account.ToString("D")),
+                "sample-setup");
+            Assert.True(saved.Success, string.Join(", ", saved.AllErrorMessages));
+        }
+
+        var path = $"/api/assistant/admin/agents/{Agent}";
+        StringContent Change()
+        {
+            return AssistantSampleHost.Json(new
+            {
+                id = Agent,
+                displayName = "More tools",
+                description = "Shows who gives an agent more tools.",
+                instructions = "Answer briefly.",
+                toolSelectors = new[] { ProjectAiReviewTools.DraftIntakeNoteToolId, ProjectTaskAiTools.CompleteToolId },
+                autonomy = "propose",
+                expectedVersion = 1
+            });
+        }
+
+        // Both may change an agent's rights; only one may complete tasks, as the account may.
+        using var limited = host.CreateClient("spm-394-limited", admin: true);
+        limited.DefaultRequestHeaders.Add(SampleTestAuthenticationHandler.RolesHeader, SampleAgentBuilderComposition.AgentRightsRole);
+        using var refused = await limited.PutAsync(path, Change(), cancellation);
+        Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+        Assert.Equal(NhAssistantErrorCodes.ServiceAccountNotPermitted, (await AssistantSampleHost.ReadJsonAsync(refused)).GetProperty("code").GetString());
+
+        using var holder = host.CreateClient("spm-394-holder", true, AssistantAgentMoreToolsSampleHost.CompleteTasksPermission);
+        holder.DefaultRequestHeaders.Add(SampleTestAuthenticationHandler.RolesHeader, SampleAgentBuilderComposition.AgentRightsRole);
+        using var accepted = await holder.PutAsync(path, Change(), cancellation);
+        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+    }
+}
+
+/// <summary>
+/// The host of <see cref="AssistantAgentMoreToolsSamplesTests"/>: the document check's host with the agent builder,
+/// where completing tasks takes a permission of its own instead of being open to every signed-in person.
+/// </summary>
+public sealed class AssistantAgentMoreToolsSampleHost(SamplePostgreSqlServer postgreSql) : AssistantRuleScriptSampleHost(postgreSql)
+{
+    public const string CompleteTasksPermission = "app.project.complete-tasks";
+
+    protected override void ConfigureAssistant(IServiceCollection services)
+    {
+        base.ConfigureAssistant(services);
+        services.AddSampleAgentBuilder();
+    }
+
+    protected override void ConfigureAuthorization(Microsoft.AspNetCore.Authorization.AuthorizationOptions options)
+    {
+        base.ConfigureAuthorization(options);
+        // Accounts of the NewHeap identity carry it as NhPlatformClaimTypes.Permission, the test sign-in as "permission".
+        options.AddPolicy(ProjectAiTools.ManagePolicy, policy => policy.RequireAssertion(context =>
+            context.User.HasClaim(NhPlatformClaimTypes.Permission, CompleteTasksPermission)
+            || context.User.HasClaim("permission", CompleteTasksPermission)));
+    }
+}
+
+/// <summary>
+/// The host of <see cref="AssistantAgentBuilderCeilingSamplesTests"/>: the document check's host with the agent
+/// builder under its ceiling.
+/// </summary>
+public sealed class AssistantAgentBuilderCeilingSampleHost(SamplePostgreSqlServer postgreSql) : AssistantRuleScriptSampleHost(postgreSql)
+{
+    protected override void ConfigureAssistant(IServiceCollection services)
+    {
+        base.ConfigureAssistant(services);
+        services.AddSampleAgentBuilder(rightsInScreensOnly: true);
     }
 }

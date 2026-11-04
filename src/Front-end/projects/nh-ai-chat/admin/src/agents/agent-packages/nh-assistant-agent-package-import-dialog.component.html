@@ -83,6 +83,11 @@
                 <nh-assistant-icon name="warning" />{{ (view.refused === 1 ? 'nh-assistant.admin.packages.import-dialog.refused-one' : 'nh-assistant.admin.packages.import-dialog.refused') | translate: { count: view.refused } }}
               </p>
             }
+            @if (rightsRequired()) {
+              <p class="message info" data-import-rights-required [id]="id + '-rights'">
+                <nh-assistant-icon name="lock" />{{ 'nh-assistant.admin.packages.import-dialog.rights-required' | translate: { parts: rightsParts() } }}
+              </p>
+            }
           </section>
         }
 
@@ -97,7 +102,13 @@
           <button class="secondary" type="submit" data-import-preview-action [disabled]="busy()">
             {{ previewLabelKey() | translate }}
           </button>
-          <button class="primary" type="button" data-import-apply-action [disabled]="!canImport()" (click)="import()">
+          <button
+            class="primary"
+            type="button"
+            data-import-apply-action
+            [disabled]="!canImport()"
+            [attr.aria-describedby]="rightsRequired() ? id + '-rights' : null"
+            (click)="import()">
             {{ (importing() ? 'nh-assistant.admin.packages.import-dialog.importing' : 'nh-assistant.admin.packages.import-dialog.import') | translate }}
           </button>
         </div>
@@ -118,6 +129,7 @@
             [inputId]="id + '-account-' + agent.agentId"
             [value]="accountOf(agent.agentId)"
             [searchable]="accountSearch()"
+            [disabled]="!mayChangeRights()"
             [invalid]="agent.accountRefused"
             [describedBy]="id + '-account-hint-' + agent.agentId"
             (valueChange)="setAccount(agent.agentId, $event)" />
@@ -156,6 +168,9 @@
                     }
                     @if (row.locked) {
                       <span class="muted" data-part-locks><nh-assistant-icon name="lock" /> {{ row.locked }}</span>
+                    }
+                    @if (row.rightsChanges) {
+                      <span data-part-rights>{{ row.rightsChanges }}</span>
                     }
                     @if (row.code; as code) {
                       <span class="error-text" data-part-code>{{ row.codeKeys | nhAssistantTranslate: code : row.codeParams ?? undefined }}</span>

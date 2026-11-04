@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, Signal, computed, inject, input, output, signal } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import {
   AssistantDataClassification,
@@ -13,6 +13,8 @@ import {
   ɵNhAssistantPickerComponent as NhAssistantPickerComponent,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
+import { agentRightsSkillFields, mayChangeAgentRights } from '../agent-rights';
+import { NhAssistantAgentRightsHintComponent } from '../nh-assistant-agent-rights-hint.component';
 import { NhAssistantPackageLockComponent } from '../agent-packages/nh-assistant-package-lock.component';
 import { NhAssistantPackageLockedMarkComponent } from '../agent-packages/nh-assistant-package-locked-mark.component';
 import { PackageLockView } from '../agent-packages/package-parts';
@@ -53,7 +55,8 @@ export interface SkillFormSaved {
 /**
  * Adds or changes a skill defined as data: what it is for, how it works (fixed rules or the model,
  * with instructions), its tools within the agent's own, and its approval and limits. A change is
- * evaluated in shadow by default. Fields the skill's agent package locks show read-only.
+ * evaluated in shadow by default. Fields the skill's agent package locks show read-only, and so does its
+ * approval policy for a person without the agent rights policy.
  */
 @Component({
   selector: 'nh-assistant-skill-form',
@@ -63,6 +66,7 @@ export interface SkillFormSaved {
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
     NhAssistantPickerComponent,
+    NhAssistantAgentRightsHintComponent,
     NhAssistantFileLimitsFieldsComponent,
     NhAssistantInstructionsAssetComponent,
     NhAssistantPackageLockComponent,
@@ -100,6 +104,8 @@ export class NhAssistantSkillFormComponent extends RunConfigForm implements OnIn
     'maxTokensPerRun', 'dailyToolCalls', 'dailyTokens', 'apply', 'startsOff', 'reason',
     'maxFileBytes', 'maxFilePages', 'maxFilesPerTurn', 'maxFileTokensPerTurn'
   ];
+  protected override readonly rightsLocks: Signal<readonly string[]> = computed(() =>
+    mayChangeAgentRights(this.catalog()) ? [] : agentRightsSkillFields);
 
   readonly skillId = signal('');
   readonly description = signal('');

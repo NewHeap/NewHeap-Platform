@@ -246,6 +246,7 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-validation',
   'assistant-instructions-too-long',
   'assistant-forbidden',
+  'assistant-agent-rights-forbidden',
   'assistant-not-found',
   'assistant-context-not-found',
   'assistant-version-conflict',

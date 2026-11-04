@@ -13,8 +13,8 @@ import { NhAssistantAdminApiService } from '../services/nh-assistant-admin-api.s
  * gives it, error bodies carry field errors with any code, and the mock refuses what the server
  * refuses: MCP connections a server does not have, refused server fields, too many account ids, a
  * refused run filter before an unknown agent, starts of paused, stopped and rate-limited agents, run
- * cancellation and retries by role, threads opened without a run, and proposals of the whole
- * application for anybody but its approvers.
+ * cancellation and retries by role, threads opened without a run, proposals of the whole application
+ * for anybody but its approvers, and changes of an agent's rights by a person without the agent rights policy.
  */
 function scenario(overrides: Partial<NhAssistantMockScenario> = {}): NhAssistantMockScenario {
   return {
@@ -109,6 +109,7 @@ describe('The status table of the mock API', () => {
       ['assistant-run-filter-invalid', 400],
       ['assistant-webhook-signature-invalid', 401],
       ['assistant-approval-policy-denied', 403],
+      ['assistant-agent-rights-forbidden', 403],
       ['assistant-context-unavailable', 403],
       ['assistant-agent-not-found', 404],
       ['assistant-subject-not-found', 404],
@@ -295,6 +296,80 @@ describe('MCP connections of the mock API', () => {
       'oauth.clientSecretReference': ['not-found'],
       'oauth.confirmAuthorization': ['required']
     });
+  });
+});
+
+describe('The agent rights of the mock API', () => {
+  const definition = { id: 'helper', displayName: 'Helper', description: 'Helps.', instructions: 'Help.', toolSelectors: [], requiredPolicy: null, autonomy: 'explain' };
+  const refusal = (changes: string[]) => [403, 'assistant-agent-rights-forbidden', Object.fromEntries(changes.map(change => [change, ['rights-required']]))];
+  const answer = async (method: string, path: string, body?: unknown) => {
+    const result = await call(method, path, body);
+    return [result.status, result.body?.code, result.body?.errors];
+  };
+
+  it('reports whether the person may change them, yes unless the scenario says otherwise', async () => {
+    const backend = await configure();
+
+    expect((await call('GET', 'admin/run-catalog')).body.mayChangeAgentRights).toBeTrue();
+    backend.setMayChangeAgentRights(false);
+    expect((await call('GET', 'admin/run-catalog')).body.mayChangeAgentRights).toBeFalse();
+  });
+
+  it('refuses what changes them and leaves what only takes them away or changes nothing', async () => {
+    const backend = await configure();
+    expect((await call('POST', 'admin/agents', { ...definition, mcpServerIds: ['files'] })).status).toBe(201);
+    expect((await call('PUT', 'admin/agents/helper/run-settings', { accountability: 'service-account', serviceAccountActorId: 'account-1', approvalPolicy: null })).status).toBe(200);
+    backend.setMayChangeAgentRights(false);
+
+    // A new agent keeps its required policy free and starts with plain run settings.
+    expect((await call('POST', 'admin/agents', { ...definition, id: 'free', requiredPolicy: 'app.files' })).status).toBe(201);
+    expect((await call('PUT', 'admin/agents/free/run-settings', { accountability: 'agent' })).status).toBe(200);
+    expect(await answer('POST', 'admin/agents', { ...definition, id: 'closed', mcpServerIds: ['files'] })).toEqual(refusal(['mcpServerIds']));
+
+    const agents = (await call('GET', 'admin/agents')).body as { id: string; version: number; requiredPolicy: string | null }[];
+    const helper = agents.find(agent => agent.id === 'helper')!;
+    const update = (changes: Record<string, unknown>) => ({ ...definition, ...changes, expectedVersion: helper.version });
+    expect(await answer('PUT', 'admin/agents/helper', update({ requiredPolicy: 'app.files' }))).toEqual(refusal(['requiredPolicy']));
+    expect(await answer('PUT', 'admin/agents/helper', update({ toolSelectors: ['projects.*'], autonomy: 'execute' }))).toEqual(refusal(['toolSelectors', 'autonomy']));
+    expect(await answer('PUT', 'admin/agents/helper/run-settings', { accountability: 'agent', expectedVersion: 1 })).toEqual(refusal(['accountability', 'serviceAccountActorId']));
+    expect((await call('PUT', 'admin/agents/helper/run-settings', { accountability: 'service-account', serviceAccountActorId: 'account-1', maxTokensPerRun: 500, expectedVersion: 1 })).status).toBe(200);
+
+    expect(await answer('PUT', 'admin/mcp-servers/crm/agents/helper')).toEqual(refusal(['mcpServerIds']));
+    expect((await call('DELETE', 'admin/mcp-servers/files/agents/helper')).status).toBe(200);
+    expect(await answer('POST', 'admin/mcp-servers/crm/connection/authorize', {})).toEqual(refusal(['mcpServer']));
+    expect(await answer('POST', 'admin/mcp-servers', {
+      id: 'more', displayName: 'More', url: 'https://more.example.com/mcp', authMode: 'none', headerName: null, requiredPolicy: null, isEnabled: true
+    })).toEqual(refusal(['mcpServer']));
+    expect(await answer('PUT', 'admin/mcp-servers/files/tools/read', { isEnabled: true, effect: 'read-only', descriptionOverride: null })).toEqual(refusal(['mcpTool']));
+    expect((await call('PUT', 'admin/mcp-servers/files/tools/read', { isEnabled: false, effect: 'read-only', descriptionOverride: null })).status).toBe(200);
+  });
+
+  it('checks an import as a whole: the preview names what each part changes and the import refuses it', async () => {
+    const backend = await configure();
+    backend.setMayChangeAgentRights(false);
+    const agentPackage = {
+      format: 'newheap.assistant.agent-package',
+      formatVersion: 1,
+      package: { id: 'helpers', version: 1 },
+      agents: [{
+        id: 'imported',
+        source: 'admin',
+        definition: { displayName: 'Imported', description: 'Helps.', instructions: 'Help.', toolSelectors: [], autonomy: 'explain' },
+        runSettings: { accountability: 'service-account' }
+      }]
+    };
+    const options = { serviceAccounts: { imported: 'account-1' } };
+
+    const preview = await call('POST', 'admin/agent-packages/preview', { package: agentPackage, options });
+    expect(preview.body.importable).toBeTrue();
+    const parts = preview.body.parts as { part: string; rightsChanges?: string[] }[];
+    expect(parts.find(part => part.part === 'agent')?.rightsChanges).toBeUndefined();
+    expect(parts.find(part => part.part === 'runSettings')?.rightsChanges).toEqual(['accountability', 'serviceAccountActorId']);
+
+    expect(await answer('POST', 'admin/agent-packages/import', { package: agentPackage, options }))
+      .toEqual(refusal(['parts.runSettings.accountability', 'parts.runSettings.serviceAccountActorId']));
+    backend.setMayChangeAgentRights(true);
+    expect((await call('POST', 'admin/agent-packages/import', { package: agentPackage, options })).status).toBe(200);
   });
 });
 

@@ -39,6 +39,7 @@ import {
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAccountLabelComponent, NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
+import { mayChangeAgentRights } from './agent-rights';
 import { agentDisplayName, policyKeys, readableId, skillDescriptionKeys, skillNameKeys, warningKeys } from './agent-texts';
 import { NhAssistantPackageLockComponent } from './agent-packages/nh-assistant-package-lock.component';
 import { isPackageLocked, packageLockOf } from './agent-packages/package-parts';
@@ -196,6 +197,8 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
   readonly loadFailed = signal(false);
   readonly busy = signal(false);
   readonly catalog = signal<RunCatalog | null>(null);
+  /** Whether the person may change an agent's rights, which the routes of its consultations are. */
+  readonly mayChangeRights = computed(() => mayChangeAgentRights(this.catalog()));
   readonly configuration = signal<AgentRunConfiguration | null>(null);
   readonly error = signal<NhAssistantError | null>(null);
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));

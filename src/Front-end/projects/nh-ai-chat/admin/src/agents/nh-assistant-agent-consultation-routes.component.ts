@@ -32,6 +32,7 @@ import {
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
+import { NhAssistantAgentRightsHintComponent } from './nh-assistant-agent-rights-hint.component';
 
 let nextId = 0;
 
@@ -63,12 +64,12 @@ interface RouteChange {
  * consultations of the agent at once, or on, or back to what the consultations allow, each with an
  * optional reason; a refusal, such as a route no consultation allows any more, shows with the routes.
  * `refresh` reads the routes again after the consultations changed; `changed` emits the agent's state
- * after a change.
+ * after a change. A person without the agent rights policy sees the routes but does not switch them.
  */
 @Component({
   selector: 'nh-assistant-agent-consultation-routes',
   standalone: true,
-  imports: [DatePipe, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantAccountNamesErrorComponent],
+  imports: [DatePipe, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantAccountNamesErrorComponent, NhAssistantAgentRightsHintComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-consultation-routes.component.html',
   styleUrls: ['../nh-assistant-admin-shared.scss', './run-config/run-config-forms.scss']
@@ -86,6 +87,8 @@ export class NhAssistantAgentConsultationRoutesComponent {
   readonly subjectTypes = input<readonly { id: string; name: string; pluralName?: string | null }[]>([]);
   /** Changes when the agent's consultations changed, so the routes they allow are read again. */
   readonly refresh = input(0);
+  /** Whether the person may change an agent's rights (`RunCatalog.mayChangeAgentRights`). */
+  readonly mayChangeRights = input(true);
   /** The agent's state after its routes changed. */
   readonly changed = output<AgentState>();
 
@@ -155,7 +158,7 @@ export class NhAssistantAgentConsultationRoutesComponent {
 
   /** Opens the reason form of a change of one route. A route no consultation allows cannot be switched on. */
   ask(route: AgentConsultationRouteState, action: AgentConsultationRouteSwitch): void {
-    if (this.busy() || (action === 'on' && !route.allowed)) {
+    if (this.busy() || !this.mayChangeRights() || (action === 'on' && !route.allowed)) {
       return;
     }
 
@@ -210,6 +213,15 @@ export class NhAssistantAgentConsultationRoutesComponent {
 
   value(event: Event): string {
     return (event.target as HTMLInputElement).value;
+  }
+
+  /** What a route's action describes itself with: why the route cannot be switched, or who can. */
+  actionDescribedBy(route: AgentConsultationRouteState): string | null {
+    const ids = [
+      route.allowed ? null : `${this.id}-${route.route}-not-allowed`,
+      this.mayChangeRights() ? null : `${this.id}-rights`
+    ].filter((id): id is string => id !== null);
+    return ids.length > 0 ? ids.join(' ') : null;
   }
 
   private show(state: AgentState): void {

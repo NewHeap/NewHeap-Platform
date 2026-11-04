@@ -15,6 +15,7 @@ import { NhAssistantMockAdminAgent, NhAssistantMockRemoteTool, NhAssistantMockSc
 import { NhAssistantMockAccounts } from './nh-assistant-mock-accounts';
 import { NhAssistantMockAdminAgents } from './nh-assistant-mock-admin-agents';
 import { NhAssistantMockAdminMcp } from './nh-assistant-mock-admin-mcp';
+import { NhAssistantMockAgentRights } from './nh-assistant-mock-agent-rights';
 import { mockCompositionActivity } from './nh-assistant-mock-compositions';
 import { mockProposalKinds } from './nh-assistant-mock-proposal-kinds';
 import { NhAssistantMockAlertKinds } from './nh-assistant-mock-alert-kinds';
@@ -72,6 +73,8 @@ export class NhAssistantMockAdmin {
   private readonly ruleScripts: NhAssistantMockRuleScripts;
   /** The application's text assets for instructions. */
   readonly instructionAssets: NhAssistantMockInstructionAssets;
+  /** Whether the caller may change an agent's rights (`UseAgentRightsPolicy`). */
+  readonly agentRights: NhAssistantMockAgentRights;
   private readonly contextVersions: (ApplicationContextVersion & { text: string })[] = [];
   private preferences: AssistantPreferences;
   private canAdminister: boolean;
@@ -82,6 +85,7 @@ export class NhAssistantMockAdmin {
     this.canAdminister = admin.canAdminister ?? true;
     this.agentWorkOn = scenario.agentWork ?? true;
     this.preferences = { ...defaultPreferences, ...scenario.preferences };
+    this.agentRights = new NhAssistantMockAgentRights(admin.runCatalog?.mayChangeAgentRights ?? true);
 
     this.contextVersions.push({ version: 1, hash: hashText(admin.context ?? ''), updatedAt: now(), updatedBy: null, text: admin.context ?? '' });
     this.instructionAssets = new NhAssistantMockInstructionAssets(admin.instructionAssets);
@@ -95,7 +99,9 @@ export class NhAssistantMockAdmin {
       dataConsultations: agentId => this.runConfiguration.consultationsInEffect(agentId),
       shadowVariantRefusal: input => this.handOffs.shadowVariantRefusal(input),
       instructionAssets: () => this.instructionAssets,
-      agentWork: () => this.agentWorkOn
+      agentWork: () => this.agentWorkOn,
+      rightsRefusal: changes => this.agentRights.refusal(changes),
+      lendsRights: agent => this.runConfiguration.lendsRights(agent)
     });
     this.accounts = new NhAssistantMockAccounts(admin);
     this.runConfiguration = new NhAssistantMockRunConfiguration(
@@ -112,7 +118,8 @@ export class NhAssistantMockAdmin {
       this.instructionAssets,
       // The kinds the application registers, as the alert kinds of the administration list them; a kind
       // an agent's model may raise has a template.
-      this.alertKinds.runCatalogKinds(new Set(Object.values(admin.alertModel ?? {}).flat().map(kind => kind.kindId))));
+      this.alertKinds.runCatalogKinds(new Set(Object.values(admin.alertModel ?? {}).flat().map(kind => kind.kindId))),
+      this.agentRights);
     this.handOffs = new NhAssistantMockHandOffs(admin, {
       find: agentId => this.agents.find(agentId),
       all: () => this.agents.all(),
@@ -123,18 +130,21 @@ export class NhAssistantMockAdmin {
       chatAgentIds: () => this.agents.offeredAgents().map(agent => agent.id),
       removeServer: serverId => this.agents.removeServer(serverId),
       setAssignment: (serverId, agentId, assign) => this.agents.setMcpAssignment(agentId, serverId, assign),
-      canAdminister: () => this.canAdminister
+      canAdminister: () => this.canAdminister,
+      rightsRefusal: changes => this.agentRights.refusal(changes)
     });
     this.withoutApproval = new NhAssistantMockWithoutApproval({
       find: agentId => this.agents.find(agentId),
-      tools: () => this.toolCatalog()
+      tools: () => this.toolCatalog(),
+      rightsRefusal: changes => this.agentRights.refusal(changes)
     }, now);
     this.alertModel = new NhAssistantMockAlertModel(admin.alertModel, { find: agentId => this.agents.find(agentId) }, now);
     this.ruleScripts = new NhAssistantMockRuleScripts(admin.ruleScripts, {
       find: agentId => this.agents.find(agentId),
       subjectTypes: () => scenario.subjectTypes ?? []
     }, now);
-    this.presetRunConfigurations(admin.agents ?? []);
+    // What the application already holds: the caller's rights only count for what the caller changes.
+    this.agentRights.withoutChecks(() => this.presetRunConfigurations(admin.agents ?? []));
   }
 
   get administers(): boolean {

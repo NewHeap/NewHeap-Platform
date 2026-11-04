@@ -23,6 +23,9 @@
       "edit": "Edit",
       "delete": "Delete",
       "confirm-delete": "Confirm delete",
+      "agent-rights": {
+        "hint": "Someone with permission to change agent rights can change what is disabled here."
+      },
       "enabled": "Enabled",
       "disabled": "Disabled",
       "enable": "Enable",
@@ -417,6 +420,7 @@
         "title": "MCP servers",
         "description": "Connect remote MCP servers. Their tools start disabled and are treated as changes that need approval until you mark them read-only.",
         "new": "New server",
+        "view": "View settings",
         "empty": "No MCP servers yet.",
         "test": "Test connection",
         "testing": "Testing the connection",
@@ -836,6 +840,7 @@
           "routes-required": "Choose at least one route, or let it only answer.",
           "tools-not-allowed": "A chosen tool is outside the agent's own tools. Clear it, or add the tool to the agent first.",
           "locked": "An agent package locks this field. Unlink the part first to change it.",
+          "rights-required": "Changing this takes permission to change agent rights.",
           "region-not-permitted": "This model profile may not run in the region the application works in, nor may its fallbacks. Choose a profile that permits the region."
         },
         "settings": {
@@ -2017,7 +2022,9 @@
           "agent-exists-in-code": "An agent in code has this id on this host; the package's agent cannot replace it.",
           "take-over": "Take over the existing agent",
           "take-over-hint": "The package replaces its configuration and links it.",
-          "refused-one": "The import refuses {{count}} part. Fix the package or the host, then check again."
+          "refused-one": "The import refuses {{count}} part. Fix the package or the host, then check again.",
+          "rights-changes": "Changes agent rights: {{fields}}.",
+          "rights-required": "This package changes agent rights in {{parts}}, so its import takes permission to change them. Someone with that permission can import it."
         },
         "fields": {
           "display-name": "Name",
@@ -2065,7 +2072,10 @@
           "sources": "Agents that may hand off",
           "notify-source": "Tells the source how it ended",
           "max-per-subject-per-day": "Hand-offs per source and object per day",
-          "value": "Value"
+          "value": "Value",
+          "service-account-actor-id": "Technical account",
+          "run-policy": "Who may run it",
+          "view-policy": "Who may see its results"
         },
         "reset-locked": "Package {{package}} locks fields of the definition. Unlink them first to reset the agent."
       },

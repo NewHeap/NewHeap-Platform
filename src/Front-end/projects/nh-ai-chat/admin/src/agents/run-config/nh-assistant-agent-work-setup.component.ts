@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, Signal, afterNextRender, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { Observable, concat, defer, of, tap } from 'rxjs';
 import {
@@ -10,6 +10,8 @@ import {
   ɵNhAssistantPickerComponent as NhAssistantPickerComponent,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
+import { agentRightsRunSettingsFields, mayChangeAgentRights } from '../agent-rights';
+import { NhAssistantAgentRightsHintComponent } from '../nh-assistant-agent-rights-hint.component';
 import { NhAssistantAccountPickerComponent } from './nh-assistant-account-picker.component';
 import { NhAssistantAlertKindsFieldComponent } from './nh-assistant-alert-kinds-field.component';
 import { RunConfigForm } from './run-config-form';
@@ -61,7 +63,8 @@ const stepOfField: Record<string, WorkSetupStep> = {
  * review. Saving adds the run settings, with the alert kinds, a skill and a trigger that starts it; the skill and the trigger start in shadow, where
  * nobody is notified and nothing executes, and can be put live at the end. A schedule of an agent
  * that works on the whole application may run for the whole application instead of a set of
- * subjects, once per division for an agent that works per division.
+ * subjects, once per division for an agent that works per division. A person without the agent rights policy
+ * sets up an agent that answers to itself, with the application's approval policy.
  */
 @Component({
   selector: 'nh-assistant-agent-work-setup',
@@ -72,13 +75,14 @@ const stepOfField: Record<string, WorkSetupStep> = {
     NhAssistantIconComponent,
     NhAssistantPickerComponent,
     NhAssistantAccountPickerComponent,
+    NhAssistantAgentRightsHintComponent,
     NhAssistantAlertKindsFieldComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-work-setup.component.html',
   styleUrls: ['../../nh-assistant-admin-shared.scss', './run-config-forms.scss']
 })
-export class NhAssistantAgentWorkSetupComponent extends RunConfigForm {
+export class NhAssistantAgentWorkSetupComponent extends RunConfigForm implements OnInit {
   private readonly admin = inject(NhAssistantAdminApiService);
 
   readonly agentId = input.required<string>();
@@ -108,6 +112,8 @@ export class NhAssistantAgentWorkSetupComponent extends RunConfigForm {
   readonly maxInstructions = runConfigLimits.instructions;
   readonly maxMessage = runConfigLimits.message;
   protected readonly fields = Object.keys(stepOfField);
+  protected override readonly rightsLocks: Signal<readonly string[]> = computed(() =>
+    mayChangeAgentRights(this.catalog()) ? [] : agentRightsRunSettingsFields);
 
   readonly step = signal<WorkSetupStep>('when');
   /** Saved parts, so a retry after a refusal does not add them again. */
@@ -178,6 +184,12 @@ export class NhAssistantAgentWorkSetupComponent extends RunConfigForm {
     const selectors = this.toolSelectors();
     untracked(() => this.tools.set([...selectors]));
   });
+
+  ngOnInit(): void {
+    if (this.rightsLocked('accountability')) {
+      this.accountability.set('agent');
+    }
+  }
 
   stepState(step: WorkSetupStep): 'current' | 'done' | 'next' {
     const index = steps.indexOf(step);

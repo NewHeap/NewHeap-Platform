@@ -170,6 +170,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.FourEyesRequired,
             NhAssistantErrorCodes.FileForbidden,
             NhAssistantErrorCodes.ServiceAccountNotPermitted,
+            NhAssistantErrorCodes.AgentRightsForbidden,
             NhAssistantAdminErrorCodes.Forbidden,
             NhAssistantAdminErrorCodes.McpCredentialMismatch,
             NhAssistantAdminErrorCodes.McpInitiatorOnly);

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, Signal, computed, inject, input, output, signal } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import {
   AgentAccountability,
@@ -16,6 +16,8 @@ import {
   ɵNhAssistantPickerOption as NhAssistantPickerOption,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
+import { agentRightsConsultationFields, mayChangeAgentRights } from '../agent-rights';
+import { NhAssistantAgentRightsHintComponent } from '../nh-assistant-agent-rights-hint.component';
 import { policyKeys } from '../agent-texts';
 import {
   ConsultationLimit,
@@ -78,7 +80,8 @@ interface RouteChoice {
  * its answers. Routes and options the ceiling or the agent rule out are shown disabled with the
  * reason, and a saved tool the agent no longer has can only be cleared. A consultation is in effect
  * once saved, unless it starts off: by the administrator's choice, or for every new one when the ceiling
- * says so; it is then offered once it is switched on in the list.
+ * says so; it is then offered once it is switched on in the list. A person without the agent rights policy
+ * sees who may ask, what it may do, who decides and whether MCP clients reach it, but changes the rest.
  */
 @Component({
   selector: 'nh-assistant-consultation-form',
@@ -88,6 +91,7 @@ interface RouteChoice {
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
     NhAssistantPickerComponent,
+    NhAssistantAgentRightsHintComponent,
     NhAssistantPackageLockComponent,
     NhAssistantPackageLockedMarkComponent
   ],
@@ -131,6 +135,8 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
     'toolSelectors', 'limits', 'maxToolCalls', 'timeoutSeconds', 'maxAnswerChars', 'maxHistoryMessages', 'allowRequests', 'exposeToMcp',
     'dataClassification', 'reason'
   ];
+  protected override readonly rightsLocks: Signal<readonly string[]> = computed(() =>
+    mayChangeAgentRights(this.catalog()) ? [] : agentRightsConsultationFields);
 
   readonly subjectType = signal('');
   readonly description = signal('');

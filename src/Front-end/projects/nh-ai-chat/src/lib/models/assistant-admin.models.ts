@@ -1620,6 +1620,13 @@ export interface RunCatalog {
    * settings of an agent created here may list (FB93); missing on older servers.
    */
   alertKinds?: RunAlertKind[];
+  /**
+   * Whether this person may change an agent's rights (`UseAgentRightsPolicy`): whose rights it uses, who
+   * reaches it, who decides its proposals and what runs without approval. Such a change by a person who may
+   * not fails with `assistant-agent-rights-forbidden` and the field error `rights-required` per change. A
+   * server without the field means yes.
+   */
+  mayChangeAgentRights?: boolean;
 }
 
 /**

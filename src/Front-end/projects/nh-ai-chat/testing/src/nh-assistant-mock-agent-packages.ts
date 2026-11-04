@@ -24,6 +24,13 @@ import {
 } from '@newheap/platform-ai-chat';
 import { NhAssistantMockAgentPackage } from './nh-assistant-mock.models';
 import { NhAssistantMockResult, mockDashCase, mockFailure as failure, mockMaxStateReason as maxReason, mockSnapshot } from './nh-assistant-mock-admin-shared';
+import {
+  NhAssistantMockAgentRights,
+  mockConsultationRights,
+  mockDefinitionRights,
+  mockRunSettingsRights,
+  mockSkillRights
+} from './nh-assistant-mock-agent-rights';
 
 /** What the agent packages read and change of the rest of the mock. */
 export interface NhAssistantMockPackageContext {
@@ -32,6 +39,8 @@ export interface NhAssistantMockPackageContext {
    * the import's own path through the save validators.
    */
   call(method: string, path: string, body?: unknown): NhAssistantMockResult;
+  /** Whether the caller may change an agent's rights: an import asks once, for what its whole plan changes. */
+  agentRights(): NhAssistantMockAgentRights;
   /** The definition in code of an agent in code, for its overlay; `null` for an agent created here. */
   codeDefinition(agentId: string): AdminAgentInput | null;
   /** A copy of every store of the administration; the returned function puts it back. */
@@ -198,7 +207,9 @@ export class NhAssistantMockAgentPackages {
    */
   importPresets(presets: readonly NhAssistantMockAgentPackage[]): void {
     for (const preset of presets) {
-      const result = this.importPackage({ package: preset.package, options: { serviceAccounts: preset.serviceAccounts ?? null } }, true);
+      // The host imported it before: nobody's rights count here.
+      const result = this.context.agentRights().withoutChecks(() =>
+        this.importPackage({ package: preset.package, options: { serviceAccounts: preset.serviceAccounts ?? null } }, true));
       if (result.status !== 200) {
         throw new Error(`The mock refused the scenario's agent package '${preset.package?.package?.id}': ${JSON.stringify(result.body ?? null)}.`);
       }
@@ -777,7 +788,8 @@ export class NhAssistantMockAgentPackages {
     // The check tries every part on a copy of the host, in live mode, and puts the host back.
     const restoreHost = this.context.snapshot();
     const restoreOwn = this.snapshot();
-    const planned = this.apply(agentPackage, options, 'live', null);
+    const rights = this.context.agentRights();
+    const planned = rights.withoutChecks(() => this.apply(agentPackage, options, 'live', null));
     restoreHost();
     restoreOwn();
 
@@ -794,10 +806,14 @@ export class NhAssistantMockAgentPackages {
     if (!preview.importable) {
       return failure('assistant-package-refused', refusedErrors);
     }
+    const rightsRefused = rights.refusal(planned.flatMap(part => (part.rightsChanges ?? []).map(field => `parts.${part.part}.${field}`)));
+    if (rightsRefused) {
+      return rightsRefused;
+    }
 
     // The import applies the package for real, with the chosen mode, and links its parts.
     const restoreAll = [this.context.snapshot(), this.snapshot()];
-    const applied = this.apply(agentPackage, options, apply, planned);
+    const applied = rights.withoutChecks(() => this.apply(agentPackage, options, apply, planned));
     if (applied.some(part => part.outcome === 'refused')) {
       for (const restore of restoreAll) {
         restore();
@@ -941,11 +957,13 @@ export class NhAssistantMockAgentPackages {
     } else if (candidateVersion === null && before === hashAfter) {
       outcome = 'unchanged';
     }
+    const rightsChanges = outcome === 'unchanged' ? [] : rightsChangesOf(agent, part, host, after);
     return {
       ...base(agent.id, part, lockedFields),
       outcome,
       changedLocally: !!partLink && before !== partLink.hash,
       candidateVersion,
+      ...(rightsChanges.length > 0 ? { rightsChanges } : {}),
       hashAfter,
       viewAfter: this.lockView(agent.id, part)
     };
@@ -1680,6 +1698,32 @@ function base(agentId: string, part: string, lockedFields: readonly string[]): P
     hashAfter: null,
     viewAfter: null
   };
+}
+
+/** What writing a part changed of the agent's rights, as saving it would; an import keeps its MCP assignments. */
+function rightsChangesOf(agent: PackageAgent, part: string, before: HostRead | null, after: HostRead | null): string[] {
+  const configuration = after?.configuration;
+  const key = keyOf(part);
+  switch (kindOf(part)) {
+    case 'agent': {
+      const accountability = agent.runSettings?.accountability ?? configuration?.runSettings?.accountability ?? configuration?.codeRunSettings?.accountability;
+      return after ? mockDefinitionRights(before?.agent ?? null, after.agent, null, (accountability ?? 'agent') !== 'agent') : [];
+    }
+    case 'runSettings':
+      return configuration?.runSettings ? mockRunSettingsRights(before?.configuration?.runSettings ?? null, configuration.runSettings) : [];
+    case 'skill': {
+      const skill = configuration?.dataSkills.find(item => item.skillId === key);
+      return skill ? mockSkillRights(before?.configuration?.dataSkills.find(item => item.skillId === key) ?? null, skill) : [];
+    }
+    case 'consultation': {
+      const consultation = configuration?.dataConsultations?.find(item => item.subjectType === key);
+      return consultation
+        ? mockConsultationRights(before?.configuration?.dataConsultations?.find(item => item.subjectType === key) ?? null, consultation)
+        : [];
+    }
+    default:
+      return [];
+  }
 }
 
 function leftBehind(agentId: string, part: string): PlannedPart {

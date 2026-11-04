@@ -707,6 +707,12 @@ internal sealed class NhAssistantAgentControl(
 
         if (agent.ConsultationRoutes != routes)
         {
+            if (await services.GetRequiredService<INhAssistantAgentRightsGate>()
+                    .CheckAsync(agentId, [NhAssistantAgentRights.ConsultationRoutes], actorId, cancellationToken) is { } rightsRefused)
+            {
+                return TaskResult<NhAssistantAgentState>.Failed(rightsRefused);
+            }
+
             await store.SetAgentConsultationRoutesAsync(agentId, routes, actorId, reason, cancellationToken);
             await events.AgentConsultationRoutesChangedAsync(agentId, actorId, routes, cancellationToken);
             agent = await agents.FindAsync(agentId, includeDisabled: true, cancellationToken) ?? agent;
@@ -802,6 +808,13 @@ internal sealed class NhAssistantAgentControl(
                 NhAssistantErrorCodes.ServiceAccountNotUsed,
                 "The agent does not answer to a technical account.");
         }
+        if (!string.Equals(agent.ServiceAccountOverride, serviceAccountActorId, StringComparison.Ordinal)
+            && await services.GetRequiredService<INhAssistantAgentRightsGate>()
+                .CheckAsync(agentId, [NhAssistantAgentRights.ServiceAccount], actorId, cancellationToken) is { } rightsRefused)
+        {
+            return TaskResult<NhAssistantAgentState>.Failed(rightsRefused);
+        }
+
         // Binding an account lends its rights to the agent's runs: only a person who may act for it
         // binds it, and the account in code needs no further check.
         if (serviceAccountActorId is not null

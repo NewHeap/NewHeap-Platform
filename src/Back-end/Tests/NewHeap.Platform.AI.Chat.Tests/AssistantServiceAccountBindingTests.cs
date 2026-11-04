@@ -18,8 +18,9 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// only when they may act for it: the person themself, the agent's account in code, or an account
 /// whose rights to the agent's tools the person holds as well; a person who may act as any user binds
 /// any. Application code that binds with a
-/// technical actor id, which the platform knows as no person, decides on its own. Both relational
-/// providers.
+/// technical actor id, which the platform knows as no person, decides on its own. More tools on an agent that
+/// answers to an account lend its rights too, so they are held to the same rule for the tools they add, in the
+/// administration, on a reset and through an agent package. Both relational providers.
 /// </summary>
 public sealed class AssistantServiceAccountBindingTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
@@ -92,7 +93,126 @@ public sealed class AssistantServiceAccountBindingTests(AssistantDatabaseFixture
         Assert.True(again.Success);
     }
 
-    private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider)
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task More_tools_on_an_agent_that_answers_to_an_account_are_held_to_the_rights_of_who_adds_them(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider);
+        await CreateFollowerAsync(host, ["projects.search"]);
+        Assert.True((await SaveSettingsAsync(host, FullAdmin, null)).Success);
+        var version = 1;
+
+        // The privileged account may change a project's status and the limited administrator may not: the tool would
+        // let the agent's runs do through the account what that administrator cannot do. Nothing changes.
+        var refused = await UpdateFollowerAsync(host, LimitedAdmin, ["projects.search", "projects.change-status"], version);
+        Assert.Equal(NhAssistantErrorCodes.ServiceAccountNotPermitted, Code(refused));
+        Assert.Equal(version, (await FollowerAsync(host)).Definition.Version);
+        // So does a selector that takes the tool along.
+        Assert.Equal(NhAssistantErrorCodes.ServiceAccountNotPermitted, Code(await UpdateFollowerAsync(host, LimitedAdmin, ["projects.*"], version)));
+
+        // Someone who holds it adds it, a person who may act as any user does, and so does application code.
+        Assert.True((await UpdateFollowerAsync(host, FullAdmin, ["projects.search", "projects.change-status"], version++)).Success);
+        Assert.True((await UpdateFollowerAsync(host, FullAdmin, ["projects.search"], version++)).Success);
+        Assert.True((await UpdateFollowerAsync(host, Impersonator, ["projects.search", "projects.change-status"], version++)).Success);
+        Assert.True((await UpdateFollowerAsync(host, FullAdmin, ["projects.search"], version++)).Success);
+        Assert.True((await UpdateFollowerAsync(host, DeployJob, ["projects.search", "projects.change-status"], version++)).Success);
+
+        // Tools the agent already has are not compared: the limited administrator keeps them, removes one, and adds
+        // what they hold to an agent that someone with more rights set up.
+        Assert.True((await UpdateFollowerAsync(host, LimitedAdmin, ["projects.search", "projects.change-status"], version++)).Success);
+        Assert.True((await UpdateFollowerAsync(host, LimitedAdmin, ["projects.change-status"], version++)).Success);
+        Assert.True((await UpdateFollowerAsync(host, LimitedAdmin, ["projects.change-status", "projects.search"], version++)).Success);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_account_in_code_gets_no_exception_for_tools_an_administrator_adds_and_a_reset_keeps_to_the_code(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider, accountInCode: PrivilegedAccount);
+        await using var scope = host.Services.CreateAsyncScope();
+        var administration = scope.ServiceProvider.GetRequiredService<NhAssistantAgentAdministration>();
+        var agent = (await scope.ServiceProvider.GetRequiredService<NhAssistantAgentCatalog>().FindAsync(AgentId, includeDisabled: true, CancellationToken.None))!;
+        NhAssistantAgentInput Input(params string[] selectors)
+        {
+            return new NhAssistantAgentInput(AgentId, agent.Definition.DisplayNameKey, agent.Definition.DescriptionKey, "Follow up.", selectors, [], null, NhAiAutonomyLevel.Execute) { KeepMcpServers = true };
+        }
+
+        // Narrowing is open, widening again is not, though the account is the one in code.
+        Assert.True((await administration.UpdateAsync(Input("projects.search"), agent.Definition.Version, FullAdmin, CancellationToken.None)).Success);
+        var version = agent.Definition.Version + 1;
+        var widened = await administration.UpdateAsync(Input("projects.search", "projects.change-status"), version, LimitedAdmin, CancellationToken.None);
+        Assert.Equal(NhAssistantErrorCodes.ServiceAccountNotPermitted, Code(widened));
+
+        // Back to the code's tools with the code's account is what its developers chose, for anyone.
+        Assert.True((await administration.ResetAsync(AgentId, LimitedAdmin, CancellationToken.None)).Success);
+
+        // An account an administrator bound does not take the code's tools from someone who lacks their rights.
+        var narrowedAgain = await administration.UpdateAsync(Input("projects.search"), (await scope.ServiceProvider.GetRequiredService<NhAssistantAgentCatalog>().FindAsync(AgentId, includeDisabled: true, CancellationToken.None))!.Definition.Version, FullAdmin, CancellationToken.None);
+        Assert.True(narrowedAgain.Success);
+        var control = scope.ServiceProvider.GetRequiredService<INhAssistantAgentControl>();
+        Assert.True((await control.SetServiceAccountAsync(AgentId, AccountInCode, FullAdmin)).Success);
+        Assert.True((await control.SetServiceAccountAsync(AgentId, FullAdmin, FullAdmin)).Success);
+        Assert.Equal(NhAssistantErrorCodes.ServiceAccountNotPermitted, Code(await administration.ResetAsync(AgentId, LimitedAdmin, CancellationToken.None)));
+        Assert.True((await administration.ResetAsync(AgentId, FullAdmin, CancellationToken.None)).Success);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_agent_package_that_adds_tools_to_an_agent_with_an_account_is_held_to_the_same_rule(AssistantTestProvider provider)
+    {
+        await using var host = await CreateHostAsync(provider);
+        await CreateFollowerAsync(host, ["projects.search"]);
+        Assert.True((await SaveSettingsAsync(host, FullAdmin, null)).Success);
+        await using var scope = host.Services.CreateAsyncScope();
+        var packages = scope.ServiceProvider.GetRequiredService<INhAssistantAgentPackages>();
+        var narrow = await packages.ExportAsync([Follower], new NhAssistantAgentPackageExportOptions(Version: 1), DeployJob);
+        Assert.True(narrow.Success, string.Join(", ", narrow.AllErrorMessages));
+        Assert.True((await UpdateFollowerAsync(host, FullAdmin, ["projects.search", "projects.change-status"], 1)).Success);
+        var wide = await packages.ExportAsync([Follower], new NhAssistantAgentPackageExportOptions(Version: 2), DeployJob);
+        Assert.True(wide.Success, string.Join(", ", wide.AllErrorMessages));
+        var source = narrow.Data!.Package;
+        var widened = wide.Data!.Package;
+        var options = new NhAssistantAgentPackageImportOptions();
+
+        // A deploy installs the package with the account, which never travels in it; the rest is its upgrade.
+        Assert.True((await scope.ServiceProvider.GetRequiredService<NhAssistantAgentAdministration>().DeleteAsync(Follower, DeployJob, CancellationToken.None)).Success);
+        var installed = await packages.ImportAsync(
+            source,
+            new NhAssistantAgentPackageImportOptions(new Dictionary<string, string> { [Follower] = PrivilegedAccount }),
+            DeployJob);
+        Assert.True(installed.Success, string.Join(", ", installed.AllErrorMessages));
+
+        // The account stays what it was, so only the tools can lend more; nothing is imported.
+        Assert.Equal(NhAssistantErrorCodes.ServiceAccountNotPermitted, Code(await packages.ImportAsync(widened, options, LimitedAdmin)));
+        Assert.Equal(["projects.search"], (await FollowerAsync(host)).Definition.ToolSelectors);
+
+        Assert.True((await packages.ImportAsync(widened, options, FullAdmin)).Success);
+        Assert.Equal(["projects.search", "projects.change-status"], (await FollowerAsync(host)).Definition.ToolSelectors);
+    }
+
+    private static async Task<TaskResult<NhAssistantAgent>> UpdateFollowerAsync(AssistantTestHost host, string actorId, string[] selectors, int expectedVersion)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<NhAssistantAgentAdministration>().UpdateAsync(
+            new NhAssistantAgentInput(Follower, "Project follower", "Follows up changed projects.", "Follow up the project.", selectors, [], null, NhAiAutonomyLevel.Execute)
+            {
+                KeepMcpServers = true
+            },
+            expectedVersion,
+            actorId,
+            CancellationToken.None);
+    }
+
+    private static async Task<NhAssistantAgent> FollowerAsync(AssistantTestHost host)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return (await scope.ServiceProvider.GetRequiredService<NhAssistantAgentCatalog>().FindAsync(Follower, includeDisabled: true, CancellationToken.None))!;
+    }
+
+    private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, string accountInCode = AccountInCode)
     {
         return await AssistantTestHost.CreateAsync(
             database,
@@ -118,12 +238,12 @@ public sealed class AssistantServiceAccountBindingTests(AssistantDatabaseFixture
                     .Approvers(NhAiApprovers.SubjectRole(NhAiSubjectRole.Approver)))
                 .AddRuleHandler<TestSkillRules>("project-follow-up", "Follows up a project by rule.")
                 .ConfigureAgent(AgentId, agent => agent
-                    .ServiceAccount(AccountInCode)
+                    .ServiceAccount(accountInCode)
                     .ActWithAccountableRights()
                     .UseApprovalPolicy("project-review")));
     }
 
-    private static async Task CreateFollowerAsync(AssistantTestHost host)
+    private static async Task CreateFollowerAsync(AssistantTestHost host, string[]? selectors = null)
     {
         await using var scope = host.Services.CreateAsyncScope();
         var created = await scope.ServiceProvider.GetRequiredService<NhAssistantAgentAdministration>().CreateAsync(
@@ -132,7 +252,7 @@ public sealed class AssistantServiceAccountBindingTests(AssistantDatabaseFixture
                 "Project follower",
                 "Follows up changed projects.",
                 "Follow up the project.",
-                ["projects.*"],
+                selectors ?? ["projects.*"],
                 [],
                 null,
                 NhAiAutonomyLevel.Execute),
