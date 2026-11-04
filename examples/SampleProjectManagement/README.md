@@ -52,7 +52,7 @@ The PostgreSQL container deliberately has no data volume. The API uses
 `MigrateAsync` to create the database and apply migrations. Only in Development
 may `Database:ResetOnStartup` remove the temporary database.
 
-The Development API creates five local accounts. They all use the password
+The Development API creates these local accounts. They all use the password
 `Sample123!`:
 
 | Account | Scope |
@@ -62,6 +62,7 @@ The Development API creates five local accounts. They all use the password
 | `division-editor@example.test` | project rights within the active division |
 | `project-editor@example.test` | confidential access to Authorization Alpha only |
 | `project-lead@example.test` | application-wide and Sample North project rights plus the assistant; approver of Authorization Alpha |
+| `administrator@example.test` | application-wide and Sample North project rights plus the assistant and the role `administrator`: it changes an agent's rights, where the manager finds those settings disabled |
 
 ## Secrets
 

@@ -4354,6 +4354,8 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentBuilderSamplesTests.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/SwitchableChatClientTests.cs",
       "src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleDevelopmentIdentitySeeder.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentBuilderIds.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilder.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderTools.cs",

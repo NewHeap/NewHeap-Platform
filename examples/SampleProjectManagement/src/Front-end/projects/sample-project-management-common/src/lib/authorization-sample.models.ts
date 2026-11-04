@@ -59,6 +59,14 @@ export const PROJECT_LEAD_DEMO_ACCOUNT = {
   email: 'project-lead@example.test'
 } as const;
 
+/**
+ * Development account in the administrator role, which the sample's agent-rights policy asks for: it
+ * changes an agent's rights, where the manager finds those settings disabled.
+ */
+export const ADMINISTRATOR_DEMO_ACCOUNT = {
+  email: 'administrator@example.test'
+} as const;
+
 export interface LoginDemoAccount {
   labelKey: string;
   email: string;
@@ -66,11 +74,12 @@ export interface LoginDemoAccount {
 
 /**
  * Accounts offered on the login page: the authorization roles, the project lead for the
- * assistant and the two-factor accounts.
+ * assistant, the administrator for the rights of agents and the two-factor accounts.
  */
 export const LOGIN_DEMO_ACCOUNTS: readonly LoginDemoAccount[] = [
   ...AUTHORIZATION_DEMO_ACCOUNTS,
   { labelKey: 'project.login-project-lead-account', email: PROJECT_LEAD_DEMO_ACCOUNT.email },
+  { labelKey: 'project.login-administrator-account', email: ADMINISTRATOR_DEMO_ACCOUNT.email },
   { labelKey: 'project.login-two-factor-account', email: TWO_FACTOR_DEMO_ACCOUNT.email },
   { labelKey: 'project.login-security-officer-account', email: SECURITY_OFFICER_DEMO_ACCOUNT.email }
 ];

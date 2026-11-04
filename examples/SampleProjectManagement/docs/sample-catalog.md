@@ -106,7 +106,7 @@ project with, so an equal id in another scope keeps its own (SPM-276).
 `AssistantAgentRunSamplesTests` runs every flow on PostgreSQL with Hangfire in
 memory. The intake reviews page in the management portal (SPM-277) shows the same
 work with the components of `@newheap/platform-ai-chat/agent-runs`; sign in as
-`project-lead@example.test`, the only Development account with both the
+`project-lead@example.test`, a Development account with both the
 application-wide and the Sample North project permissions that the assistant's
 access policy and the agent's tools require. Opened in the assistant panel, a project's
 thread offers each proposal to the approvers the server names: the lead, added as
@@ -1693,7 +1693,8 @@ authenticator, e-mail codes, passkeys, recovery codes and remembered devices and
 asks for the password or a code before sensitive changes.
 
 The Development seeder also adds `project-lead@example.test` for the assistant and
-the agent-run pages (see above), and two accounts for two-step verification, all
+the agent-run pages (see above), `administrator@example.test` for the rights of
+agents (SPM-394), and two accounts for two-step verification, all
 with the password `Sample123!`:
 
 - `two-factor@example.test` is enrolled with the fixed key
