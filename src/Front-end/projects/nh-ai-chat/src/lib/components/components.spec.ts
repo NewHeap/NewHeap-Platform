@@ -649,6 +649,21 @@ describe('NhAssistantToolCallCardComponent', () => {
     expect(element.querySelector('.spinning')).toBeNull();
   });
 
+  it('says why a gateway read of a headless run failed and what to fix', () => {
+    const fixture = TestBed.createComponent(NhAssistantToolCallCardComponent);
+    fixture.componentRef.setInput('part', {
+      ...part,
+      toolId: 'sample-api-gateway.query',
+      displayName: 'Query',
+      grantSource: 'delegated-read',
+      resultCode: 'ai-delegated-read-target-unknown'
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.result-code').textContent.trim())
+      .toBe("The agent could not read: the application checks its read credential before it knows what is read. The application's developers set up routing before authentication.");
+  });
+
   it('falls back to the raw code for an unknown result code', () => {
     const fixture = TestBed.createComponent(NhAssistantToolCallCardComponent);
     fixture.componentRef.setInput('part', { ...part, resultCode: 'custom-failure' });

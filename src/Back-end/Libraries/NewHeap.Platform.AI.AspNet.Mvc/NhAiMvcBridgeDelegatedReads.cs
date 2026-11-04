@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.DependencyInjection;
+using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AI.AspNet.Mvc;
 
@@ -125,20 +126,84 @@ internal static class NhAiMvcBridgeUsers
     {
         if (NhAiAgentInvocationScopes.Current is { AllowGatewayReads: true } scope)
         {
-            var reads = services.GetService<NhAiDelegatedReadService>();
-            return reads is null ? null : await reads.AuthenticateAsync(scope, cancellationToken);
+            return (await AuthenticateAsync(services, scope, cancellationToken)).Principal;
         }
         return services.GetRequiredService<IHttpContextAccessor>().HttpContext?.User;
     }
 
     /// <summary>
-    /// Whether a headless run that allows gateway reads got no principal for its accountable person.
+    /// The failure code of a headless run that allows gateway reads but got no principal for the
+    /// person it reads for: the cause of <see cref="NhAiDelegatedReadFailureCodes"/>, or
+    /// <see cref="NhAiBridgeFailureCodes.Unauthenticated"/> when the person may not lend rights now.
+    /// <see langword="null"/> when the read may go ahead.
     /// </summary>
-    public static async ValueTask<bool> IsUnauthenticatedAsync(
+    public static async ValueTask<string?> RefusalAsync(
         IServiceProvider services,
         CancellationToken cancellationToken)
     {
-        return NhAiAgentInvocationScopes.Current is { AllowGatewayReads: true }
-            && await CurrentAsync(services, cancellationToken) is null;
+        if (NhAiAgentInvocationScopes.Current is not { AllowGatewayReads: true } scope)
+        {
+            return null;
+        }
+
+        var authenticated = await AuthenticateAsync(services, scope, cancellationToken);
+        return authenticated.Principal is null
+            ? NhAiMvcBridgeDelegatedReadFailures.CodeOf(authenticated.FailureCode)
+            : null;
+    }
+
+    private static async ValueTask<NhAiDelegatedReadAuthentication> AuthenticateAsync(
+        IServiceProvider services,
+        NhAiAgentInvocationScope scope,
+        CancellationToken cancellationToken)
+    {
+        var reads = services.GetService<NhAiDelegatedReadService>();
+        if (reads is null)
+        {
+            // AddNewHeapPlatformAIDelegatedReads is missing, so nobody issues credentials.
+            services.GetService<NhAiDelegatedReadDiagnostics>()?.Report(NhAiDelegatedReadFailureCodes.NoIssuer, scope.AgentId);
+            return new NhAiDelegatedReadAuthentication(null, NhAiDelegatedReadFailureCodes.NoIssuer);
+        }
+        return await reads.AuthenticateAsync(scope, cancellationToken);
+    }
+}
+
+/// <summary>
+/// The failures of a gateway read in a headless run that got no usable delegated read credential:
+/// its cause as the code (<see cref="NhAiDelegatedReadFailureCodes"/>), with a message that is safe
+/// for the model and says what to fix in a few words.
+/// </summary>
+internal static class NhAiMvcBridgeDelegatedReadFailures
+{
+    /// <summary>
+    /// The bridge failure code of a delegated read refusal: its cause, or
+    /// <see cref="NhAiBridgeFailureCodes.Unauthenticated"/> when it names none.
+    /// </summary>
+    public static string CodeOf(string? refusal)
+    {
+        return refusal is not null && NhAiDelegatedReadFailureCodes.All.Contains(refusal, StringComparer.Ordinal)
+            ? refusal
+            : NhAiBridgeFailureCodes.Unauthenticated;
+    }
+
+    public static TaskResult<T> Failed<T>(string code)
+    {
+        return TaskResult<T>.Failed(code, Message(code));
+    }
+
+    public static string Message(string code)
+    {
+        return code switch
+        {
+            NhAiDelegatedReadFailureCodes.TargetUnknown =>
+                "The API checked the delegated read credential before it knew the action it was for, so it refused it. The application routes before it authenticates.",
+            NhAiDelegatedReadFailureCodes.NoIssuer =>
+                "The application issues no delegated read credentials, so the agent cannot read through the gateway. The application registers an issuer.",
+            NhAiDelegatedReadFailureCodes.IssuerRefused =>
+                "No delegated read credential was issued for the person the agent reads for, for example because they may no longer sign in.",
+            NhAiDelegatedReadFailureCodes.Rejected =>
+                "The API did not accept the delegated read credential. The application's bearer scheme must validate it.",
+            _ => "No read credential could be issued for the person the agent works for."
+        };
     }
 }

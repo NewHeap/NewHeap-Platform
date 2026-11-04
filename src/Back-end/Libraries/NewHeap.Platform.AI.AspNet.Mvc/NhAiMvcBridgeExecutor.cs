@@ -149,6 +149,12 @@ internal sealed partial class NhAiMvcBridgeExecutor(
             var status = (int)response.StatusCode;
             LogResponse(logger, descriptor.Id, context.InvocationId, status);
             var failureCode = MapFailure(response.StatusCode);
+            if (failureCode == NhAiBridgeFailureCodes.Unauthenticated && context.GrantSource == NhAiGrantSource.DelegatedRead)
+            {
+                // The API refused the delegated read credential; the host recorded why when it answered
+                // this call itself, and otherwise the cause stays the host's.
+                return RefusedDelegatedRead(context.InvocationId);
+            }
             if (failureCode is null && shaper is not null)
             {
                 var (contentType, kept, total) = await ReadBodyAsync(response, shaper.MaxResponseBytes, cancellationToken);
@@ -312,12 +318,29 @@ internal sealed partial class NhAiMvcBridgeExecutor(
         var reads = requestServices.GetService<NhAiDelegatedReadService>();
         if (reads is null)
         {
-            return (null, NhAiBridgeFailureCodes.Unauthenticated);
+            requestServices.GetService<NhAiDelegatedReadDiagnostics>()?.Report(NhAiDelegatedReadFailureCodes.NoIssuer, scope.AgentId);
+            return (null, NhAiDelegatedReadFailureCodes.NoIssuer);
         }
         var issued = await reads.IssueAsync(scope, context.InvocationId, descriptor.Id, cancellationToken);
         return issued.Success
             ? (issued.Data!.BearerToken, null)
-            : (null, NhAiBridgeFailureCodes.Unauthenticated);
+            : (null, NhAiMvcBridgeDelegatedReadFailures.CodeOf(NhAiDelegatedReadService.FailureCodeOf(issued)));
+    }
+
+    /// <summary>
+    /// The failure of a delegated read that the API answered with <c>401</c>: the cause this host
+    /// recorded when it refused the call's credential, otherwise <see cref="NhAiDelegatedReadFailureCodes.Rejected"/>.
+    /// </summary>
+    private TaskResult<NhAiBridgeResponse> RefusedDelegatedRead(Guid invocationId)
+    {
+        var diagnostics = requestServices.GetService<NhAiDelegatedReadDiagnostics>();
+        var cause = diagnostics?.TakeRefusal(invocationId);
+        if (cause is null)
+        {
+            cause = NhAiDelegatedReadFailureCodes.Rejected;
+            diagnostics?.Report(cause, NhAiAgentInvocationScopes.Current?.AgentId);
+        }
+        return NhAiMvcBridgeDelegatedReadFailures.Failed<NhAiBridgeResponse>(cause);
     }
 
     /// <summary>
@@ -562,6 +585,11 @@ internal sealed partial class NhAiMvcBridgeExecutor(
 
     private static string FailureMessage(string code)
     {
+        if (NhAiDelegatedReadFailureCodes.All.Contains(code, StringComparer.Ordinal))
+        {
+            return NhAiMvcBridgeDelegatedReadFailures.Message(code);
+        }
+
         return code switch
         {
             NhAiBridgeFailureCodes.Unauthenticated => "The API did not accept the caller's credentials.",

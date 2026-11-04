@@ -1,8 +1,10 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
@@ -14,6 +16,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.AspNet.Mvc.Tests.TestApi;
 using NewHeap.Platform.AI.Test;
 using NewHeap.Platform.AspNet.Common;
@@ -103,6 +106,34 @@ public sealed class NhAiMvcBridgePlatformPipelineTests
         Assert.IsType<UnauthorizedResult>(await AuthorizeAsync("Get", [typeof(int)]));
     }
 
+    [Fact]
+    public async Task A_host_that_authenticates_the_bearer_scheme_before_MVC_names_the_unknown_target_once()
+    {
+        // The bearer scheme is the default authentication scheme under UseMvc: the authentication
+        // middleware validates the credential before MVC selected the action, so the restriction knows
+        // no target and refuses it.
+        var logs = new CapturedLogs();
+        await using var app = await StartAsync(ControllerRouting.UseMvc, bearerIsDefault: true, logs);
+        using var client = app.GetTestClient();
+        var invocation = Guid.NewGuid();
+
+        Assert.Equal(HttpStatusCode.Unauthorized, await SendAsync(client, HttpMethod.Get, "/orders", CreateToken(invocation, ListAction), invocation));
+
+        // A headless run's gateway read through the same pipeline fails with that cause.
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            using (NhAiAgentInvocationScopes.Begin(NhAiMvcBridgeDelegatedReadTests.AgentScope("reader")))
+            {
+                var query = await NhAiMvcBridgeDelegatedReadTests.InvokeAsync(scope.ServiceProvider, "test-gateway_query_v1", new { resource = "order" });
+                Assert.Equal(NhAiDelegatedReadFailureCodes.TargetUnknown, query.Property("code").GetString());
+            }
+        }
+
+        var warning = Assert.Single(logs.Records, record => record.Category == "NewHeap.Platform.AI.AspNet.NhAiDelegatedReadService" && record.EventId == 6);
+        Assert.Contains("UseEndpointRoutingOnly()", warning.Message);
+        Assert.DoesNotContain(logs.Records, record => record.Message.Contains("eyJ", StringComparison.Ordinal));
+    }
+
     private static string CreateToken(Guid? invocation, string? action)
     {
         return TestReadTokens.Create("reader", [TestPolicies.OrderView], invocation, TimeSpan.FromMinutes(1), action, audience: Audience);
@@ -125,12 +156,21 @@ public sealed class NhAiMvcBridgePlatformPipelineTests
         return response.StatusCode;
     }
 
-    private static async Task<WebApplication> StartAsync(ControllerRouting routing)
+    private static async Task<WebApplication> StartAsync(
+        ControllerRouting routing,
+        bool bearerIsDefault = false,
+        CapturedLogs? logs = null)
     {
         // Production, as deployed: the host does not validate services it never resolves, such as the
         // database-backed Identity services that no request here reaches.
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = Environments.Production });
         builder.WebHost.UseTestServer();
+        if (logs is not null)
+        {
+            builder.Logging.ClearProviders();
+            builder.Logging.SetMinimumLevel(LogLevel.Trace);
+            builder.Logging.AddProvider(logs);
+        }
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             [$"{NewHeapAspNetCommonOptions.DefaultSettingsPrefix}:Authorization:JWT:Token:Issuer"] = TestReadTokens.Issuer,
@@ -189,8 +229,16 @@ public sealed class NhAiMvcBridgePlatformPipelineTests
             .EnableGateway(gateway => gateway
                 .UseGatewayToolSetId("test-gateway")
                 .IncludeReadOnlyOnly()));
-        builder.Services.AddSingleton<TestReadIssuer.Recorder>();
+        // The bridge's self-HTTP calls reach this host's own pipeline.
+        builder.Services.AddHttpClient(NhAiMvcBridgeDefaults.HttpClientName)
+            .ConfigurePrimaryHttpMessageHandler(provider => ((TestServer)provider.GetRequiredService<IServer>()).CreateHandler());
+        builder.Services.AddSingleton(new TestReadIssuer.Recorder { Audience = Audience });
         builder.Services.AddNewHeapPlatformAIDelegatedReads(reads => reads.UseIssuer<TestReadIssuer>());
+        if (bearerIsDefault)
+        {
+            builder.Services.PostConfigure<AuthenticationOptions>(options =>
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme);
+        }
 
         var app = builder.Build();
         app.UseNewHeapPlatformAspNetCommon(
