@@ -3854,7 +3854,13 @@ internal sealed partial class NhAssistantTurnRunner(
         var preferences = await personalization.GetPreferencesAsync(callerContext.ActorId, CancellationToken.None);
         var facts = await turnContext.CollectAsync(callerContext, language, CancellationToken.None);
         var prompt = NhAssistantPromptComposer.WithTurnData(
-            NhAssistantPromptComposer.Compose(agent, applicationContext, preferences, language),
+            NhAssistantPromptComposer.Compose(
+                agent,
+                applicationContext,
+                preferences,
+                language,
+                // The application's guidance reaches the agent builder alone (FB95).
+                NhAssistantAgentBuilderIds.IsAgentBuilder(agent.Id) ? registration.AgentBuilderGuidance : null),
             facts,
             clientContext,
             language,

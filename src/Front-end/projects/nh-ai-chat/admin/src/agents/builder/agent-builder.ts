@@ -7,6 +7,33 @@ export const NH_ASSISTANT_AGENT_BUILDER_ID = 'nh-agent-builder';
 /** The tool with which the agent builder creates an agent, once the administrator approved it. */
 export const NH_ASSISTANT_AGENT_BUILDER_CREATE_TOOL = 'assistant.agent-builder.create-agent';
 
+/** The prefix of the ids of the builder's tools. */
+export const NH_ASSISTANT_AGENT_BUILDER_TOOL_PREFIX = 'assistant.agent-builder.';
+
+/** The tool with which the agent builder removes or discards something, once the administrator approved it. */
+export const NH_ASSISTANT_AGENT_BUILDER_REMOVE_TOOL = 'assistant.agent-builder.remove';
+
+/** The builder's tools that only read or dry-run, and so change nothing the page shows. */
+const NH_ASSISTANT_AGENT_BUILDER_READS: ReadonlySet<string> = new Set([
+  'read-catalog',
+  'list-agents',
+  'read-agent',
+  'read-rule-script',
+  'search-accounts',
+  'read-gateway',
+  'dry-run-rule-script'
+].map(name => NH_ASSISTANT_AGENT_BUILDER_TOOL_PREFIX + name));
+
+/** A change the builder made after the administrator's approval, as its succeeded call names it. */
+export interface NhAssistantAgentBuilderChange {
+  /** The call that made it. */
+  readonly invocationId: string;
+  /** The agent it changed, from the call's result; `null` for a change of an MCP server. */
+  readonly agentId: string | null;
+  /** The change removed the agent itself. */
+  readonly agentRemoved: boolean;
+}
+
 /** The type of the page context's entity that names the agent the builder works on. */
 export const NH_ASSISTANT_AGENT_BUILDER_ENTITY = 'assistant-agent';
 
@@ -51,6 +78,33 @@ export function nhAssistantCreatedAgents(conversation: Conversation): Map<string
     }
   }
   return created;
+}
+
+/**
+ * The changes that succeeded calls of the builder's writing tools made in `conversation`, by invocation: the
+ * page that shows the agent reads it again, and leaves when the builder removed it.
+ */
+export function nhAssistantBuilderChanges(conversation: Conversation): NhAssistantAgentBuilderChange[] {
+  const changes: NhAssistantAgentBuilderChange[] = [];
+  for (const message of conversation.messages) {
+    for (const part of message.parts) {
+      if (part.type !== 'tool-call') {
+        continue;
+      }
+      const call = part as ToolCallPart;
+      if (call.status !== 'succeeded'
+          || !call.toolId.startsWith(NH_ASSISTANT_AGENT_BUILDER_TOOL_PREFIX)
+          || NH_ASSISTANT_AGENT_BUILDER_READS.has(call.toolId)) {
+        continue;
+      }
+      const preview = call.resultPreview ?? '';
+      // Every write's result names its agent first, so a preview that was cut keeps it.
+      const agentId = /"agentId"\s*:\s*"([a-z0-9]+(?:-[a-z0-9]+)*)"/.exec(preview)?.[1] ?? null;
+      const agentRemoved = call.toolId === NH_ASSISTANT_AGENT_BUILDER_REMOVE_TOOL && /"removed"\s*:\s*"agent"/.test(preview);
+      changes.push({ invocationId: call.invocationId, agentId, agentRemoved });
+    }
+  }
+  return changes;
 }
 
 /**

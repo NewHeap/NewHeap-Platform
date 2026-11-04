@@ -686,6 +686,9 @@
       },
       "project-review-reminder": {
         "name": "Project review reminder"
+      },
+      "weekly-task-changes": {
+        "name": "Weekly count of changed tasks"
       }
     }
   },

@@ -169,6 +169,30 @@ internal sealed class NhAssistantAgentBuilderInput
         return texts;
     }
 
+    /// <summary>
+    /// The value of <paramref name="name"/> as it was sent, of any JSON type, such as a metadata value;
+    /// <see langword="null"/> when it is left out. A JSON <c>null</c> is returned as such.
+    /// </summary>
+    public JsonElement? Element(string name)
+    {
+        return _value.TryGetProperty(name, out var property) ? property.Clone() : null;
+    }
+
+    /// <summary>The properties of the object <paramref name="name"/>, by name, such as metadata values.</summary>
+    public IReadOnlyDictionary<string, JsonElement>? Map(string name)
+    {
+        if (!_value.TryGetProperty(name, out var property) || property.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+        if (property.ValueKind != JsonValueKind.Object)
+        {
+            throw new NhAssistantAgentBuilderInputException(name);
+        }
+
+        return property.EnumerateObject().ToDictionary(item => item.Name, item => item.Value.Clone(), StringComparer.Ordinal);
+    }
+
     /// <summary>The objects of the array <paramref name="name"/>.</summary>
     public IReadOnlyList<JsonElement>? Objects(string name)
     {

@@ -380,6 +380,8 @@ builder.Services.AddSampleRuleScripts();
 builder.Services.AddSampleAlertKindsAsData();
 // SPM-394: the agent builder helps administrators build agents and their rule scripts, each change after their approval.
 builder.Services.AddSampleAgentBuilder();
+// SPM-396: the agent builder builds an application-wide weekly count through the gateway that warns above ten.
+builder.Services.AddSampleWeeklyCount();
 if (builder.Environment.IsDevelopment())
 {
     // After the assistant's own start-up work: its schema exists when the project starter is created.

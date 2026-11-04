@@ -63,6 +63,8 @@
   <data name="AlertProjectMissingDocumentText" xml:space="preserve"><value>The deadline falls within three days and the project keeps no document yet, such as its plan.</value></data>
   <data name="AlertProjectReviewReminderTitle" xml:space="preserve"><value>Time to review {0}</value></data>
   <data name="AlertProjectReviewReminderText" xml:space="preserve"><value>The project reminder asks you to look at the project, its tasks and its deadline.</value></data>
+  <data name="AlertWeeklyTaskChangesTitle" xml:space="preserve"><value>{0} tasks changed last week</value></data>
+  <data name="AlertWeeklyTaskChangesText" xml:space="preserve"><value>More than {0} tasks changed in the week; the weekly count asks you to look at what is happening.</value></data>
   <data name="AlertProjectDueTodayText" xml:space="preserve"><value>{1} tasks are still open; the deadline is today, {0}.</value></data>
   <data name="DeadlineWatchWarned" xml:space="preserve"><value>The project is due today with {0} open tasks; its owner and the people working on it are warned.</value></data>
   <data name="DeadlineWatchClear" xml:space="preserve"><value>The project is not due today with open tasks; there is nothing to warn about.</value></data>

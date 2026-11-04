@@ -4,7 +4,9 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
+using NewHeap.Platform.AI.Chat.AspNet.Mcp;
 using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.Common.Models;
 
@@ -23,13 +25,14 @@ internal sealed record NhAssistantAgentBuilderCall(string Person, NhAssistantAge
 }
 
 /// <summary>
-/// Runs the agent builder's tools (RB-8) through the services the administration's endpoints use, so their
-/// validation, versions, ceilings, package locks, four eyes and audit apply unchanged, with the person who
-/// chats as the actor. A call works only in a person's own chat with the agent builder, never in an agent's
-/// run, a consultation or outside a turn, and never on the agent builder itself. The invoker already
-/// authorized the tool's policy for that person and, for a write, checked their approval.
+/// Runs the agent builder's tools (RB-8, FB94, FB95) through the services the administration's endpoints
+/// use, so their validation, versions, ceilings, package locks, four eyes and audit apply unchanged, with
+/// the person who chats as the actor. A call works only in a person's own chat with the agent builder,
+/// never in an agent's run, a consultation or outside a turn, and never on the agent builder itself. The
+/// invoker already authorized the tool's policy for that person and, for a write, checked their approval.
+/// No call takes or returns a secret: MCP servers are read without their connections and credentials.
 /// </summary>
-internal sealed class NhAssistantAgentBuilderToolHandler(
+internal sealed partial class NhAssistantAgentBuilderToolHandler(
     IServiceProvider services,
     NhAssistantRegistrationState registration,
     ILogger<NhAssistantAgentBuilderToolHandler> logger)
@@ -39,6 +42,18 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
 
     /// <summary>The longest description of a tool the catalog lists.</summary>
     public const int MaxToolDescriptionLength = 300;
+
+    /// <summary>The longest query of an account search, as the administration's.</summary>
+    public const int MaxAccountQueryLength = 100;
+
+    /// <summary>The largest result of a gateway read the builder passes on, in characters of JSON.</summary>
+    public const int MaxGatewayResultLength = 48_000;
+
+    /// <summary>The most recent failed runs of an agent whose codes its blockers explain.</summary>
+    private const int MaxRecentFailedRuns = 10;
+
+    /// <summary>The most result fields a described resource lists when it does not fit as a whole.</summary>
+    private const int MaxGatewayResultFields = 100;
 
     /// <summary>
     /// How results reach the model: camelCase, enums by name, without empty values.
@@ -59,6 +74,16 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
     private INhAssistantAgentControl Control => services.GetRequiredService<INhAssistantAgentControl>();
 
     private INhAssistantRuleScripts RuleScripts => services.GetRequiredService<INhAssistantRuleScripts>();
+
+    private INhAssistantMcpServers McpServers => services.GetRequiredService<INhAssistantMcpServers>();
+
+    private INhAssistantDataHandOffs HandOffs => services.GetRequiredService<INhAssistantDataHandOffs>();
+
+    private INhAssistantWithoutApprovalSwitches WithoutApproval => services.GetRequiredService<INhAssistantWithoutApprovalSwitches>();
+
+    private INhAssistantAlertModelSwitches AlertModel => services.GetRequiredService<INhAssistantAlertModelSwitches>();
+
+    private INhAssistantAgentGroups Groups => services.GetRequiredService<INhAssistantAgentGroups>();
 
     /// <summary>
     /// Runs one call: in a person's chat with the agent builder only, with input that the tool takes.
@@ -82,7 +107,7 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         var (input, unknown) = NhAssistantAgentBuilderInput.Read(value, tool.Input.Properties);
         if (input is null)
         {
-            return Refused(NhAiToolFailureCodes.InputInvalid, $"The tool does not take '{unknown}'. Use only the properties its schema names.");
+            return Refused(NhAiToolFailureCodes.InputInvalid, UnknownInputMessage(unknown!));
         }
 
         try
@@ -95,6 +120,13 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         }
     }
 
+    /// <summary>
+    /// What the model reads when a call names a property its tool does not take.
+    /// </summary>
+    internal static string UnknownInputMessage(string property)
+    {
+        return $"The tool does not take '{property}'. Use only the properties its schema names; the agent builder never takes or handles secrets.";
+    }
     /// <summary>
     /// The person of the running turn when it is their own chat with the agent builder: not an agent's run
     /// or thread, a consultation or a shadow run; <see langword="null"/> otherwise.
@@ -136,7 +168,10 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
                     descriptor.Id,
                     EffectName(descriptor.Effect),
                     NhAssistantContent.Bound(descriptor.Description, MaxToolDescriptionLength),
-                    descriptor.Subject?.Type)));
+                    descriptor.Subject?.Type)
+                {
+                    AllowWithoutApproval = NhAiWithoutApproval.IsAllowedBy(descriptor) ? true : null
+                }));
         }
 
         var matching = tools
@@ -155,6 +190,7 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
                 kind.Urgency.ToString().ToLowerInvariant(),
                 kind.ModelTemplate?.Description))
             .ToArray();
+        var gateway = services.GetService<INhAiGatewayResources>();
         return Ok(new
         {
             tools = matching.Take(MaxCatalogTools).ToArray(),
@@ -169,7 +205,12 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
             run.Divisions,
             run.CompositionCeiling,
             alertKinds,
-            ruleScripts = RuleScriptCeilingOf()
+            agentGroups = Groups.ListGroups().Select(group => new { group.Id, group.Name }).ToArray(),
+            ruleScripts = RuleScriptCeilingOf(),
+            gateway = gateway is null
+                ? null
+                : new { tools = gateway.ToolIds.Order(StringComparer.Ordinal).ToArray() },
+            mcpServers = await McpServersAsync(cancellationToken)
         });
     }
 
@@ -211,10 +252,24 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
 
         var configuration = await Configuration.GetAsync(agentId, cancellationToken);
         var ruleScript = await RuleScripts.GetAsync(agentId, null, cancellationToken);
+        var worksOn = (await services.GetRequiredService<NhAssistantAgentCatalog>().FindAsync(agentId, includeDisabled: true, cancellationToken))?.WorksOn;
+        var metadata = await Configuration.GetMetadataAsync(agentId, cancellationToken);
+        var handOffs = await HandOffs.GetAsync(agentId, cancellationToken);
+        var shadowVariants = await services.GetRequiredService<NhAssistantShadowVariants>().ListAsync(agentId, cancellationToken);
+        var withoutApproval = await WithoutApproval.GetAsync(agentId, cancellationToken);
+        var alertModel = await AlertModel.GetAsync(agentId, cancellationToken);
+        var groups = await Groups.GetMembershipAsync(agentId, cancellationToken);
         return Ok(new
         {
             agent,
+            worksOn,
+            groups = groups.Success ? groups.Data : null,
             configuration,
+            metadata = metadata.Success ? metadata.Data : null,
+            handOffs,
+            shadowVariants,
+            withoutApproval,
+            alertModel,
             ruleScript = ruleScript is null
                 ? null
                 : new
@@ -225,7 +280,8 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
                     ruleScript.CandidateVersion,
                     ruleScript.CandidateShadow,
                     ruleScript.CodeRule
-                }
+                },
+            blockers = await BlockersAsync(agent, configuration, ruleScript, cancellationToken)
         });
     }
 
@@ -279,6 +335,47 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         });
     }
 
+    public async Task<TaskResult<JsonNode>> SearchAccountsAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
+    {
+        var accounts = services.GetRequiredService<NhAssistantAccounts>();
+        var ids = call.Input.Texts("ids");
+        var found = ids is { Count: > 0 }
+            ? await accounts.FindAsync(string.Join(',', ids), cancellationToken)
+            : await accounts.SearchAsync(call.Input.Text("query"), call.Input.Int("limit"), cancellationToken);
+        return found.Success ? Ok(new { accounts = found.Data }) : From(found, NhAssistantAdminErrorCodes.ValidationFailed);
+    }
+
+    public async Task<TaskResult<JsonNode>> ReadGatewayAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
+    {
+        if (services.GetService<INhAiGatewayResources>() is not { } gateway || gateway.ToolIds.Count == 0)
+        {
+            return Ok(new
+            {
+                gateway = false,
+                message = "The application has no API gateway, so agents cannot read its data through one; they use the application's own tools from the catalog."
+            });
+        }
+
+        if (call.Input.Text("resource") is { } resource)
+        {
+            var described = await gateway.DescribeAsync(resource, cancellationToken);
+            return described.Success
+                ? Ok(new { gateway = true, resource = BoundDescription(described.Data) })
+                : From(described, NhAiToolFailureCodes.InputInvalid);
+        }
+
+        if (call.Input.Text("query") is not { } query)
+        {
+            return Refused(NhAiToolFailureCodes.InputInvalid, "Give query to search the resources, or resource to describe one.");
+        }
+
+        var limit = Math.Clamp(call.Input.Int("limit") ?? 10, 1, 20);
+        var found = await gateway.SearchAsync(query, limit, cancellationToken);
+        return found.Success
+            ? Ok(new { gateway = true, resources = found.Data })
+            : From(found, NhAiToolFailureCodes.InputInvalid);
+    }
+
     // ----- Dry runs -----
 
     public async Task<TaskResult<JsonNode>> DryRunRuleScriptAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
@@ -307,346 +404,106 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         return dryRun.Success ? Ok(dryRun.Data!) : From(dryRun, NhAssistantRuleScriptCodes.SubjectsInvalid);
     }
 
-    // ----- Writes, each after the administrator's approval -----
-
-    public async Task<TaskResult<JsonNode>> CreateAgentAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
-    {
-        var input = call.Input;
-        if (TargetOf(call) is not { } agentId)
-        {
-            return TargetRefused(call);
-        }
-        if (Required(input, "displayName", "description", "instructions", "toolSelectors") is { } missing)
-        {
-            return missing;
-        }
-        if (AutonomyOf(input) is { Refused: { } wrongAutonomy })
-        {
-            return wrongAutonomy;
-        }
-
-        var request = new NhAssistantAgentRequest(
-            agentId,
-            input.Text("displayName")!,
-            input.Text("description")!,
-            input.RawText("instructions")!,
-            input.Texts("toolSelectors")!,
-            AutonomyOf(input).Value ?? NhAiAutonomyLevel.Propose,
-            input.Text("requiredPolicy"),
-            input.Bool("offeredInChat") ?? true,
-            input.Texts("worksOnSubjectTypes"),
-            input.Bool("worksOnAllSubjects"),
-            input.Bool("worksOnApplication"),
-            Profile: input.Text("profile"),
-            DataClassification: input.Text("dataClassification"))
-        {
-            StartsInShadow = input.Bool("startsInShadow") ?? false
-        };
-        var created = await Configuration.CreateAgentAsync(request, call.Person, cancellationToken);
-        return created.Success
-            // The agent's id comes first, so the administration can follow the new agent to its page.
-            ? Ok(new { agentId = created.Data!.AgentId, created = true, configuration = created.Data })
-            : From(created, NhAssistantAdminErrorCodes.ValidationFailed);
-    }
-
-    public async Task<TaskResult<JsonNode>> UpdateAgentAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
-    {
-        var input = call.Input;
-        if (TargetOf(call) is not { } agentId)
-        {
-            return TargetRefused(call);
-        }
-        if (input.Int("expectedVersion") is not { } expectedVersion)
-        {
-            return Missing("expectedVersion");
-        }
-        if (AutonomyOf(input) is { Refused: { } wrongAutonomy })
-        {
-            return wrongAutonomy;
-        }
-        if (await Directory.GetAsync(agentId, cancellationToken) is not { } current)
-        {
-            return Refused(NhAssistantErrorCodes.AgentNotFound, "The agent was not found.");
-        }
-
-        // Instructions left out keep what the agent has: its text, or the asset they come from.
-        var newInstructions = input.RawText("instructions");
-        var asset = newInstructions is null ? current.InstructionsAsset : null;
-        var instructions = newInstructions ?? (asset is null ? current.Instructions : string.Empty);
-        if (instructions is null)
-        {
-            return Refused(NhAssistantAdminErrorCodes.ValidationFailed, "The agent's instructions are not available now; send them in full.");
-        }
-
-        // Whose rights it uses, its policy and its MCP servers stay as they are.
-        var request = new NhAssistantAgentDefinitionRequest(
-            input.Text("displayName") ?? current.DisplayName,
-            input.Text("description") ?? current.Description,
-            instructions,
-            input.Texts("toolSelectors") ?? current.ToolSelectors,
-            AutonomyOf(input).Value ?? current.Autonomy,
-            current.RequiredPolicy)
-        {
-            OfferedInChat = input.Bool("offeredInChat"),
-            InstructionsAsset = asset
-        };
-        var updated = await Definitions.UpdateAsync(agentId, request, expectedVersion, call.Person, cancellationToken);
-        return updated.Success ? Ok(new { agentId, updated = true, agent = updated.Data }) : From(updated, NhAssistantAdminErrorCodes.ValidationFailed);
-    }
-
-    public async Task<TaskResult<JsonNode>> SaveRunSettingsAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
-    {
-        var input = call.Input;
-        if (TargetOf(call) is not { } agentId)
-        {
-            return TargetRefused(call);
-        }
-
-        var current = (await Configuration.GetAsync(agentId, cancellationToken))?.RunSettings;
-        // Whose rights the runs use is never the builder's to change: the accountability, the technical
-        // account, delegation and gateway and elevated reads stay, and new settings answer to the agent.
-        // The file settings stay as well.
-        var request = new NhAssistantAgentRunSettingsRequest(
-            current?.Accountability ?? "agent",
-            current?.ServiceAccountActorId,
-            current?.DelegateFromInitiator ?? false,
-            current?.AllowGatewayReads ?? false,
-            current?.ElevatedReads,
-            Pick(input, "approvalPolicy", current?.ApprovalPolicy),
-            PickInt(input, "retryCount", current?.RetryCount),
-            PickInt(input, "dailyToolCalls", current?.DailyToolCalls),
-            PickLong(input, "dailyTokens", current?.DailyTokens),
-            PickInt(input, "maxConcurrentRuns", current?.MaxConcurrentRuns),
-            PickInt(input, "maxRunsPerSubjectPerDay", current?.MaxRunsPerSubjectPerDay),
-            PickLong(input, "maxTokensPerRun", current?.MaxTokensPerRun),
-            Pick(input, "triageProfile", current?.TriageProfile),
-            Pick(input, "ruleHandler", current?.RuleHandler),
-            input.Int("expectedVersion"),
-            input.Text("reason"),
-            current?.AcceptsFiles ?? false,
-            current?.MaxFileBytes,
-            current?.MaxFilePages,
-            current?.MaxFilesPerTurn,
-            current?.MaxFileTokensPerTurn);
-        var saved = await Configuration.SaveRunSettingsAsync(agentId, request, call.Person, cancellationToken);
-        return saved.Success ? Ok(new { agentId, runSettings = saved.Data }) : From(saved, NhAssistantAdminErrorCodes.ValidationFailed);
-    }
-
-    public async Task<TaskResult<JsonNode>> SaveSkillAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
-    {
-        var input = call.Input;
-        if (TargetOf(call) is not { } agentId)
-        {
-            return TargetRefused(call);
-        }
-        if (Required(input, "skillId", "description") is { } missing)
-        {
-            return missing;
-        }
-
-        var skillId = input.Text("skillId")!;
-        var current = (await Configuration.GetAsync(agentId, cancellationToken))?.DataSkills
-            .FirstOrDefault(skill => string.Equals(skill.SkillId, skillId, StringComparison.Ordinal));
-        var instructions = input.RawText("instructions");
-        // The files a skill reads and an asset its instructions come from stay as they are.
-        var request = new NhAssistantDataSkillRequest(
-            input.Text("description"),
-            Instructions: instructions,
-            Tools: input.Texts("tools"),
-            Profile: input.Text("profile"),
-            RuleHandler: input.Text("ruleHandler"),
-            MaxTokensPerRun: input.Long("maxTokensPerRun"),
-            DailyToolCalls: input.Int("dailyToolCalls"),
-            DailyTokens: input.Long("dailyTokens"),
-            ApprovalPolicy: input.Text("approvalPolicy"),
-            ExpectedVersion: input.Int("expectedVersion"),
-            Reason: input.Text("reason"),
-            Apply: input.Text("apply"),
-            DataClassification: input.Text("dataClassification"),
-            AcceptsFiles: current?.AcceptsFiles ?? false,
-            MaxFileBytes: current?.MaxFileBytes,
-            MaxFilePages: current?.MaxFilePages,
-            MaxFilesPerTurn: current?.MaxFilesPerTurn,
-            MaxFileTokensPerTurn: current?.MaxFileTokensPerTurn)
-        {
-            InstructionsAsset = instructions is null ? current?.InstructionsAsset : null
-        };
-        var saved = await Configuration.SaveSkillAsync(agentId, skillId, request, call.Person, cancellationToken);
-        return saved.Success ? Ok(new { agentId, skill = saved.Data }) : From(saved, NhAssistantAdminErrorCodes.ValidationFailed);
-    }
-
-    public async Task<TaskResult<JsonNode>> SaveTriggerAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
-    {
-        var input = call.Input;
-        if (TargetOf(call) is not { } agentId)
-        {
-            return TargetRefused(call);
-        }
-        if (Required(input, "triggerId", "source") is { } missing)
-        {
-            return missing;
-        }
-
-        var request = new NhAssistantDataTriggerRequest(
-            input.Text("source"),
-            input.Text("skill"),
-            input.Text("event"),
-            input.Text("cron"),
-            input.Text("timeZone"),
-            input.Text("subjectSet"),
-            input.Text("message"),
-            input.Text("conflict"),
-            input.Int("debounceSeconds"),
-            input.Int("expectedVersion"),
-            input.Text("reason"),
-            input.Texts("filters"))
-        {
-            Apply = input.Text("apply")
-        };
-        var saved = await Configuration.SaveTriggerAsync(agentId, input.Text("triggerId")!, request, call.Person, cancellationToken);
-        return saved.Success ? Ok(new { agentId, trigger = saved.Data }) : From(saved, NhAssistantAdminErrorCodes.ValidationFailed);
-    }
-
-    public async Task<TaskResult<JsonNode>> SaveRuleScriptAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
-    {
-        var input = call.Input;
-        if (TargetOf(call) is not { } agentId)
-        {
-            return TargetRefused(call);
-        }
-        if (Required(input, "script") is { } missing)
-        {
-            return missing;
-        }
-
-        var saved = await RuleScripts.SaveAsync(
-            agentId,
-            input.Text("skillId"),
-            new NhAssistantRuleScriptSaveRequest(
-                input.RawText("script"),
-                input.Texts("writes") ?? [],
-                input.Int("expectedRevision"),
-                input.Text("reason"),
-                input.Bool("live") ?? false,
-                input.Bool("shadow") ?? false),
-            call.Author,
-            cancellationToken);
-        return saved.Success ? Ok(new { agentId, version = saved.Data }) : From(saved, NhAssistantAdminErrorCodes.ValidationFailed);
-    }
-
-    public async Task<TaskResult<JsonNode>> SetLiveAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
-    {
-        var input = call.Input;
-        if (TargetOf(call) is not { } agentId)
-        {
-            return TargetRefused(call);
-        }
-        if (input.Int("version") is not { } version)
-        {
-            return Missing("version");
-        }
-
-        var reason = input.Text("reason");
-        switch (input.Text("part"))
-        {
-            case NhAssistantAgentBuilderTools.LiveParts.RuleScript:
-            {
-                var live = await RuleScripts.SetLiveAsync(
-                    agentId,
-                    input.Text("skillId"),
-                    version,
-                    new NhAssistantRuleScriptChangeRequest(input.Int("expectedRevision"), reason),
-                    call.Author,
-                    cancellationToken);
-                return live.Success ? Ok(new { agentId, live = live.Data }) : From(live, NhAssistantRuleScriptCodes.NotCandidate);
-            }
-            case NhAssistantAgentBuilderTools.LiveParts.SkillCandidate:
-            {
-                if (input.Text("skillId") is not { } skillId)
-                {
-                    return Missing("skillId");
-                }
-
-                var promoted = await Configuration.PromoteSkillCandidateAsync(agentId, skillId, version, call.Person, reason, cancellationToken);
-                return promoted.Success ? Ok(new { agentId, skill = promoted.Data }) : From(promoted, NhAssistantAdminErrorCodes.ValidationFailed);
-            }
-            case NhAssistantAgentBuilderTools.LiveParts.TriggerCandidate:
-            {
-                if (input.Text("triggerId") is not { } triggerId)
-                {
-                    return Missing("triggerId");
-                }
-
-                var promoted = await Configuration.PromoteTriggerCandidateAsync(agentId, triggerId, version, call.Person, reason, cancellationToken);
-                return promoted.Success ? Ok(new { agentId, trigger = promoted.Data }) : From(promoted, NhAssistantAdminErrorCodes.ValidationFailed);
-            }
-            default:
-                return Invalid("part");
-        }
-    }
-
-    public async Task<TaskResult<JsonNode>> SetShadowAsync(NhAssistantAgentBuilderCall call, CancellationToken cancellationToken)
-    {
-        var input = call.Input;
-        if (TargetOf(call) is not { } agentId)
-        {
-            return TargetRefused(call);
-        }
-        if (input.Bool("shadow") is not { } shadow)
-        {
-            return Missing("shadow");
-        }
-
-        var reason = input.Text("reason");
-        switch (input.Text("part"))
-        {
-            case NhAssistantAgentBuilderTools.ShadowParts.RuleScript:
-            {
-                if (input.Int("version") is not { } version)
-                {
-                    return Missing("version");
-                }
-
-                var changed = await RuleScripts.SetShadowAsync(
-                    agentId,
-                    input.Text("skillId"),
-                    version,
-                    new NhAssistantRuleScriptShadowRequest(input.Int("expectedRevision"), shadow, reason),
-                    call.Author,
-                    cancellationToken);
-                return changed.Success ? Ok(new { agentId, version = changed.Data }) : From(changed, NhAssistantRuleScriptCodes.NotCandidate);
-            }
-            case NhAssistantAgentBuilderTools.ShadowParts.Skill:
-            {
-                if (input.Text("skillId") is not { } skillId)
-                {
-                    return Missing("skillId");
-                }
-
-                var changed = await Control.SetSkillShadowAsync(agentId, skillId, shadow, call.Person, reason, cancellationToken);
-                return changed.Success ? Ok(new { agentId, skill = changed.Data }) : From(changed, NhAssistantAdminErrorCodes.ValidationFailed);
-            }
-            case NhAssistantAgentBuilderTools.ShadowParts.Trigger:
-            {
-                if (input.Text("triggerId") is not { } triggerId)
-                {
-                    return Missing("triggerId");
-                }
-
-                var changed = await Configuration.SetTriggerShadowAsync(agentId, triggerId, shadow, call.Person, reason, cancellationToken);
-                return changed.Success ? Ok(new { agentId, trigger = changed.Data }) : From(changed, NhAssistantAdminErrorCodes.ValidationFailed);
-            }
-            case NhAssistantAgentBuilderTools.ShadowParts.Agent:
-            {
-                var changed = await Control.SetShadowAsync(agentId, shadow, call.Person, reason, cancellationToken);
-                return changed.Success ? Ok(new { agentId, state = changed.Data }) : From(changed, NhAssistantAdminErrorCodes.ValidationFailed);
-            }
-            default:
-                return Invalid("part");
-        }
-    }
-
     // ----- Helpers -----
+
+    /// <summary>
+    /// The MCP servers an agent may be assigned, without their address, connection, references or
+    /// credentials: the builder assigns existing servers and never handles secrets.
+    /// </summary>
+    private async Task<object[]> McpServersAsync(CancellationToken cancellationToken)
+    {
+        return (await McpServers.ListAsync(cancellationToken))
+            .Select(server => (object)new
+            {
+                server.Id,
+                server.DisplayName,
+                server.IsEnabled,
+                server.AuthMode,
+                server.HeadlessUse,
+                server.RequiredPolicy,
+                server.AssignedAgentIds
+            })
+            .ToArray();
+    }
+
+    /// <summary>
+    /// The blockers of the agent, with the gateway's tools and the alert kinds its rules may raise.
+    /// </summary>
+    private async Task<IReadOnlyList<NhAssistantAgentBuilderBlocker>> BlockersAsync(
+        NhAssistantAgentInEffectDto agent,
+        NhAssistantAgentConfigurationDto? configuration,
+        NhAssistantRuleScriptDto? ruleScript,
+        CancellationToken cancellationToken)
+    {
+        if (services.GetService<NhAssistantRunConfigurations>() is { } configurations)
+        {
+            await configurations.EnsureCurrentAsync(cancellationToken);
+        }
+
+        var scripts = new List<string>();
+        foreach (var skillId in new string?[] { null }.Concat(configuration?.DataSkills.Select(skill => skill.SkillId) ?? []))
+        {
+            var script = skillId is null ? ruleScript : await RuleScripts.GetAsync(agent.AgentId, skillId, cancellationToken);
+            scripts.AddRange((script?.Versions ?? [])
+                .Where(version => version.Version == script!.LiveVersion || version.Version == script.CandidateVersion)
+                .Select(version => version.Script));
+        }
+
+        var facts = new NhAssistantAgentBuilderBlockerFacts(
+            services.GetService<INhAiGatewayResources>()?.ToolIds ?? [],
+            services.GetService<INhAiDelegatedReadCredentialIssuer>() is not null && services.GetServices<INhAiDelegatedReadSurface>().Any(),
+            // The kinds in code, and those the run settings of an agent created in the administration list.
+            registration.RunOptionsOf(agent.AgentId).AlertKinds
+                .Concat(configuration?.RunSettings?.AlertKinds ?? [])
+                .Concat(configuration?.CodeRunSettings?.AlertKinds ?? [])
+                .ToHashSet(StringComparer.Ordinal),
+            scripts,
+            await RecentFailureCodesAsync(agent.AgentId, cancellationToken));
+        return NhAssistantAgentBuilderBlockers.Of(agent, configuration, facts);
+    }
+
+    /// <summary>
+    /// The codes the agent's most recent failed runs ended with, newest first, as its runs view lists them.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> RecentFailureCodesAsync(string agentId, CancellationToken cancellationToken)
+    {
+        var query = NhAssistantRunHistory.ReadQuery(null, null, null, NhAssistantRunStatuses.Failed, null, null, 1, MaxRecentFailedRuns);
+        var failed = await services.GetRequiredService<NhAssistantRunHistory>().ListForAgentAsync(agentId, query.Data!, cancellationToken);
+        return failed.Success
+            ? failed.Data!.Items.Select(run => run.FailureCode).OfType<string>().ToArray()
+            : [];
+    }
+
+    /// <summary>
+    /// A described resource as the model reads it: whole when it fits, otherwise its query shape and the
+    /// keys of its first result fields.
+    /// </summary>
+    private static JsonNode BoundDescription(JsonElement description)
+    {
+        var whole = JsonNode.Parse(description.GetRawText())!;
+        if (description.GetRawText().Length <= MaxGatewayResultLength || whole is not JsonObject full)
+        {
+            return whole;
+        }
+
+        var bounded = new JsonObject
+        {
+            ["resource"] = full["resource"]?.DeepClone(),
+            ["title"] = full["title"]?.DeepClone(),
+            ["query"] = full["query"]?.DeepClone(),
+            ["get"] = full["get"]?.DeepClone(),
+            ["truncated"] = true
+        };
+        if (full["resultFields"] is JsonArray fields)
+        {
+            bounded["resultFieldKeys"] = new JsonArray(fields
+                .Take(MaxGatewayResultFields)
+                .Select(field => (JsonNode?)JsonValue.Create(field?["key"]?.GetValue<string>()))
+                .ToArray());
+        }
+
+        return bounded;
+    }
 
     /// <summary>
     /// What the code's ceiling of rule scripts allows, for the catalog; <see langword="null"/> while no agent
@@ -691,7 +548,12 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
     {
         return call.Input.Text("agentId") is null
             ? Missing("agentId")
-            : Refused(NhAssistantAdminErrorCodes.Forbidden, "The agent builder never changes or reads itself; name another agent.");
+            : Itself();
+    }
+
+    private static TaskResult<JsonNode> Itself()
+    {
+        return Refused(NhAssistantAdminErrorCodes.Forbidden, "The agent builder never changes or reads itself; name another agent.");
     }
 
     private static (NhAiAutonomyLevel? Value, TaskResult<JsonNode>? Refused) AutonomyOf(NhAssistantAgentBuilderInput input)
@@ -731,6 +593,11 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         return input.Given(name) ? input.Text(name) : current;
     }
 
+    private static bool PickBool(NhAssistantAgentBuilderInput input, string name, bool current)
+    {
+        return input.Bool(name) ?? current;
+    }
+
     private static TaskResult<JsonNode> Missing(string name)
     {
         return Refused(NhAiToolFailureCodes.InputInvalid, $"Give {name}.");
@@ -766,6 +633,14 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         return Refused(code, message);
     }
 
+    /// <summary>
+    /// The outcome of a change as the model reads it: what the service returned, or its refusal.
+    /// </summary>
+    private static TaskResult<JsonNode> Outcome<T>(TaskResult<T> result, Func<T, object> success, string fallback = NhAssistantAdminErrorCodes.ValidationFailed)
+    {
+        return result.Success ? Ok(success(result.Data!)) : From(result, fallback);
+    }
+
     private static TaskResult<JsonNode> Ok(object value)
     {
         return TaskResult<JsonNode>.Succeeded(JsonSerializer.SerializeToNode(value, value.GetType(), ResultOptions)!);
@@ -783,7 +658,11 @@ internal sealed class NhAssistantAgentBuilderToolHandler(
         };
     }
 
-    private sealed record CatalogTool(string Id, string Effect, string Description, string? SubjectType);
+    private sealed record CatalogTool(string Id, string Effect, string Description, string? SubjectType)
+    {
+        /// <summary>Whether its code lets an agent's own runs call it without approval.</summary>
+        public bool? AllowWithoutApproval { get; init; }
+    }
 
     private sealed record CatalogAlertKind(string Id, string NameKey, string Urgency, string? ModelTemplate);
 }

@@ -71,6 +71,15 @@ public sealed class AssistantAgentBuilderSamplesTests(AssistantAgentBuilderSampl
             Assert.Contains(save.GetProperty("presentation").GetProperty("fields").EnumerateArray(), field => field.GetProperty("value").GetString() == ReviewTool);
             Assert.Empty((await RuleScriptAsync()).Versions);
 
+            // The builder reads the sample's own guidance after the platform's rules and before the
+            // application context, as background that does not change its rules.
+            var instructions = model.Requests[0].Options!.Instructions!;
+            var guidance = instructions.IndexOf("Projects and their tasks are read through the API gateway", StringComparison.Ordinal);
+            Assert.True(
+                instructions.IndexOf("# Assistant rules", StringComparison.Ordinal) < guidance
+                && guidance < instructions.IndexOf("# Agent instructions", StringComparison.Ordinal),
+                "The guidance is not between the rules and the agent's instructions.");
+
             // Approved: saved as a candidate by the author with the builder acting for them, dry-run without
             // effects, and the step live waits for an approval of its own.
             var approved = await host.DecideAsync(author, chat, save, "approve");

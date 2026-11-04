@@ -5,10 +5,12 @@ using NewHeap.Platform.Common.Models;
 namespace NewHeap.Platform.AI.Chat.AspNet.AgentBuilder;
 
 /// <summary>
-/// The tools of the agent builder (RB-8). Reads need no approval. A dry run changes nothing and needs none
-/// either. Every save and every step live is a governed write that waits for the administrator's approval
-/// in the chat, and the approval card says what changes. There is no tool for grants, technical accounts,
-/// MCP servers or credentials, the code's ceilings or a deletion.
+/// The tools of the agent builder (RB-8, FB94, FB95): what the administrator can do for an agent in the
+/// administration's screens, except secrets. Reads need no approval. A dry run changes nothing and needs
+/// none either. Every save, every step live, every change of whose rights an agent uses and every removal
+/// is a governed write that waits for the administrator's approval in the chat, and the approval card
+/// says what changes. No tool takes or returns MCP credentials, keys or other secrets, and none goes
+/// beyond what the code allows.
 /// </summary>
 internal static class NhAssistantAgentBuilderTools
 {
@@ -16,6 +18,8 @@ internal static class NhAssistantAgentBuilderTools
     public const string ListAgents = NhAssistantAgentBuilderIds.ToolIdPrefix + "list-agents";
     public const string ReadAgent = NhAssistantAgentBuilderIds.ToolIdPrefix + "read-agent";
     public const string ReadRuleScript = NhAssistantAgentBuilderIds.ToolIdPrefix + "read-rule-script";
+    public const string SearchAccounts = NhAssistantAgentBuilderIds.ToolIdPrefix + "search-accounts";
+    public const string ReadGateway = NhAssistantAgentBuilderIds.ToolIdPrefix + "read-gateway";
     public const string DryRunRuleScript = NhAssistantAgentBuilderIds.ToolIdPrefix + "dry-run-rule-script";
     public const string CreateAgent = NhAssistantAgentBuilderIds.ToolIdPrefix + "create-agent";
     public const string UpdateAgent = NhAssistantAgentBuilderIds.ToolIdPrefix + "update-agent";
@@ -23,8 +27,20 @@ internal static class NhAssistantAgentBuilderTools
     public const string SaveSkill = NhAssistantAgentBuilderIds.ToolIdPrefix + "save-skill";
     public const string SaveTrigger = NhAssistantAgentBuilderIds.ToolIdPrefix + "save-trigger";
     public const string SaveRuleScript = NhAssistantAgentBuilderIds.ToolIdPrefix + "save-rule-script";
+    public const string SaveConsultation = NhAssistantAgentBuilderIds.ToolIdPrefix + "save-consultation";
+    public const string SaveHandOff = NhAssistantAgentBuilderIds.ToolIdPrefix + "save-hand-off";
+    public const string SaveMetadata = NhAssistantAgentBuilderIds.ToolIdPrefix + "save-metadata";
     public const string SetLive = NhAssistantAgentBuilderIds.ToolIdPrefix + "set-live";
     public const string SetShadow = NhAssistantAgentBuilderIds.ToolIdPrefix + "set-shadow";
+    public const string SetState = NhAssistantAgentBuilderIds.ToolIdPrefix + "set-state";
+    public const string SetTechnicalAccount = NhAssistantAgentBuilderIds.ToolIdPrefix + "set-technical-account";
+    public const string SetConsultationRoutes = NhAssistantAgentBuilderIds.ToolIdPrefix + "set-consultation-routes";
+    public const string SetMcpServer = NhAssistantAgentBuilderIds.ToolIdPrefix + "set-mcp-server";
+    public const string SetMcpHeadlessUse = NhAssistantAgentBuilderIds.ToolIdPrefix + "set-mcp-headless-use";
+    public const string SetSwitch = NhAssistantAgentBuilderIds.ToolIdPrefix + "set-switch";
+    public const string SetGroups = NhAssistantAgentBuilderIds.ToolIdPrefix + "set-groups";
+    public const string PromoteShadowVariant = NhAssistantAgentBuilderIds.ToolIdPrefix + "promote-shadow-variant";
+    public const string Remove = NhAssistantAgentBuilderIds.ToolIdPrefix + "remove";
 
     /// <summary>What <see cref="SetLive"/> sets live.</summary>
     public static class LiveParts
@@ -43,7 +59,51 @@ internal static class NhAssistantAgentBuilderTools
         public const string Agent = "agent";
     }
 
+    /// <summary>Whose state <see cref="SetState"/> changes.</summary>
+    public static class StateParts
+    {
+        public const string Agent = "agent";
+        public const string Skill = "skill";
+        public const string Consultation = "consultation";
+    }
+
+    /// <summary>Which per-agent switch <see cref="SetSwitch"/> changes.</summary>
+    public static class SwitchParts
+    {
+        public const string ToolWithoutApproval = "tool-without-approval";
+        public const string AlertModel = "alert-model";
+    }
+
+    /// <summary>What <see cref="Remove"/> removes or discards.</summary>
+    public static class RemoveParts
+    {
+        public const string Agent = "agent";
+        public const string Override = "override";
+        public const string RunSettings = "run-settings";
+        public const string Skill = "skill";
+        public const string Trigger = "trigger";
+        public const string Consultation = "consultation";
+        public const string HandOff = "hand-off";
+        public const string Metadata = "metadata";
+        public const string SkillCandidate = "skill-candidate";
+        public const string TriggerCandidate = "trigger-candidate";
+        public const string RuleScriptVersion = "rule-script-version";
+
+        public static IReadOnlyList<string> All { get; } =
+            [Agent, Override, RunSettings, Skill, Trigger, Consultation, HandOff, Metadata, SkillCandidate, TriggerCandidate, RuleScriptVersion];
+    }
+
     private static readonly string[] Autonomies = ["observe", "explain", "propose", "simulate", "execute"];
+
+    private static readonly string[] Classifications = ["public", "internal", "confidential", "restricted"];
+
+    private static readonly string[] Accountabilities = ["agent", "subject-responsible", "service-account"];
+
+    private static readonly string[] RunStates = ["active", "paused", "stopped", "off"];
+
+    private static readonly string[] SwitchModes = ["off", "shadow", "live"];
+
+    private static readonly string[] RouteSwitches = [NhAssistantRouteSwitches.On, NhAssistantRouteSwitches.Off, NhAssistantRouteSwitches.Code];
 
     /// <summary>
     /// Every tool, in the order the model reads them.
@@ -53,7 +113,7 @@ internal static class NhAssistantAgentBuilderTools
         Read(
             ReadCatalog,
             "builder_read_catalog",
-            "Lists the building blocks the application registered in code that an agent may use: tools with their effect and description, trigger events with their filters, object types, subject sets, rule handlers, approval policies, model profiles, agent policies, alert kinds, and which agents may have rule scripts with the writes the code allows. Changes nothing.",
+            "Lists the building blocks the application registered in code that an agent may use: tools with their effect and description, trigger events with their filters, object types, subject sets, rule handlers, approval policies, model profiles, agent policies, alert kinds, agent groups, which agents may have rule scripts with the writes the code allows, whether the application has an API gateway, and the MCP servers an agent may be assigned (without their connections or credentials). Changes nothing.",
             Schema.Object([("query", Schema.Text("Optional words that the tools must contain in their id or description, to narrow a long list.", 200), false)]),
             (handler, call, token) => handler.ReadCatalogAsync(call, token)),
         Read(
@@ -65,7 +125,7 @@ internal static class NhAssistantAgentBuilderTools
         Read(
             ReadAgent,
             "builder_read_agent",
-            "Reads one agent in full: its definition with instructions, tools and version; its run settings, skills and triggers in code and as data with their versions and candidates; and its rule scripts. Changes nothing.",
+            "Reads one agent in full: its definition with instructions, tools, required policy, MCP servers, what it works on and version; its state, technical account and consultation routes; its run settings, skills, triggers and consultations in code and as data with their versions and candidates; its hand-offs, metadata, shadow variants, switches for tools without approval and for alerts by the model, and its rule scripts; and the blockers: settings that stop it from working as it should, each with the setting and the tool that changes it. Changes nothing.",
             Schema.Object([("agentId", Schema.Id("The agent's id."), true)]),
             (handler, call, token) => handler.ReadAgentAsync(call, token)),
         Read(
@@ -78,6 +138,26 @@ internal static class NhAssistantAgentBuilderTools
                 ("writes", Schema.Texts("The writing tools, by tool id, a version would opt in to; by default every write of the ceiling."), false)
             ]),
             (handler, call, token) => handler.ReadRuleScriptAsync(call, token)),
+        Read(
+            SearchAccounts,
+            "builder_search_accounts",
+            "Finds the application's accounts, people and technical accounts, by name or e-mail address (query, 2 to 100 characters), or names the accounts of given actor ids (ids), as the administration's account search does, so an agent can answer to a technical account. Whether an account may answer for an agent is checked when the setting is saved. Changes nothing.",
+            Schema.Object([
+                ("query", Schema.Text("Words of the account's name or e-mail address.", NhAssistantAgentBuilderToolHandler.MaxAccountQueryLength), false),
+                ("ids", Schema.Texts("Actor ids to name, at most 50."), false),
+                ("limit", Schema.Integer("The most accounts a search returns, 1 to 50; 20 by default."), false)
+            ]),
+            (handler, call, token) => handler.SearchAccountsAsync(call, token)),
+        Read(
+            ReadGateway,
+            "builder_read_gateway",
+            "Searches and describes the application's data through its API gateway with the administrator's own rights: with query it lists the resources whose name, title, summary or fields match, with their operations (query, get); with resource it describes one: its filter fields with their operators, search and order fields, whether a query can only count (countOnly), the id parameter of get and its result fields. Use it to learn what an agent can read through the gateway before you write its instructions or a rule script. Without a gateway it says there is none. Changes nothing.",
+            Schema.Object([
+                ("query", Schema.Text("Words to look for among the resources.", 200), false),
+                ("resource", Schema.Text("The resource to describe, as the search names it.", 128), false),
+                ("limit", Schema.Integer("The most resources a search returns, 1 to 20; 10 by default."), false)
+            ]),
+            (handler, call, token) => handler.ReadGatewayAsync(call, token)),
         new(
             DryRunRuleScript,
             "builder_dry_run_rule_script",
@@ -94,7 +174,7 @@ internal static class NhAssistantAgentBuilderTools
         Write(
             CreateAgent,
             "builder_create_agent",
-            "Creates a new agent in the administration, after the administrator approves it in the chat. It starts without run settings, skills and triggers, which later steps add. Tool selectors are tool ids or a prefix ending in .*, chosen from the catalog.",
+            "Creates a new agent in the administration, after the administrator approves it in the chat. It starts without run settings, skills, triggers and MCP servers, which later steps add. Tool selectors are tool ids or a prefix ending in .*, chosen from the catalog. With shadowOf it is a shadow variant of that live agent: it receives the live agent's triggers, always works in shadow and is never offered in the chat.",
             Schema.Object([
                 ("agentId", Schema.Id("A new, lowercase dash-case id."), true),
                 ("displayName", Schema.Text("The name people see.", 256), true),
@@ -105,17 +185,25 @@ internal static class NhAssistantAgentBuilderTools
                 ("worksOnSubjectTypes", Schema.Texts("The object types the agent works on, from the catalog."), false),
                 ("worksOnAllSubjects", Schema.Flag("The agent works on every object type."), false),
                 ("worksOnApplication", Schema.Flag("The agent works on the whole application."), false),
+                ("perDivision", Schema.Flag("The agent works per division, when the catalog lists divisions."), false),
+                ("runPolicy", Schema.Text("An agent policy from the catalog: who may run it for the whole application.", 256), false),
+                ("viewPolicy", Schema.Text("An agent policy from the catalog: who sees its results for the whole application.", 256), false),
                 ("offeredInChat", Schema.Flag("People can choose the agent in the chat; true by default."), false),
+                ("startsOff", Schema.Flag("The agent starts off: its triggers are ignored until it is switched on."), false),
                 ("startsInShadow", Schema.Flag("Its runs work in shadow, without effects, until it is put live."), false),
                 ("profile", Schema.Text("A model profile from the catalog; the application's chat profile by default.", 128), false),
                 ("requiredPolicy", Schema.Text("The policy a person needs to see and use the agent; none by default.", 256), false),
-                ("dataClassification", Schema.Choice("The classification of the data its model calls carry; internal by default.", ["public", "internal", "confidential", "restricted"]), false)
+                ("dataClassification", Schema.Choice("The classification of the data its model calls carry; internal by default.", Classifications), false),
+                ("compositions", Schema.Flag("The agent uses compositions, within what the code allows."), false),
+                ("scripts", Schema.Flag("The agent uses the script tool, within what the code allows."), false),
+                ("metadata", Schema.Map("Values of the application's agent metadata entries, by entry name."), false),
+                ("shadowOf", Schema.Id("The live agent the new agent is a shadow variant of."), false)
             ]),
             (handler, call, token) => handler.CreateAgentAsync(call, token)),
         Write(
             UpdateAgent,
             "builder_update_agent",
-            "Changes an agent's definition, after the administrator approves it in the chat: its name, description, instructions, tool selectors, autonomy or whether it is offered in the chat. Fields left out keep their value. expectedVersion is the version builder_read_agent showed. An agent in code gets an override.",
+            "Changes an agent's definition, after the administrator approves it in the chat: its name, description, instructions, tool selectors, autonomy, required policy, MCP servers, what it works on, model profile, classification, compositions and scripts, or whether it is offered in the chat. Fields left out keep their value; requiredPolicy null removes the policy. mcpServerIds replaces the agent's MCP servers in full. expectedVersion is the version builder_read_agent showed. An agent in code gets an override of the fields it can override.",
             Schema.Object([
                 ("agentId", Schema.Id("The agent's id."), true),
                 ("expectedVersion", Schema.Integer("The agent's current version."), true),
@@ -124,25 +212,48 @@ internal static class NhAssistantAgentBuilderTools
                 ("instructions", Schema.Text("The new instructions, in full.", 20_000), false),
                 ("toolSelectors", Schema.Texts("The new tool selectors, in full."), false),
                 ("autonomy", Schema.Choice("The new autonomy.", Autonomies), false),
-                ("offeredInChat", Schema.Flag("For an agent created in the administration: whether people can choose it in the chat."), false)
+                ("requiredPolicy", Schema.NullableText("The policy a person needs to see and use the agent; null for none.", 256), false),
+                ("mcpServerIds", Schema.Texts("The MCP servers the agent may use, in full; an empty list removes them all."), false),
+                ("offeredInChat", Schema.Flag("For an agent created in the administration: whether people can choose it in the chat."), false),
+                ("worksOnSubjectTypes", Schema.Texts("For an agent created in the administration: the object types it works on."), false),
+                ("worksOnAllSubjects", Schema.Flag("For an agent created in the administration: it works on every object type."), false),
+                ("worksOnApplication", Schema.Flag("For an agent created in the administration: it works on the whole application."), false),
+                ("perDivision", Schema.Flag("For an agent created in the administration: it works per division."), false),
+                ("runPolicy", Schema.NullableText("For an agent created in the administration: who may run it for the whole application.", 256), false),
+                ("viewPolicy", Schema.NullableText("For an agent created in the administration: who sees its results for the whole application.", 256), false),
+                ("profile", Schema.Text("For an agent created in the administration: a model profile from the catalog.", 128), false),
+                ("dataClassification", Schema.Choice("For an agent created in the administration: the classification of its data.", Classifications), false),
+                ("compositions", Schema.Flag("For an agent created in the administration: it uses compositions."), false),
+                ("scripts", Schema.Flag("For an agent created in the administration: it uses the script tool."), false)
             ]),
             (handler, call, token) => handler.UpdateAgentAsync(call, token)),
         Write(
             SaveRunSettings,
             "builder_save_run_settings",
-            "Adds or changes the run settings of an agent created in the administration, after the administrator approves it in the chat: approval policy, retries, daily budgets, concurrency, runs per subject per day, the token ceiling of a run, triage and the rule handler. Settings left out keep their value. Whose rights the agent uses (accountability, technical account, delegation, gateway and elevated reads) stays as it is; new settings answer to the agent itself.",
+            "Adds or changes the run settings of an agent created in the administration, after the administrator approves it in the chat: whose rights its runs use (accountability, the technical account of service-account found with builder_search_accounts, delegateFromInitiator, allowGatewayReads and elevatedReads), approval policy, retries, daily budgets, concurrency, runs per subject per day, the token ceiling of a run, triage, the rule handler, the alert kinds it may raise (alertKinds, from the catalog) and the file settings. Settings left out keep their value; new settings answer to the agent itself unless they say otherwise. Gateway reads need an accountability other than agent.",
             Schema.Object([
                 ("agentId", Schema.Id("The agent's id."), true),
                 ("expectedVersion", Schema.Integer("The settings' current version; leave it out for new settings."), false),
-                ("approvalPolicy", Schema.Text("An approval policy from the catalog.", 128), false),
+                ("accountability", Schema.Choice("Whose rights the agent's runs use: the agent itself, the subject's responsible person or a technical account.", Accountabilities), false),
+                ("serviceAccountActorId", Schema.NullableText("For service-account: the technical account's actor id, from builder_search_accounts.", 256), false),
+                ("delegateFromInitiator", Schema.Flag("Runs also use what the person who started them may use."), false),
+                ("allowGatewayReads", Schema.Flag("Runs read through the application's API gateway with the accountable person's or account's rights."), false),
+                ("elevatedReads", Schema.Choice("restricted shields reads with the accountable rights from thread readers without the tool's policies; deny refuses them.", ["restricted", "deny"]), false),
+                ("approvalPolicy", Schema.NullableText("An approval policy from the catalog.", 128), false),
                 ("retryCount", Schema.Integer("Automatic retries after a transient failure, 0 to 10."), false),
                 ("dailyToolCalls", Schema.Integer("With dailyTokens, the daily budget of tool calls per scope."), false),
                 ("dailyTokens", Schema.Integer("With dailyToolCalls, the daily budget of tokens per scope."), false),
                 ("maxConcurrentRuns", Schema.Integer("1 to 100."), false),
                 ("maxRunsPerSubjectPerDay", Schema.Integer("1 to 1,000."), false),
                 ("maxTokensPerRun", Schema.Integer("The token ceiling of one run."), false),
-                ("triageProfile", Schema.Text("A model profile that chooses the skill of a run no trigger routed.", 128), false),
-                ("ruleHandler", Schema.Text("A rule handler from the catalog.", 128), false),
+                ("triageProfile", Schema.NullableText("A model profile that chooses the skill of a run no trigger routed.", 128), false),
+                ("ruleHandler", Schema.NullableText("A rule handler from the catalog.", 128), false),
+                ("alertKinds", Schema.Texts("The alert kinds from the catalog that the agent's rule scripts and model may raise, in full; an empty list lists none."), false),
+                ("acceptsFiles", Schema.Flag("People's messages and the agent's tools may give it files, within the application's limits."), false),
+                ("maxFileBytes", Schema.Integer("With acceptsFiles: the largest file in bytes, at most the application's."), false),
+                ("maxFilePages", Schema.Integer("With acceptsFiles: the most pages of one file."), false),
+                ("maxFilesPerTurn", Schema.Integer("With acceptsFiles: the most files of one turn."), false),
+                ("maxFileTokensPerTurn", Schema.Integer("With acceptsFiles: the most estimated file tokens of one turn."), false),
                 ("reason", Schema.Reason(), false)
             ]),
             (handler, call, token) => handler.SaveRunSettingsAsync(call, token)),
@@ -164,7 +275,8 @@ internal static class NhAssistantAgentBuilderTools
                 ("dailyToolCalls", Schema.Integer("With dailyTokens, the skill's daily budget of tool calls."), false),
                 ("dailyTokens", Schema.Integer("With dailyToolCalls, the skill's daily budget of tokens."), false),
                 ("apply", Schema.Choice("For a change: live (default) or shadow, as a candidate.", [NhAssistantSkillApplyModes.Live, NhAssistantSkillApplyModes.Shadow]), false),
-                ("dataClassification", Schema.Choice("The classification of the data its model calls carry.", ["public", "internal", "confidential", "restricted"]), false),
+                ("dataClassification", Schema.Choice("The classification of the data its model calls carry.", Classifications), false),
+                ("acceptsFiles", Schema.Flag("A run in the skill reads files, when its agent accepts them too."), false),
                 ("reason", Schema.Reason(), false)
             ]),
             (handler, call, token) => handler.SaveSkillAsync(call, token)),
@@ -206,6 +318,60 @@ internal static class NhAssistantAgentBuilderTools
             ]),
             (handler, call, token) => handler.SaveRuleScriptAsync(call, token)),
         Write(
+            SaveConsultation,
+            "builder_save_consultation",
+            "Adds or changes the consultation defined as data that lets other assistants consult the agent about subjects of one type, within the ceiling in code, after the administrator approves it in the chat: who may ask (minimumRole and askerPolicy), how its proposals are decided (routes), the proposal role and policy, its limits, the request tool, MCP exposure and the classification of its answers. Send the whole consultation; expectedVersion is its current version, left out for a new one.",
+            Schema.Object([
+                ("agentId", Schema.Id("The agent's id."), true),
+                ("subjectType", Schema.Id("The object type the consultation is about."), true),
+                ("expectedVersion", Schema.Integer("The consultation's current version; leave it out for a new one."), false),
+                ("description", Schema.Text("What asking agents may consult it about.", NhAssistantAgentConfigurationLimits.MaxConsultationDescriptionLength), true),
+                ("instructions", Schema.Text("Instructions for the consulted agent's turn.", NhAssistantAgentConfigurationLimits.MaxConsultationInstructionsLength), false),
+                ("minimumRole", Schema.Choice("The role on the subject the asking person needs.", ["reader", "participant", "approver"]), false),
+                ("askerPolicy", Schema.Text("An agent policy from the catalog the asking person must pass.", 256), false),
+                ("routes", Schema.Texts("How its proposals are decided: asker-decides and at most one of subject-asker-rights and subject-agent-rights; none keeps it read-only."), false),
+                ("proposalRole", Schema.Choice("The role the asking person needs before the agent may propose.", ["reader", "participant", "approver"]), false),
+                ("proposalPolicy", Schema.Text("An approval policy from the catalog.", 128), false),
+                ("toolSelectors", Schema.Texts("The tools the consulted agent is offered, within its own; all of them by default."), false),
+                ("maxToolCalls", Schema.Integer("0 to 32."), false),
+                ("timeoutSeconds", Schema.Integer("1 to 600."), false),
+                ("maxAnswerChars", Schema.Integer("200 to 32,000."), false),
+                ("maxHistoryMessages", Schema.Integer("0 to 200."), false),
+                ("allowRequests", Schema.Flag("Also offers the request tool, when the ceiling allows requests."), false),
+                ("requestsOnly", Schema.Flag("It takes requests only; needs allowRequests."), false),
+                ("exposeToMcp", Schema.Flag("MCP clients may see its tools, when the ceiling allows it."), false),
+                ("dataClassification", Schema.Choice("The classification of its answers; the agent's by default.", Classifications), false),
+                ("startsOff", Schema.Flag("For a new consultation: it starts off until it is switched on."), false),
+                ("reason", Schema.Reason(), false)
+            ]),
+            (handler, call, token) => handler.SaveConsultationAsync(call, token)),
+        Write(
+            SaveHandOff,
+            "builder_save_hand_off",
+            "Adds or changes a hand-off defined as data, after the administrator approves it in the chat: the agents in sources may hand work on subjects of the type to this agent, within the ceiling in code, with a description for their models, a follow-up to the source and a daily limit per source and subject. expectedVersion is its current version, left out for a new one.",
+            Schema.Object([
+                ("agentId", Schema.Id("The agent that accepts the work."), true),
+                ("subjectType", Schema.Id("The object type of the work."), true),
+                ("expectedVersion", Schema.Integer("The hand-off's current version; leave it out for a new one."), false),
+                ("sources", Schema.Texts("The agents that may hand off to it."), true),
+                ("description", Schema.Text("When the sources hand off, for their models.", 512), false),
+                ("notifySource", Schema.Flag("The source hears back when the work is done."), false),
+                ("maxPerSubjectPerDay", Schema.Integer("The daily limit per source and subject, at most the ceiling's."), false),
+                ("reason", Schema.Reason(), false)
+            ]),
+            (handler, call, token) => handler.SaveHandOffAsync(call, token)),
+        Write(
+            SaveMetadata,
+            "builder_save_metadata",
+            "Saves one entry of the agent's metadata that the application registered, after the administrator approves it in the chat. value has the shape of the entry's type, as builder_read_agent shows the entry. expectedVersion is the entry's version as builder_read_agent shows it: the agent's version for an agent created in the administration, left out for a new override of an agent in code.",
+            Schema.Object([
+                ("agentId", Schema.Id("The agent's id."), true),
+                ("name", Schema.Id("The entry's name."), true),
+                ("value", Schema.Any("The value, in the shape of the entry's type."), true),
+                ("expectedVersion", Schema.Integer("The entry's version."), false)
+            ]),
+            (handler, call, token) => handler.SaveMetadataAsync(call, token)),
+        Write(
             SetLive,
             "builder_set_live",
             "Sets a version live, after the administrator approves it in the chat: a rule script's candidate (with expectedRevision), a data skill's candidate or a data trigger's candidate (with skillId or triggerId). Under four eyes the person who saved a rule script version cannot set it live.",
@@ -233,12 +399,120 @@ internal static class NhAssistantAgentBuilderTools
                 ("expectedRevision", Schema.Integer("For a rule script: its current revision."), false),
                 ("reason", Schema.Reason(), false)
             ]),
-            (handler, call, token) => handler.SetShadowAsync(call, token))
+            (handler, call, token) => handler.SetShadowAsync(call, token)),
+        Write(
+            SetState,
+            "builder_set_state",
+            "Changes a run state, after the administrator approves it in the chat: the agent or one of its skills becomes active, paused (nothing new starts, events wait), stopped (active runs are cancelled) or off (triggers are ignored); a consultation defined as data is switched on or off.",
+            Schema.Object([
+                ("agentId", Schema.Id("The agent's id."), true),
+                ("part", Schema.Choice("Whose state changes.", [StateParts.Agent, StateParts.Skill, StateParts.Consultation]), true),
+                ("state", Schema.Choice("For the agent or a skill: active, paused, stopped or off; for a consultation: on or off.", [.. RunStates, NhAssistantConsultationStates.On]), true),
+                ("skillId", Schema.Id("For a skill: its id."), false),
+                ("subjectType", Schema.Id("For a consultation: its object type."), false),
+                ("reason", Schema.Reason(), false)
+            ]),
+            (handler, call, token) => handler.SetStateAsync(call, token)),
+        Write(
+            SetTechnicalAccount,
+            "builder_set_technical_account",
+            "For an agent in code that answers to a technical account in code: makes actorId, an account from builder_search_accounts, the technical account whose rights its new runs use, or with actorId null the account in code again, after the administrator approves it in the chat. An agent created in the administration sets its technical account with builder_save_run_settings.",
+            Schema.Object([
+                ("agentId", Schema.Id("The agent's id."), true),
+                ("actorId", Schema.NullableText("The technical account's actor id; null for the account in code.", 256), true),
+                ("reason", Schema.Reason(), false)
+            ]),
+            (handler, call, token) => handler.SetTechnicalAccountAsync(call, token)),
+        Write(
+            SetConsultationRoutes,
+            "builder_set_consultation_routes",
+            "Switches the routes of an agent's consultations in code within what the code allows, after the administrator approves it in the chat: askerDecides lets the asking person decide a proposal in their own chat, with their own rights; subjectAgentRights lets the subject's approvers decide, after which it executes with the agent's own rights; subjectAskerRights lets them decide, after which it executes with the asker's rights. Each on, off or code; a route left out keeps its switch.",
+            Schema.Object([
+                ("agentId", Schema.Id("The agent's id."), true),
+                ("askerDecides", Schema.Choice("on, off or code.", RouteSwitches), false),
+                ("subjectAgentRights", Schema.Choice("on, off or code.", RouteSwitches), false),
+                ("subjectAskerRights", Schema.Choice("on, off or code.", RouteSwitches), false),
+                ("reason", Schema.Reason(), false)
+            ]),
+            (handler, call, token) => handler.SetConsultationRoutesAsync(call, token)),
+        Write(
+            SetMcpServer,
+            "builder_set_mcp_server",
+            "Assigns an existing MCP server from the catalog to the agent, so its enabled tools are offered in the agent's turns, or with assigned false removes that assignment, after the administrator approves it in the chat. Only the assignment changes; connecting a server and its credentials stay in the administration's screens.",
+            Schema.Object([
+                ("agentId", Schema.Id("The agent's id."), true),
+                ("serverId", Schema.Id("The MCP server's id, from the catalog."), true),
+                ("assigned", Schema.Flag("true to assign the server, false to remove the assignment."), true)
+            ]),
+            (handler, call, token) => handler.SetMcpServerAsync(call, token)),
+        Write(
+            SetMcpHeadlessUse,
+            "builder_set_mcp_headless_use",
+            "Changes whether the tools of an existing MCP server are offered in runs without a person, after the administrator approves it in the chat: never, organization (with the organization's connection, so agent runs may use them with their own grants) or personal (with the connection of the person a run acts for, after their consent). It applies to every agent the server is assigned to. Its connection and credentials stay as they are.",
+            Schema.Object([
+                ("serverId", Schema.Id("The MCP server's id, from the catalog."), true),
+                ("headlessUse", Schema.Choice("never, organization or personal.", [NhAssistantMcpHeadlessUses.Never, NhAssistantMcpHeadlessUses.Organization, NhAssistantMcpHeadlessUses.Personal]), true)
+            ]),
+            (handler, call, token) => handler.SetMcpHeadlessUseAsync(call, token)),
+        Write(
+            SetSwitch,
+            "builder_set_switch",
+            "Changes a switch of the agent, after the administrator approves it in the chat: whether its own runs call a tool whose code allows it without a person's approval (tool-without-approval with toolId), or whether its model raises alerts of a kind whose code allows it (alert-model with kindId). Each off, shadow (recorded what would happen) or live, and live only from shadow. expectedVersion is the switch's version as builder_read_agent shows it, 0 before the first switch.",
+            Schema.Object([
+                ("agentId", Schema.Id("The agent's id."), true),
+                ("part", Schema.Choice("Which switch.", [SwitchParts.ToolWithoutApproval, SwitchParts.AlertModel]), true),
+                ("toolId", Schema.Text("For tool-without-approval: the tool's id.", 256), false),
+                ("kindId", Schema.Id("For alert-model: the alert kind's id."), false),
+                ("mode", Schema.Choice("off, shadow or live.", SwitchModes), true),
+                ("expectedVersion", Schema.Integer("The switch's current version."), true),
+                ("reason", Schema.Reason(), false)
+            ]),
+            (handler, call, token) => handler.SetSwitchAsync(call, token)),
+        Write(
+            SetGroups,
+            "builder_set_groups",
+            "Puts the agent in exactly the given agent groups from the catalog, which boards show, and out of the others, after the administrator approves it in the chat.",
+            Schema.Object([
+                ("agentId", Schema.Id("The agent's id."), true),
+                ("groups", Schema.Texts("The groups, in full; an empty list takes it out of all."), true)
+            ]),
+            (handler, call, token) => handler.SetGroupsAsync(call, token)),
+        Write(
+            PromoteShadowVariant,
+            "builder_promote_shadow_variant",
+            "Copies the definition of a shadow variant created in the administration (agentId) onto its live agent as the live agent's next version, after the administrator approves it in the chat, and then deletes the variant. expectedVersion is the live agent's version. With moveSkills the variant's data skills become versions of the live agent's skills; with asPackageVersion a variant linked to one agent package becomes that package's next version.",
+            Schema.Object([
+                ("agentId", Schema.Id("The shadow variant's id."), true),
+                ("expectedVersion", Schema.Integer("The live agent's current version."), true),
+                ("expectedVariantVersion", Schema.Integer("The variant's version that was evaluated."), false),
+                ("moveSkills", Schema.Flag("The variant's data skills move to the live agent."), false),
+                ("asPackageVersion", Schema.Flag("The variant becomes its package's next version."), false),
+                ("uncarriedParts", Schema.Choice("With asPackageVersion: unlink (default) or relink the live agent's linked parts the variant does not carry.", ["unlink", "relink"]), false),
+                ("reason", Schema.Reason(), false)
+            ]),
+            (handler, call, token) => handler.PromoteShadowVariantAsync(call, token)),
+        Write(
+            Remove,
+            "builder_remove",
+            "Removes or discards something, after the administrator approves it in the chat; the card says what goes: an agent created in the administration (agent), the administrator's override of an agent in code with its MCP assignments (override), the run settings of an agent that then only chats, a data skill, a data trigger, a data consultation (subjectType), a hand-off (subjectType), a metadata entry (name), a skill's or trigger's candidate (version) or a rule script's candidate (rule-script-version, with version and expectedRevision). Versions stay as history where the administration keeps them.",
+            Schema.Object([
+                ("agentId", Schema.Id("The agent's id."), true),
+                ("part", Schema.Choice("What goes.", RemoveParts.All), true),
+                ("skillId", Schema.Id("For a skill, a skill's candidate or a skill's rule script."), false),
+                ("triggerId", Schema.Id("For a trigger or a trigger's candidate."), false),
+                ("subjectType", Schema.Id("For a consultation or a hand-off."), false),
+                ("name", Schema.Id("For a metadata entry."), false),
+                ("version", Schema.Integer("For a candidate or a rule script version."), false),
+                ("expectedVersion", Schema.Integer("The version of what goes, as builder_read_agent shows it."), false),
+                ("expectedRevision", Schema.Integer("For a rule script version: the rule script's revision."), false),
+                ("reason", Schema.Reason(), false)
+            ]),
+            (handler, call, token) => handler.RemoveAsync(call, token))
     ];
 
     /// <summary>
-    /// Whether <paramref name="toolId"/> is one of the tools that save or set something live, each of which
-    /// waits for the administrator's approval.
+    /// Whether <paramref name="toolId"/> is one of the tools that change something, each of which waits
+    /// for the administrator's approval.
     /// </summary>
     public static bool IsWrite(string toolId)
     {
@@ -250,7 +524,7 @@ internal static class NhAssistantAgentBuilderTools
         string exportName,
         string description,
         (JsonObject Schema, string[] Properties) schema,
-        Func<NhAssistantAgentBuilderToolHandler, NhAssistantAgentBuilderCall, CancellationToken, Task<TaskResult<System.Text.Json.Nodes.JsonNode>>> handle)
+        Func<NhAssistantAgentBuilderToolHandler, NhAssistantAgentBuilderCall, CancellationToken, Task<TaskResult<JsonNode>>> handle)
     {
         return new NhAssistantAgentBuilderTool(id, exportName, description, NhAiToolEffect.ReadOnly, NhAiApprovalRequirement.NotRequired, schema, handle);
     }
@@ -260,7 +534,7 @@ internal static class NhAssistantAgentBuilderTools
         string exportName,
         string description,
         (JsonObject Schema, string[] Properties) schema,
-        Func<NhAssistantAgentBuilderToolHandler, NhAssistantAgentBuilderCall, CancellationToken, Task<TaskResult<System.Text.Json.Nodes.JsonNode>>> handle)
+        Func<NhAssistantAgentBuilderToolHandler, NhAssistantAgentBuilderCall, CancellationToken, Task<TaskResult<JsonNode>>> handle)
     {
         return new NhAssistantAgentBuilderTool(id, exportName, description, NhAiToolEffect.Mutation, NhAiApprovalRequirement.Required, schema, handle);
     }
@@ -292,6 +566,17 @@ internal static class NhAssistantAgentBuilderTools
             return new JsonObject { ["type"] = "string", ["maxLength"] = maxLength, ["description"] = description };
         }
 
+        /// <summary>A text that <c>null</c> clears.</summary>
+        public static JsonObject NullableText(string description, int maxLength)
+        {
+            return new JsonObject
+            {
+                ["type"] = new JsonArray("string", "null"),
+                ["maxLength"] = maxLength,
+                ["description"] = description
+            };
+        }
+
         public static JsonObject Reason()
         {
             return Text("Why, in one sentence; kept with the change.", 500);
@@ -307,12 +592,30 @@ internal static class NhAssistantAgentBuilderTools
             return new JsonObject { ["type"] = "boolean", ["description"] = description };
         }
 
+        /// <summary>A value of any JSON type, checked by the service it reaches.</summary>
+        public static JsonObject Any(string description)
+        {
+            return new JsonObject { ["description"] = description };
+        }
+
+        /// <summary>An object of values of any JSON type by name.</summary>
+        public static JsonObject Map(string description)
+        {
+            return new JsonObject
+            {
+                ["type"] = "object",
+                ["additionalProperties"] = true,
+                ["maxProperties"] = 64,
+                ["description"] = description
+            };
+        }
+
         public static JsonObject Texts(string description)
         {
             return new JsonObject
             {
                 ["type"] = "array",
-                ["items"] = new JsonObject { ["type"] = "string", ["maxLength"] = 128 },
+                ["items"] = new JsonObject { ["type"] = "string", ["maxLength"] = 256 },
                 ["maxItems"] = 64,
                 ["description"] = description
             };
@@ -363,4 +666,4 @@ internal sealed record NhAssistantAgentBuilderTool(
     NhAiToolEffect Effect,
     NhAiApprovalRequirement Approval,
     (JsonObject Schema, string[] Properties) Input,
-    Func<NhAssistantAgentBuilderToolHandler, NhAssistantAgentBuilderCall, CancellationToken, Task<TaskResult<System.Text.Json.Nodes.JsonNode>>> Handle);
+    Func<NhAssistantAgentBuilderToolHandler, NhAssistantAgentBuilderCall, CancellationToken, Task<TaskResult<JsonNode>>> Handle);

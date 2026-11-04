@@ -46,7 +46,7 @@
     },
     "agent-builder": {
       "name": "Agent builder",
-      "description": "Helps administrators build agents: instructions, tools, skills, triggers, run settings and rule scripts. Every change waits for your approval."
+      "description": "Helps administrators build agents: instructions, tools, skills, triggers, run settings with whose rights they work, and rule scripts. Every change waits for your approval, and it never handles secrets."
     },
     "conversation-list": {
       "title": "Conversations",

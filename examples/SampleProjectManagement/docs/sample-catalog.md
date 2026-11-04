@@ -317,6 +317,12 @@ application registers, and writes its rules as a rule script that another admini
 a project, it raises the reminder for the project's owner without a model. A version that raises a kind its run
 settings do not list, such as the document check's, stops and raises nothing. `AssistantAlertKindsAsDataSamplesTests`
 runs it.
+The agent builder builds such an agent with an administrator (SPM-396): asked for a weekly count of the tasks
+that changed last week that warns the operations lead above ten, it reads the gateway's tasks, creates the count
+for the whole application, lets it answer to a technical account with gateway reads, lists the kind
+`weekly-task-changes`, saves a rule script that counts through the gateway and dry-runs it, each step after an
+approval on a card that says when it changes whose rights the agent uses; another administrator sets it live.
+`AssistantWeeklyCountSamplesTests` runs it.
 The agent's work also appears on the project itself (SPM-280): the project directory shows a
 badge per project from one summary request, the project dialog shows the open proposals of
 every agent on the project with the viewer's decision rights, and opening the conversation with

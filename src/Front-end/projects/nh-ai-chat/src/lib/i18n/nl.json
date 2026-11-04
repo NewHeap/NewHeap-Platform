@@ -46,7 +46,7 @@
     },
     "agent-builder": {
       "name": "Agentbouwer",
-      "description": "Helpt beheerders agents te bouwen: instructies, tools, vaardigheden, triggers, run-instellingen en regelscripts. Elke wijziging wacht op jouw goedkeuring."
+      "description": "Helpt beheerders agents te bouwen: instructies, tools, vaardigheden, triggers, run-instellingen met wiens rechten ze werken, en regelscripts. Elke wijziging wacht op jouw goedkeuring, en geheimen handelt hij nooit af."
     },
     "conversation-list": {
       "title": "Gesprekken",
