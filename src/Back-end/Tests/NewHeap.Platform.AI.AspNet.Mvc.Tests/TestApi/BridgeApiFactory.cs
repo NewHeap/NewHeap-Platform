@@ -51,6 +51,12 @@ public sealed class BridgeApiFactory : WebApplicationFactory<BridgeApiFactory>
 
     public CapturedLogs Logs { get; } = new();
 
+    /// <summary>
+    /// Builds the pipeline with <c>UseAuthentication</c> before <c>UseRouting</c>, as a host that
+    /// authenticates before it knows a request's endpoint.
+    /// </summary>
+    public bool AuthenticateBeforeRouting { get; init; }
+
     /// <summary>Every request the test API received, as <c>METHOD /path?query</c>.</summary>
     public ConcurrentQueue<string> Requests { get; } = new();
 
@@ -75,8 +81,16 @@ public sealed class BridgeApiFactory : WebApplicationFactory<BridgeApiFactory>
                         Requests.Enqueue(context.Request.Method + " " + context.Request.Path + context.Request.QueryString);
                         await next(context);
                     });
-                    app.UseRouting();
-                    app.UseAuthentication();
+                    if (AuthenticateBeforeRouting)
+                    {
+                        app.UseAuthentication();
+                        app.UseRouting();
+                    }
+                    else
+                    {
+                        app.UseRouting();
+                        app.UseAuthentication();
+                    }
                     app.UseAuthorization();
                     app.UseEndpoints(endpoints => endpoints.MapControllers());
                 }));
@@ -318,19 +332,26 @@ public sealed class AllowAllEffectPolicy : INhAiEffectPolicy
 public sealed class CapturedLogs : ILoggerProvider
 {
     private readonly ConcurrentQueue<string> _entries = new();
+    private readonly ConcurrentQueue<CapturedLogRecord> _records = new();
 
     public IReadOnlyCollection<string> Entries => _entries.ToArray();
 
+    /// <summary>Every entry with its category, level and event id.</summary>
+    public IReadOnlyCollection<CapturedLogRecord> Records => _records.ToArray();
+
     public ILogger CreateLogger(string categoryName)
     {
-        return new CapturingLogger(categoryName, _entries);
+        return new CapturingLogger(categoryName, _entries, _records);
     }
 
     public void Dispose()
     {
     }
 
-    private sealed class CapturingLogger(string category, ConcurrentQueue<string> entries) : ILogger
+    private sealed class CapturingLogger(
+        string category,
+        ConcurrentQueue<string> entries,
+        ConcurrentQueue<CapturedLogRecord> records) : ILogger
     {
         public IDisposable? BeginScope<TState>(TState state)
             where TState : notnull
@@ -350,10 +371,14 @@ public sealed class CapturedLogs : ILoggerProvider
             Exception? exception,
             Func<TState, Exception?, string> formatter)
         {
-            entries.Enqueue(category + ": " + formatter(state, exception) + " " + exception);
+            var message = formatter(state, exception);
+            entries.Enqueue(category + ": " + message + " " + exception);
+            records.Enqueue(new CapturedLogRecord(category, logLevel, eventId.Id, message));
         }
     }
 }
+
+public sealed record CapturedLogRecord(string Category, LogLevel Level, int EventId, string Message);
 
 /// <summary>A distinct context for executor-level tests.</summary>
 public static class TestContexts

@@ -59,6 +59,8 @@ public static class NhAiMvcBridgeServiceCollectionExtensions
             // request has no endpoint.
             services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAiDelegatedReadSurface, NhAiMvcBridgeReadSurface>());
             services.Configure<MvcOptions>(mvc => mvc.Filters.Add(new NhAiMvcBridgeDelegatedReadFilter()));
+            // A failed gateway read names its cause, also when delegated reads were never registered.
+            services.TryAddSingleton<NhAiDelegatedReadDiagnostics>();
         }
         services.TryAddScoped<INhAiMvcBridgeExecutor, NhAiMvcBridgeExecutor>();
         services.AddHttpClient(NhAiMvcBridgeDefaults.HttpClientName)

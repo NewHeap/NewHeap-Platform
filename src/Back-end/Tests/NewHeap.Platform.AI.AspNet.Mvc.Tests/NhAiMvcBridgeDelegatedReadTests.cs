@@ -174,12 +174,13 @@ public sealed class NhAiMvcBridgeDelegatedReadTests
             var query = await InvokeAsync(services, Query, new { resource = "order" });
             Assert.Equal(NhAiBridgeFailureCodes.Unauthenticated, query.Property("code").GetString());
         }
+        // The issuer refuses a removed person: the read names that cause.
         using (NhAiAgentInvocationScopes.Begin(AgentScope("removed")))
         {
             var query = await InvokeAsync(services, Query, new { resource = "order" });
             var search = await InvokeAsync(services, Search, new { query = "" });
-            Assert.Equal(NhAiBridgeFailureCodes.Unauthenticated, query.Property("code").GetString());
-            Assert.Equal(NhAiBridgeFailureCodes.Unauthenticated, search.Property("code").GetString());
+            Assert.Equal(NhAiDelegatedReadFailureCodes.IssuerRefused, query.Property("code").GetString());
+            Assert.Equal(NhAiDelegatedReadFailureCodes.IssuerRefused, search.Property("code").GetString());
         }
         Assert.DoesNotContain(factory.Requests, request => request.StartsWith("GET /orders", StringComparison.Ordinal));
     }
@@ -196,7 +197,7 @@ public sealed class NhAiMvcBridgeDelegatedReadTests
             using (NhAiAgentInvocationScopes.Begin(AgentScope(person)))
             {
                 var query = await InvokeAsync(services, Query, new { resource = "order" });
-                Assert.Equal(NhAiBridgeFailureCodes.Unauthenticated, query.Property("code").GetString());
+                Assert.Equal(NhAiDelegatedReadFailureCodes.IssuerRefused, query.Property("code").GetString());
             }
         }
         Assert.DoesNotContain(factory.Requests, request => request.StartsWith("GET /orders", StringComparison.Ordinal));
@@ -270,8 +271,8 @@ public sealed class NhAiMvcBridgeDelegatedReadTests
         Assert.Contains("JWT bearer scheme 'Bearer'", failure.Message);
     }
 
-    private const string ListAction = "test-api.order.get";
-    private const string GetAction = "test-api.order.get-by-id";
+    internal const string ListAction = "test-api.order.get";
+    internal const string GetAction = "test-api.order.get-by-id";
 
     /// <summary>
     /// The application's access contexts of an OIDC host, which records its people's rights at their own
@@ -309,7 +310,7 @@ public sealed class NhAiMvcBridgeDelegatedReadTests
         }
     }
 
-    private static NhAiAgentInvocationScope AgentScope(string person)
+    internal static NhAiAgentInvocationScope AgentScope(string person)
     {
         return new NhAiAgentInvocationScope(
             "order-planner",
@@ -334,7 +335,7 @@ public sealed class NhAiMvcBridgeDelegatedReadTests
         return descriptors.Select(descriptor => descriptor.ExportName).ToArray();
     }
 
-    private static async Task<BridgeToolResult> InvokeAsync(IServiceProvider services, string exportName, object input)
+    internal static async Task<BridgeToolResult> InvokeAsync(IServiceProvider services, string exportName, object input)
     {
         var catalog = services.GetRequiredService<NhAiMvcBridgeToolCatalog>();
         var function = catalog.CreateFunctions(services).Single(item => item.Name == exportName);
@@ -363,34 +364,55 @@ public sealed class NhAiMvcBridgeDelegatedReadTests
         return response.StatusCode;
     }
 
-    private static BridgeApiFactory CreateFactory(Action<IServiceCollection>? configure = null)
+    /// <summary>
+    /// The test API with the gateway, the JWT bearer scheme as its default scheme and delegated reads
+    /// with <see cref="TestReadIssuer"/>, unless <paramref name="delegatedReads"/> registers them
+    /// otherwise or not at all.
+    /// </summary>
+    internal static BridgeApiFactory CreateFactory(
+        Action<IServiceCollection>? configure = null,
+        bool authenticateBeforeRouting = false,
+        bool bearerIsDefault = true,
+        Action<IServiceCollection>? delegatedReads = null)
     {
         return new BridgeApiFactory(ConfigureGateway, services =>
         {
             configure?.Invoke(services);
             services.AddSingleton<TestReadIssuer.Recorder>();
-            services.AddAuthentication(options =>
+            var authentication = bearerIsDefault
+                ? services.AddAuthentication(options =>
                 {
                     options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
                     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
                 })
-                .AddJwtBearer(options =>
+                : services.AddAuthentication();
+            authentication.AddJwtBearer(options =>
+            {
+                options.MapInboundClaims = false;
+                options.TokenValidationParameters = new TokenValidationParameters
                 {
-                    options.MapInboundClaims = false;
-                    options.TokenValidationParameters = new TokenValidationParameters
-                    {
-                        ValidIssuer = TestReadTokens.Issuer,
-                        ValidateAudience = false,
-                        IssuerSigningKey = TestReadTokens.Key,
-                        ClockSkew = TimeSpan.Zero
-                    };
-                });
-            services.AddNewHeapPlatformAIDelegatedReads(reads => reads.UseIssuer<TestReadIssuer>());
-        });
+                    ValidIssuer = TestReadTokens.Issuer,
+                    ValidateAudience = false,
+                    IssuerSigningKey = TestReadTokens.Key,
+                    ClockSkew = TimeSpan.Zero
+                };
+            });
+            if (delegatedReads is null)
+            {
+                services.AddNewHeapPlatformAIDelegatedReads(reads => reads.UseIssuer<TestReadIssuer>());
+            }
+            else
+            {
+                delegatedReads(services);
+            }
+        })
+        {
+            AuthenticateBeforeRouting = authenticateBeforeRouting
+        };
     }
 
-    private static void ConfigureGateway(NhAiMvcBridgeBuilder bridge)
+    internal static void ConfigureGateway(NhAiMvcBridgeBuilder bridge)
     {
         bridge
             .UseToolSetId("test-api")
@@ -419,7 +441,8 @@ internal static class TestReadTokens
         TimeSpan lifetime,
         string? action = null,
         IEnumerable<Claim>? extra = null,
-        string? audience = null)
+        string? audience = null,
+        SecurityKey? signingKey = null)
     {
         var claims = new List<Claim> { new("sub", person), new(ClaimTypes.NameIdentifier, person) };
         claims.AddRange(permissions.Select(permission => new Claim("permission", permission)));
@@ -440,13 +463,14 @@ internal static class TestReadTokens
             claims,
             notBefore,
             now.Add(lifetime),
-            new SigningCredentials(Key, SecurityAlgorithms.HmacSha256)));
+            new SigningCredentials(signingKey ?? Key, SecurityAlgorithms.HmacSha256)));
     }
 }
 
 /// <summary>
-/// Issues tokens for a reader and a person without rights, refuses a removed person, and misbehaves
-/// for "unbound" (no binding claims) and "long-lived" (an hour).
+/// Issues tokens for a reader and a person without rights, refuses a removed person, fails for
+/// "failing", and misbehaves for "unbound" (no binding claims), "long-lived" (an hour) and "foreign"
+/// (signed with a key the host's scheme does not know).
 /// </summary>
 internal sealed class TestReadIssuer(TestReadIssuer.Recorder recorder) : INhAiDelegatedReadCredentialIssuer
 {
@@ -459,20 +483,31 @@ internal sealed class TestReadIssuer(TestReadIssuer.Recorder recorder) : INhAiDe
         {
             return ValueTask.FromResult(TaskResult<NhAiDelegatedReadCredential>.Failed("person-removed", "The person was removed."));
         }
+        if (request.PersonActorId == "failing")
+        {
+            throw new InvalidOperationException("The identity store of failing@example.test is down.");
+        }
 
-        string[] permissions = request.PersonActorId is "reader" or "unbound" or "long-lived" ? [TestPolicies.OrderView] : [];
+        string[] permissions = request.PersonActorId is "reader" or "unbound" or "long-lived" or "foreign" ? [TestPolicies.OrderView] : [];
         var token = request.PersonActorId switch
         {
-            "unbound" => TestReadTokens.Create(request.PersonActorId, permissions, null, request.Lifetime),
-            "long-lived" => TestReadTokens.Create(request.PersonActorId, permissions, null, TimeSpan.FromHours(1), extra: request.Claims),
-            _ => TestReadTokens.Create(request.PersonActorId, permissions, null, request.Lifetime, extra: request.Claims)
+            "unbound" => TestReadTokens.Create(request.PersonActorId, permissions, null, request.Lifetime, audience: recorder.Audience),
+            "long-lived" => TestReadTokens.Create(request.PersonActorId, permissions, null, TimeSpan.FromHours(1), extra: request.Claims, audience: recorder.Audience),
+            "foreign" => TestReadTokens.Create(request.PersonActorId, permissions, null, request.Lifetime, extra: request.Claims, audience: recorder.Audience, signingKey: ForeignKey),
+            _ => TestReadTokens.Create(request.PersonActorId, permissions, null, request.Lifetime, extra: request.Claims, audience: recorder.Audience)
         };
         return ValueTask.FromResult(TaskResult<NhAiDelegatedReadCredential>.Succeeded(
             new NhAiDelegatedReadCredential(token, DateTimeOffset.UtcNow + request.Lifetime)));
     }
 
+    /// <summary>The key of another application, which the host's scheme does not trust.</summary>
+    private static readonly SymmetricSecurityKey ForeignKey = new(Encoding.UTF8.GetBytes("another-application-signing-key-0123456789"));
+
     public sealed class Recorder
     {
         public ConcurrentQueue<NhAiDelegatedReadRequest> Requests { get; } = new();
+
+        /// <summary>The audience of the issued tokens, for a host that validates one.</summary>
+        public string? Audience { get; init; }
     }
 }

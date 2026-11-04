@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
@@ -76,6 +77,47 @@ public static class NhAiDelegatedReadDefaults
     public static readonly TimeSpan DefaultLifetime = TimeSpan.FromSeconds(60);
 
     public static readonly TimeSpan MaxLifetime = TimeSpan.FromMinutes(5);
+}
+
+/// <summary>
+/// Why a gateway read of a headless agent run got no usable delegated read credential. The API bridge
+/// gateway fails such a read with its cause as the code, so the run, the administration and the agent
+/// builder can say what to fix, and each cause logs one content-free warning per host that names the
+/// fix. A person who may not lend rights now, such as one without a fresh context under
+/// <see cref="NhAiAspNetBuilder.UsePrincipalsFromAccessSource{TSource}"/> or a subject's responsible
+/// person who changed after the run was queued, still fails with <c>api-bridge-unauthenticated</c>.
+/// </summary>
+public static class NhAiDelegatedReadFailureCodes
+{
+    /// <summary>
+    /// The host authenticated the credential before it knew the request's target, so the restriction
+    /// refused it: the host authenticates before routing. Route first (<c>UseRouting</c> before
+    /// <c>UseAuthentication</c>), or, without endpoint routing, let the API bridge authenticate the
+    /// scheme with the executing action as its target instead of middleware before MVC.
+    /// </summary>
+    public const string TargetUnknown = "ai-delegated-read-target-unknown";
+
+    /// <summary>
+    /// The agent allows gateway reads, but the host issues no delegated read credentials:
+    /// <c>AddNewHeapPlatformAIDelegatedReads</c> is missing, or its built-in issuer runs on a host without
+    /// the NewHeap authentication service and no issuer of its own (<see cref="NhAiDelegatedReadsBuilder.UseIssuer{TIssuer}"/>).
+    /// </summary>
+    public const string NoIssuer = "ai-delegated-read-no-issuer";
+
+    /// <summary>
+    /// The issuer refused the person the run reads for, failed, or issued a token without exactly its
+    /// binding claims or that lives longer than the configured lifetime.
+    /// </summary>
+    public const string IssuerRefused = "ai-delegated-read-issuer-refused";
+
+    /// <summary>
+    /// The host's JWT bearer scheme rejected the issued credential, or the API answered the gateway
+    /// read with <c>401</c> for another reason than an unknown target.
+    /// </summary>
+    public const string Rejected = "ai-delegated-read-rejected";
+
+    /// <summary>Every cause, for an application that matches gateway read failures by code.</summary>
+    public static IReadOnlyList<string> All { get; } = [TargetUnknown, NoIssuer, IssuerRefused, Rejected];
 }
 
 /// <summary>
@@ -183,6 +225,7 @@ public static class NhAiDelegatedReadServiceCollectionExtensions
         services.AddHttpContextAccessor();
         services.TryAdd(ServiceDescriptor.Scoped(typeof(INhAiDelegatedReadCredentialIssuer), options.IssuerType));
         services.TryAddScoped<NhAiDelegatedReadService>();
+        services.TryAddSingleton<NhAiDelegatedReadDiagnostics>();
         services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>, NhAiDelegatedReadRestriction>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAiDelegatedReadStartupValidator>());
         return services;
@@ -196,6 +239,12 @@ public static class NhAiDelegatedReadServiceCollectionExtensions
 /// </summary>
 internal sealed class NhAiNewHeapDelegatedReadCredentialIssuer(IServiceProvider services) : INhAiDelegatedReadCredentialIssuer
 {
+    /// <summary>
+    /// Whether the host has the NewHeap authentication service; without it this issuer issues nothing
+    /// and the host needs an issuer of its own.
+    /// </summary>
+    public bool CanIssue => services.GetService<INhAuthenticationService>() is not null;
+
     public async ValueTask<TaskResult<NhAiDelegatedReadCredential>> IssueAsync(
         NhAiDelegatedReadRequest request,
         CancellationToken cancellationToken)
@@ -226,14 +275,20 @@ internal sealed class NhAiNewHeapDelegatedReadCredentialIssuer(IServiceProvider 
 internal sealed partial class NhAiDelegatedReadService(
     IServiceProvider services,
     NhAiDelegatedReadOptions options,
+    NhAiDelegatedReadDiagnostics diagnostics,
     ILogger<NhAiDelegatedReadService> logger)
 {
+    /// <summary>
+    /// The code of a credential that is not issued because the person may not lend rights now; the
+    /// gateway reports it as <c>api-bridge-unauthenticated</c>. Other refusals carry a cause of
+    /// <see cref="NhAiDelegatedReadFailureCodes"/>.
+    /// </summary>
     public const string UnavailableCode = "ai-delegated-read-unavailable";
 
     private static readonly object InternalAuthentication = new();
     private static readonly object IdentifiedTarget = new();
     private static readonly TimeSpan ExpiryTolerance = TimeSpan.FromSeconds(30);
-    private readonly Dictionary<string, ClaimsPrincipal?> _principals = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, NhAiDelegatedReadAuthentication> _principals = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Whether the request is the library's own authentication of a credential. An external
@@ -288,13 +343,23 @@ internal sealed partial class NhAiDelegatedReadService(
             "No delegated read credential could be issued.");
     }
 
+    /// <summary>A refusal with one of the causes of <see cref="NhAiDelegatedReadFailureCodes"/>.</summary>
+    private static TaskResult<NhAiDelegatedReadCredential> Refused(string cause)
+    {
+        return TaskResult<NhAiDelegatedReadCredential>.Failed(
+            cause,
+            "No delegated read credential could be issued.");
+    }
+
     /// <summary>
     /// Issues a credential of the scope's reading person (<see cref="NhAiAgentInvocationScope.GatewayReadActorId"/>),
     /// bound to <paramref name="invocationId"/> and, for a call, to the gateway action
     /// <paramref name="actionToolId"/>. The token the issuer returns must carry exactly those claims
     /// and live no longer than the configured lifetime; otherwise it is never used. Under
     /// <see cref="NhAiAspNetBuilder.UsePrincipalsFromAccessSource{TSource}"/> the issuer is asked only
-    /// while <see cref="INhAiPrincipalFactory"/> builds the person's principal.
+    /// while <see cref="INhAiPrincipalFactory"/> builds the person's principal. A refusal carries its
+    /// cause (<see cref="NhAiDelegatedReadFailureCodes"/>), or <see cref="UnavailableCode"/> when the
+    /// person may not lend rights now.
     /// </summary>
     public async ValueTask<TaskResult<NhAiDelegatedReadCredential>> IssueAsync(
         NhAiAgentInvocationScope scope,
@@ -306,6 +371,13 @@ internal sealed partial class NhAiDelegatedReadService(
         if (scope.GatewayReadActorId is not { } person || scope.Accountability == NhAiAgentAccountability.Agent)
         {
             return Unavailable();
+        }
+        // Without an issuer that can issue, no read of any person ever works: say so first.
+        var issuer = services.GetService<INhAiDelegatedReadCredentialIssuer>();
+        if (issuer is null or NhAiNewHeapDelegatedReadCredentialIssuer { CanIssue: false })
+        {
+            diagnostics.Report(NhAiDelegatedReadFailureCodes.NoIssuer, scope.AgentId);
+            return Refused(NhAiDelegatedReadFailureCodes.NoIssuer);
         }
         // The run answers to the subject's responsible person; when that changed after the run was
         // queued, the person it was queued for no longer lends their rights.
@@ -321,12 +393,6 @@ internal sealed partial class NhAiDelegatedReadService(
         if (!await MayLendRightsAsync(person, scope.Subject, cancellationToken))
         {
             LogNoFreshContext(logger, scope.AgentId);
-            return Unavailable();
-        }
-
-        var issuer = services.GetService<INhAiDelegatedReadCredentialIssuer>();
-        if (issuer is null)
-        {
             return Unavailable();
         }
 
@@ -353,23 +419,26 @@ internal sealed partial class NhAiDelegatedReadService(
         {
             // Issuers read identity data; their messages may carry it. Log the type only.
             LogIssueFailed(logger, scope.AgentId, exception.GetType().Name);
-            return Unavailable();
+            diagnostics.Report(NhAiDelegatedReadFailureCodes.IssuerRefused, scope.AgentId);
+            return Refused(NhAiDelegatedReadFailureCodes.IssuerRefused);
         }
 
         if (!issued.Success || issued.Data is null || !IsBound(issued.Data.BearerToken, invocationId, actionToolId))
         {
             LogIssueRefused(logger, scope.AgentId);
-            return Unavailable();
+            diagnostics.Report(NhAiDelegatedReadFailureCodes.IssuerRefused, scope.AgentId);
+            return Refused(NhAiDelegatedReadFailureCodes.IssuerRefused);
         }
         return issued;
     }
 
     /// <summary>
     /// The principal of the scope's reading person as the host's scheme authenticates a credential,
-    /// including claims transformation, or <see langword="null"/> when none can be issued or the
-    /// scheme rejects it. Cached for the run within this service scope.
+    /// including claims transformation, or no principal with the code of the refusal when none can be
+    /// issued or the scheme rejects it (<see cref="NhAiDelegatedReadFailureCodes.Rejected"/>). Cached
+    /// for the run within this service scope.
     /// </summary>
-    public async ValueTask<ClaimsPrincipal?> AuthenticateAsync(
+    public async ValueTask<NhAiDelegatedReadAuthentication> AuthenticateAsync(
         NhAiAgentInvocationScope scope,
         CancellationToken cancellationToken)
     {
@@ -380,10 +449,14 @@ internal sealed partial class NhAiDelegatedReadService(
             return cached;
         }
 
-        ClaimsPrincipal? principal = null;
+        NhAiDelegatedReadAuthentication authentication;
         // A credential bound to no action: the restriction accepts it only for this authentication.
         var credential = await IssueAsync(scope, Guid.NewGuid(), null, cancellationToken);
-        if (credential.Success)
+        if (!credential.Success)
+        {
+            authentication = new NhAiDelegatedReadAuthentication(null, FailureCodeOf(credential));
+        }
+        else
         {
             // Authentication handlers and their results are cached per service scope; a scope of its
             // own keeps every authentication apart from the run's and from each other.
@@ -393,15 +466,30 @@ internal sealed partial class NhAiDelegatedReadService(
             httpContext.Request.Method = HttpMethods.Get;
             httpContext.Request.Headers.Authorization = "Bearer " + credential.Data!.BearerToken;
             var result = await httpContext.AuthenticateAsync(options.Scheme);
-            principal = result.Succeeded ? result.Principal : null;
-            if (principal is null)
+            if (result.Succeeded && result.Principal is { } principal)
+            {
+                authentication = new NhAiDelegatedReadAuthentication(principal, null);
+            }
+            else
             {
                 LogAuthenticationRefused(logger, scope.AgentId);
+                diagnostics.Report(NhAiDelegatedReadFailureCodes.Rejected, scope.AgentId);
+                authentication = new NhAiDelegatedReadAuthentication(null, NhAiDelegatedReadFailureCodes.Rejected);
             }
         }
 
-        _principals[key] = principal;
-        return principal;
+        _principals[key] = authentication;
+        return authentication;
+    }
+
+    /// <summary>The code of a failed <see cref="IssueAsync"/>: its cause, or <see cref="UnavailableCode"/>.</summary>
+    public static string FailureCodeOf(TaskResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        return result.GetResultItems()
+            .Select(item => item.Name)
+            .FirstOrDefault(name => NhAiDelegatedReadFailureCodes.All.Contains(name, StringComparer.Ordinal))
+            ?? UnavailableCode;
     }
 
     /// <summary>
@@ -498,8 +586,10 @@ internal sealed class NhAiDelegatedReadRestriction : IPostConfigureOptions<JwtBe
     /// to the gateway action named by its <see cref="NhAiDelegatedReadDefaults.ActionClaimType"/>
     /// claim with the matching invocation header, or the library's own authentication of it. Every
     /// other request with such a token, including one whose target is not yet known
-    /// (<see cref="NhAiDelegatedReadService.Target"/>), fails. Tokens without the claim are not
-    /// affected.
+    /// (<see cref="NhAiDelegatedReadService.Target"/>), fails. When a bridge call with its own
+    /// invocation header fails for want of a target, and the request ends with <c>401</c>, the
+    /// diagnostics name the cause (<see cref="NhAiDelegatedReadFailureCodes.TargetUnknown"/>). Tokens
+    /// without the claim are not affected.
     /// </summary>
     internal static bool Allows(TokenValidatedContext context)
     {
@@ -519,17 +609,22 @@ internal sealed class NhAiDelegatedReadRestriction : IPostConfigureOptions<JwtBe
             return true;
         }
 
+        var header = httpContext.Request.Headers[NhAiDelegatedReadDefaults.InvocationHeaderName];
         if (!HttpMethods.IsGet(httpContext.Request.Method)
-            || NhAiDelegatedReadService.Target(httpContext) is not { } target
-            || !Reaches(context.Principal!, target, httpContext.RequestServices))
+            || header.Count != 1
+            || !Guid.TryParse(header[0], out var headerInvocationId)
+            || headerInvocationId != invocationId)
         {
             return false;
         }
 
-        var header = httpContext.Request.Headers[NhAiDelegatedReadDefaults.InvocationHeaderName];
-        return header.Count == 1
-            && Guid.TryParse(header[0], out var headerInvocationId)
-            && headerInvocationId == invocationId;
+        if (NhAiDelegatedReadService.Target(httpContext) is not { } target)
+        {
+            // The bridge's own call, authenticated before the host knew where it goes.
+            NhAiDelegatedReadDiagnostics.WatchUnknownTarget(httpContext, invocationId);
+            return false;
+        }
+        return Reaches(context.Principal!, target, httpContext.RequestServices);
     }
 
     /// <summary>
@@ -634,4 +729,125 @@ internal sealed class NhAiDelegatedReadStartupValidator(
     {
         return Task.CompletedTask;
     }
+}
+
+/// <summary>
+/// How the library's own authentication of a delegated read credential ended: the reading person's
+/// principal, or none with the code of the refusal (a cause of <see cref="NhAiDelegatedReadFailureCodes"/>
+/// or <see cref="NhAiDelegatedReadService.UnavailableCode"/>).
+/// </summary>
+internal readonly record struct NhAiDelegatedReadAuthentication(ClaimsPrincipal? Principal, string? FailureCode);
+
+/// <summary>
+/// Names why gateway reads fail, without content: one warning per cause and host that names the fix,
+/// and the cause of a bridge call that the host refused for want of a target, which the call's
+/// <c>401</c> cannot say. Warnings use the category of <see cref="NhAiDelegatedReadService"/>, next to
+/// the warnings of each occurrence.
+/// </summary>
+internal sealed partial class NhAiDelegatedReadDiagnostics(ILogger<NhAiDelegatedReadService> logger)
+{
+    private const int MaxRefusals = 256;
+
+    private static readonly object Watched = new();
+    private static readonly long RefusalLifetime = (long)(NhAiDelegatedReadDefaults.MaxLifetime + TimeSpan.FromMinutes(1)).TotalMilliseconds;
+
+    private readonly ConcurrentDictionary<string, byte> _reported = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<Guid, (string Cause, long RecordedAt)> _refusals = new();
+
+    /// <summary>
+    /// Logs the warning of <paramref name="cause"/> the first time this host meets it; later
+    /// occurrences log nothing here. <paramref name="agentId"/> is the agent that met it first.
+    /// </summary>
+    public void Report(string cause, string? agentId)
+    {
+        if (!_reported.TryAdd(cause, 0))
+        {
+            return;
+        }
+
+        var agent = agentId ?? "(unknown)";
+        switch (cause)
+        {
+            case NhAiDelegatedReadFailureCodes.TargetUnknown:
+                LogTargetUnknown(logger);
+                break;
+            case NhAiDelegatedReadFailureCodes.NoIssuer:
+                LogNoIssuer(logger, agent);
+                break;
+            case NhAiDelegatedReadFailureCodes.IssuerRefused:
+                LogIssuerRefused(logger, agent);
+                break;
+            case NhAiDelegatedReadFailureCodes.Rejected:
+                LogRejected(logger, agent);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(cause), cause, "Not a cause of NhAiDelegatedReadFailureCodes.");
+        }
+    }
+
+    /// <summary>
+    /// The cause the host recorded for the bridge call <paramref name="invocationId"/> when it refused
+    /// its credential, once; <see langword="null"/> when this host recorded none, for example because
+    /// another instance answered the call.
+    /// </summary>
+    public string? TakeRefusal(Guid invocationId)
+    {
+        return _refusals.TryRemove(invocationId, out var refusal) ? refusal.Cause : null;
+    }
+
+    /// <summary>
+    /// Watches a bridge call whose credential the restriction refused because its target was not known
+    /// yet: when the request ends with <c>401</c>, the host records the cause for the call and warns
+    /// once. A request that another scheme still authorizes warns about nothing.
+    /// </summary>
+    public static void WatchUnknownTarget(HttpContext httpContext, Guid invocationId)
+    {
+        if (httpContext.Response.HasStarted
+            || httpContext.Items.ContainsKey(Watched)
+            || httpContext.RequestServices?.GetService<NhAiDelegatedReadDiagnostics>() is not { } diagnostics)
+        {
+            return;
+        }
+
+        httpContext.Items[Watched] = Watched;
+        httpContext.Response.OnStarting(() =>
+        {
+            if (httpContext.Response.StatusCode == StatusCodes.Status401Unauthorized)
+            {
+                diagnostics.Record(invocationId, NhAiDelegatedReadFailureCodes.TargetUnknown);
+                diagnostics.Report(NhAiDelegatedReadFailureCodes.TargetUnknown, null);
+            }
+            return Task.CompletedTask;
+        });
+    }
+
+    private void Record(Guid invocationId, string cause)
+    {
+        var now = Environment.TickCount64;
+        if (_refusals.Count >= MaxRefusals)
+        {
+            // A call answered by this host is taken at once; what stays is another instance's call.
+            foreach (var stale in _refusals.Where(entry => now - entry.Value.RecordedAt > RefusalLifetime).ToArray())
+            {
+                _refusals.TryRemove(stale.Key, out _);
+            }
+            if (_refusals.Count >= MaxRefusals)
+            {
+                _refusals.Clear();
+            }
+        }
+        _refusals[invocationId] = (cause, now);
+    }
+
+    [LoggerMessage(EventId = 6, Level = LogLevel.Warning, Message = "A delegated read credential reached a request whose target was not known yet, so it was refused (ai-delegated-read-target-unknown): the host authenticates before routing. Call UseRouting before UseAuthentication; with UseNewHeapPlatformAspNetCommon, route controllers with UseEndpointRoutingOnly(). A host without endpoint routing lets the API bridge's MVC filter authenticate the delegated read scheme with the executing action as its target (AuthenticateForTargetAsync) and must not authenticate that scheme in middleware first, for example as the default authentication scheme.")]
+    private static partial void LogTargetUnknown(ILogger logger);
+
+    [LoggerMessage(EventId = 7, Level = LogLevel.Warning, Message = "Agent {AgentId} allows gateway reads, but the host issues no delegated read credentials (ai-delegated-read-no-issuer). Call AddNewHeapPlatformAIDelegatedReads; a host without the NewHeap authentication service (INhAuthenticationService) registers an issuer of its own with UseIssuer<T>().")]
+    private static partial void LogNoIssuer(ILogger logger, string agentId);
+
+    [LoggerMessage(EventId = 8, Level = LogLevel.Warning, Message = "The delegated read issuer gave agent {AgentId} no usable credential (ai-delegated-read-issuer-refused): it refused the person the run reads for, failed, or issued a token without exactly the claims of NhAiDelegatedReadRequest.Claims or that lives longer than NhAiDelegatedReadRequest.Lifetime. Check that the person may still sign in and that the issuer binds its tokens; events 1 and 2 name each occurrence.")]
+    private static partial void LogIssuerRefused(ILogger logger, string agentId);
+
+    [LoggerMessage(EventId = 9, Level = LogLevel.Warning, Message = "The host rejected the delegated read credential of agent {AgentId} (ai-delegated-read-rejected): its JWT bearer scheme did not accept the token, or the API answered a gateway read with 401. Make the delegated read scheme (UseScheme, Bearer by default) validate the issuer's tokens, with their issuer, audience and signing key, and let the self base URL reach this API with the X-NewHeap-AI-Invocation header unchanged. Where the API authenticated before routing, it logs ai-delegated-read-target-unknown.")]
+    private static partial void LogRejected(ILogger logger, string agentId);
 }
