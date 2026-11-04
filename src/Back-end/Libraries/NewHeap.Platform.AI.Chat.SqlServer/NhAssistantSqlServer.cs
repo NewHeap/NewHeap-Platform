@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -70,7 +71,7 @@ internal static class NhAssistantSqlServerStorage
 }
 
 #pragma warning disable EF1001 // The SQL Server generator constructor is part of the provider extension surface.
-internal sealed class NhAssistantSqlServerMigrationsSqlGenerator(
+internal sealed partial class NhAssistantSqlServerMigrationsSqlGenerator(
     MigrationsSqlGeneratorDependencies dependencies,
     ICommandBatchPreparer commandBatchPreparer)
     : SqlServerMigrationsSqlGenerator(dependencies, commandBatchPreparer)
@@ -84,8 +85,38 @@ internal sealed class NhAssistantSqlServerMigrationsSqlGenerator(
         var schema = NhAssistantMigrationSchema.GetConfiguredSchema(Dependencies.CurrentContext.Context);
         NhAssistantMigrationSchema.Apply(operations, schema);
         NhAssistantMigrationSchema.ApplyToSql(operations, Dependencies.SqlGenerationHelper.DelimitIdentifier(schema));
-        return base.Generate(operations, model, options);
+        return base.Generate(
+            options.HasFlag(MigrationsSqlGenerationOptions.Idempotent) ? operations.Select(CompiledOnlyWhenItRuns).ToArray() : operations,
+            model,
+            options);
     }
+
+    /// <summary>
+    /// The SQL of a migration as an idempotent script must run it. SQL Server compiles a whole batch before it runs
+    /// any of it, also what the script's check of the migration history skips, and it defers the names of missing
+    /// tables but not of missing columns. So a data move that reads columns a later operation drops stops the script
+    /// on every database past that migration (Msg 207). In <c>EXEC</c> it compiles only when the migration runs.
+    /// A new operation leaves the migration's own, which later generations of the script read again, as it is.
+    /// </summary>
+    private static MigrationOperation CompiledOnlyWhenItRuns(MigrationOperation operation)
+    {
+        // EXEC holds one batch: SQL with its own batches is the provider's to split, and is left to it.
+        if (operation is not SqlOperation sql || BatchSeparator().IsMatch(sql.Sql))
+        {
+            return operation;
+        }
+
+        return new SqlOperation
+        {
+            Sql = $"EXEC(N'{sql.Sql.Replace("'", "''", StringComparison.Ordinal)}');",
+            IsDestructiveChange = sql.IsDestructiveChange,
+            SuppressTransaction = sql.SuppressTransaction
+        };
+    }
+
+    /// <summary>A line of its own with the batch separator <c>GO</c>, as the provider's generator splits on it.</summary>
+    [GeneratedRegex(@"^\s*GO(?:[ \t]+[0-9]+)?\s*$", RegexOptions.IgnoreCase | RegexOptions.Multiline)]
+    private static partial Regex BatchSeparator();
 }
 #pragma warning restore EF1001
 
