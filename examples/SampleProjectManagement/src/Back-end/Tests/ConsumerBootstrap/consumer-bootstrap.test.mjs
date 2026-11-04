@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import './companist-hosting.test.mjs';
+import './companist-build.test.mjs';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
