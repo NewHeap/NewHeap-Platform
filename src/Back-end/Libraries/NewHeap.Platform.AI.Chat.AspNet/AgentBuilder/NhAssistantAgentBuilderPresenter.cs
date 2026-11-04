@@ -110,8 +110,12 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
                 card.Summary = dutch
                     ? $"Slaat de run-instellingen van agent {agentId} op; instellingen die niet genoemd worden blijven zoals ze zijn."
                     : $"Saves the run settings of agent {agentId}; settings it does not name stay as they are.";
-                card.Add(texts.Changes, Names(input, ["agentId", "expectedVersion", "reason", .. RightsSettings]));
+                card.Add(texts.Changes, Names(input, ["agentId", "expectedVersion", "reason", "alertKinds", .. RightsSettings]));
                 card.Add(texts.Version, Number(input, "expectedVersion") ?? texts.New);
+                if (input.TryGetProperty("alertKinds", out _))
+                {
+                    card.Add(texts.AlertKinds, Join(input, "alertKinds") ?? texts.None);
+                }
                 card.Rights(RunSettingsRights(input, texts));
                 return true;
             case NhAssistantAgentBuilderTools.SaveSkill:
@@ -596,6 +600,7 @@ internal sealed class NhAssistantAgentBuilderPresenter(NhAssistantRegistrationSt
         public string State => dutch ? "Status" : "State";
         public string Mode => dutch ? "Stand" : "Mode";
         public string AlertKind => dutch ? "Soort waarschuwing" : "Alert kind";
+        public string AlertKinds => dutch ? "Soorten waarschuwingen" : "Alert kinds";
         public string Groups => dutch ? "Groepen" : "Groups";
         public string RightsLabel => dutch ? "Rechten" : "Rights";
         public string RemovesLabel => dutch ? "Verwijdert" : "Removes";

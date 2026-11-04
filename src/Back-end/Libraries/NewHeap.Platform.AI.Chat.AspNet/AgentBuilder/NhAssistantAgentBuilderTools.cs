@@ -230,7 +230,7 @@ internal static class NhAssistantAgentBuilderTools
         Write(
             SaveRunSettings,
             "builder_save_run_settings",
-            "Adds or changes the run settings of an agent created in the administration, after the administrator approves it in the chat: whose rights its runs use (accountability, the technical account of service-account found with builder_search_accounts, delegateFromInitiator, allowGatewayReads and elevatedReads), approval policy, retries, daily budgets, concurrency, runs per subject per day, the token ceiling of a run, triage, the rule handler and the file settings. Settings left out keep their value; new settings answer to the agent itself unless they say otherwise. Gateway reads need an accountability other than agent.",
+            "Adds or changes the run settings of an agent created in the administration, after the administrator approves it in the chat: whose rights its runs use (accountability, the technical account of service-account found with builder_search_accounts, delegateFromInitiator, allowGatewayReads and elevatedReads), approval policy, retries, daily budgets, concurrency, runs per subject per day, the token ceiling of a run, triage, the rule handler, the alert kinds it may raise (alertKinds, from the catalog) and the file settings. Settings left out keep their value; new settings answer to the agent itself unless they say otherwise. Gateway reads need an accountability other than agent.",
             Schema.Object([
                 ("agentId", Schema.Id("The agent's id."), true),
                 ("expectedVersion", Schema.Integer("The settings' current version; leave it out for new settings."), false),
@@ -248,6 +248,7 @@ internal static class NhAssistantAgentBuilderTools
                 ("maxTokensPerRun", Schema.Integer("The token ceiling of one run."), false),
                 ("triageProfile", Schema.NullableText("A model profile that chooses the skill of a run no trigger routed.", 128), false),
                 ("ruleHandler", Schema.NullableText("A rule handler from the catalog.", 128), false),
+                ("alertKinds", Schema.Texts("The alert kinds from the catalog that the agent's rule scripts and model may raise, in full; an empty list lists none."), false),
                 ("acceptsFiles", Schema.Flag("People's messages and the agent's tools may give it files, within the application's limits."), false),
                 ("maxFileBytes", Schema.Integer("With acceptsFiles: the largest file in bytes, at most the application's."), false),
                 ("maxFilePages", Schema.Integer("With acceptsFiles: the most pages of one file."), false),

@@ -223,6 +223,10 @@ public sealed class AssistantAgentBuilderAdministrationTests(AssistantDatabaseFi
             .RespondWithFunctionCall("builder_read_gateway", new { input = new { resource = "order-status-change" } })
             .RespondWithFunctionCall("builder_read_agent", new { input = new { agentId = Weekly } })
             .RespondWithText("Gateway reads are off and the alert kind is not listed.")
+            // FB93: the builder lists the kind in the run settings, after the approval.
+            .RespondWithFunctionCall("builder_save_run_settings", new { input = new { agentId = Weekly, expectedVersion = 1, alertKinds = new[] { "weekly-count" } } })
+            .RespondWithFunctionCall("builder_read_agent", new { input = new { agentId = Weekly } })
+            .RespondWithText("The weekly count may raise its alert now.")
             .RespondWithText("I answer as another agent.");
         await using var app = await StartAsync(model, provider, gateway: true);
         await CreateWeeklyAsync(app, runSettings: true);
@@ -256,6 +260,18 @@ public sealed class AssistantAgentBuilderAdministrationTests(AssistantDatabaseFi
         Assert.Equal("accountability", blockers["gateway-reads-need-accountability"].GetProperty("setting").GetString());
         Assert.Contains("weekly-count", blockers["alert-kind-not-listed"].GetProperty("message").GetString(), StringComparison.Ordinal);
         Assert.Equal(NhAssistantAgentBuilderTools.SaveTrigger, blockers["no-trigger"].GetProperty("fix").GetString());
+
+        // The builder lists the kind after the approval, on a card that names it; the blocker is gone then.
+        var listing = await SendAsync(administrator, conversation, "List the weekly count's alert kind.");
+        var listCard = Assert.Single(listing, evt => evt.Name == "approval.required").Data;
+        Assert.Contains(
+            listCard.GetProperty("presentation").GetProperty("fields").EnumerateArray(),
+            field => field.GetProperty("label").GetString() is "Alert kinds" or "Soorten waarschuwingen" && field.GetProperty("value").GetString() == "weekly-count");
+        await DecideAsync(administrator, conversation, listCard, "approve");
+        Assert.Equal(["weekly-count"], (await ConfigurationAsync(app)).RunSettings!.AlertKinds);
+        var after = FunctionResult(model, 4).GetProperty("data");
+        Assert.Equal("weekly-count", after.GetProperty("configuration").GetProperty("runSettings").GetProperty("alertKinds")[0].GetString());
+        Assert.DoesNotContain(after.GetProperty("blockers").EnumerateArray(), blocker => blocker.GetProperty("code").GetString() == "alert-kind-not-listed");
 
         // The application's guidance reaches the builder after the rules and before the application context,
         // and no other agent.
@@ -305,6 +321,12 @@ public sealed class AssistantAgentBuilderAdministrationTests(AssistantDatabaseFi
                     NhAiRetentionCategory.Operational,
                     "builder-guidance-v1")))
                 .ConfigureMcp(mcp => mcp.AllowLoopback = true)
+                .AddAlertKind("weekly-count", kind => kind
+                    .DisplayName("nh-assistant.alert-kinds.weekly-count.name")
+                    .Urgency(NhAssistantAlertUrgency.Warning)
+                    .Title((_, _) => "Many changes last week")
+                    .Text((_, _) => "More changes than the threshold.")
+                    .Recipients(NhAssistantAlertRecipients.SubjectResponsible))
                 .UseRuleScriptsAsData(scripts => scripts.ForAgentsCreatedInAdministration()),
             provider: provider);
     }

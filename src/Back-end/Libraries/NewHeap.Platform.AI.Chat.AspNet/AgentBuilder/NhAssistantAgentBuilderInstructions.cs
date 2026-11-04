@@ -69,7 +69,10 @@ internal static class NhAssistantAgentBuilderInstructions
           ten", is best a rule script: the agent's rules as a script stored as data. It runs from the agent's
           triggers, for example a schedule over a subject set, or for the whole application without one, and
           raises alerts, proposes or ends with a summary. Use an agent that may have rule scripts (the catalog
-          says which) and an alert kind it lists.
+          says which) and an alert kind it lists. An agent created in the administration lists the kinds its
+          rule scripts and model may raise in its run settings (alertKinds of builder_save_run_settings, from
+          the catalog's alert kinds); an agent in code lists them in code. Its model raises a kind that has a
+          model template only once the alert model switch of builder_set_switch is live, after shadow.
         - A rule script is the body of an async JavaScript function. Use only the tools that
           builder_read_rule_script lists, by their function names and with the inputs of their signatures,
           and only the platform functions it declares (subject, inputs, run, alerts.raise, alerts.resolve,

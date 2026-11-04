@@ -182,7 +182,11 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler
             PickInt(input, "maxFileBytes", current?.MaxFileBytes),
             PickInt(input, "maxFilePages", current?.MaxFilePages),
             PickInt(input, "maxFilesPerTurn", current?.MaxFilesPerTurn),
-            PickInt(input, "maxFileTokensPerTurn", current?.MaxFileTokensPerTurn));
+            PickInt(input, "maxFileTokensPerTurn", current?.MaxFileTokensPerTurn))
+        {
+            // The kinds the agent's rules and model may raise (FB93): left out keeps the stored list.
+            AlertKinds = input.Texts("alertKinds")
+        };
         var saved = await Configuration.SaveRunSettingsAsync(agentId, request, call.Person, cancellationToken);
         return Outcome(saved, data => new { agentId, runSettings = data });
     }

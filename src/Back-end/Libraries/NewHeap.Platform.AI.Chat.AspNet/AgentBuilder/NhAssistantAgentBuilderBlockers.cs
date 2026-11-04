@@ -315,7 +315,7 @@ internal static partial class NhAssistantAgentBuilderBlockers
             "skill" => NhAssistantAgentBuilderTools.SaveSkill,
             "trigger" => NhAssistantAgentBuilderTools.SaveTrigger,
             "consultation" => NhAssistantAgentBuilderTools.SaveConsultation,
-            "run-settings" => NhAssistantAgentBuilderTools.SaveRunSettings,
+            "run-settings" or "alert-kind" => NhAssistantAgentBuilderTools.SaveRunSettings,
             _ => null
         };
     }

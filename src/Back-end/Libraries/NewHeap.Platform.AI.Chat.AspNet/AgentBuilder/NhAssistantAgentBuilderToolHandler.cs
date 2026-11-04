@@ -452,7 +452,11 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler(
         var facts = new NhAssistantAgentBuilderBlockerFacts(
             services.GetService<INhAiGatewayResources>()?.ToolIds ?? [],
             services.GetService<INhAiDelegatedReadCredentialIssuer>() is not null && services.GetServices<INhAiDelegatedReadSurface>().Any(),
-            registration.RunOptionsOf(agent.AgentId).AlertKinds,
+            // The kinds in code, and those the run settings of an agent created in the administration list.
+            registration.RunOptionsOf(agent.AgentId).AlertKinds
+                .Concat(configuration?.RunSettings?.AlertKinds ?? [])
+                .Concat(configuration?.CodeRunSettings?.AlertKinds ?? [])
+                .ToHashSet(StringComparer.Ordinal),
             scripts,
             await RecentFailureCodesAsync(agent.AgentId, cancellationToken));
         return NhAssistantAgentBuilderBlockers.Of(agent, configuration, facts);
