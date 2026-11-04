@@ -247,11 +247,27 @@ The agent opts in with `AllowGatewayReads()` and its tool selectors must select 
 tools. The run is offered the four gateway tools only, never the resource actions; calls carry
 grant source `DelegatedRead`, and the subject's division reaches trusted query bindings as in a
 person's turn. Route values that are empty or a dot segment are refused, so a model-supplied id
-never reaches another action. A token that cannot be issued, or that the scheme rejects, becomes
-`api-bridge-unauthenticated`; a non-`GET` or non-gateway call with grant source `DelegatedRead`
+never reaches another action. A non-`GET` or non-gateway call with grant source `DelegatedRead`
 fails with `api-bridge-forbidden` before a request is sent. Only the person whose rights a read
 used sees its result, whatever the agent's elevated reads allow; other thread readers see
 `restricted`, because endpoint policies do not capture the rows a controller filters per person.
+
+A read that gets no usable credential fails with its cause as the code
+(`NhAiDelegatedReadFailureCodes`), which the model, the run's tool call, the administration and the
+agent builder show, and the host logs one content-free warning per cause (events 6 to 9 of
+`NhAiDelegatedReadService`) that names the fix; the warnings of each occurrence (events 1 to 5) stay:
+
+| Code | Cause | Fix |
+|---|---|---|
+| `ai-delegated-read-target-unknown` | The host authenticated the credential before routing knew its target, so the restriction refused it. | Call `UseRouting` before `UseAuthentication`; with `UseNewHeapPlatformAspNetCommon`, route controllers with `UseEndpointRoutingOnly()`. Under `UseMvc` the bridge's MVC filter authenticates the scheme with the executing action as its target (`AuthenticateForTargetAsync`), so no middleware may authenticate that scheme first, as it does for the default authentication scheme. |
+| `ai-delegated-read-no-issuer` | Nothing issues credentials: `AddNewHeapPlatformAIDelegatedReads` is missing, or its built-in issuer runs on a host without `INhAuthenticationService`. | Call `AddNewHeapPlatformAIDelegatedReads`; a host on another identity provider registers its issuer with `UseIssuer<T>()`. |
+| `ai-delegated-read-issuer-refused` | The issuer refused the person, failed, or returned a token without exactly the binding claims or that lives too long. | Check that the person may still sign in; let the issuer return a JWT with exactly `NhAiDelegatedReadRequest.Claims` within its lifetime. |
+| `ai-delegated-read-rejected` | The host's scheme rejected the token, or the API answered the read with `401` for another reason. | Let the delegated read scheme (`UseScheme`) validate the issuer's tokens, and the self base URL reach this API with the `X-NewHeap-AI-Invocation` header unchanged. |
+
+The host names an unknown target for the call it answered itself; a call that another instance
+answered fails as `ai-delegated-read-rejected`, and that instance logs the unknown target. A person
+who may not lend rights now, such as one without a fresh context or a responsible person who changed,
+still fails with `api-bridge-unauthenticated`.
 
 ## Avoid
 
@@ -278,6 +294,9 @@ used sees its result, whatever the agent's elevated reads allow; other thread re
   loopback: a delegated read token is a bearer token.
 - Giving a headless agent gateway reads to work around a missing curated tool for a write;
   the gateway only reads.
+- Authenticating a JWT bearer scheme before routing, for example `UseAuthentication` before
+  `UseRouting` or the bearer scheme as the default authentication scheme under `UseMvc`: every gateway
+  read then fails as `ai-delegated-read-target-unknown`.
 
 ## Verification
 
@@ -316,12 +335,20 @@ events override `TokenValidated`; that it does so in a host built with
 `UseNewHeapPlatformAspNetCommon`; that a delegated read principal authenticated earlier runs no
 other MVC action; that startup fails for a scheme with `EventsType`; that a run
 with both keys is offered the four gateway tools and no resource action and reads with the
-starter's or else the accountable person's rights; that an unbound or long-lived issued token, a
-locked-out person and a changed responsible person get `api-bridge-unauthenticated`; that dot
-segments are refused; and that only the person whose rights a read used sees its result
-(SPM-290). With `UsePrincipalsFromAccessSource`, assert that a person without a context or with one
-older than `MaxAge` gets `api-bridge-unauthenticated` without the issuer being asked, and that a
-fresh context reads as before (SPM-315).
+starter's or else the accountable person's rights; that an unbound or long-lived issued token and
+a locked-out person get `ai-delegated-read-issuer-refused` and a changed responsible person
+`api-bridge-unauthenticated`; that dot segments are refused; and that only the person whose rights a
+read used sees its result (SPM-290). Assert that each cause fails the read with its code and logs
+its warning once, however often it occurs: a host that authenticates before routing, also the bearer
+scheme as the default authentication scheme under `UseMvc`, gets `ai-delegated-read-target-unknown`;
+no `AddNewHeapPlatformAIDelegatedReads`, or its built-in issuer without the NewHeap authentication
+service, gets `ai-delegated-read-no-issuer`; a refusing or failing issuer gets
+`ai-delegated-read-issuer-refused`; a token the scheme rejects, or a `401` the host did not explain,
+gets `ai-delegated-read-rejected`; that no warning carries a token, claim or exception text; and
+that a routed host reads and warns about nothing (SPM-290). With `UsePrincipalsFromAccessSource`,
+assert that a person without a context or with one older than `MaxAge` gets
+`api-bridge-unauthenticated` without the issuer being asked, and that a fresh context reads as
+before (SPM-315).
 
 ## Executable evidence
 

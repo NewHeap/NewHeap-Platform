@@ -167,6 +167,10 @@ HTTP failures map to `NhAiBridgeFailureCodes`: `api-bridge-validation` (400/422,
 with the model state as data), `api-bridge-unauthenticated`,
 `api-bridge-forbidden`, `api-bridge-not-found`, `api-bridge-conflict`,
 `api-bridge-upstream` (5xx, other statuses, transport) and `api-bridge-timeout`.
+A gateway read of a headless run that gets no usable delegated read credential
+fails with its cause instead (`NhAiDelegatedReadFailureCodes`:
+`ai-delegated-read-target-unknown`, `-no-issuer`, `-issuer-refused` and
+`-rejected`), and the host logs one warning per cause that names the fix.
 Failure messages and logs never contain response body text.
 
 ## Security defaults
