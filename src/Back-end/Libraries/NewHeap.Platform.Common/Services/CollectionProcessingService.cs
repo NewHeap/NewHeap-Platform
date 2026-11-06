@@ -227,13 +227,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                             var memberAccess = Expression.Property(Expression.Constant(closure),
                                 closure.GetType().GetProperty("Value")!);
 
-                            Expression body = Expression.Call(
-                                typeof(DbFunctionsExtensions).GetMethod(nameof(DbFunctionsExtensions.Like),
-                                    new[] { typeof(DbFunctions), typeof(string), typeof(string) })!,
-                                Expression.Constant(EF.Functions),
-                                member,
-                                memberAccess
-                            );
+                            Expression body = NhCollectionTextMatch.CreateLike(member, memberAccess);
 
                             var dbg = body.ToString();
                             var subSearchExpression = Expression.Lambda<Func<TEntity, bool>>(body, parameter);
@@ -898,14 +892,7 @@ public partial class CollectionProcessingService : ICollectionProcessingService
                     {
                         var constant = GetFilterConstant(member.Type, filter.Value, filter.Key);
 
-                        body = Expression.Call(
-                            typeof(DbFunctionsExtensions),
-                            nameof(DbFunctionsExtensions.Like),
-                            Type.EmptyTypes,
-                            Expression.Property(null, typeof(EF), nameof(EF.Functions)),
-                            member,
-                            constant
-                        );
+                        body = NhCollectionTextMatch.CreateLike(member, constant);
                         break;
                     }
             }
