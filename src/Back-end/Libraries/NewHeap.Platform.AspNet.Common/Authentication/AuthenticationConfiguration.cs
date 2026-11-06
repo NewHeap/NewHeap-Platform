@@ -24,6 +24,14 @@ public class AuthenticationConfiguration
     public TimeSpan ExpirationTimespanRefreshToken { get; set; } = TimeSpan.FromDays(30);
     public TimeSpan ExpirationTimespanToken { get; set; } = TimeSpan.FromDays(1);
 
+    /// <summary>
+    /// How long an impersonation access token is valid. The impersonation session has no refresh
+    /// token, so it ends when this token expires unless the origin user reverts it first.
+    /// Defaults to one day; set it through
+    /// <c>UserNamePasswordOptions.ExpirationTimespanImpersonationToken</c>.
+    /// </summary>
+    public TimeSpan ExpirationTimespanImpersonationToken { get; set; } = TimeSpan.FromDays(1);
+
     internal AuthenticationConfiguration()
     {
         

@@ -408,6 +408,41 @@ public sealed class AuthenticationSessionProviderTests
         Assert.Equal(administratorRefreshTokens + 1, await CountRefreshTokensAsync(environment.Context, administrator.Id));
     }
 
+    /// <summary>
+    /// The impersonation token's lifetime follows
+    /// <see cref="AuthenticationConfiguration.ExpirationTimespanImpersonationToken"/>, one day unless
+    /// configured, independently of the lifetime of ordinary access tokens.
+    /// </summary>
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task ImpersonationTokenLifetimeFollowsTheConfigurationOnEachRelationalProvider(
+        RelationalTestProvider provider)
+    {
+        await using var environment = await SessionEnvironment.CreateAsync(provider);
+        var administrator = await environment.CreateUserAsync("lifetime-administrator@example.test");
+        var target = await environment.CreateUserAsync("lifetime-target@example.test");
+
+        async Task<TimeSpan> ImpersonationLifetimeAsync(AuthenticationConfiguration configuration)
+        {
+            var authenticationService = environment.CreateAuthenticationService(configuration: configuration);
+            var impersonation = await authenticationService.Impersonate(administrator.Id, new ImpersonateRequest(target.Id));
+            Assert.True(impersonation.Success);
+
+            var token = new JwtSecurityTokenHandler().ReadJwtToken(impersonation.Data!.Token);
+            return token.ValidTo - token.ValidFrom;
+        }
+
+        Assert.Equal(TimeSpan.FromDays(1), await ImpersonationLifetimeAsync(new AuthenticationConfiguration()));
+        Assert.Equal(
+            TimeSpan.FromMinutes(20),
+            await ImpersonationLifetimeAsync(new AuthenticationConfiguration
+            {
+                ExpirationTimespanToken = TimeSpan.FromHours(8),
+                ExpirationTimespanImpersonationToken = TimeSpan.FromMinutes(20),
+            }));
+    }
+
     private static async Task VerifyProviderAsync(SessionEnvironment environment)
     {
         const string initialCredential = "Old1!Password";
@@ -665,7 +700,8 @@ public sealed class AuthenticationSessionProviderTests
     private static TestAuthenticationService CreateAuthenticationService(
         NhUserManager userManager,
         IOptions<IdentityOptions> identityOptions,
-        IReadOnlyDictionary<string, string?>? additionalSettings = null)
+        IReadOnlyDictionary<string, string?>? additionalSettings = null,
+        AuthenticationConfiguration? authenticationConfiguration = null)
     {
         var signInManager = new SignInManager<NhUser>(
             userManager,
@@ -684,7 +720,7 @@ public sealed class AuthenticationSessionProviderTests
             Substitute.For<ILogger<AuthenticationService>>(),
             configuration,
             new TokenValidationParameters(),
-            new AuthenticationConfiguration());
+            authenticationConfiguration ?? new AuthenticationConfiguration());
     }
 
     /// <summary>
@@ -844,12 +880,14 @@ public sealed class AuthenticationSessionProviderTests
         }
 
         internal TestAuthenticationService CreateAuthenticationService(
-            IReadOnlyDictionary<string, string?>? additionalSettings = null)
+            IReadOnlyDictionary<string, string?>? additionalSettings = null,
+            AuthenticationConfiguration? configuration = null)
         {
             return AuthenticationSessionProviderTests.CreateAuthenticationService(
                 UserManager,
                 IdentityOptions,
-                additionalSettings);
+                additionalSettings,
+                configuration);
         }
 
         internal async Task<NhUser> CreateUserAsync(string email)
