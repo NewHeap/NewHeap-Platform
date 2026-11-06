@@ -199,7 +199,7 @@
     "npm-platform-select": {
       "displayName": "@newheap/platform-select",
       "kind": "npm",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "tagPrefix": "npm-platform-select-v",
       "packageName": "@newheap/platform-select",
       "packageJson": "src/Front-end/projects/nh-select/package.json",

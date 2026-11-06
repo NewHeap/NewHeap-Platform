@@ -1,6 +1,6 @@
 {
   "name": "@newheap/platform-select",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "peerDependencies": {
     "@angular/common": "^20.3.28 || ^21.0.0 || ^22.0.0",
     "@angular/core": "^20.3.28 || ^21.0.0 || ^22.0.0",
