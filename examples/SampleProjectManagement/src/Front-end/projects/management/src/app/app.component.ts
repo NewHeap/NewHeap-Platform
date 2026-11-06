@@ -429,6 +429,8 @@ export class AppComponent implements OnInit {
       }),
       undefined,
       {
+        // Longer than the default five seconds, so the Undo button can also be reached by keyboard.
+        timeOut: 10000,
         action: {
           label: this.translateService.instant('project.undo'),
           value: previous.status

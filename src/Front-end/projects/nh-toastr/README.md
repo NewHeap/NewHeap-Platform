@@ -83,14 +83,15 @@ involved. Pass a translated label, as for the message.
 const toast = this.toastr.success(
   this.translate.instant('project.status-update-succeeded', { key: project.key }),
   undefined,
-  { action: { label: this.translate.instant('project.undo'), value: previousStatus } }
+  { timeOut: 10000, action: { label: this.translate.instant('project.undo'), value: previousStatus } }
 );
 
 toast?.onAction.subscribe(status => this.restoreStatus(project, status as ProjectStatus));
 ```
 
 The timeout pauses while the pointer is over the toast or keyboard focus is
-inside it, so keyboard users can reach the button. Theme the button with the
+inside it, so keyboard users can reach the button; a longer `timeOut` than the
+default five seconds gives them time to get there. Theme the button with the
 `--nh-toastr-action-*` custom properties (`color`, `background`,
 `hover-background`, `border-color`, `border-width`, `radius`, `padding`,
 `font-size`, `font-weight` and `min-height`), and place it with

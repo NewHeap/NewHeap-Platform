@@ -49,7 +49,9 @@ toast?.onAction.subscribe(status => this.restoreStatus(previous.id, status as Pr
 The button is a real `<button type="button">`; its click is not a tap, so
 `onTap` and `tapToDismiss` stay out of it. The timeout pauses while the pointer
 is over the toast or keyboard focus is inside it, so a keyboard user can reach
-the button. Theme it with the `--nh-toastr-action-*` custom properties. Use
+the button; give such a toast a longer `timeOut`, such as 10000, because the
+default five seconds is short for reaching it from elsewhere on the page.
+Theme it with the `--nh-toastr-action-*` custom properties. Use
 `triggerAction(toastId, value)` only to emit on `onAction` from your own code;
 it neither renders a button nor dismisses the toast.
 
