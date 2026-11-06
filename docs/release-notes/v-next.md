@@ -195,3 +195,22 @@ every culture.
 
 - The notification preferences' hint of an alert kind the person may not choose no longer names Web Push, or
   in-app notifications, when the server does not offer that channel (`availableChannels`).
+
+## @newheap/platform-common: list building blocks
+
+New standalone components for collection pages, with English and Dutch texts under `nh-common.` that an
+application's translations override, and the `--nh-color-*` custom properties for theming:
+
+- `nh-pager` (`NhPagerComponent`) pages a `CollectionHttpResponse` or any `NhPagerSource` and emits
+  `NhPagerPageChange` for `NhCollectionTypeBaseComponent.setPage`: a named `<nav>` with `aria-current`, a
+  polite page announcement, arrow-key, Home and End focus, and "Page 2 of 5" on phones.
+- `nh-empty-state` (`NhEmptyStateComponent`) with the `no-data`, `no-results` and `error` variants, an
+  `nhEmptyStateIcon` slot and projected actions.
+- `nh-skeleton` (`NhSkeletonComponent`) with `line`, `block`, `avatar` and `row` shapes, hidden from assistive
+  technology, one polite loading status and a shimmer only without a reduced-motion preference.
+- `nh-background-operations-badge` (`NhBackgroundOperationsBadgeComponent`) counts the active operations of
+  `NhBackgroundOperationStore.watchAll()` in the browser, announces changes and emits `openRequested`.
+- `NH_COMMON_ICONS` maps their icons to the application's icon library; `nhBackgroundOperationIsActive` tells
+  whether a status is unfinished.
+
+No breaking changes: existing components, `NhCommonModule` and their texts are unchanged.
