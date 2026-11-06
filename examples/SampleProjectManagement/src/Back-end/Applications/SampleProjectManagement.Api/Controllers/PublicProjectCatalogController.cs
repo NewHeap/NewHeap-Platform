@@ -7,8 +7,6 @@ using NewHeap.Platform.AspNet.Common.Services;
 using NewHeap.Platform.Common.Models;
 using SampleProjectManagement.Core.Models.View;
 using SampleProjectManagement.Core.Services;
-using SampleProjectManagement.DAL.Entities;
-using System.ComponentModel;
 
 namespace SampleProjectManagement.Api.Controllers;
 
@@ -33,17 +31,14 @@ public sealed class PublicProjectCatalogController : PublicNhBaseController
     [HttpGet]
     [AllowAnonymous]
     [EndpointSummary("Get the public project catalog")]
-    [EndpointDescription("Returns a filtered and paged lightweight catalog containing only active or completed projects.")]
-    [ProducesResponseType<CollectionResultModel<ProjectShortViewModel>>(StatusCodes.Status200OK)]
+    [EndpointDescription("Returns a paged lightweight catalog containing only active or completed projects, ordered by name. `search` matches the project key and name case-insensitively; filter and ordering input is not offered to anonymous callers.")]
+    [ProducesResponseType<SimpleCollectionResultModel<ProjectShortViewModel>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> Get(
         [FromQuery] CollectionRequestModel requestModel,
         CancellationToken cancellationToken = default)
     {
-        var result = await GetCollectionResultModel<Project, ProjectShortViewModel>(
-            requestModel,
-            _collectionService.GetPublicCatalogQuery(),
-            cancellationToken,
-            (project => project.Name, ListSortDirection.Ascending));
+        // The service owns the catalog's query policy, search and paging; the controller maps HTTP.
+        var result = await _collectionService.GetPublicCatalogAsync(requestModel, cancellationToken);
 
         return Ok(result);
     }

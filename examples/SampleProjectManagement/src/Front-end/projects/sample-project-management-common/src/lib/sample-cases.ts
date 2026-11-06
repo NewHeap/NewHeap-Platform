@@ -98,12 +98,13 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Public read API",
     "category": "Domain, CRUD, and models",
     "surface": "PublicNhBaseController",
-    "outcome": "Read operations work without login while mutations remain protected.",
+    "outcome": "Read operations work without login while mutations remain protected. The anonymous public catalog answers only active and completed projects as the lightweight short model, ordered by name, and searches their key and name case-insensitively and pages them in the database; filter and ordering input is not offered to anonymous callers.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/PublicProjectCatalogController.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/PublicProjectCatalogSamplesTests.cs"
     ]
   },
   {
@@ -7201,6 +7202,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Front-end/projects/management/public/i18n/en.json",
       "src/Front-end/projects/management/src/styles.scss",
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/PublicProjectCatalogController.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/PublicProjectCatalogSamplesTests.cs",
       "../../src/Front-end/projects/nh-select/src/lib/nh-combobox.component.ts",
       "../../src/Front-end/projects/nh-select/src/lib/nh-multiselect.component.ts",
       "../../src/Front-end/projects/nh-select/src/lib/nh-select-base.ts",

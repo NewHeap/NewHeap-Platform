@@ -44,6 +44,41 @@ public sealed class ProjectCollectionSampleService
             .OrderBy(project => project.Name);
     }
 
+    /// <summary>
+    /// The public catalog for anonymous readers: active and completed projects as the lightweight
+    /// <see cref="ProjectShortViewModel"/>, ordered by name. A caller may page and search the
+    /// searchable key and name; the search, the count and the page run in the database, and only the
+    /// page is mapped. Filter and ordering input is not offered to anonymous callers.
+    /// </summary>
+    public async Task<SimpleCollectionResultModel<ProjectShortViewModel>> GetPublicCatalogAsync(
+        ISearchableBaseCollectionRequestModel requestModel,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new CollectionRequestModel
+        {
+            Page = requestModel.Page,
+            ItemsPerPage = requestModel.ItemsPerPage,
+            Search = requestModel.Search
+        };
+
+        var result = await _collectionProcessingService.GetCollectionResultModelAsync<Project, ProjectShortViewModel>(
+            request,
+            GetPublicCatalogQuery(),
+            resultQueryableFunc: null,
+            asNoTracking: true,
+            cancellationToken,
+            (project => project.Name, ListSortDirection.Ascending));
+
+        return new SimpleCollectionResultModel<ProjectShortViewModel>
+        {
+            Items = result.Items,
+            TotalCount = result.TotalCount,
+            ResultCount = result.ResultCount,
+            Page = result.Page,
+            ItemsPerPage = result.ItemsPerPage
+        };
+    }
+
     public IQueryable<Project> GetShortQuery()
     {
         return _repository.GetAll().OrderBy(project => project.Name);

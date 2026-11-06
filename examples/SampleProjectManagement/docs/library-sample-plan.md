@@ -28,7 +28,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-004 | Full update | `Update`, `CRUDActionType.Update` | The edit flow saves every mutable field. |
 | SPM-005 | Delete | `Delete`, delete validation | Confirmation deletes the project and refreshes the collection. |
 | SPM-006 | Protected CRUD | `DbEntityProtectedNhBaseController` | Requests without the claim receive 403; requests with the claim can perform CRUD. |
-| SPM-007 | Public read API | `PublicNhBaseController` | Read operations work without login while mutations remain protected. |
+| SPM-007 | Public read API | `PublicNhBaseController` | Read operations work without login while mutations remain protected. The anonymous public catalog answers only active and completed projects as the lightweight short model, ordered by name, and searches their key and name case-insensitively and pages them in the database; filter and ordering input is not offered to anonymous callers. |
 | SPM-008 | Composite detail | composite controller/service | Project, members, and labels are returned in one response. |
 | SPM-009 | View model contract | `[Filterable]` on `Id`, audit fields | ID filtering works and the OpenAPI contract is correct. |
 | SPM-010 | Mutate model contract | create/update mutate model | The contract contains no audit fields and prevents overposting. |

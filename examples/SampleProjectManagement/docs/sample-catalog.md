@@ -1335,8 +1335,11 @@ form-control contract, the server-search states, create and the chips.
 `GET /public/projects` derives directly from `PublicNhBaseController`, is exposed
 with `AllowAnonymous`, and obtains its query policy from
 `ProjectCollectionSampleService`. The controller therefore contains only HTTP
-and collection mapping; the choice to return only active and completed projects
-remains in the service.
+mapping; the choice to return only active and completed projects, and to let
+anonymous callers page and search the key and name but not filter or order,
+remains in the service. The search ignores case on PostgreSQL, the count and the
+page run in the database, and the mapping profile maps only the page to the
+lightweight `ProjectShortViewModel`; an HTTP test proves the endpoint end to end.
 
 `/project-composites` uses the concrete NewHeap composite controller and service
 bases end to end. `ProjectCompositeService` delegates domain mutations to

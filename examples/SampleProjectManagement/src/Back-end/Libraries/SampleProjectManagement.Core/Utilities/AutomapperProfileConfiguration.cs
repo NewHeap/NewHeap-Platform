@@ -12,6 +12,10 @@ public class AutomapperProfileConfiguration : Profile
     public AutomapperProfileConfiguration()
     {
         CreateMap<Project, ProjectViewModel>();
+        // The lightweight model of the anonymous public catalog (PublicProjectCatalogController): the
+        // same Id, Key and Name as ProjectCollectionSampleService.ShortProjection and
+        // ProjectService.GetShortAsync, mapped from the page of projects the catalog query reads.
+        CreateMap<Project, ProjectShortViewModel>();
         CreateMap<Project, ProjectCompositeViewModel>()
             .ForMember(destination => destination.Project, options => options.MapFrom(source => source))
             .ForMember(destination => destination.Tasks, options => options.MapFrom(source => source.Tasks));
