@@ -1,5 +1,10 @@
 # v-next
 
+## @newheap/platform-common: @newheap/nh-toastr 0.1 compatibility
+
+- The peer dependency range now accepts `@newheap/nh-toastr` 0.1 in addition to the supported 0.0 releases, so the
+  toast action API can be installed beside `@newheap/platform-common` without bypassing npm's peer checks.
+
 ## @newheap/nh-toastr: an action button inside a toast
 
 - `NhToastrConfig.action` (`NhToastrAction`: `label`, `value`, `dismiss`) renders a real `<button type="button">`
@@ -56,3 +61,4 @@ instructions text that is already chosen no longer reads it again; the read butt
 |---|---|
 | `@newheap/platform-ai-chat` has the new peer dependency `@newheap/platform-select`. | Install it next to the assistant: `npm install @newheap/platform-select`. |
 | The internal exports `ɵNhAssistantPickerComponent` and `ɵNhAssistantPickerOption` are removed. | Use `NhComboboxComponent` and `NhSelectOption` from `@newheap/platform-select`. |
+
