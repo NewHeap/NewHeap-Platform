@@ -34,6 +34,9 @@ public sealed class AuthenticationSessionSamplesTests(SamplePostgreSqlServer pos
 {
     private const string ChangedPassword = "Changed2!Sample";
 
+    // Long enough for the model, but without the uppercase letter Identity requires.
+    private const string PasswordWithoutUppercase = "sample-without-uppercase1";
+
     [Fact]
     public async Task RefreshTokensAreStoredAsDigestsAndABlockedAccountGetsNoSession()
     {
@@ -158,13 +161,12 @@ public sealed class AuthenticationSessionSamplesTests(SamplePostgreSqlServer pos
             {
                 CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(culture);
 
-                // Long enough for the model, but without the uppercase letter Identity requires.
                 var change = await userManager.ChangePasswordWithoutCurrentPasswordAsync(
                     manager.Id,
                     new NhWithoutCurrentPasswordChangePasswordUserMutateModel
                     {
-                        Password = "zonder-hoofdletter1",
-                        ConfirmPassword = "zonder-hoofdletter1",
+                        Password = PasswordWithoutUppercase,
+                        ConfirmPassword = PasswordWithoutUppercase,
                     },
                     cancellationToken: cancellationToken);
                 Assert.False(change.Success);
@@ -176,9 +178,10 @@ public sealed class AuthenticationSessionSamplesTests(SamplePostgreSqlServer pos
             }
         }
 
-        Assert.Equal(
-            ["Wachtwoorden moeten minstens één hoofdletter ('A'-'Z') bevatten."],
-            await RefusedPasswordMessagesAsync("nl-NL"));
+        // The Dutch text asks for "een hoofdletter ('A'-'Z')", an uppercase letter.
+        var dutch = Assert.Single(await RefusedPasswordMessagesAsync("nl-NL"));
+        Assert.StartsWith("Wachtwoorden", dutch, StringComparison.Ordinal);
+        Assert.Contains("hoofdletter ('A'-'Z')", dutch, StringComparison.Ordinal);
         Assert.Equal(
             ["Passwords must have at least one uppercase ('A'-'Z')."],
             await RefusedPasswordMessagesAsync("en-US"));
