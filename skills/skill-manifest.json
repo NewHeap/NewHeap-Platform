@@ -13,7 +13,7 @@
   "packages": {
     "@newheap/nh-toastr": "0.0.8",
     "@newheap/platform-ai-chat": "0.32.0",
-    "@newheap/platform-common": "5.0.2",
+    "@newheap/platform-common": "6.0.0",
     "@newheap/platform-select": "0.0.0",
     "NewHeap.Platform.AI.AgentFramework": "36.0.0",
     "NewHeap.Platform.AI.AspNet.Common": "36.0.0",
