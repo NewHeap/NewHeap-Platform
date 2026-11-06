@@ -16,17 +16,42 @@
         <button type="button" (click)="sortProjects('asc')">A-Z</button>
         <button type="button" (click)="sortProjects('desc')">Z-A</button>
       </div>
-      <div class="collection-items">
-        @for (project of items; track project.id) {
-          <div><strong>{{ project.key }}</strong><span>{{ project.name }}</span></div>
-        } @empty {
-          <p>{{ 'project.no-projects' | translate }}</p>
+      <!-- SPM-126: the loading, empty and error states and the pager of a NhCollectionBaseComponent. -->
+      <div class="collection-items" [class.refreshing]="isLoading && items.length > 0" [attr.aria-busy]="isLoading">
+        @if (isLoading && items.length === 0) {
+          <nh-skeleton shape="row" [count]="2" [label]="'project.collection-loading' | translate" />
+        } @else if (loadFailed()) {
+          <nh-empty-state
+            variant="error"
+            [heading]="'project.collection-load-failed' | translate"
+            [description]="'project.collection-load-failed-description' | translate">
+            <button type="button" (click)="retryLoad()">{{ 'project.try-again' | translate }}</button>
+          </nh-empty-state>
+        } @else {
+          @for (project of items; track project.id) {
+            <div><strong>{{ project.key }}</strong><span>{{ project.name }}</span></div>
+          } @empty {
+            @if (hasActiveFilter()) {
+              <nh-empty-state
+                variant="no-results"
+                [heading]="'project.collection-no-results' | translate"
+                [description]="'project.collection-no-results-description' | translate: { search: requestOptions.search }">
+                <button type="button" (click)="clearSearch(searchInput)">{{ 'project.clear-search' | translate }}</button>
+              </nh-empty-state>
+            } @else {
+              <nh-empty-state
+                variant="no-data"
+                [heading]="'project.no-projects-yet' | translate"
+                [description]="'project.no-projects-yet-description' | translate" />
+            }
+          }
         }
       </div>
-      <div class="pager">
-        <button type="button" (click)="previousPage()" aria-label="Previous page"><i class="ph ph-arrow-left" aria-hidden="true"></i></button>
-        <button type="button" (click)="nextPage()" aria-label="Next page"><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
-      </div>
+      <nh-pager
+        [response]="collectionResponse"
+        [disabled]="isLoading"
+        [label]="'project.collection-pages' | translate"
+        (pageChange)="setPage($event)" />
       <ol class="event-log">
         @for (event of lifecycleEvents(); track $index) { <li>{{ event }}</li> }
       </ol>

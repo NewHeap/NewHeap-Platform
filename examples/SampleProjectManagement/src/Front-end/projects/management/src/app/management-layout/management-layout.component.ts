@@ -6,7 +6,7 @@ import {
   NhAssistantPanelComponent,
   NhAssistantPushService
 } from '@newheap/platform-ai-chat';
-import { NhAuthService } from '@newheap/platform-common';
+import { NhAuthService, NhBackgroundOperationsBadgeComponent } from '@newheap/platform-common';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subscription, filter } from 'rxjs';
 import {
@@ -24,7 +24,8 @@ import {
     TranslateModule,
     SampleUserMenuComponent,
     NhAssistantLauncherComponent,
-    NhAssistantPanelComponent
+    NhAssistantPanelComponent,
+    NhBackgroundOperationsBadgeComponent
   ],
   templateUrl: './management-layout.component.html',
   styleUrl: './management-layout.component.scss'
@@ -95,6 +96,11 @@ export class ManagementLayoutComponent implements OnDestroy {
   /** SPM-304: the assistant's access permission and the permission to read the projects. */
   canSeeProjectManagementBoard(): boolean {
     return this.auth.isOnePermissionGranted(['app.assistant.access']) && this.auth.isOnePermissionGranted(['app.project.view']);
+  }
+
+  /** SPM-083: the header badge opens the person's own background operations. */
+  openBackgroundOperations(): void {
+    void this.router.navigate(['/management/background-operations']);
   }
 
   toggleNavigation(): void {

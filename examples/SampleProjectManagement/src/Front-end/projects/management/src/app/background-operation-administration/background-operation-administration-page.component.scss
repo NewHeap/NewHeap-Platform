@@ -111,13 +111,6 @@
   gap: .625rem;
 }
 
-.operation-list > .loading-state,
-.operation-list > .empty-state {
-  padding: .5rem 0;
-  border: 0;
-  background: transparent;
-}
-
 .result-count {
   margin: 0;
   font-size: .8rem;
@@ -213,14 +206,6 @@
 .diagnostics dd {
   margin: .125rem 0 0;
   overflow-wrap: anywhere;
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: .75rem;
-  font-size: .8rem;
 }
 
 .icon-button:disabled {

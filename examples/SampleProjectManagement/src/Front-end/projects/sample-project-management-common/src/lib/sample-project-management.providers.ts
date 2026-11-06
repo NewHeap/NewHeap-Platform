@@ -19,6 +19,7 @@ import {
   NhCommonModuleConfig,
   NhFormDropDownNhCommonModuleConfig,
   NhHttpNhCommonModuleConfig,
+  NH_COMMON_ICONS,
   NH_ERROR_HANDLERS,
   NhTranslationNhCommonModuleConfig,
   nhTranslateBrowserLoaderFactory,
@@ -93,6 +94,18 @@ export function provideSampleProjectManagement(routes: Routes = []) {
       multi: true
     },
     provideNhToastr({ positionClass: 'toast-bottom-right' }),
+    // SPM-126: the pager, empty states and background-operations badge show the sample's Phosphor icons.
+    {
+      provide: NH_COMMON_ICONS,
+      useValue: {
+        previous: 'ph ph-caret-left',
+        next: 'ph ph-caret-right',
+        empty: 'ph ph-folder-dashed',
+        'no-results': 'ph ph-magnifying-glass',
+        error: 'ph ph-warning-circle',
+        'background-operations': 'ph ph-activity'
+      }
+    },
     provideEnvironmentInitializer(() => {
       inject(SampleAuthSessionService).start();
     }),

@@ -52,12 +52,10 @@
       @for (project of matchingProjects(); track project.id) {
         <article><span>{{ project.key }}</span><div><strong>{{ project.name }}</strong><small>{{ statusTranslationKey(project.status) | translate }} | {{ project.deadline || 'no deadline' }}</small></div></article>
       } @empty {
-        <p class="empty">{{ 'project.no-projects' | translate }}</p>
+        <nh-empty-state variant="no-results" [heading]="'project.no-projects' | translate" />
       }
-      <div class="pager">
-        <button type="button" (click)="previousPage()" [disabled]="page() === 1" aria-label="Previous page"><i class="ph ph-arrow-left" aria-hidden="true"></i></button>
-        <button type="button" (click)="nextPage()" [disabled]="page() * itemsPerPage() >= totalCount()" aria-label="Next page"><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
-      </div>
+      <!-- SPM-126: nh-pager also pages a plain { page, itemsPerPage, totalCount, resultCount } state. -->
+      <nh-pager [response]="pagerState()" [label]="'project.collection-pages' | translate" (pageChange)="page.set($event.page)" />
     </div>
 
     <div class="request">
