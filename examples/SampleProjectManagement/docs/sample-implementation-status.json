@@ -722,7 +722,9 @@
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/RepositoryBulkExtensions.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BulkUpsertProviderTests.cs",
-      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs"
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertPlan.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BulkUpsertSamplesTests.cs"
     ],
     "SPM-054": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectCompositeController.cs",
@@ -1029,7 +1031,10 @@
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts"
     ],
     "SPM-092": [
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NewHeapLocalizationSamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NewHeapLocalizationSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Resources/Identity/Describers/MultiLanguageIdentityErrorDescriber.nl-NL.resx",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/MultiLanguageIdentityErrorDescriberTests.cs"
     ],
     "SPM-093": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/TranslationContractTests.cs"

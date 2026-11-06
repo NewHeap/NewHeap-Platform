@@ -824,13 +824,15 @@
       "categoryId": "4",
       "title": "Provider-native bulk upsert",
       "surface": "`ExecuteUpsertAsync`",
-      "outcome": "Project imports atomically upsert roots and explicitly selected one-to-many tasks, retain omitted children, and reject populated nested dependencies before changing stored data.",
+      "outcome": "Project imports atomically upsert roots and explicitly selected one-to-many tasks, retain omitted children, and reject populated nested dependencies before changing stored data. A budget-line import writes a column with a database default when every line sets it, leaves it to the default when no line does, and is refused before writing when only some lines set it.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/RepositoryBulkExtensions.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/BulkUpsertProviderTests.cs",
-        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs"
+        "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/DAL/Bulk/BulkUpsertPlan.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BulkUpsertSamplesTests.cs"
       ]
     },
     {
@@ -1038,7 +1040,7 @@
       "categoryId": "5",
       "title": "Impersonation",
       "surface": "handler/models",
-      "outcome": "A visible impersonation banner is displayed. The impersonation session has no refresh token, so it ends with its access token and can never turn into an ordinary session of the impersonated user, and a custom `ImpersonateEndpoint` route is independent of the refresh route. The token carries a digest of the security stamp of the user who started the impersonation (`NhPlatformClaimTypes.ImpersonateOriginSecurityStamp`), so the session validator ends it once that user changes the password and while that user is locked out or blocked.",
+      "outcome": "A visible impersonation banner is displayed. The impersonation session has no refresh token, so it ends with its access token, valid for the configured `ExpirationTimespanImpersonationToken` (one hour in the sample), and can never turn into an ordinary session of the impersonated user, and a custom `ImpersonateEndpoint` route is independent of the refresh route. The token carries a digest of the security stamp of the user who started the impersonation (`NhPlatformClaimTypes.ImpersonateOriginSecurityStamp`), so the session validator ends it once that user changes the password and while that user is locked out or blocked.",
       "implementation": "implemented",
       "evidence": [
         "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -1446,10 +1448,13 @@
       "categoryId": "7",
       "title": "Validation translations",
       "surface": "shared annotation resources",
-      "outcome": "The rule is available in Dutch, English, and German.",
+      "outcome": "The rule is available in Dutch, English, and German. Identity's password and account errors from `MultiLanguageIdentityErrorDescriber` are Dutch for nl-NL and English for other cultures without resources of the application's own.",
       "implementation": "implemented",
       "evidence": [
-        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NewHeapLocalizationSamplesTests.cs"
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/NewHeapLocalizationSamplesTests.cs",
+        "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionSamplesTests.cs",
+        "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Resources/Identity/Describers/MultiLanguageIdentityErrorDescriber.nl-NL.resx",
+        "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/MultiLanguageIdentityErrorDescriberTests.cs"
       ]
     },
     {

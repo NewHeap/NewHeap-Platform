@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.114",
   "backEnd": {
-    "hash": "bab85f20d0eff8c9469ec441ef838a8b6b8d0a329ffb12df2b4144129d43df4d",
-    "declarationCount": 13714,
+    "hash": "abaf8edaea0fbacb27c66facb04543839edd9397cc8d98f48ec8c6c28d86fee8",
+    "declarationCount": 13716,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -38282,6 +38282,10 @@
         "declaration": "public TimeSpan ExpirationTimespanToken { get; set; } = TimeSpan.FromDays(1);"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/AuthenticationConfiguration.cs",
+        "declaration": "public TimeSpan ExpirationTimespanImpersonationToken { get; set; } = TimeSpan.FromDays(1);"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/AuthenticationMethodPickerService.cs",
         "declaration": "public class AuthenticationMethodPickerService {"
       },
@@ -40260,6 +40264,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Builders/NhAuthenticationBuilder.cs",
         "declaration": "public bool EnableImpersonate { get; set; } = false;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Builders/NhAuthenticationBuilder.cs",
+        "declaration": "public TimeSpan ExpirationTimespanImpersonationToken { get; set; } = TimeSpan.FromDays(1);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Builders/NhAuthenticationBuilder.cs",
@@ -59780,7 +59788,8 @@
       "NhSessionRejectionInterceptor",
       "AuthSessionExpirationInformation",
       "NhRefreshTokenKey",
-      "NhPlatformClaimTypes"
+      "NhPlatformClaimTypes",
+      "AuthenticationConfiguration"
     ],
     "nh-auth-token-signing": [
       "NhJwtSigningKeys",
@@ -59865,7 +59874,8 @@
     ],
     "nh-backend-models-localization": [
       "FilterableAttribute",
-      "CollectionProcessingOptions"
+      "CollectionProcessingOptions",
+      "MultiLanguageIdentityErrorDescriber"
     ],
     "nh-backend-module-composition": [
       "BaseDbEntityService",
