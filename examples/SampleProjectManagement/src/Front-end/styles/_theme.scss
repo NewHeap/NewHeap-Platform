@@ -264,6 +264,66 @@ body.nh-modal-open { overflow: hidden; }
 .nh-modal-holder .close-nh-modal svg path { fill: currentColor; }
 .nh-modal-holder .nh-modal-body { border-top: 0 !important; padding: 0 !important; }
 
+/* NhContextMenuService: the service sets position, viewport clamping, max sizes and scrolling inline. */
+.nh-context-menu {
+  min-width: 200px;
+  padding: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  font-size: 13px;
+  white-space: nowrap;
+  overscroll-behavior: contain;
+}
+.nh-context-menu:focus { outline: none; }
+.nh-context-menu .nh-context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+.nh-context-menu .nh-context-menu-item-title { overflow: hidden; text-overflow: ellipsis; }
+.nh-context-menu .nh-context-menu-item-icon { flex: none; width: 16px; color: var(--muted); font-size: 16px; text-align: center; }
+.nh-context-menu .nh-context-menu-item:hover,
+.nh-context-menu .nh-context-menu-item:focus { outline: none; color: var(--brand-strong); background: var(--brand-soft); }
+.nh-context-menu .nh-context-menu-item:hover .nh-context-menu-item-icon,
+.nh-context-menu .nh-context-menu-item:focus .nh-context-menu-item-icon { color: inherit; }
+.nh-context-menu .nh-context-menu-item:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+.nh-context-menu .nh-context-menu-item[aria-checked]::before {
+  content: '';
+  flex: none;
+  width: 16px;
+  height: 8px;
+  margin-top: -4px;
+  border-left: 2px solid transparent;
+  border-bottom: 2px solid transparent;
+  transform: rotate(-45deg) scale(.7);
+}
+.nh-context-menu .nh-context-menu-item[aria-checked="true"]::before { border-color: currentColor; }
+.nh-context-menu .nh-context-menu-item[aria-disabled="true"] { color: var(--muted); cursor: not-allowed; opacity: .6; }
+.nh-context-menu .nh-context-menu-item[aria-disabled="true"]:hover { color: var(--muted); background: transparent; }
+.nh-context-menu .nh-context-menu-item[aria-disabled="true"]:focus { color: var(--muted); background: var(--surface-muted); }
+.nh-context-menu .nh-context-menu-item.divider {
+  display: block;
+  min-height: 0;
+  height: 1px;
+  margin: 5px 4px;
+  padding: 0;
+  background: var(--line);
+  cursor: default;
+}
+@media (max-width: 480px) {
+  .nh-context-menu .nh-context-menu-item { min-height: 44px; white-space: normal; overflow-wrap: anywhere; }
+  .nh-context-menu .nh-context-menu-item.divider { min-height: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     scroll-behavior: auto !important;

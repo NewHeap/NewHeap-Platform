@@ -1,27 +1,96 @@
+/*
+ * Default look of the menu that NhContextMenuService opens. The service sets the functional
+ * styles inline (fixed position, viewport-clamped coordinates, max-width, max-height and
+ * scrolling); applications restyle the classes and states below.
+ */
+
 /* The whole thing */
 .nh-context-menu {
   z-index: 1000;
-  position: absolute;
-  overflow: hidden;
+  position: fixed;
+  box-sizing: border-box;
+  min-width: 160px;
+  margin: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid #CCC;
   white-space: nowrap;
   font-family: sans-serif;
   background: #FFF;
   color: #333;
-  padding: 0;
+  padding: 4px 0;
   border-radius: 3px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / .15);
+}
+
+.nh-context-menu:focus {
+  outline: none;
 }
 
 /* Each of the items in the list */
 .nh-context-menu li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 4px 8px;
   cursor: pointer;
   list-style-type: none;
-  transition: all .3s ease;
+  transition: background-color .3s ease;
   user-select: none;
 }
 
+.nh-context-menu .nh-context-menu-item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nh-context-menu .nh-context-menu-item-icon {
+  flex: none;
+  width: 1em;
+  text-align: center;
+}
+
+.nh-context-menu li:hover,
+.nh-context-menu li:focus {
+  background-color: #DEF;
+  outline: none;
+}
+
+.nh-context-menu li:focus-visible {
+  outline: 2px solid #1A5FB4;
+  outline-offset: -2px;
+}
+
+/* A checkbox item: a check mark when aria-checked is true, an empty column when false */
+.nh-context-menu li[aria-checked]::before {
+  content: '';
+  flex: none;
+  box-sizing: border-box;
+  width: 1em;
+  height: .55em;
+  margin-top: -.2em;
+  border-left: 2px solid transparent;
+  border-bottom: 2px solid transparent;
+  transform: rotate(-45deg);
+}
+
+.nh-context-menu li[aria-checked="true"]::before {
+  border-color: currentColor;
+}
+
+.nh-context-menu li[aria-disabled="true"] {
+  cursor: default;
+  opacity: .5;
+}
+
+.nh-context-menu li[aria-disabled="true"]:hover {
+  background-color: transparent;
+}
+
 .nh-context-menu li.divider {
+  display: block;
+  padding: 4px 0;
   cursor: default;
   user-select: none;
 }
@@ -34,9 +103,25 @@
   margin-top: 0;
 }
 
-.nh-context-menu li:hover {
-  background-color: #DEF;
-}
 .nh-context-menu li.divider:hover {
   background-color: #FFF;
+}
+
+/* Phones: wrap long titles instead of cutting them off, and give fingers a larger target */
+@media (max-width: 480px) {
+  .nh-context-menu li {
+    min-height: 40px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .nh-context-menu li.divider {
+    min-height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nh-context-menu li {
+    transition: none;
+  }
 }

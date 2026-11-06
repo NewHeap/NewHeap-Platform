@@ -20,6 +20,19 @@
 .debounce-field { display: grid; width: 100%; gap: 6px; margin-top: 15px; }
 small { display: block; margin-top: 8px; color: var(--muted); }
 app-project-code-input, nh-form-dropdown { width: 100%; }
+.context-menu-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-control);
+}
+.context-menu-project { display: inline-flex; align-items: center; gap: 7px; min-width: 0; overflow-wrap: anywhere; }
 .hidden-probe { max-width: 1px; max-height: 1px; overflow: hidden; opacity: 0; }
 
 @media (max-width: 760px) { .platform-grid { grid-template-columns: 1fr; } }

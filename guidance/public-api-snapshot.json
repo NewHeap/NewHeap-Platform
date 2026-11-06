@@ -54864,8 +54864,8 @@
     ]
   },
   "frontEnd": {
-    "hash": "4b9db654ddf78e5b4e92e2b2ae715dfca780eb17c400096e91f6445b13ad9d5e",
-    "declarationCount": 873,
+    "hash": "4127f70f02073ae336d5356c5d6f1f76be72c860dd31d065dce4da233ef2cdb7",
+    "declarationCount": 874,
     "declarations": [
       {
         "path": "src/Front-end/projects/nh-common/src/lib/accessors/abstract-value.accessor.ts",
@@ -57122,6 +57122,10 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-context-menu.service.ts",
         "declaration": "export type NhContextEventWithCoordinates = { clientX: number; clientY: number};"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-context-menu.service.ts",
+        "declaration": "export type NhContextMenuAnchor = { left: number; top: number; right: number; bottom: number };"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-context-menu.service.ts",
@@ -59973,6 +59977,12 @@
       "NhCollectionTypeBaseComponent",
       "NhSearchInputComponent",
       "NhDebounceDirective"
+    ],
+    "nh-frontend-context-menu": [
+      "NhContextMenuService",
+      "NhContextMenu",
+      "NhContextMenuItem",
+      "NhContextMenuServiceConfig"
     ],
     "nh-frontend-lifecycle-modals": [
       "NhPageTypeBaseComponent",
