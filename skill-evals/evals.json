@@ -79,6 +79,13 @@
       "expectedOutcome": "Root composition registers one provider and one container while features inject NhToastrService and never expose raw server errors."
     },
     {
+      "id": "consumer-frontend-context-menu",
+      "skill": "newheap-frontend-development",
+      "prompt": "Add a right-click menu with icons to a project list row whose title includes the project name, and make it usable with the keyboard.",
+      "expectedRules": ["nh-frontend-context-menu"],
+      "expectedOutcome": "NhContextMenuService opens the menu from the row and from an actions button through NhContextMenu.fromElement, titles stay text, icons use iconClass, and onClick failures close the menu and reach the ErrorHandler."
+    },
+    {
       "id": "consumer-auth-scopes",
       "skill": "newheap-authentication",
       "prompt": "Create application roles, division roles, and a consumer-specific resource permission with claim hydration.",

@@ -54864,8 +54864,8 @@
     ]
   },
   "frontEnd": {
-    "hash": "30367b5192bce41278fb583ee717d6fb9c30d21d4c60e385bbd3372d44ad475f",
-    "declarationCount": 871,
+    "hash": "7674a3729845504de32de48475bf6bdff5b72984391b808376569e92d837addc",
+    "declarationCount": 872,
     "declarations": [
       {
         "path": "src/Front-end/projects/nh-common/src/lib/accessors/abstract-value.accessor.ts",
@@ -57114,6 +57114,10 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-context-menu.service.ts",
         "declaration": "export type NhContextEventWithCoordinates = { clientX: number; clientY: number};"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-context-menu.service.ts",
+        "declaration": "export type NhContextMenuAnchor = { left: number; top: number; right: number; bottom: number };"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-context-menu.service.ts",
@@ -59963,6 +59967,12 @@
       "CollectionHttpRequestOptions",
       "FilterRequestOptions",
       "NhCollectionTypeBaseComponent"
+    ],
+    "nh-frontend-context-menu": [
+      "NhContextMenuService",
+      "NhContextMenu",
+      "NhContextMenuItem",
+      "NhContextMenuServiceConfig"
     ],
     "nh-frontend-lifecycle-modals": [
       "NhPageTypeBaseComponent",

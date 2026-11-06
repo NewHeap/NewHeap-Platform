@@ -174,6 +174,10 @@ Source release: `newheap-platform-plugin-v1.13.114`
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.114/docs/consumer-guide/frontend-collection-query.md)
 
+## Frontend Context Menu
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.114/docs/consumer-guide/frontend-context-menu.md)
+
 ## Frontend Lifecycle Modals
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.114/docs/consumer-guide/frontend-lifecycle-modals.md)
