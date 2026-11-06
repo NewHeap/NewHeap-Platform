@@ -379,9 +379,11 @@ public sealed record NhAssistantUpdateNotificationSettingsRequest(bool? PushEnab
 /// <param name="DigestTime">The digest time the caller chose as <c>HH:mm</c>; <see langword="null"/> for the kind's own.</param>
 /// <param name="WorkdaysOnly">The kind's digest goes out on working days only.</param>
 /// <param name="Channels">Whether Web Push and the in-app notifications deliver the kind to the caller:
-/// their choice, or on when they made none or the kind lets them choose none.</param>
+/// their choice, or on when they made none or the kind lets them choose none. It does not say whether the
+/// host offers the channel; only those in <paramref name="AvailableChannels"/> deliver anything.</param>
 /// <param name="AvailableChannels">The channels the host offers: <c>push</c> when Web Push is configured
-/// and <c>in-app</c> when the host has in-app notifications.</param>
+/// and <c>in-app</c> when the host has in-app notifications. A client names a channel as delivering the
+/// kind only when it is on in <paramref name="Channels"/> and listed here.</param>
 public sealed record NhAssistantAlertKindPreferenceDto(
     string Id,
     string DisplayNameKey,

@@ -229,9 +229,12 @@ export class NhAssistantNotificationPreferencesComponent {
     return draft.channels[channelKey(channel)];
   }
 
-  /** The channels that deliver a kind the person may not choose, for its hint. */
+  /**
+   * The channels that deliver a kind the person may not choose, for its hint: those the kind delivers
+   * through that this server offers, so a server without Web Push never names it.
+   */
   channelsOf(kind: NotificationAlertKind): NotificationAlertChannel[] {
-    return (['push', 'in-app'] as const).filter(channel => kind.channels[channelKey(channel)]);
+    return (['push', 'in-app'] as const).filter(channel => kind.channels[channelKey(channel)] && kind.availableChannels.includes(channel));
   }
 
   /** Whether a time the person typed for a kind is no time of day, or a time they gave twice. */
