@@ -2212,6 +2212,96 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
+    /// The work of agents that work on the application's objects as one person's board counts it: per
+    /// agent among <paramref name="agentIds"/>, over its live threads about objects (never the whole
+    /// application) whose subject <paramref name="actorId"/> reads by the member snapshot, with at least
+    /// the <see cref="NhAiSubjectRole.Reader"/> role in the thread's scope, in the person's tenant and,
+    /// with <paramref name="divisionId"/>, in that division only: how many proposals wait there, pending
+    /// and not expired, when the newest of them was made, and the agent's newest run among those threads.
+    /// Each is one query, filtered and grouped on the server; agents without such a thread are left out.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, NhAssistantObjectAgentWork>> GetObjectAgentWorkAsync(
+        string actorId,
+        IReadOnlyCollection<string> agentIds,
+        string? tenantId,
+        Guid? divisionId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
+        ArgumentNullException.ThrowIfNull(agentIds);
+        if (agentIds.Count == 0)
+        {
+            return new Dictionary<string, NhAssistantObjectAgentWork>(StringComparer.Ordinal);
+        }
+
+        var ids = agentIds.Distinct(StringComparer.Ordinal).ToArray();
+        // A proposal expires on the application's clock.
+        var now = _applicationClock.GetUtcNow();
+        await using var context = contextFactory.CreateDbContext();
+        var readable = context.SubjectMembers
+            .Where(member => member.ActorId == actorId && member.Role >= NhAiSubjectRole.Reader);
+        var threads = InTenant(
+            context.Threads
+                .AsNoTracking()
+                .Where(thread => ids.Contains(thread.AgentId)
+                    && !thread.Shadow
+                    && thread.SubjectType != NhAiSubjectRef.SystemType
+                    && readable.Any(member => member.ScopeKey == thread.ScopeKey
+                        && member.SubjectType == thread.SubjectType
+                        && member.SubjectId == thread.SubjectId)),
+            tenantId);
+        if (divisionId is { } division)
+        {
+            threads = threads.Where(thread => thread.DivisionId == division);
+        }
+
+        var proposals = await (
+                from approval in context.Approvals.AsNoTracking()
+                join thread in threads on approval.ConversationId equals thread.ConversationId
+                where approval.Status == NhAssistantApprovalStatuses.Pending && approval.ExpiresAt > now
+                group approval by thread.AgentId into byAgent
+                select new
+                {
+                    AgentId = byAgent.Key,
+                    Count = byAgent.Count(),
+                    Newest = byAgent.Max(approval => approval.CreatedAt)
+                })
+            .ToListAsync(cancellationToken);
+
+        // The newest run per agent: the moment of each agent's newest run, then the runs made then.
+        var runsOfThreads =
+            from run in context.Runs.AsNoTracking()
+            join thread in threads on run.ConversationId equals thread.ConversationId
+            select new { thread.AgentId, Run = run };
+        var newestAt =
+            from row in runsOfThreads
+            group row by row.AgentId into byAgent
+            select new { AgentId = byAgent.Key, CreatedAt = byAgent.Max(row => row.Run.CreatedAt) };
+        var newestRuns = await (
+                from row in runsOfThreads
+                join newest in newestAt
+                    on new { row.AgentId, row.Run.CreatedAt } equals new { newest.AgentId, newest.CreatedAt }
+                select row)
+            .ToListAsync(cancellationToken);
+
+        var work = new Dictionary<string, NhAssistantObjectAgentWork>(StringComparer.Ordinal);
+        foreach (var proposal in proposals)
+        {
+            work[proposal.AgentId] = new NhAssistantObjectAgentWork(proposal.Count, proposal.Newest, null);
+        }
+        foreach (var newest in newestRuns
+                     .GroupBy(row => row.AgentId, StringComparer.Ordinal)
+                     .Select(group => group.OrderByDescending(row => row.Run.Id).First()))
+        {
+            work[newest.AgentId] = work.TryGetValue(newest.AgentId, out var found)
+                ? found with { LatestRun = newest.Run }
+                : new NhAssistantObjectAgentWork(0, null, newest.Run);
+        }
+
+        return work;
+    }
+
+    /// <summary>
     /// The newest run of each of the threads, by when it was created; threads without runs are left
     /// out.
     /// </summary>
@@ -3678,6 +3768,12 @@ internal static class NhAssistantInboxGrouping
         return (group.ScopeKey, group.Type, group.Id, row.Thread.SubjectType, row.Thread.SubjectId);
     }
 }
+
+/// <summary>
+/// The work of an agent that works on the application's objects at the objects one person reads: how
+/// many proposals wait there, when the newest of them was made, and its newest run there.
+/// </summary>
+internal sealed record NhAssistantObjectAgentWork(int OpenProposals, DateTimeOffset? NewestProposal, AssistantRun? LatestRun);
 
 /// <summary>
 /// An agent thread of the whole application: its conversation, its subject id and its agent.

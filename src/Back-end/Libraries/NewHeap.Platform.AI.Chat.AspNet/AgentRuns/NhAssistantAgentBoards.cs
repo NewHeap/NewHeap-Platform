@@ -10,9 +10,9 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 
 /// <summary>
 /// The boards of the groups of agents (K15, K16): per group the agents a person sees, each with what
-/// it works on, its latest result for the whole application, its open proposals, whether the person
-/// may run it now, and whether something is new since the person's last visit of the board in that
-/// scope.
+/// it works on, its latest result for the whole application, or for an agent that works only on objects
+/// its latest result at an object the person reads, its open proposals, whether the person may run it
+/// now, and whether something is new since the person's last visit of the board in that scope.
 /// </summary>
 /// <remarks>
 /// A board has a scope: the whole application (<c>global</c>), or one division the person may work in.
@@ -22,9 +22,12 @@ namespace NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 /// agent without work for the whole application in the board's scope shows by its required policy,
 /// without a result or a start. Shadow variants and agents without run settings never show; a person
 /// bound to a tenant sees no work of the whole application, which belongs to no tenant, unless the
-/// single-tenant mode names that tenant (<see cref="NhAssistantWholeApplicationTenancy"/>). One board reads
-/// the group's choices, the agents, the threads of at most two subjects, their latest runs, their open
-/// proposals and the visit, each in one query.
+/// single-tenant mode names that tenant (<see cref="NhAssistantWholeApplicationTenancy"/>). An agent that
+/// works only on objects counts the proposals that wait in its threads at the objects the person reads by
+/// the member snapshot, in the person's tenant and on a division's board in that division, and shows its
+/// newest run there; the inbox lists those the person may decide. One board reads the group's choices,
+/// the agents, the threads of at most two subjects, their latest runs, their open proposals, the work of
+/// the agents that work only on objects and the visit, each in one query.
 /// </remarks>
 internal sealed class NhAssistantAgentBoards(
     NhAssistantRegistrationState registration,
@@ -119,6 +122,13 @@ internal sealed class NhAssistantAgentBoards(
         var latestRuns = (await runs.GetLatestRunsAsync(conversationIds, cancellationToken)).ToDictionary(run => run.ConversationId);
         var openProposals = await runs.GetOpenProposalStatsAsync(conversationIds, cancellationToken);
 
+        // Agents that work only on objects have no thread here; their work is at the objects the reader
+        // reads, counted on the server in one query each.
+        var objectAgentIds = agentIds
+            .Where(agentId => !visibility.Agents[agentId].RunOptions.WorksOn.Application)
+            .ToArray();
+        var objectWork = await runs.GetObjectAgentWorkAsync(reader.ActorId, objectAgentIds, reader.TenantId, scope.DivisionId, cancellationToken);
+
         var entries = new List<NhAssistantBoardAgentDto>(agentIds.Count);
         foreach (var agentId in agentIds)
         {
@@ -135,6 +145,10 @@ internal sealed class NhAssistantAgentBoards(
             if (thread is not null && openProposals.TryGetValue(thread.ConversationId, out var stats))
             {
                 (open, newestProposal) = (stats.Count, stats.Newest);
+            }
+            else if (objectWork.TryGetValue(agentId, out var work))
+            {
+                (open, newestProposal, latest) = (work.OpenProposals, work.NewestProposal, work.LatestRun);
             }
 
             string? displayName = null;

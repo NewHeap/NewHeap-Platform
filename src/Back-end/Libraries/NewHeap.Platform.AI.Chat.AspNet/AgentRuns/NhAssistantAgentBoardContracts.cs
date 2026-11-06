@@ -82,9 +82,12 @@ public sealed record NhAssistantBoardDto(
 /// manual starts (K9).</param>
 /// <param name="ConversationId">The agent's thread of that subject, when the person may read it.</param>
 /// <param name="LatestRun">The agent's newest run for that subject, with the beginning of its
-/// result.</param>
+/// result; for an agent that works only on objects, its newest run at an object the person reads, in the
+/// board's division on a board of a division.</param>
 /// <param name="OpenProposals">The open proposals of that thread and those its runs placed at
-/// objects, counted only: the inbox shows those the person may decide.</param>
+/// objects, counted only: the inbox shows those the person may decide. For an agent that works only on
+/// objects, the open proposals in its threads at the objects the person reads, in the board's division on
+/// a board of a division.</param>
 /// <param name="IsNew">Whether the newest run ended, or an open proposal was made, after the person's
 /// last visit of the board in this scope; before the first visit everything shown is new.</param>
 public sealed record NhAssistantBoardAgentDto(
