@@ -117,3 +117,14 @@ every culture.
 | Breaking change | Required action |
 |---|---|
 | The describer's English neutral resource is found before translations of an application assembly registered in `NhLocalizationOptions` with an `Order` of 99 or more, so those translations no longer apply, and the library's Dutch replaces the application's own nl-NL text for it. | Register the application assembly with an `Order` below 99, as the sample does with 0. |
+
+## NewHeap.Platform.Common and NewHeap.Platform.AspNet.Common.PostgreSql: case-insensitive collection search on PostgreSQL
+
+| Breaking change | Required action |
+|---|---|
+| Collection search and the `LIKE` filter on a context configured with `UseNewHeapPostgreSql` now match case-insensitively (`ILIKE`), as on SQL Server's default collation, so they can return more rows. | To keep case-sensitive matching, call `postgres.UseNewHeapCaseSensitiveCollectionTextMatch()` in the `UseNewHeapPostgreSql` configure action. |
+
+- Collection processing matches text with `EF.Functions.Like(value, NhCollectionTextMatch.Pattern(pattern))`. SQL
+  Server and contexts without a NewHeap PostgreSQL registration keep their `LIKE`; `%` and `_` keep their meaning
+  on every provider. Mark a pattern with `NhCollectionTextMatch.Pattern` to match text the same way in a query of
+  your own. A context configured with plain `UseNpgsql` keeps the case-sensitive `LIKE`.

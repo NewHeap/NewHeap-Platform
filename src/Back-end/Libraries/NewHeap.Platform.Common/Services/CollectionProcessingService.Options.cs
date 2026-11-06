@@ -574,12 +574,7 @@ public partial class CollectionProcessingService
         var closure = new SearchClosure($"%{qSearch}%");
         var memberAccess = Expression.Property(Expression.Constant(closure), closure.GetType().GetProperty(nameof(SearchClosure.Value))!);
 
-        Expression body = Expression.Call(
-            typeof(DbFunctionsExtensions).GetMethod(nameof(DbFunctionsExtensions.Like),
-                new[] { typeof(DbFunctions), typeof(string), typeof(string) })!,
-            Expression.Constant(EF.Functions),
-            member,
-            memberAccess);
+        var body = NhCollectionTextMatch.CreateLike(member, memberAccess);
 
         var subSearchExpression = Expression.Lambda<Func<TEntity, bool>>(body, parameter);
 
@@ -663,12 +658,7 @@ public partial class CollectionProcessingService
         var closure = new SearchClosure($"%{qSearch}%");
         var memberAccess = Expression.Property(Expression.Constant(closure), closure.GetType().GetProperty(nameof(SearchClosure.Value))!);
 
-        return Expression.Call(
-            typeof(DbFunctionsExtensions).GetMethod(nameof(DbFunctionsExtensions.Like),
-                new[] { typeof(DbFunctions), typeof(string), typeof(string) })!,
-            Expression.Constant(EF.Functions),
-            member,
-            memberAccess);
+        return NhCollectionTextMatch.CreateLike(member, memberAccess);
     }
 
     private static LambdaExpression GetLambda(Expression expression)

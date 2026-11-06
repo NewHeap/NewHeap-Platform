@@ -6,6 +6,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AspNet.Common.DAL;
+using NewHeap.Platform.AspNet.Common.PostgreSql;
+using NewHeap.Platform.AspNet.Common.SqlServer;
 using NewHeap.Platform.Common;
 using NewHeap.Platform.Mapping;
 using NewHeap.Platform.Common.Exceptions;
@@ -165,6 +167,46 @@ public class CollectionAndProjectionSamplesTests
         Assert.Contains("ORDER BY", ignoredSql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("PasswordHash", ignoredSql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("JOIN", ignoredSql, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// SPM-016 and SPM-019: free-text search and the <c>LIKE</c> text operator run <c>LIKE</c> on SQL
+    /// Server, whose default collation ignores case, and <c>ILIKE</c> on PostgreSQL configured with
+    /// <c>UseNewHeapPostgreSql</c>, so both providers find the same projects.
+    /// <see cref="ProjectSearchCaseSamplesTests"/> runs the search against a PostgreSQL database.
+    /// </summary>
+    [Theory]
+    [InlineData(DatabaseProvider.SqlServer)]
+    [InlineData(DatabaseProvider.PostgreSql)]
+    public void SearchAndLikeFilterIgnoreCaseOnEachProvider(DatabaseProvider provider)
+    {
+        var options = new DbContextOptionsBuilder<SampleProjectManagementDbContext>();
+        if (provider == DatabaseProvider.SqlServer)
+        {
+            options.UseNewHeapSqlServer("Server=localhost;Database=TranslationOnly;Integrated Security=true");
+        }
+        else
+        {
+            options.UseNewHeapPostgreSql("Host=localhost;Database=translation_only");
+        }
+
+        using var db = new SampleProjectManagementDbContext(options.Options);
+        IQueryable<Project> projects = db.Projects;
+        _processor.ProcessSearch<Project, ProjectViewModel>(ref projects, "platform");
+        _processor.ProcessFilter<Project, ProjectViewModel>(ref projects,
+            [new FilterCollectionRequestModel { Key = "name", Operator = "LIKE", Value = "%SAMPLES%" }]);
+
+        var sql = projects.Select(project => project.Id).ToQueryString();
+        if (provider == DatabaseProvider.SqlServer)
+        {
+            Assert.Contains(" LIKE ", sql, StringComparison.Ordinal);
+            Assert.DoesNotContain("ILIKE", sql, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Contains(" ILIKE ", sql, StringComparison.Ordinal);
+            Assert.DoesNotContain(" LIKE ", sql, StringComparison.Ordinal);
+        }
     }
 
     [Fact]

@@ -4,8 +4,8 @@ title: "SQL Server and PostgreSQL as equivalent providers"
 area: database
 reference: database-providers
 summary: "Keep neutral EF code provider-translatable and put registration, SQL, and migrations in the project that actually owns the provider or consumer schema."
-sample-cases: ["SPM-051", "SPM-054", "SPM-055", "SPM-179", "SPM-194"]
-public-symbols: ["IRepository", "Repository", "StartOrGetTransactionScopeAsync", "UseNewHeapSqlServer", "UseNewHeapPostgreSql"]
+sample-cases: ["SPM-016", "SPM-019", "SPM-051", "SPM-054", "SPM-055", "SPM-179", "SPM-194"]
+public-symbols: ["IRepository", "Repository", "StartOrGetTransactionScopeAsync", "UseNewHeapSqlServer", "UseNewHeapPostgreSql", "UseNewHeapCaseSensitiveCollectionTextMatch", "NhCollectionTextMatch"]
 skills: ["newheap-database-development"]
 providers: ["sql-server", "postgresql"]
 risk: critical
@@ -15,6 +15,8 @@ risk: critical
 Reference `NewHeap.Platform.AspNet.Common.SqlServer` or `NewHeap.Platform.AspNet.Common.PostgreSql` in application composition and configure repository contexts with `UseNewHeapSqlServer` or `UseNewHeapPostgreSql`. These extensions preserve native EF options and select the matching bulk and transaction-lock implementation per DbContext. Common itself has no SQL Server or PostgreSQL dependency. Register both packages only when the application uses both. `UseConfiguredDatabase` has been removed: select the provider in composition and pass any PostgreSQL migrations assembly explicitly. Internal identity contexts reuse the callback passed to `WithIdentityEntityFramework`. See `docs/release-notes/v-next.md` for the required upgrade changes.
 
 Use provider-neutral LINQ and model configuration in shared code. Put `UseSqlServer` or `UseNpgsql`, provider SQL, and provider-owned migrations in the owning implementation. Consumer entities and migrations belong in the consumer's database project. Use UTC-safe values in translated queries, preferably a captured `DateTimeOffset.UtcNow` value.
+
+Collection search and the `LIKE` filter ignore case on both providers: SQL Server matches with `LIKE` on its case-insensitive default collation, and a context configured with `UseNewHeapPostgreSql` matches with `ILIKE`, so the same search returns the same rows. The wildcards keep their `LIKE` meaning. Call `postgres.UseNewHeapCaseSensitiveCollectionTextMatch()` in the `UseNewHeapPostgreSql` configure action only when PostgreSQL must keep its case-sensitive `LIKE`. To match text the same way in a query of your own, mark the pattern: `EF.Functions.Like(x.Name, NhCollectionTextMatch.Pattern(pattern))`; an unmarked `EF.Functions.Like` keeps each provider's own case rule.
 
 Raw SQL is provider-specific until both dialects have executable proof. Parameterize data values and obtain schema, table, and column names from EF metadata where possible. Provide separate implementations or clearly separated subcases for SQL Server and PostgreSQL.
 
@@ -26,7 +28,8 @@ Raw SQL is provider-specific until both dialects have executable proof. Paramete
 - Combining `EnsureCreated` with migrations as the normal schema-update path.
 - Using only native `UseSqlServer`/`UseNpgsql` for a context that executes NewHeap bulk upsert or transaction locks; the NewHeap registration is required.
 - EF Core InMemory as evidence for raw SQL, constraints, transactions, or migrations.
+- Assuming a text match ignores case: test mixed-case search and `LIKE` filters on both providers, and configure PostgreSQL contexts with `UseNewHeapPostgreSql` rather than plain `UseNpgsql` when they serve collection search.
 
 ## Verification
 
-Run the same integration scenarios on real SQL Server and PostgreSQL: query translation, migration to an empty database, constraints, transactions, and raw SQL. Explicitly report any provider that was not run as unverified.
+Run the same integration scenarios on real SQL Server and PostgreSQL: query translation, mixed-case search and `LIKE` filters, migration to an empty database, constraints, transactions, and raw SQL. Explicitly report any provider that was not run as unverified.

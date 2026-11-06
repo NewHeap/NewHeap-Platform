@@ -42,10 +42,10 @@ The complete public-surface mapping and intended sample entry points are documen
 
 | ID | Case | Library surface | Verifiable outcome |
 |---|---|---|---|
-| SPM-016 | Free-text search | `[Searchable]`, searchable request | Changing the name or description changes the result and count. |
+| SPM-016 | Free-text search | `[Searchable]`, searchable request, `UseNewHeapPostgreSql`, `UseNewHeapCaseSensitiveCollectionTextMatch`, `NhCollectionTextMatch` | Changing the name or description changes the result and count. The search ignores case on both providers: SQL Server runs `LIKE` on its case-insensitive default collation and PostgreSQL, configured with `UseNewHeapPostgreSql`, runs `ILIKE`, so `platform` finds `Platform samples`, `PLATFORM migration` and a project whose description says `platform`. The `%` and `_` wildcards keep their `LIKE` meaning. `UseNewHeapCaseSensitiveCollectionTextMatch` in the PostgreSQL configure action keeps PostgreSQL's case-sensitive `LIKE`, and `NhCollectionTextMatch.Pattern` gives a query of its own the same match. |
 | SPM-017 | Equality filter | fluent `.equals()` + `[Filterable]` | The preferred status filter is visible in the request. Repeated filters with the same structure reuse EF query compilation on SQL Server and PostgreSQL, including when filter values change. |
 | SPM-018 | AND/OR filter tree | fluent `.and()` / `.or()` | An explicitly nested status OR combines with the remaining AND filters. |
-| SPM-019 | Text operators | fluent `.like()` | The playground compares contains, starts-with, and ends-with behavior. |
+| SPM-019 | Text operators | fluent `.like()` | The playground compares contains, starts-with, and ends-with behavior. A `LIKE` filter follows the same case rule as the free-text search of SPM-016: `%platform%` finds `Platform samples` and `PLATFORM migration` on SQL Server and on PostgreSQL configured with `UseNewHeapPostgreSql`, and only exact case after `UseNewHeapCaseSensitiveCollectionTextMatch`. |
 | SPM-020 | Date range | `.greaterThanOrEqual()` + `.lessThanOrEqual()` | The deadline range includes both boundaries. |
 | SPM-021 | Null filter | fluent `.equals(key, null)` | The no-deadline option finds only null values. |
 | SPM-022 | Multiple-value filter | fluent `.isIn()` | Multiple statuses can be combined. |

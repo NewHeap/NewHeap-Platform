@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.114",
   "backEnd": {
-    "hash": "abaf8edaea0fbacb27c66facb04543839edd9397cc8d98f48ec8c6c28d86fee8",
-    "declarationCount": 13716,
+    "hash": "4a3362eb5692400ced70f8bbf36bf8d8df791ed520f52396e693dcd73d3cf7a2",
+    "declarationCount": 13730,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -38114,6 +38114,50 @@
         "declaration": "public static async Task<int> ExecuteAsync<TEntity>( DbContext context, BulkUpsertPlan<TEntity> plan, IEnumerable<TEntity> entities, DbTransaction transaction, CancellationToken cancellationToken) where TEntity : class {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlCollectionTextMatchEvaluatableFilter.cs",
+        "declaration": "[typeof(string)])!; public bool IsEvaluatableExpression(Expression expression) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlCollectionTextMatchInterceptor.cs",
+        "declaration": "public Expression QueryCompilationStarting(Expression queryExpression, QueryExpressionEventData eventData) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlCollectionTextMatchInterceptor.cs",
+        "declaration": "[typeof(DbFunctions), typeof(string), typeof(string)])!; protected override Expression VisitMethodCall(MethodCallExpression node) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlCollectionTextMatchOptionsExtension.cs",
+        "declaration": "public DbContextOptionsExtensionInfo Info => new ExtensionInfo(this);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlCollectionTextMatchOptionsExtension.cs",
+        "declaration": "public void ApplyServices(IServiceCollection services) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlCollectionTextMatchOptionsExtension.cs",
+        "declaration": "public void Validate(IDbContextOptions options) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlCollectionTextMatchOptionsExtension.cs",
+        "declaration": "public override bool IsDatabaseProvider => false;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlCollectionTextMatchOptionsExtension.cs",
+        "declaration": "public override string LogFragment => extension.CaseSensitive"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlCollectionTextMatchOptionsExtension.cs",
+        "declaration": "public override int GetServiceProviderHashCode() => extension.CaseSensitive.GetHashCode();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlCollectionTextMatchOptionsExtension.cs",
+        "declaration": "public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlCollectionTextMatchOptionsExtension.cs",
+        "declaration": "public override void PopulateDebugInfo(IDictionary<string, string> debugInfo) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlDbContextOptionsExtensions.cs",
         "declaration": "public static class PostgreSqlDbContextOptionsExtensions {"
       },
@@ -38124,6 +38168,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlDbContextOptionsExtensions.cs",
         "declaration": "public static DbContextOptionsBuilder<TContext> UseNewHeapPostgreSql<TContext>( this DbContextOptionsBuilder<TContext> optionsBuilder, string connectionString, Action<NpgsqlDbContextOptionsBuilder>? configure = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlDbContextOptionsExtensions.cs",
+        "declaration": "public static NpgsqlDbContextOptionsBuilder UseNewHeapCaseSensitiveCollectionTextMatch( this NpgsqlDbContextOptionsBuilder postgreSqlOptionsBuilder) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlModelBuilderExtensions.cs",
@@ -52318,6 +52366,14 @@
         "declaration": "[Obsolete(\"Builds an authorization request without a PKCE challenge or nonce. Use GetLoginUrl(state, nonce, codeChallenge) with a state bound to the browser.\")] public string GetLoginUrl(string? state = null)"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/NhCollectionTextMatch.cs",
+        "declaration": "public static class NhCollectionTextMatch {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/NhCollectionTextMatch.cs",
+        "declaration": "[typeof(string)])!; public static string? Pattern(string? pattern) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.Common/Services/NhMailService.cs",
         "declaration": "public partial class NhMailService {"
       },
@@ -59974,7 +60030,9 @@
       "Repository",
       "StartOrGetTransactionScopeAsync",
       "UseNewHeapSqlServer",
-      "UseNewHeapPostgreSql"
+      "UseNewHeapPostgreSql",
+      "UseNewHeapCaseSensitiveCollectionTextMatch",
+      "NhCollectionTextMatch"
     ],
     "nh-read-only-database-diagnostics": [
       "NewHeapDatabaseReadApplication",
