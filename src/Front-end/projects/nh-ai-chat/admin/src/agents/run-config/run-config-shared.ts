@@ -6,9 +6,9 @@ import {
   LowerFileLimits,
   NhAssistantError,
   RunCatalog,
-  ToolCatalogEntry,
-  ɵNhAssistantPickerOption as NhAssistantPickerOption
+  ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
+import { NhSelectOption } from '@newheap/platform-select';
 import { nhAssistantSelectorMatches } from '../nh-assistant-admin-agent-editor.component';
 
 /** The longest texts and numbers the server accepts in the run configuration. */
@@ -125,7 +125,7 @@ export function isRegisteredAlertKind(catalog: RunCatalog | null | undefined, ki
   return catalog?.alertKinds === undefined || catalog.alertKinds.some(kind => kind.id === kindId);
 }
 
-export function ruleOptions(catalog: RunCatalog | null): NhAssistantPickerOption[] {
+export function ruleOptions(catalog: RunCatalog | null): NhSelectOption<string>[] {
   return (catalog?.ruleHandlers ?? []).map(block => ({ value: block.name, label: block.name, description: block.description }));
 }
 
@@ -156,13 +156,13 @@ export function worksOnCovers(statement: WorksOnStatement | null | undefined, su
  * The trigger events an agent can start on: an event that names its object type up front is offered
  * only to an agent that works on that type.
  */
-export function eventOptions(catalog: RunCatalog | null, worksOn?: WorksOnStatement | null): NhAssistantPickerOption[] {
+export function eventOptions(catalog: RunCatalog | null, worksOn?: WorksOnStatement | null): NhSelectOption<string>[] {
   return (catalog?.triggerEvents ?? [])
     .filter(block => !block.subjectType || worksOnCovers(worksOn, block.subjectType))
     .map(block => ({ value: block.name, label: block.name, description: block.description }));
 }
 
-export function subjectSetOptions(catalog: RunCatalog | null): NhAssistantPickerOption[] {
+export function subjectSetOptions(catalog: RunCatalog | null): NhSelectOption<string>[] {
   return (catalog?.subjectSets ?? []).map(block => ({ value: block.name, label: block.name, description: block.description }));
 }
 
@@ -185,12 +185,12 @@ export function withScheduleTargetError(errors: RunConfigErrors, target: Schedul
 /** The data classifications a skill can choose, from the least to the most sensitive. */
 export const dataClassifications: readonly AssistantDataClassification[] = ['public', 'internal', 'confidential', 'restricted'];
 
-export function profileOptions(catalog: RunCatalog | null): NhAssistantPickerOption[] {
+export function profileOptions(catalog: RunCatalog | null): NhSelectOption<string>[] {
   return (catalog?.profiles ?? []).map(profile => ({ value: profile, label: profile }));
 }
 
 /** The approval policies, each with its summary when the server sent one. */
-export function policyOptions(catalog: RunCatalog | null, describe: (summary: ApprovalPolicySummary) => string): NhAssistantPickerOption[] {
+export function policyOptions(catalog: RunCatalog | null, describe: (summary: ApprovalPolicySummary) => string): NhSelectOption<string>[] {
   const summaries = new Map((catalog?.approvalPolicySummaries ?? []).map(summary => [summary.name, summary]));
   return (catalog?.approvalPolicies ?? []).map(policy => {
     const summary = summaries.get(policy);
@@ -199,7 +199,7 @@ export function policyOptions(catalog: RunCatalog | null, describe: (summary: Ap
 }
 
 /** The IANA time zones of the browser, UTC first. */
-export function timeZoneOptions(): NhAssistantPickerOption[] {
+export function timeZoneOptions(): NhSelectOption<string>[] {
   const intl = Intl as unknown as { supportedValuesOf?: (key: string) => string[] };
   const zones = intl.supportedValuesOf?.('timeZone') ?? ['Europe/Amsterdam', 'Europe/London'];
   return ['UTC', ...zones.filter(zone => zone !== 'UTC')].map(zone => ({ value: zone, label: zone }));

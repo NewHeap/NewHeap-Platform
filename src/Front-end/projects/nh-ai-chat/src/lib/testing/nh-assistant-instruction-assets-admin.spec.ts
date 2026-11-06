@@ -104,7 +104,7 @@ async function pick(fixture: ComponentFixture<unknown>, scope: HTMLElement, sele
   input.dispatchEvent(new Event('input'));
   await settle(fixture);
   const option = Array.from(scope.querySelectorAll<HTMLElement>('[role="option"]'))
-    .find(item => item.querySelector('.label')?.textContent?.trim() === label);
+    .find(item => item.querySelector('.nh-select-label')?.textContent?.trim() === label);
   if (!option) {
     throw new Error(`Option "${label}" not found.`);
   }
@@ -267,8 +267,11 @@ describe('instruction assets in the administration', () => {
     await settle(fixture);
     expect(element.querySelector('[data-asset-error]')?.textContent).toContain('The text changed since you read it.');
 
-    // Read again, the agent is created with the reference and no text of its own.
-    await pick(fixture, element, 'input[id$="-instructions-asset"]', 'planner', 'planner-next-task, version 2');
+    // Read again with the read button (choosing the same text again changes nothing), the agent is
+    // created with the reference and no text of its own.
+    (element.querySelector('[data-read-asset]') as HTMLButtonElement).click();
+    await settle(fixture);
+    expect(element.querySelector('[data-asset-text]')?.textContent).toBe('Something else.');
     button(element, 'Save').click();
     await settle(fixture);
     const created = requestBodies('POST', 'admin/agents').at(-1) as { instructions: string; instructionsAsset: { assetId: string; version: number } };

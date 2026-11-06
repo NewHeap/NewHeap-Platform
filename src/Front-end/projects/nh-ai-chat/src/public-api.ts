@@ -64,10 +64,8 @@ export {
   nhAssistantReloadOnAgentWork as ɵnhAssistantReloadOnAgentWork,
   nhAssistantWatchAgentWork as ɵnhAssistantWatchAgentWork
 } from './lib/internal/nh-assistant-agent-work';
-export {
-  NhAssistantPickerComponent as ɵNhAssistantPickerComponent,
-  type NhAssistantPickerOption as ɵNhAssistantPickerOption
-} from './lib/internal/nh-assistant-picker.component';
+// The texts and error descriptions of the nh-combobox controls of @newheap/platform-select.
+export { provideNhAssistantSelect as ɵprovideNhAssistantSelect } from './lib/internal/nh-assistant-select';
 export { NhAssistantSubjectLinkComponent as ɵNhAssistantSubjectLinkComponent } from './lib/internal/nh-assistant-subject-link.component';
 export { NhAssistantMarkdownPipe as ɵNhAssistantMarkdownPipe } from './lib/internal/nh-assistant-markdown.pipe';
 // The merge of bundled texts, shared with the administration, which brings its own texts.

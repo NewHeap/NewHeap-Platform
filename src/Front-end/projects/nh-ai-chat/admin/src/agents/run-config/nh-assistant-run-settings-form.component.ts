@@ -8,9 +8,10 @@ import {
   NhAssistantAdminApiService,
   RunCatalog,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
-  ɵNhAssistantPickerComponent as NhAssistantPickerComponent,
-  ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
+  ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
+  ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
+import { NhComboboxComponent } from '@newheap/platform-select';
 import { agentRightsRunSettingsFields, mayChangeAgentRights } from '../agent-rights';
 import { NhAssistantAgentRightsHintComponent } from '../nh-assistant-agent-rights-hint.component';
 import { NhAssistantAccountPickerComponent } from './nh-assistant-account-picker.component';
@@ -54,7 +55,7 @@ const defaults = { retries: '3', concurrent: '4', perSubject: '10' };
     TranslatePipe,
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
-    NhAssistantPickerComponent,
+    NhComboboxComponent,
     NhAssistantAccountPickerComponent,
     NhAssistantAgentRightsHintComponent,
     NhAssistantAlertKindsFieldComponent,
@@ -63,6 +64,7 @@ const defaults = { retries: '3', concurrent: '4', perSubject: '10' };
     NhAssistantPackageLockedMarkComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [provideNhAssistantSelect()],
   templateUrl: './nh-assistant-run-settings-form.component.html',
   styleUrls: ['../../nh-assistant-admin-shared.scss', './run-config-forms.scss']
 })

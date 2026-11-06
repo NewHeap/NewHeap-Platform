@@ -7,7 +7,7 @@
     [attr.aria-describedby]="fieldDescribedBy()">{{ subjectType().name }}</output>
   <p class="hint" [id]="hintId">{{ 'nh-assistant.subject-picker.whole-application-hint' | translate }}</p>
 } @else if (search(); as find) {
-  <nh-assistant-picker
+  <nh-combobox
     [inputId]="inputId()"
     [value]="value()"
     [selectedLabel]="selectedLabel()"

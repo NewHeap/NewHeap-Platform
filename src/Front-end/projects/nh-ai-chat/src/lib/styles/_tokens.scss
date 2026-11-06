@@ -29,6 +29,28 @@
   --nha-radius: var(--nh-assistant-radius, 16px);
   --nha-radius-control: var(--nh-assistant-radius-control, 12px);
   --nha-mono: var(--nh-assistant-font-mono, ui-monospace, 'Cascadia Code', Consolas, monospace);
+  @include select-tokens;
+}
+
+// The comboboxes of @newheap/platform-select inside a component look like the assistant's own
+// fields. The references resolve on the host, so they follow the dark defaults below as well.
+@mixin select-tokens {
+  --nh-select-font: var(--nha-font);
+  --nh-select-font-size: 13px;
+  --nh-select-min-height: 38px;
+  --nh-select-padding-inline: 10px;
+  --nh-select-radius: var(--nha-radius-control);
+  --nh-select-background: var(--nha-background);
+  --nh-select-text: var(--nha-text);
+  --nh-select-text-muted: var(--nha-text-muted);
+  --nh-select-border: var(--nha-border);
+  --nh-select-border-hover: var(--nha-text-muted);
+  --nh-select-focus: var(--nha-focus);
+  --nh-select-danger: var(--nha-danger);
+  --nh-select-popup-background: var(--nha-background);
+  --nh-select-popup-border: var(--nha-border);
+  --nh-select-popup-shadow: 0 12px 28px rgb(0 0 0 / 18%);
+  --nh-select-option-active-background: var(--nha-surface-strong);
 }
 
 @mixin dark-defaults {

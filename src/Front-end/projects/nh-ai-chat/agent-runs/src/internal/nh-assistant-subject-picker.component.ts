@@ -18,11 +18,11 @@ import {
   NhAssistantAgentRunApiService,
   NhAssistantError,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
-  ɵNhAssistantPickerComponent as NhAssistantPickerComponent,
-  type ɵNhAssistantPickerOption as NhAssistantPickerOption,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
-  ɵtoNhAssistantError as toNhAssistantError
+  ɵtoNhAssistantError as toNhAssistantError,
+  ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
+import { NhComboboxComponent, NhSelectOption } from '@newheap/platform-select';
 
 /** Lookups that cannot succeed by asking again: the person changes the id instead. */
 const finalLookupCodes = new Set(['assistant-subject-not-found', 'assistant-subject-invalid', 'assistant-subject-type-unknown']);
@@ -42,7 +42,7 @@ export function nhAssistantSubjectSearch(
   api: NhAssistantAgentRunApiService,
   subjectType: string,
   limit = 20
-): (query: string) => Observable<NhAssistantPickerOption[]> {
+): (query: string) => Observable<NhSelectOption<string>[]> {
   return query => api.searchSubjects(subjectType, query, limit).pipe(
     map(result => result.items.map(item => ({ value: item.id, label: item.displayName ?? item.id })))
   );
@@ -62,8 +62,9 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-subject-picker',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantPickerComponent],
+  imports: [TranslatePipe, NhAssistantTranslatePipe, NhComboboxComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [provideNhAssistantSelect()],
   templateUrl: './nh-assistant-subject-picker.component.html',
   styleUrl: './nh-assistant-subject-picker.component.scss'
 })
@@ -143,7 +144,7 @@ export class NhAssistantSubjectPickerComponent {
     });
   }
 
-  choose(option: NhAssistantPickerOption | null): void {
+  choose(option: NhSelectOption<string> | null): void {
     this.subjectChange.emit(option ? { type: this.subjectType().id, id: option.value, displayName: option.label } : null);
   }
 

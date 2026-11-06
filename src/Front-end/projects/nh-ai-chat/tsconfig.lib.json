@@ -1,6 +1,7 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
+    "paths": { "@newheap/platform-select": ["../../dist/nh-select"] },
     "outDir": "./../../out-tsc/lib",
     "declaration": true,
     "declarationMap": true,

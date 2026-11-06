@@ -12,10 +12,10 @@ import {
   RunCatalog,
   ToolCatalogEntry,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
-  ɵNhAssistantPickerComponent as NhAssistantPickerComponent,
-  ɵNhAssistantPickerOption as NhAssistantPickerOption,
-  ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
+  ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
+  ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
+import { NhComboboxComponent, NhSelectOption } from '@newheap/platform-select';
 import { agentRightsConsultationFields, mayChangeAgentRights } from '../agent-rights';
 import { NhAssistantAgentRightsHintComponent } from '../nh-assistant-agent-rights-hint.component';
 import { policyKeys } from '../agent-texts';
@@ -90,12 +90,13 @@ interface RouteChoice {
     TranslatePipe,
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
-    NhAssistantPickerComponent,
+    NhComboboxComponent,
     NhAssistantAgentRightsHintComponent,
     NhAssistantPackageLockComponent,
     NhAssistantPackageLockedMarkComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [provideNhAssistantSelect()],
   templateUrl: './nh-assistant-consultation-form.component.html',
   styleUrls: ['../../nh-assistant-admin-shared.scss', './run-config-forms.scss']
 })
@@ -173,7 +174,7 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
     return this.catalog()?.subjectTypes?.find(item => item.id === type)?.name ?? type;
   });
   /** The types the agent works on and has no consultation about yet, the whole application included. */
-  readonly typeOptions = computed<NhAssistantPickerOption[]>(() => consultationTypeOptions(this.catalog(), this.worksOn(), this.takenTypes())
+  readonly typeOptions = computed<NhSelectOption<string>[]>(() => consultationTypeOptions(this.catalog(), this.worksOn(), this.takenTypes())
     .map(type => ({ value: type.id, label: type.name, description: type.isSystem ? null : type.pluralName ?? null })));
   /** The ceiling allows routes, so the consultation may propose. */
   readonly mayPropose = computed(() => this.ceiling().routes.length > 0);
@@ -187,7 +188,7 @@ export class NhAssistantConsultationFormComponent extends RunConfigForm implemen
     }));
   });
   /** The policies the application lists for askers, by the application's name for each when it has one. */
-  readonly askerPolicies = computed<NhAssistantPickerOption[]>(() => {
+  readonly askerPolicies = computed<NhSelectOption<string>[]>(() => {
     this.language();
     return (this.catalog()?.agentPolicies ?? []).map(policy => ({
       value: policy.name,

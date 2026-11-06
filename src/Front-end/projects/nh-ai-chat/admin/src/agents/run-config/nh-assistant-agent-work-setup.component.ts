@@ -7,9 +7,10 @@ import {
   RunCatalog,
   ToolCatalogEntry,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
-  ɵNhAssistantPickerComponent as NhAssistantPickerComponent,
-  ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
+  ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
+  ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
+import { NhComboboxComponent } from '@newheap/platform-select';
 import { agentRightsRunSettingsFields, mayChangeAgentRights } from '../agent-rights';
 import { NhAssistantAgentRightsHintComponent } from '../nh-assistant-agent-rights-hint.component';
 import { NhAssistantAccountPickerComponent } from './nh-assistant-account-picker.component';
@@ -73,12 +74,13 @@ const stepOfField: Record<string, WorkSetupStep> = {
     TranslatePipe,
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
-    NhAssistantPickerComponent,
+    NhComboboxComponent,
     NhAssistantAccountPickerComponent,
     NhAssistantAgentRightsHintComponent,
     NhAssistantAlertKindsFieldComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [provideNhAssistantSelect()],
   templateUrl: './nh-assistant-agent-work-setup.component.html',
   styleUrls: ['../../nh-assistant-admin-shared.scss', './run-config-forms.scss']
 })

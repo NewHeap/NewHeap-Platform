@@ -2,12 +2,13 @@ import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { NhAssistantMockScenario, provideNhAssistantMockApi } from '@newheap/platform-ai-chat/testing';
+import { NhComboboxComponent, NhSelectOption } from '@newheap/platform-select';
 import { Observable, firstValueFrom, of, throwError } from 'rxjs';
 import { NhAssistantAccountPickerComponent } from '../../../admin/src/agents/run-config/nh-assistant-account-picker.component';
 import { NH_ASSISTANT_ADMIN_TRANSLATIONS } from '../../../admin/src/i18n/nh-assistant-admin-translations';
 import { NhAssistantSubjectPickerComponent } from '../../../agent-runs/src/internal/nh-assistant-subject-picker.component';
 import { NH_ASSISTANT_TRANSLATIONS } from '../i18n/nh-assistant-translations';
-import { NhAssistantPickerComponent, NhAssistantPickerOption } from '../internal/nh-assistant-picker.component';
+import { provideNhAssistantSelect } from '../internal/nh-assistant-select';
 import { AgentSubjectWork } from '../models/assistant-agent-run.models';
 import { AgentSubjectType, AssistantAccount } from '../models/assistant-admin.models';
 import { ConnectionRequiredPart } from '../models/assistant-api.models';
@@ -53,11 +54,12 @@ function text(element: Element | null | undefined): string {
 
 @Component({
   standalone: true,
-  imports: [NhAssistantPickerComponent],
-  template: `<div style="width: 375px"><nh-assistant-picker inputId="accounts" [search]="search" describedBy="accounts-hint" /></div>`
+  imports: [NhComboboxComponent],
+  providers: [provideNhAssistantSelect()],
+  template: `<div style="width: 375px"><nh-combobox inputId="accounts" [search]="search" describedBy="accounts-hint" /></div>`
 })
 class SearchHost {
-  readonly answers: Observable<NhAssistantPickerOption[]>[] = [];
+  readonly answers: Observable<NhSelectOption<string>[]>[] = [];
   readonly queries: string[] = [];
   readonly search = (query: string) => {
     this.queries.push(query);
@@ -82,7 +84,7 @@ describe('A picker whose search fails', () => {
     await new Promise(resolve => setTimeout(resolve, 300));
     await settle(fixture);
 
-    const error = element.querySelector('[data-search-error]') as HTMLElement;
+    const error = element.querySelector('[data-nh-select-error]') as HTMLElement;
     expect(text(error)).toContain('The assistant cannot be reached.');
     expect(error.getAttribute('role')).toBe('alert');
     expect(text(element.querySelector('[role="listbox"]'))).toBe('The search failed.');
@@ -91,12 +93,12 @@ describe('A picker whose search fails', () => {
     // At 375px the reason and its action wrap instead of scrolling sideways.
     expect(error.scrollWidth).toBeLessThanOrEqual(error.clientWidth + 1);
 
-    (element.querySelector('[data-search-retry]') as HTMLButtonElement).click();
+    (element.querySelector('[data-nh-select-retry]') as HTMLButtonElement).click();
     await new Promise(resolve => setTimeout(resolve, 300));
     await settle(fixture);
 
     expect(host.queries).toEqual(['oper', 'oper']);
-    expect(element.querySelector('[data-search-error]')).toBeNull();
+    expect(element.querySelector('[data-nh-select-error]')).toBeNull();
     expect(text(element.querySelector('[role="option"]'))).toBe('Operations account');
     expect(input.getAttribute('aria-describedby')).toBe('accounts-hint');
   });

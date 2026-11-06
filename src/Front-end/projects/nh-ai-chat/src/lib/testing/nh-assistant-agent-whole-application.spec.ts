@@ -124,7 +124,7 @@ async function pick(fixture: ComponentFixture<unknown>, scope: HTMLElement, sele
   input.dispatchEvent(new Event('input'));
   await settle(fixture);
   const option = Array.from(scope.querySelectorAll<HTMLElement>('[role="option"]'))
-    .find(item => item.querySelector('.label')?.textContent?.trim() === label);
+    .find(item => item.querySelector('.nh-select-label')?.textContent?.trim() === label);
   if (!option) {
     throw new Error(`Option "${label}" not found.`);
   }

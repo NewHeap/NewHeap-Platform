@@ -15,14 +15,14 @@
     @if (!editing()) {
       <div class="field">
         <label [for]="id + '-type'">{{ 'nh-assistant.admin.run-config.consultations.form.subject-type' | translate }}</label>
-        <nh-assistant-picker
+        <nh-combobox
           [inputId]="id + '-type'"
           [options]="typeOptions()"
           [value]="subjectType()"
           [placeholder]="'nh-assistant.admin.run-config.choose' | translate"
           [invalid]="fieldError('subjectType') !== null"
           [describedBy]="describedBy(id + '-type-hint', 'subjectType', id + '-type-error')"
-          (valueChange)="setSubjectType($event)" />
+          (valueChange)="setSubjectType($event ?? '')" />
         <p class="hint" [id]="id + '-type-hint'">{{ 'nh-assistant.admin.run-config.consultations.form.subject-type-hint' | translate }}</p>
         @if (errorKey('subjectType'); as key) {
           <p class="field-error" [id]="id + '-type-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('subjectType')?.params }}</p>
@@ -88,15 +88,16 @@
     </div>
     <div class="field">
       <label [for]="id + '-asker-policy'">{{ 'nh-assistant.admin.run-config.consultations.form.asker-policy' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('askerPolicy')" /></label>
-      <nh-assistant-picker
+      <nh-combobox
         [inputId]="id + '-asker-policy'"
         [disabled]="locked('askerPolicy')"
         [options]="askerPolicies()"
         [value]="askerPolicy()"
         [noneLabel]="'nh-assistant.admin.run-config.consultations.form.asker-policy-agent' | translate"
+        noneValue=""
         [invalid]="fieldError('askerPolicy') !== null"
         [describedBy]="describedBy(id + '-asker-policy-hint', 'askerPolicy', id + '-asker-policy-error')"
-        (valueChange)="askerPolicy.set($event); touch('askerPolicy')" />
+        (valueChange)="askerPolicy.set($event ?? ''); touch('askerPolicy')" />
       <p class="hint" [id]="id + '-asker-policy-hint'">{{ 'nh-assistant.admin.run-config.consultations.form.asker-policy-hint' | translate }}</p>
       @if (errorKey('askerPolicy'); as key) {
         <p class="field-error" [id]="id + '-asker-policy-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('askerPolicy')?.params }}</p>
@@ -179,15 +180,16 @@
         </div>
         <div class="field">
           <label [for]="id + '-proposal-policy'">{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('proposalPolicy')" /></label>
-          <nh-assistant-picker
+          <nh-combobox
             [inputId]="id + '-proposal-policy'"
             [disabled]="locked('proposalPolicy')"
             [options]="policies()"
             [value]="proposalPolicy()"
             [noneLabel]="'nh-assistant.admin.run-config.consultations.form.agent-policy' | translate"
+            noneValue=""
             [invalid]="fieldError('proposalPolicy') !== null"
             [describedBy]="describedBy(null, 'proposalPolicy', id + '-proposal-policy-error')"
-            (valueChange)="proposalPolicy.set($event); touch('proposalPolicy')" />
+            (valueChange)="proposalPolicy.set($event ?? ''); touch('proposalPolicy')" />
           @if (errorKey('proposalPolicy'); as key) {
             <p class="field-error" [id]="id + '-proposal-policy-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('proposalPolicy')?.params }}</p>
           }
@@ -312,15 +314,16 @@
       </div>
       <div class="field">
         <label [for]="id + '-classification'">{{ 'nh-assistant.admin.run-config.skills.classification.label' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('dataClassification')" /></label>
-        <nh-assistant-picker
+        <nh-combobox
           [inputId]="id + '-classification'"
           [disabled]="locked('dataClassification')"
           [options]="classifications()"
           [value]="dataClassification()"
           [noneLabel]="'nh-assistant.admin.run-config.skills.classification.agent' | translate"
+          noneValue=""
           [invalid]="fieldError('dataClassification') !== null"
           [describedBy]="describedBy(id + '-classification-hint', 'dataClassification', id + '-classification-error')"
-          (valueChange)="dataClassification.set($event); touch('dataClassification')" />
+          (valueChange)="dataClassification.set($event ?? ''); touch('dataClassification')" />
         <p class="hint" [id]="id + '-classification-hint'">{{ 'nh-assistant.admin.run-config.consultations.form.classification-hint' | translate }}</p>
         @if (errorKey('dataClassification'); as key) {
           <p class="field-error" [id]="id + '-classification-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('dataClassification')?.params }}</p>
