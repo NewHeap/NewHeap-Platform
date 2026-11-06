@@ -4,7 +4,7 @@
 
 | Breaking change | Required action |
 |---|---|
-| On a context configured with `UseNewHeapPostgreSql`, collection search and the `LIKE` filter now match case-insensitively with `ILIKE`, as SQL Server's default collation does, so the same search can return more rows than before. | None to match SQL Server; to keep case-sensitive matching, call `postgres.UseNewHeapCaseSensitiveCollectionTextMatch()` in the `UseNewHeapPostgreSql` configure action. |
+| Collection search and the `LIKE` filter on a context configured with `UseNewHeapPostgreSql` now match case-insensitively (`ILIKE`), as on SQL Server's default collation, so they can return more rows. | To keep case-sensitive matching, call `postgres.UseNewHeapCaseSensitiveCollectionTextMatch()` in the `UseNewHeapPostgreSql` configure action. |
 
 - Collection processing matches text with `EF.Functions.Like(value, NhCollectionTextMatch.Pattern(pattern))`. SQL
   Server and contexts without a NewHeap PostgreSQL registration keep their `LIKE`; `%` and `_` keep their meaning

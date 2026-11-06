@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.114",
   "backEnd": {
-    "hash": "5e2959815f6a2b5091b6c7fe558e7789f2ecf876644d62e965c09ff4094ef2ec",
+    "hash": "58ba09bae5f1ea766d63d70a1e0c0ecc3d0a09de0837507c30798ecbddf40cff",
     "declarationCount": 13728,
     "declarations": [
       {
@@ -38143,11 +38143,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlCollectionTextMatchOptionsExtension.cs",
-        "declaration": "public override string LogFragment => Extension.CaseSensitive"
+        "declaration": "public override string LogFragment => extension.CaseSensitive"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlCollectionTextMatchOptionsExtension.cs",
-        "declaration": "public override int GetServiceProviderHashCode() => Extension.CaseSensitive.GetHashCode();"
+        "declaration": "public override int GetServiceProviderHashCode() => extension.CaseSensitive.GetHashCode();"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common.PostgreSql/PostgreSqlCollectionTextMatchOptionsExtension.cs",

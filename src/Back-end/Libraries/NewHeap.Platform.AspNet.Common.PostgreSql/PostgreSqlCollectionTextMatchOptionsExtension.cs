@@ -63,26 +63,25 @@ internal sealed class PostgreSqlCollectionTextMatchOptionsExtension(bool caseSen
     private sealed class ExtensionInfo(PostgreSqlCollectionTextMatchOptionsExtension extension)
         : DbContextOptionsExtensionInfo(extension)
     {
-        private new PostgreSqlCollectionTextMatchOptionsExtension Extension => extension;
-
         public override bool IsDatabaseProvider => false;
 
-        public override string LogFragment => Extension.CaseSensitive
+        public override string LogFragment => extension.CaseSensitive
             ? "NewHeapCollectionTextMatch=CaseSensitive "
             : "NewHeapCollectionTextMatch=CaseInsensitive ";
 
         // The choice changes the services and with them the compiled queries, so contexts that
         // choose differently do not share a service provider or its query cache.
-        public override int GetServiceProviderHashCode() => Extension.CaseSensitive.GetHashCode();
+        public override int GetServiceProviderHashCode() => extension.CaseSensitive.GetHashCode();
 
         public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other)
         {
-            return other is ExtensionInfo info && info.Extension.CaseSensitive == Extension.CaseSensitive;
+            return other is ExtensionInfo info &&
+                   extension.CaseSensitive == ((PostgreSqlCollectionTextMatchOptionsExtension)info.Extension).CaseSensitive;
         }
 
         public override void PopulateDebugInfo(IDictionary<string, string> debugInfo)
         {
-            debugInfo["NewHeap:CollectionTextMatch:CaseSensitive"] = Extension.CaseSensitive.ToString();
+            debugInfo["NewHeap:CollectionTextMatch:CaseSensitive"] = extension.CaseSensitive.ToString();
         }
     }
 }
