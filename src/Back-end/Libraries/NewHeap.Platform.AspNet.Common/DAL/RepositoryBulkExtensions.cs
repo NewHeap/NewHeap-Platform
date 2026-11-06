@@ -13,11 +13,21 @@ public static class RepositoryBulkExtensions
     /// This operation bypasses EF Core change tracking and does not require SaveChanges.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A single store-generated numeric or <see cref="Guid"/> primary key is written back to each
     /// inserted entity. Matched entities and other generated properties are not refreshed.
+    /// </para>
+    /// <para>
+    /// A non-key property generated on add, which includes every property with
+    /// <c>HasDefaultValue</c> or <c>HasDefaultValueSql</c>, is written on insert and update when
+    /// every entity sets it to a value other than its sentinel (the CLR default unless configured),
+    /// and left to the database default when none does. The input is then read once up front
+    /// to decide this. Properties generated on update or computed are never written.
+    /// </para>
     /// </remarks>
     /// <returns>The number of inserted or updated rows.</returns>
     /// <exception cref="NotSupportedException">The configured database provider is not SQL Server or PostgreSQL.</exception>
+    /// <exception cref="InvalidOperationException">Only some entities set a property generated on add, or the input contains a null entity.</exception>
     public static async Task<int> ExecuteUpsertAsync<TEntity, TMatch>(
         this IRepository<TEntity> repository,
         IEnumerable<TEntity> entities,
@@ -31,6 +41,15 @@ public static class RepositoryBulkExtensions
 
         var provider = NhRepositoryProvider.GetRequired(repository.Context);
         var plan = BulkUpsertPlan<TEntity>.Create(repository.Context, matchOn);
+        if (plan.HasGeneratedOnAddProperties)
+        {
+            // ponytail: inspecting the batch buffers the input only for entities with database
+            // defaults; stage a per-row "set" marker instead if such imports outgrow memory.
+            var buffered = entities as IReadOnlyList<TEntity> ?? entities.ToList();
+            plan = plan.ForBatch(buffered);
+            entities = buffered;
+        }
+
         await using var transactionScope = await repository.StartOrGetTransactionScopeAsync(cancellationToken);
         try
         {
@@ -63,9 +82,12 @@ public static class RepositoryBulkExtensions
     /// and is written back; a non-default store-generated key must match an existing row and updates it.
     /// Missing dependents are not deleted. Populated nested dependent navigations fail before SQL is issued.
     /// The complete graph operation uses one transaction and bypasses EF Core change tracking and SaveChanges.
+    /// Non-key properties generated on add follow the rule of the scalar overload, for the roots and for
+    /// each group of dependents that is inserted or updated together.
     /// </remarks>
     /// <returns>The total number of inserted or updated root and dependent rows.</returns>
     /// <exception cref="NotSupportedException">A selected dependent contains a populated nested dependency, or the provider or relationship shape is unsupported.</exception>
+    /// <exception cref="InvalidOperationException">Only some roots, or some dependents of one group, set a property generated on add.</exception>
     public static async Task<int> ExecuteUpsertAsync<TEntity, TMatch>(
         this IRepository<TEntity> repository,
         IEnumerable<TEntity> entities,
@@ -86,6 +108,7 @@ public static class RepositoryBulkExtensions
                 ?? throw new InvalidOperationException("Bulk upsert input cannot contain null entities."))
             .ToList();
         BulkUpsertGraph.ValidateNoNestedDependencies(roots, navigations);
+        plan = plan.ForBatch(roots);
 
         await using var transactionScope = await repository.StartOrGetTransactionScopeAsync(cancellationToken);
         try
