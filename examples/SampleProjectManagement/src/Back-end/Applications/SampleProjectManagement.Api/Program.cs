@@ -227,6 +227,10 @@ builder.Services
                 options.UseNewHeapSqlServer(connectionString);
                 break;
             case DatabaseProvider.PostgreSql:
+                // SPM-016: collection search and the LIKE filter match case-insensitively (ILIKE), so
+                // the playground finds the same projects as on SQL Server's default collation.
+                // postgres.UseNewHeapCaseSensitiveCollectionTextMatch() would keep PostgreSQL's
+                // case-sensitive LIKE instead.
                 options.UseNewHeapPostgreSql(connectionString, postgres =>
                 {
                     var migrationsAssembly = builder.Configuration["Database:PostgreSqlMigrationsAssembly"];
