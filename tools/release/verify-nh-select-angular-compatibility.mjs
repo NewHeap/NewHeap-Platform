@@ -10,7 +10,9 @@ const dist = resolve(workspace, 'dist/nh-select');
 const angularCli = resolve(workspace, 'node_modules/@angular/cli/bin/ng.js');
 const npmCli = process.env.npm_execpath;
 
-if (!npmCli) throw new Error('Run this compatibility check through npm.');
+if (!npmCli) {
+  throw new Error('Run this compatibility check through npm.');
+}
 
 const matrix = [
   {
