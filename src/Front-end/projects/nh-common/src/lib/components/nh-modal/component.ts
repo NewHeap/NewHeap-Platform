@@ -167,6 +167,7 @@ export class NhModalComponent<C> implements OnInit, OnDestroy, AfterViewInit {
   private readonly restoreFocusTo: HTMLElement | null = this.browser ? activeElementOf(this.document) : null;
   private focusRestored = false;
   private closing = false;
+  private destroyed = false;
   /** Watches content that renders its fields after the modal opened, until one takes focus. */
   private contentFocusWatch: MutationObserver | null = null;
   /** The id of the title, which names the dialog through `aria-labelledby`. */
@@ -178,6 +179,8 @@ export class NhModalComponent<C> implements OnInit, OnDestroy, AfterViewInit {
   modalBodyClasses: string = '';
   isLoading: boolean = false;
   closeable: boolean = true;
+  /** Whether browser back or forward navigation dismisses the modal; see `NhModalOptions.closeOnBackNavigation`. */
+  closeOnBackNavigation: boolean = true;
 
   /** The accessible name of the close button: `nh-common.modal.close`, translated. */
   closeLabel(): string {
@@ -242,13 +245,39 @@ export class NhModalComponent<C> implements OnInit, OnDestroy, AfterViewInit {
       modal.nativeElement.style.opacity = '0';
     }
     setTimeout(() => {
-      const data = new NhModalComponentClosed({});
-      this.closed.emit(data);
+      // A page that hosts the modal may be destroyed while it fades out, as after back navigation.
+      if (!this.destroyed) {
+        const data = new NhModalComponentClosed({});
+        this.closed.emit(data);
+      }
       this.modalComponentRef?.close();
     }, 500);
   }
 
+  /**
+   * Dismisses the modal for a browser back or forward navigation, as Escape does: content with
+   * `onModalBackNavigation` decides itself, other content with `onModalEscape` gets that call, and
+   * other content closes as the close button does. A modal that cannot close (`closeable: false`)
+   * or that opted out (`closeOnBackNavigation: false`) stays open. `NhModalService` calls it for
+   * every open modal when the router starts a `popstate` navigation.
+   */
+  dismissOnBackNavigation(): void {
+    if (!this.closeable || !this.closeOnBackNavigation || this.closing || this.destroyed) {
+      return;
+    }
+
+    const content = this.componentRef?.instance as Partial<INhModalComponent<C>> | undefined;
+    if (typeof content?.onModalBackNavigation === 'function') {
+      content.onModalBackNavigation();
+    } else if (typeof content?.onModalEscape === 'function') {
+      content.onModalEscape();
+    } else {
+      this.close();
+    }
+  }
+
   ngOnDestroy() {
+    this.destroyed = true;
     this.stack.remove(this);
     this.stopContentFocusWatch();
     this.restoreFocus();

@@ -1477,6 +1477,14 @@ topmost modal that can close: for the editor it calls `closeDialog` through `onM
 "Cancel" does, and the processing modal of the platform playground, opened with `closeable: false`,
 ignores it.
 
+The application root (`AppHostComponent`) hosts the modals in its view container, so a modal
+outlives the page that opened it until it closes. The browser's back and forward buttons close the
+open modals as Escape does, the topmost first, and their `closed` events run: the editor closes
+through `onModalBackNavigation` and `closeDialog`, but stays open while it saves, so the save shows
+its result. The processing modal stays open because it cannot close. No modal of the sample opts out
+with `closeOnBackNavigation: false`, because each one belongs to the page it was opened on.
+Navigation started from code keeps every modal open.
+
 After `created` or `updated`, the register updates the concrete row and then
 closes the modal. The parent subsequently receives the `closed` event through
 `modal.onClose`, disposes both content subscriptions, and displays the event

@@ -59982,6 +59982,7 @@
       "NhModalService",
       "NhModalComponent",
       "INhModalComponent",
+      "NhModalOptions",
       "NH_COMMON_TRANSLATIONS"
     ],
     "nh-frontend-root-configuration": [

@@ -2,7 +2,6 @@ import { CommonModule } from '@angular/common';
 import {
   Component,
   OnInit,
-  ViewContainerRef,
   computed,
   inject,
   signal
@@ -43,8 +42,8 @@ type ActionKind = 'success' | 'error' | 'simulated' | 'warning';
 })
 export class AppComponent implements OnInit {
   private readonly projectApi = inject(ProjectApiService);
+  /** Opens modals in the view container of the application root (`AppHostComponent`). */
   private readonly modalService = inject(NhModalService);
-  private readonly viewContainerRef = inject(ViewContainerRef);
   private readonly translateService = inject(TranslateService);
   private readonly connectionState = inject(SampleApiConnectionStateService);
   private readonly authService = inject(SampleAuthService);
@@ -136,10 +135,6 @@ export class AppComponent implements OnInit {
   readonly partialCode = `// ProjectService: the service owns the unit of work.\nawait using var transaction =\n  await repository.StartOrGetTransactionScopeAsync(ct);\n\nvar result = await base.UpdatePartialAsync(\n  id,\n  calls => calls.SetProperty(\n    project => project.Status,\n    model.Status),\n  cancellationToken: ct);\n\nif (!result.Success) return result;\n\nawait eventPublisher.PublishAsync(\n  new ProjectStatusChangedEvent { ProjectId = id });\nawait transaction.CommitAsync(ct);\nreturn result;`;
 
   readonly bulkCode = `// ProjectService opens the outer transaction.\nawait using var transaction =\n  await repository.StartOrGetTransactionScopeAsync(ct);\n\nvar result = await base.BulkAsync(\n  new BulkCRUDMutateModel<...> {\n    // BulkAsync joins the already-open transaction.\n    UseTransaction = false,\n    ContinueOnError = model.ContinueOnError,\n    UpdatePartial = partialUpdates\n  },\n  new BaseDbEntityServiceOperationOptions(),\n  cancellationToken: ct);\n\nif (!result.Success) return result;\n\nawait eventPublisher.PublishAsync(\n  new ProjectBulkChangedEvent { Updated = count });\nawait transaction.CommitAsync(ct);\nreturn result;`;
-
-  constructor() {
-    this.modalService.setViewContainerRef(this.viewContainerRef);
-  }
 
   ngOnInit(): void {
     this.loadProjects();
