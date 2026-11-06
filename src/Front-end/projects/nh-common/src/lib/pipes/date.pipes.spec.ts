@@ -14,18 +14,24 @@ function inEnglish(offset: number, options?: NhRelativeTimeOptions): string | nu
 }
 
 describe('nhFormatRelativeTime', () => {
-  it('picks the largest unit that fits, from seconds to years, and rounds down', () => {
+  it('picks the largest unit that fits, from seconds to years, and rounds to the nearest whole unit', () => {
     const cases: Array<[number, string]> = [
-      [-999, 'now'],
+      [-499, 'now'],
+      [-500, '1 second ago'],
       [-1 * second, '1 second ago'],
       [-59 * second, '59 seconds ago'],
+      [-59 * second - 600, '1 minute ago'],
       [-60 * second, '1 minute ago'],
-      [-90 * second, '1 minute ago'],
+      [-89 * second, '1 minute ago'],
+      [-90 * second, '2 minutes ago'],
       [-59 * minute, '59 minutes ago'],
       [-1 * hour, '1 hour ago'],
-      [-23 * hour - 59 * minute, '23 hours ago'],
+      [-23 * hour - 29 * minute, '23 hours ago'],
+      [-23 * hour - 30 * minute, '1 day ago'],
       [-1 * day, '1 day ago'],
+      [-36 * hour, '2 days ago'],
       [-6 * day, '6 days ago'],
+      [-6 * day - 12 * hour, '1 week ago'],
       [-7 * day, '1 week ago'],
       [-29 * day, '4 weeks ago'],
       [-30 * day, '1 month ago'],
@@ -41,10 +47,11 @@ describe('nhFormatRelativeTime', () => {
 
   it('formats future moments', () => {
     expect(inEnglish(0)).toBe('now');
-    expect(inEnglish(999)).toBe('now');
+    expect(inEnglish(499)).toBe('now');
     expect(inEnglish(1 * second)).toBe('in 1 second');
-    expect(inEnglish(5 * minute + 30 * second)).toBe('in 5 minutes');
+    expect(inEnglish(5 * minute + 20 * second)).toBe('in 5 minutes');
     expect(inEnglish(2 * day)).toBe('in 2 days');
+    expect(inEnglish(2 * day - 5 * second)).toBe('in 2 days');
     expect(inEnglish(14 * day)).toBe('in 2 weeks');
     expect(inEnglish(400 * day)).toBe('in 1 year');
   });
@@ -197,12 +204,12 @@ describe('NhRelativeTimePipe', () => {
     fixture.detectChanges();
     expect(text(fixture)).toBe('1 minute ago');
 
-    // The next change is a minute away; nothing marks the view before it.
-    tick(30 * second);
+    // "2 minutes ago" starts at 90 seconds; nothing marks the view before it.
+    tick(29 * second);
     fixture.detectChanges();
     expect(text(fixture)).toBe('1 minute ago');
 
-    tick(30 * second);
+    tick(second);
     fixture.detectChanges();
     expect(text(fixture)).toBe('2 minutes ago');
 
@@ -211,14 +218,14 @@ describe('NhRelativeTimePipe', () => {
   }));
 
   it('counts down to a future moment and past it', fakeAsync(() => {
-    const fixture = createLiveHost(Date.now() + 2 * second + 500);
+    const fixture = createLiveHost(Date.now() + 2 * second + 200);
     expect(text(fixture)).toBe('in 2 seconds');
 
     tick(second);
     fixture.detectChanges();
     expect(text(fixture)).toBe('in 1 second');
 
-    tick(2 * second);
+    tick(second);
     fixture.detectChanges();
     expect(text(fixture)).toBe('now');
 

@@ -64,8 +64,8 @@ export interface NhRelativeTimeOptions {
   style?: 'long' | 'short' | 'narrow';
   /**
    * `always` (default) gives a number for every amount, as in "1 day ago". `auto` lets the language
-   * use words such as "yesterday" or "next week"; those words then mean 24 hours or 7 days, not
-   * calendar days or weeks. Less than one second always reads as "now".
+   * use words such as "yesterday" or "next week"; those words then mean a rounded day or week, not
+   * calendar days or weeks. Less than half a second always reads as "now".
    */
   numeric?: 'always' | 'auto';
 }
@@ -91,7 +91,7 @@ const week = 7 * day;
 const month = 30 * day;
 const year = 365 * day;
 
-/** The unit is the largest one that fits; a month counts 30 days and a year 365 days. */
+/** The units from small to large; a month counts 30 days and a year 365 days. */
 const relativeTimeSteps: readonly NhRelativeTimeStep[] = [
   {unit: 'second', size: second, below: minute},
   {unit: 'minute', size: minute, below: hour},
@@ -140,18 +140,46 @@ function relativeTimeFormat(
   return format;
 }
 
-/** How long the text stays the same, bounded so that a sleeping device or a changed clock catches up within an hour. */
-function relativeTimeRefreshAfter(difference: number, distance: number, amount: number, step: NhRelativeTimeStep): number {
+/** The index of the largest unit that fits the distance. */
+function relativeTimeStepIndex(distance: number): number {
+  const index = relativeTimeSteps.findIndex(candidate => distance < candidate.below);
+  return index < 0 ? relativeTimeSteps.length - 1 : index;
+}
+
+/** The nearest whole amount of the largest unit that fits; 59.6 seconds give "1 minute", not "60 seconds". */
+function relativeTimeAmount(distance: number): {readonly step: NhRelativeTimeStep; readonly amount: number} {
+  const index = relativeTimeStepIndex(distance);
+  const step = relativeTimeSteps[index];
+  const amount = Math.round(distance / step.size);
+
+  if (amount * step.size >= step.below) {
+    const larger = relativeTimeSteps[index + 1];
+    return {step: larger, amount: Math.round(distance / larger.size)};
+  }
+
+  return {step, amount};
+}
+
+/**
+ * How long the text stays the same: until the distance reaches the next point where a rounded
+ * amount or the unit changes. Bounded so that a sleeping device or a changed clock catches up
+ * within an hour, and so that a pipe refreshes at most once a second.
+ */
+function relativeTimeRefreshAfter(difference: number, distance: number, step: NhRelativeTimeStep, amount: number): number {
+  const rawIndex = relativeTimeStepIndex(distance);
+  const raw = relativeTimeSteps[rawIndex];
+  const rawAmount = Math.round(distance / raw.size);
+
   let delay: number;
   if (difference <= 0) {
-    // In the past the distance grows: the text changes at the next whole unit or at the next larger unit.
-    delay = Math.min((amount + 1) * step.size, step.below) - distance;
-  } else if (amount > 0) {
-    // In the future the distance shrinks: the text changes once it drops below the current whole unit.
-    delay = distance - amount * step.size + 1;
+    // In the past the distance grows: a rounded amount goes up halfway to its next whole unit.
+    const boundaries = [(rawAmount + 0.5) * raw.size, raw.below, (amount + 0.5) * step.size, step.below];
+    delay = Math.min(...boundaries.filter(boundary => boundary > distance)) - distance;
   } else {
-    // "now" just before the moment: the text changes once the moment is one second in the past.
-    delay = difference + second;
+    // In the future the distance shrinks: a rounded amount goes down below the half of its whole unit.
+    const smallerUnitStart = rawIndex === 0 ? 0 : relativeTimeSteps[rawIndex - 1].below;
+    const boundaries = [0, (rawAmount - 0.5) * raw.size, smallerUnitStart, (amount - 0.5) * step.size];
+    delay = distance - Math.max(...boundaries.filter(boundary => boundary < distance)) + 1;
   }
 
   return Math.min(Math.max(delay, minimumRefresh), maximumRefresh);
@@ -170,8 +198,7 @@ function relativeTime(
 
   const difference = time - now;
   const distance = Math.abs(difference);
-  const step = relativeTimeSteps.find(candidate => distance < candidate.below) ?? relativeTimeSteps[relativeTimeSteps.length - 1];
-  const amount = Math.floor(distance / step.size);
+  const {step, amount} = relativeTimeAmount(distance);
   const style = options?.style ?? 'long';
 
   let text: string;
@@ -182,14 +209,15 @@ function relativeTime(
     text = relativeTimeFormat(language, style, options?.numeric ?? 'always').format(signedAmount, step.unit);
   }
 
-  return {text, refreshAfter: relativeTimeRefreshAfter(difference, distance, amount, step)};
+  return {text, refreshAfter: relativeTimeRefreshAfter(difference, distance, step, amount)};
 }
 
 /**
  * Formats `value` relative to `now` in `language` with `Intl.RelativeTimeFormat`, as the
- * `nhRelativeTime` pipe does: "3 minutes ago", "in 2 days", "now". The unit is chosen from
- * seconds to years and the amount is rounded down. Returns `null` when `value` or `now` is
- * missing or not a valid moment.
+ * `nhRelativeTime` pipe does: "3 minutes ago", "in 2 days", "now". The unit is the largest that
+ * fits, from seconds to years, and the amount is rounded to the nearest whole unit; less than
+ * half a second reads as "now". Returns `null` when `value` or `now` is missing or not a valid
+ * moment.
  */
 export function nhFormatRelativeTime(
   value: NhRelativeTimeInput,
