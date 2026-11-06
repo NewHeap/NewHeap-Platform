@@ -177,9 +177,9 @@ public class NhAuthenticationBuilder<
     {
         services.AddAuthentication(opt =>
         {
-
+            
         });
-
+        
         if (UserNamePasswordOptionsValue.ExpirationTimespanImpersonationToken <= TimeSpan.Zero)
         {
             throw new InvalidOperationException(
