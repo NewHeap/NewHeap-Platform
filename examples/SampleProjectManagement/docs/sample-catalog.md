@@ -1269,6 +1269,25 @@ value changes, an old active lookup is terminated. An existing screen can opt
 out locally with `deferLazyLoadUntilOpened: false`, but new samples present the
 opt-in as the preferred approach.
 
+The form owns the dropdown's value. "Select Customer Portal from code" sets the
+value while the sample's selected-value lookup answers synchronously, as a cached
+store does, and the selection stays put: the dropdown takes a new value only from
+a user selection, check all or uncheck all. "Open the list from here" opens the
+list through `toggleDropdown()` from a separate button without the same click
+closing it again (SPM-215).
+
+The single status dropdown among the enum dropdowns of the same playground shows
+the form-control contract (SPM-121).
+Single-select yields one value, so its control holds a status rather than an
+array. Setting or resetting it from code reports the value once and keeps the
+control pristine, because `AbstractValueAccessor.writeValue` does not report a
+written value back; only a user choice marks it dirty. The event list shows that
+`closed` follows the chosen value with `closeOnSelect`, Escape closes an open
+list, and `classesGetLambda` shows the archived status as inactive. Each
+dropdown keeps one settings object, because every new settings object reloads
+the options. The custom project-code control in the platform playground shows
+the same pristine state after "Set from code" (SPM-148).
+
 ## Public, composite, and short surfaces
 
 `GET /public/projects` derives directly from `PublicNhBaseController`, is exposed
