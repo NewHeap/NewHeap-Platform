@@ -1767,14 +1767,15 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-121",
     "title": "Single select",
     "category": "Frontend HTTP, forms, and modals",
-    "surface": "enum optionbuilder + dropdown settings",
-    "outcome": "The translated status choice preserves the API enum contract.",
+    "surface": "enum optionbuilder + dropdown settings; the single-select form value, classesGetLambda, closed and Escape of nh-form-dropdown",
+    "outcome": "The translated status choice preserves the API enum contract as one value, also for an option with the id `0` or `false`. Setting or resetting the control from code reports the value once and keeps it pristine, only a user choice marks it dirty, `closed` follows the chosen value with `closeOnSelect`, Escape closes the open list, and `classesGetLambda` shows the archived status as inactive.",
     "implementation": "implemented",
     "evidence": [
       "src/Front-end/projects/sample-project-management-common/src/lib/project-status-options.ts",
       "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
       "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
-      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.rendered.spec.ts"
     ]
   },
   {
@@ -1863,7 +1864,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "evidence": [
       "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
       "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
-      "src/Front-end/projects/management/src/app/sample.routes.ts"
+      "src/Front-end/projects/management/src/app/sample.routes.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.rendered.spec.ts"
     ]
   },
   {
@@ -2116,12 +2118,13 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Custom form control",
     "category": "Utilities, SEO, SSR, and observability",
     "surface": "value accessor/provider",
-    "outcome": "Reactive forms and disabled state work.",
+    "outcome": "Reactive forms and disabled state work. A value the form writes is stored without being reported back, so setting it from code keeps the control pristine; only a user change marks it dirty.",
     "implementation": "implemented",
     "evidence": [
       "src/Front-end/projects/management/src/app/project-code-input/project-code-input.component.ts",
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
-      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html",
+      "../../src/Front-end/projects/nh-common/src/lib/accessors/abstract-value.accessor.spec.ts"
     ]
   },
   {
@@ -3013,14 +3016,15 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-215",
     "title": "Deferred lazy dropdown",
     "category": "Frontend HTTP, forms, and modals",
-    "surface": "dropdown settings and explicit sample configuration",
-    "outcome": "An existing selection loads immediately; the full collection loads only when opened, and identical in-flight selected-value lookups share one request.",
+    "surface": "dropdown settings and explicit sample configuration; toggleDropdown() from a separate button",
+    "outcome": "An existing selection loads immediately; the full collection loads only when opened, and identical in-flight selected-value lookups share one request. A value set from code stays selected when the selected-value lookup answers synchronously, and a separate button opens the list through `toggleDropdown()` without the same click closing it again.",
     "implementation": "implemented",
     "evidence": [
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
       "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
       "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html",
-      "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.component.spec.ts"
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.component.spec.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.rendered.spec.ts"
     ]
   },
   {

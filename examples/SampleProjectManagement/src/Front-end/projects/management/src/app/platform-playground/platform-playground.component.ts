@@ -438,6 +438,11 @@ export class PlatformPlaygroundComponent {
     this.projectCode.disabled ? this.projectCode.enable() : this.projectCode.disable();
   }
 
+  setProjectCodeFromCode(): void {
+    // A value written by the form is not reported back, so the control stays pristine.
+    this.projectCode.setValue('OPS');
+  }
+
   debounce(value: string): void {
     this.debouncedValue.set(value);
   }

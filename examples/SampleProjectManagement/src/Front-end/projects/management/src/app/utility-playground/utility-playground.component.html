@@ -9,8 +9,23 @@
 
   <section class="enum-dropdown-samples">
     <header><span class="preferred-badge">{{ 'project.preferred-way' | translate }}</span><h3>{{ 'project.enum-dropdown-title' | translate }}</h3><p>{{ 'project.enum-dropdown-description' | translate }}</p></header>
-    <label><span>{{ 'project.single-status' | translate }}</span><nh-form-dropdown [formControl]="singleStatus" [settings]="singleStatusSettings"></nh-form-dropdown><small>{{ singleStatus.value.join(', ') }}</small></label>
+    <label><span>{{ 'project.single-status' | translate }}</span><nh-form-dropdown [formControl]="singleStatus" [settings]="singleStatusSettings" (opened)="logSingleStatusEvent('opened')" (closed)="logSingleStatusEvent('closed')"></nh-form-dropdown><small>{{ singleStatus.value ?? '-' }}</small></label>
     <label><span>{{ 'project.multiple-statuses' | translate }}</span><nh-form-dropdown [formControl]="multipleStatuses" [settings]="multipleStatusSettings"></nh-form-dropdown><small>{{ multipleStatuses.value.join(', ') }}</small></label>
+    <div class="dropdown-contract">
+      <div>
+        <h4>{{ 'project.dropdown-form-contract-title' | translate }}</h4>
+        <p>{{ 'project.dropdown-form-contract-description' | translate }}</p>
+        <div class="actions">
+          <button type="button" (click)="setSingleStatusFromCode()">{{ 'project.set-status-from-code' | translate }}</button>
+          <button type="button" (click)="resetSingleStatus()">{{ 'project.reset-status' | translate }}</button>
+        </div>
+      </div>
+      <dl>
+        <div><dt>{{ 'project.control-dirty' | translate }}</dt><dd>{{ singleStatus.dirty }}</dd></div>
+        <div><dt>{{ 'project.value-changes' | translate }}</dt><dd>{{ singleStatusValueChanges() }}</dd></div>
+        <div><dt>{{ 'project.dropdown-events' | translate }}</dt><dd>{{ singleStatusEvents().join(' > ') || '-' }}</dd></div>
+      </dl>
+    </div>
   </section>
 
   <section class="deferred-dropdown-sample">
@@ -19,11 +34,18 @@
       <h3>{{ 'project.deferred-dropdown-title' | translate }}</h3>
       <p>{{ 'project.deferred-dropdown-description' | translate }}</p>
     </header>
-    <label>
-      <span>{{ 'project.projects' | translate }}</span>
-      <nh-form-dropdown [formControl]="deferredProjectIds" [settings]="deferredProjectSettings"></nh-form-dropdown>
-    </label>
+    <div class="deferred-dropdown-field">
+      <label>
+        <span>{{ 'project.projects' | translate }}</span>
+        <nh-form-dropdown #deferredDropdown [formControl]="deferredProjectIds" [settings]="deferredProjectSettings"></nh-form-dropdown>
+      </label>
+      <div class="actions">
+        <button type="button" (click)="selectProjectFromCode()">{{ 'project.select-project-from-code' | translate }}</button>
+        <button type="button" (click)="deferredDropdown.toggleDropdown()">{{ 'project.toggle-project-list' | translate }}</button>
+      </div>
+    </div>
     <dl>
+      <div><dt>{{ 'project.selected-project-ids' | translate }}</dt><dd>{{ deferredProjectIds.value.join(', ') || '-' }}</dd></div>
       <div><dt>{{ 'project.recommended-configuration' | translate }}</dt><dd><code>deferLazyLoadUntilOpened = {{ deferredLazyLoadEnabled }}</code></dd></div>
       <div><dt>{{ 'project.selected-option-requests' | translate }}</dt><dd>{{ deferredSelectedRequests() }}</dd></div>
       <div><dt>{{ 'project.collection-requests' | translate }}</dt><dd>{{ deferredCollectionRequests() }}</dd></div>

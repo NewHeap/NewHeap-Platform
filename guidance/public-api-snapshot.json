@@ -59981,7 +59981,10 @@
       "NhCommonModuleConfig",
       "AuthenticationNhCommonModuleConfig",
       "NhTranslateBrowserLoader",
-      "nhTranslateBrowserLoaderFactory"
+      "nhTranslateBrowserLoaderFactory",
+      "NhFormDropDownComponent",
+      "NhFormDropDownSettings",
+      "AbstractValueAccessor"
     ],
     "nh-frontend-toast-notifications": [
       "provideNhToastr",

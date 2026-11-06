@@ -195,12 +195,12 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-118 | Loading modal | loading component | Duplicate submission is prevented and the modal always closes. |
 | SPM-119 | Modal lifecycle | ref/result/events/directives + `appOn...` | appOnInit initializes content; the parent receives events and appOnDestroy cleans up. |
 | SPM-120 | Mutate base state | mutate base components | Dirty, saving, error, and success states are visible. |
-| SPM-121 | Single select | enum optionbuilder + dropdown settings | The translated status choice preserves the API enum contract. |
+| SPM-121 | Single select | enum optionbuilder + dropdown settings; the single-select form value, `classesGetLambda`, `closed` and Escape of `nh-form-dropdown` | The translated status choice preserves the API enum contract as one value, also for an option with the id `0` or `false`. Setting or resetting the control from code reports the value once and keeps it pristine, only a user choice marks it dirty, `closed` follows the chosen value with `closeOnSelect`, Escape closes the open list, and `classesGetLambda` shows the archived status as inactive. |
 | SPM-122 | Multi-select | enum optionbuilder + defaults/texts | Multiple translated statuses can be selected. |
 | SPM-123 | Form error | error-message component | Client and server errors are not duplicated. |
 | SPM-124 | Server form validation | validator + result models | A nested error appears on the correct control. |
 | SPM-125 | TaskResult validator | form validator | General and field errors remain separate. |
-| SPM-215 | Deferred lazy dropdown | dropdown settings and explicit sample configuration | An existing selection loads immediately; the full collection loads only when opened, and identical in-flight selected-value lookups share one request. |
+| SPM-215 | Deferred lazy dropdown | dropdown settings and explicit sample configuration; `toggleDropdown()` from a separate button | An existing selection loads immediately; the full collection loads only when opened, and identical in-flight selected-value lookups share one request. A value set from code stays selected when the selected-value lookup answers synchronously, and a separate button opens the list through `toggleDropdown()` without the same click closing it again. |
 
 ## 9. Frontend collections, routing, authentication, and interaction
 
@@ -233,7 +233,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-145 | Array extensions | array prototype extensions | Operations and mutation effects are visible. |
 | SPM-146 | Observable extensions | observable prototype extensions | The lifecycle completes without subscription leaks. |
 | SPM-147 | Async mutex | async lock/mutex | Duplicate save attempts produce one mutation. |
-| SPM-148 | Custom form control | value accessor/provider | Reactive forms and disabled state work. |
+| SPM-148 | Custom form control | value accessor/provider | Reactive forms and disabled state work. A value the form writes is stored without being reported back, so setting it from code keeps the control pristine; only a user change marks it dirty. |
 | SPM-149 | Cookies | cookie service | Consent can be set, read, and deleted. |
 | SPM-150 | Internet status | connection service | The offline banner and reconnect retry work. |
 | SPM-151 | Title, metadata, and head | services/directive; `NhMetaService.stripHtml` | Title, description, and canonical URL change. The description is the text of rich-text markup from `NhMetaService.stripHtml`, which parses the markup in an inert document, so its images never load and its inline handlers never run. |
