@@ -1,5 +1,6 @@
-import {ComponentRef, EventEmitter, Injectable, Type, ViewContainerRef} from '@angular/core';
-import {BehaviorSubject, Subscription} from 'rxjs';
+import {ComponentRef, DestroyRef, EventEmitter, Injectable, Type, ViewContainerRef, inject} from '@angular/core';
+import {NavigationStart, Router} from '@angular/router';
+import {BehaviorSubject, Subscription, filter} from 'rxjs';
 import {NhModalComponent, NhModalComponentClosed} from "../components/nh-modal/component";
 import {NhModalConfirmComponent} from "../components/nh-confirm-modal/component";
 
@@ -12,6 +13,15 @@ export interface INhModalComponent<C> {
    * call their `closeDialog`.
    */
   onModalEscape?(): void;
+
+  /**
+   * Called instead of closing when the user navigates back or forward with the browser while the
+   * modal can close and closes on back navigation. Content without it is dismissed as Escape
+   * dismisses it: through `onModalEscape` when it has one, otherwise as the close button does.
+   * Mutating and confirmation content stay open while their save or confirmation runs, and
+   * otherwise call `onModalEscape`.
+   */
+  onModalBackNavigation?(): void;
 }
 
 export class NhModalComponentRef<C> {
@@ -52,6 +62,14 @@ export class NhModalOptions {
   modalHeaderClasses: string = '';
   isLoading: boolean = false;
   closeable: boolean = true;
+  /**
+   * Whether browser back or forward navigation closes the modal, as Escape does. On by default.
+   * Set it to `false` for a modal that must stay open while the page below it changes; such a
+   * modal must be hosted in the application root's view container, because a modal hosted in a
+   * page is destroyed with that page. A modal that cannot close (`closeable: false`) stays open
+   * either way, and navigation started from code never closes a modal.
+   */
+  closeOnBackNavigation: boolean = true;
   modalBodyClasses: string = '';
   viewContainerRef?: ViewContainerRef;
 
@@ -69,6 +87,7 @@ export class NhModalService {
   modalRefsOpen: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(false);
 
   constructor() {
+    this.dismissOnBrowserHistoryNavigation();
   }
 
   setViewContainerRef(viewContainerRef: ViewContainerRef) {
@@ -141,6 +160,7 @@ export class NhModalService {
     modalRef.modalComponent.modalBodyClasses = options.modalBodyClasses ?? '';
     modalRef.modalComponent.modalHeaderClasses = options.modalHeaderClasses ?? '';
     modalRef.modalComponent.closeable = options.closeable ?? true;
+    modalRef.modalComponent.closeOnBackNavigation = options.closeOnBackNavigation ?? true;
 
     const modalRefClosed = () => {
       this.modalRefs = this.modalRefs.filter(x => x !== modalRef);
@@ -173,5 +193,42 @@ export class NhModalService {
   closeLatest() {
     const latestModalRef = this.modalRefs[this.modalRefs.length - 1];
     this.close(latestModalRef);
+  }
+
+  /**
+   * The browser's back and forward buttons dismiss the open modals, as Escape does. The router
+   * reports them as a `NavigationStart` with the `popstate` trigger. Navigation started from code,
+   * such as `router.navigate` or a link inside a modal, keeps the modals open.
+   */
+  private dismissOnBrowserHistoryNavigation(): void {
+    const router = inject(Router, {optional: true});
+    if (!router) {
+      return;
+    }
+
+    const subscription = router.events
+      .pipe(filter((event): event is NavigationStart => event instanceof NavigationStart && event.navigationTrigger === 'popstate'))
+      .subscribe(() => this.dismissForBackNavigation());
+
+    inject(DestroyRef).onDestroy(() => subscription.unsubscribe());
+  }
+
+  /**
+   * Dismisses the modals that are open when the navigation starts, the topmost first. Each one
+   * decides as `NhModalComponent.dismissOnBackNavigation` describes, so a modal that cannot close
+   * or opted out stays open wherever it is in the stack. A modal opened meanwhile, such as a
+   * confirmation that the content opens before it discards changes, stays open. A modal that its
+   * hosting page already destroyed is skipped.
+   */
+  private dismissForBackNavigation(): void {
+    const openModalRefs = [...this.modalRefs].reverse();
+
+    for (const modalRef of openModalRefs) {
+      if (modalRef.componentRef.hostView.destroyed) {
+        continue;
+      }
+
+      modalRef.modalComponent.dismissOnBackNavigation();
+    }
   }
 }

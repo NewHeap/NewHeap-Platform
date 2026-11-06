@@ -24,6 +24,9 @@ export class NhModalConfirmComponent implements OnInit, INhModalComponent<NhModa
   readonly confirmed = output();
 
   modalComponentRef: NhModalComponentRef<NhModalConfirmComponent>|undefined;
+  /** Whether the confirm or cancel delegate runs. */
+  private delegateRunning = false;
+
   setModalComponentRef(ref: NhModalComponentRef<NhModalConfirmComponent>): void {
     this.modalComponentRef = ref;
   }
@@ -31,6 +34,19 @@ export class NhModalConfirmComponent implements OnInit, INhModalComponent<NhModa
   /** Escape on the topmost modal shell, when it can close: closes through `closeDialog`. */
   onModalEscape(): void {
     this.closeDialog({});
+  }
+
+  /**
+   * Browser back or forward navigation while the modal can close: closes through `onModalEscape`,
+   * as Escape does. While the confirm or cancel delegate runs the modal stays open, so its result
+   * or error is shown.
+   */
+  onModalBackNavigation(): void {
+    if (this.delegateRunning) {
+      return;
+    }
+
+    this.onModalEscape();
   }
 
   /**
@@ -66,6 +82,7 @@ export class NhModalConfirmComponent implements OnInit, INhModalComponent<NhModa
   }
 
   async executeDelegate(func: (() => void) | (() => Promise<void>)) {
+    this.delegateRunning = true;
     try {
       await func();
     } catch (ex) {
@@ -73,6 +90,8 @@ export class NhModalConfirmComponent implements OnInit, INhModalComponent<NhModa
       if(this.errorResult.isSuccess) {
         this.errorResult.addError('', 'An unknown error occurred');
       }
+    } finally {
+      this.delegateRunning = false;
     }
   }
 }

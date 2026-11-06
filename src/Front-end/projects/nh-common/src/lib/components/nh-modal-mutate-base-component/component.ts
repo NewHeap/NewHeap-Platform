@@ -44,6 +44,19 @@ export abstract class NhModalMutateBaseTypeComponent<TFormData, TResult, TAuthor
   }
 
   /**
+   * Browser back or forward navigation while the modal can close: closes through `onModalEscape`,
+   * as Escape does, so an override of `onModalEscape` or `closeDialog` also runs. While a save runs
+   * (`isSubmitting`) the modal stays open, so the save finishes and shows its result.
+   */
+  onModalBackNavigation(): void {
+    if (this.isSubmitting) {
+      return;
+    }
+
+    this.onModalEscape();
+  }
+
+  /**
    * @deprecated The modal shell handles Escape on keydown for the topmost modal that can close and
    * calls `onModalEscape`; this method no longer listens to the document. Override `onModalEscape`.
    */
