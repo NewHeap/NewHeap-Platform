@@ -27,9 +27,10 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
     private readonly ILogger? _logger;
 
     /// <summary>
-    /// The application's clock, at whose time approval evidence is validated.
+    /// The application's clock: approval evidence is validated at its time, and a call that waits for
+    /// a free concurrency slot stops waiting at its bound on this clock.
     /// </summary>
-    private readonly TimeProvider _approvalClock;
+    private readonly TimeProvider _applicationClock;
 
     public NhAiToolInvoker(INhAiToolInvocationGate invocationGate)
         : this(
@@ -243,7 +244,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
     /// <summary>
     /// Creates the invoker with the application's clock: approval evidence is validated at the
     /// time <paramref name="timeProvider"/> reports, so a proposal lives by the clock its expiry
-    /// was taken from. <c>AddNewHeapPlatformAI</c> passes a registered <see cref="TimeProvider"/>;
+    /// was taken from, and a call that waits for a free concurrency slot stops waiting at its bound
+    /// on that clock. <c>AddNewHeapPlatformAI</c> passes a registered <see cref="TimeProvider"/>;
     /// the other constructors use <see cref="TimeProvider.System"/>. Capability grants, deadlines
     /// and audit records keep the system clock.
     /// </summary>
@@ -327,7 +329,7 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
         _concurrencyLimiter = concurrencyLimiter;
         _withoutApproval = withoutApproval;
         _logger = logger;
-        _approvalClock = timeProvider;
+        _applicationClock = timeProvider;
     }
 
     public async Task<TaskResult<T>> InvokeAsync<T>(
@@ -605,7 +607,7 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                     context,
                     arguments,
                     evidence,
-                    _approvalClock.GetUtcNow());
+                    _applicationClock.GetUtcNow());
                 if (!validation.Succeeded)
                 {
                     activity?.SetTag("newheap.ai.tool.outcome", "approval-invalid");
@@ -682,7 +684,7 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
         }
         activity?.SetTag("newheap.ai.tool.budget", "reserved");
 
-        var concurrency = await _concurrencyLimiter.TryAcquireAsync(
+        var concurrency = await AcquireConcurrencyAsync(
             descriptor,
             context,
             cancellationToken);
@@ -691,6 +693,8 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
             SafeCode(concurrency.Code));
         if (!concurrency.Acquired || concurrency.Lease is null)
         {
+            // A limiter ends its wait when the caller cancels as well; that stays a cancellation.
+            cancellationToken.ThrowIfCancellationRequested();
             activity?.SetTag("newheap.ai.tool.outcome", "concurrency-denied");
             await WriteAuditAsync(
                 descriptor,
@@ -987,6 +991,45 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
             }
         }
         return registry;
+    }
+
+    /// <summary>
+    /// Admits the invocation within the tool's concurrency bound. A call whose bound is full waits
+    /// for a free slot until the earlier of the tool's timeout and the invocation context's deadline,
+    /// measured on the application's clock, and is refused when the wait ends first. A call whose
+    /// deadline has already passed asks once without waiting, so it still ends as
+    /// <see cref="NhAiToolFailureCodes.DeadlineExpired"/> when a slot is free.
+    /// </summary>
+    private async ValueTask<NhAiConcurrencyDecision> AcquireConcurrencyAsync(
+        NhAiToolDescriptor descriptor,
+        NhAiInvocationContext context,
+        CancellationToken cancellationToken)
+    {
+        var maximumWait = GetExecutionTimeout(descriptor, context);
+        if (maximumWait <= TimeSpan.Zero)
+        {
+            return await _concurrencyLimiter.TryAcquireAsync(
+                descriptor,
+                context,
+                cancellationToken);
+        }
+
+        using var waitBound = new CancellationTokenSource(maximumWait, _applicationClock);
+        using var wait = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            waitBound.Token);
+        try
+        {
+            return await _concurrencyLimiter.WaitToAcquireAsync(
+                descriptor,
+                context,
+                wait.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // The wait reached its bound before a slot became free: the expected refusal.
+            return new NhAiConcurrencyDecision(false, "concurrency-wait-ended");
+        }
     }
 
     private static TimeSpan GetExecutionTimeout(

@@ -2820,6 +2820,23 @@ internal sealed partial class NhAssistantTurnRunner(
             outcomeStatus = NhAssistantTurnStatuses.Failed;
             errorCode = NhAssistantErrorCodes.TurnTimeout;
         }
+        catch (NhAiAgentModelCallException exception)
+        {
+            // The governed model call failed: log its code and the provider's content-free status, code
+            // and kind, never the provider exception, whose message can carry content.
+            var providerFailure = exception.ProviderFailure;
+            logger.LogWarning(
+                "Assistant turn {TurnId} of agent {AgentId} failed because its model call failed with {ModelFailureCode}: {ProviderFailureKind}, provider status {ProviderStatusCode}, provider code {ProviderCode}, {ProviderExceptionType}.",
+                state.Scope.TurnId,
+                state.Scope.Agent.Id,
+                exception.Code,
+                providerFailure?.Kind,
+                providerFailure?.StatusCode,
+                providerFailure?.ProviderCode,
+                providerFailure?.ExceptionType);
+            outcomeStatus = NhAssistantTurnStatuses.Failed;
+            errorCode = NhAssistantErrorCodes.ModelUnavailable;
+        }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
             // Model and provider exceptions can carry content; log the type only.

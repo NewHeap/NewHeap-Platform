@@ -185,12 +185,21 @@ not durable production storage.
 The default `INhAiToolConcurrencyLimiter` admits at most `MaxConcurrency`
 concurrent invocations per tool ID and version, per process and per
 `NhAiInvocationContext.TenantId`. A tenant that fills a tool's bound never
-refuses another tenant's call; invocations without a tenant share one partition.
-A refusal is the expected `ai-tool-concurrency-limited` result, not an exception.
-State the partition with `UseInProcessConcurrencyLimiter` and select
-`NhAiToolConcurrencyPartition.Tool` only when the bound protects a resource that
-every tenant shares. Register a distributed limiter through
-`UseConcurrencyLimiter<TLimiter>()` when several instances must share a bound.
+holds up another tenant's call; invocations without a tenant share one partition.
+A further call waits in line for a free slot, first come first served, until the
+earlier of the tool's `Timeout` and the invocation context's `Deadline`, measured
+on the application's clock (the registered `TimeProvider`), and only then is
+refused with the expected `ai-tool-concurrency-limited` result, not an exception.
+A caller that cancels while waiting gets a cancellation. A call whose deadline
+has already passed does not wait. State the partition with
+`UseInProcessConcurrencyLimiter` and select `NhAiToolConcurrencyPartition.Tool`
+only when the bound protects a resource that every tenant shares. Register a
+distributed limiter through `UseConcurrencyLimiter<TLimiter>()` when several
+instances must share a bound. The invoker calls its
+`INhAiToolConcurrencyLimiter.WaitToAcquireAsync` with a token that ends at the
+wait bound; a limiter that implements only `TryAcquireAsync` keeps refusing a
+full bound at once, so implement the wait as well when calls should queue across
+instances. NewHeap ships no distributed limiter.
 
 Run the configured verifier after a successful application-service result. The
 verifier should re-read the actual resource or remote system within the same
@@ -226,7 +235,9 @@ approval evidence, and a call the tool makes internally carries none.
 - Trusting the tool response as independent verification.
 - Using the in-process concurrency limiter or sample memory store as distributed durability.
 - Sharing one tool concurrency bound across tenants when it does not protect a resource that every
-  tenant shares; one tenant's load would then refuse every other tenant's calls.
+  tenant shares; one tenant's load would then hold up every other tenant's calls.
+- Testing the wait for a tool slot with real delays; move a test `TimeProvider` past the tool's timeout
+  and wait for signals instead.
 - Logging proposal arguments, execution results, provider bodies, or retrieved content.
 - Declaring `NotRequired` approval, attesting `ApprovalValidated = true` before validation, or
   registering an always-acquiring lease manager to bypass governance for a tool whose

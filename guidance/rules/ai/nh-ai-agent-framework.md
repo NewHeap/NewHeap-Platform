@@ -76,7 +76,11 @@ start and a failed stream completion throw `NhAiAgentModelCallException`, an
 `InvalidOperationException` whose `Code` keeps the result's failure code, such as
 `ai-model-timeout` when the profile's timeout or the run's deadline ended the call. The caller's own
 cancellation still throws `OperationCanceledException`. Map the code instead of the exception's
-message.
+message. A call that failed at the provider (`ai-model-dependency-unavailable`) also carries the
+content-free `NhAiAgentModelCallException.ProviderFailure` (status, provider code, kind and exception
+type) and keeps the provider's exception as `InnerException`. That inner exception's message can carry
+provider text: log `Code` and `ProviderFailure`, as the assistant does for a turn that ends on such a
+call, not the exception.
 
 Treat instructions as versioned application assets. Record prompt and agent
 versions or hashes in the invocation context and evaluation evidence, but do not
@@ -100,6 +104,7 @@ upgrade starts a new lineage rather than coercing old state.
 - Publishing tools through an AI context provider instead of a governed tool catalog.
 - Switching off `ThrowOnChatHistoryProviderConflict` where conversation data may not live at the model provider.
 - Telling a model timeout from cancellation by the exception type; read `NhAiAgentModelCallException.Code`.
+- Logging `NhAiAgentModelCallException` with its inner exception; log `Code` and `ProviderFailure`.
 - Adding Microsoft Agent Framework or provider dependencies to AI Common.
 - Persisting authoritative run state only in conversation history.
 - Loading workflow checkpoints from an untrusted store or resuming them under a changed identity.
@@ -118,7 +123,8 @@ with a context provider, prove a governed tool still runs through the governed c
 provider which adds a tool fails the run before the model is called. Let a deterministic client answer
 with a conversation id next to a history provider: the run fails by default, and with
 `ThrowOnChatHistoryProviderConflict` off the next question reaches the model alone with that id. Let a call pass a short profile
-timeout and assert `NhAiAgentModelCallException.Code` `ai-model-timeout` for a run and a stream. Reject an ungoverned catalog
+timeout and assert `NhAiAgentModelCallException.Code` `ai-model-timeout` for a run and a stream; let the provider refuse
+a call with 401 and assert `ProviderFailure` and the inner exception for a run and a stream. Reject an ungoverned catalog
 and return a failed creation result for expected profile resolution failure.
 Verify workflow references retain
 the official session/checkpoint identity and reject a changed workflow version

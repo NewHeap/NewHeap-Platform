@@ -22,6 +22,8 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="NewHeap.Platform.AI.Mcp" />
+    <!-- The adapter passes the provider exception of a failed model call on as an inner exception. -->
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.AgentFramework" />
     <InternalsVisibleTo Include="NewHeap.Platform.AI.AspNet.Common" />
     <InternalsVisibleTo Include="NewHeap.Platform.AI.AspNet.Mvc" />
     <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat" />

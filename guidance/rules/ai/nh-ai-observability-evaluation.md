@@ -5,7 +5,7 @@ area: backend
 reference: ai-observability-evaluation
 summary: "Execute model calls through bounded profile and budget policy, separate usage from audit, and compare versioned Microsoft AI Evaluation datasets before changing production defaults."
 sample-cases: ["SPM-232", "SPM-233", "SPM-335", "SPM-383"]
-public-symbols: ["INhAiChatExecutor", "NhAiChatRequest", "NhAiChatResult", "NhAiChatStream", "NhAiChatStreamCompletion", "NhAiModelFailureCodes", "NhAiModelFinishReasons", "NhAiOutcomeKind", "NhAiStrictStructuredOutput", "NhAiStrictSchemaViolation", "INhAiUsageSink", "NhAiUsageRecord", "NhAiEvaluationDataset", "NhAiEvaluationRunner", "NhAiEvaluationReport"]
+public-symbols: ["INhAiChatExecutor", "NhAiChatRequest", "NhAiChatResult", "NhAiChatStream", "NhAiChatStreamCompletion", "NhAiModelFailureCodes", "NhAiModelFinishReasons", "NhAiModelProviderFailure", "NhAiModelProviderFailureKind", "NhAiModelProviderError", "INhAiModelProviderFailureReader", "AddModelProviderFailureReader", "NhAiOutcomeKind", "NhAiStrictStructuredOutput", "NhAiStrictSchemaViolation", "INhAiUsageSink", "NhAiUsageRecord", "NhAiEvaluationDataset", "NhAiEvaluationRunner", "NhAiEvaluationReport"]
 skills: ["newheap-backend-development", "newheap-testing"]
 providers: ["provider-neutral"]
 risk: high
@@ -40,6 +40,27 @@ both cases the call keeps its one budget reservation and writes one usage record
 the other `NhAiModelFailureCodes`; the Agent Framework adapter throws it as
 `NhAiAgentModelCallException` with the code, and the assistant ends such a turn with
 `assistant-turn-timeout` (`assistant-consult-timeout` in a consultation).
+
+A call that fails at the provider, after any retry the profile allows, returns the failed result
+`NhAiModelFailureCodes.DependencyUnavailable` (`ai-model-dependency-unavailable`) for every cause,
+so existing mappings keep working, and says why without content. `NhAiModelProviderFailure.Of(result)`
+on the executor's result, or on a failed `NhAiChatStream.Completion`, gives the HTTP status, the
+provider's error code (at most 64 safe characters), the type of the exception and an
+`NhAiModelProviderFailureKind`: `Transient` for 408, 429, 5xx, timeouts and broken connections,
+`Authentication` for 401 and 403, `Request` for another 4xx and `Unknown` otherwise. The usage record
+carries the same value as `NhAiUsageRecord.ProviderFailure`, the `ai.model.invoke` activity tags
+`http.response.status_code`, `newheap.ai.provider.code` and `newheap.ai.provider.failure_kind`, and the
+executor logs one warning with them, never the provider's message, which can repeat part of a key or
+the request. A copied `TaskResult` keeps only the code and message, so read the failure from the
+executor's own result. The executor reads `HttpRequestException` itself (its status, or its
+`HttpRequestError` such as `ConnectionError` when it got no answer). Provider SDKs that throw their own
+exception type need an `INhAiModelProviderFailureReader`, registered with
+`AddModelProviderFailureReader<TReader>()`, that returns `NhAiModelProviderError` with the status and
+code it reads, and `null` for other exceptions; NewHeap references no provider SDK. The sample's
+`SampleOpenAiFailureReader` reads the status of the OpenAI client's `ClientResultException` and only the
+`error.code` field of its answer (SPM-232). A status a reader returns also decides the retry of a
+retry-eligible profile. Treat `Authentication` and `Request` as configuration or request errors to
+fix, not as an outage.
 
 Keep operational telemetry, application audit and usage accounting in separate
 sinks. Usage records may include stable versions and hashes, bounded scope
@@ -109,6 +130,11 @@ document, and a change the model then asks for waits for approval without runnin
 - Recommending a model upgrade based only on compilation or a single live demonstration.
 - Keeping a streaming provider call alive after the consumer cancels enumeration.
 - Catching `OperationCanceledException` to detect a model timeout; read `ai-model-timeout` from the result.
+- Logging a provider exception or its message to diagnose a failed model call; log
+  `NhAiModelProviderFailure`, and register an `INhAiModelProviderFailureReader` for an SDK whose
+  exception the executor does not know.
+- Reading a provider's error message or whole response body in a reader; read the status and the code
+  field only.
 - Expecting NewHeap to normalize a structured-output schema, or testing structured output only with a
   client that accepts every schema.
 
@@ -121,6 +147,10 @@ Assert that two calls in one invocation context get two `ModelCallId`s while a
 retried call keeps one, shared with its budget reservation.
 Also force a provider exception during stream enumeration and assert that the
 stream ends with a safe failed completion rather than leaking provider details.
+Let a provider refuse a call with 401, 400 and 503 and without an answer, through the executor and
+through a registered reader for an SDK exception, and assert the status, code and kind on the result,
+the usage record and the warning log, that the provider's message appears in none of them, and that
+only a transient status is retried.
 Let a model wait past a short profile timeout and past the invocation deadline, for a call and a
 stream, and assert `ai-model-timeout`, outcome `TimedOut`, finish reason `timed-out` and one
 reservation and usage record with the same `ModelCallId`; cancel the caller's token and assert

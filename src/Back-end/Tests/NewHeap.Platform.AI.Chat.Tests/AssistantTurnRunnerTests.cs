@@ -526,6 +526,27 @@ public sealed class AssistantTurnRunnerTests(AssistantDatabaseFixture database) 
     }
 
     [Fact]
+    public async Task A_model_call_the_provider_rejects_logs_its_status_and_code_without_the_provider_message()
+    {
+        var model = new RejectingChatClient();
+        await using var host = await AssistantTestHost.CreateAsync(database, AssistantTestProvider.PostgreSql, model);
+        var conversation = await host.CreateConversationAsync();
+
+        var turn = await host.SendAsync(conversation.Id, "How is the roadmap project?");
+
+        var end = Assert.IsType<NhAssistantTurnCompletedEvent>(turn.Events[^1]);
+        Assert.Equal(NhAssistantTurnStatuses.Failed, end.Status);
+        Assert.Equal(NhAssistantErrorCodes.ModelUnavailable, end.ErrorCode);
+        var failure = Assert.Single(
+            host.Logs.Messages,
+            message => message.Contains("failed because its model call failed", StringComparison.Ordinal));
+        Assert.Contains(NhAiModelFailureCodes.DependencyUnavailable, failure, StringComparison.Ordinal);
+        Assert.Contains("Authentication, provider status 401", failure, StringComparison.Ordinal);
+        Assert.Contains(typeof(HttpRequestException).FullName!, failure, StringComparison.Ordinal);
+        Assert.DoesNotContain(host.Logs.Messages, message => message.Contains(RejectingChatClient.ProviderMessage, StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Approval_is_bound_to_the_expected_proposal_hash_and_never_to_the_agent()
     {
         var model = new NhAiScriptedChatClient()
@@ -630,6 +651,46 @@ public sealed class AssistantTurnRunnerTests(AssistantDatabaseFixture database) 
                 {
                     AccountableOwnerId = AccountableOwner
                 }));
+        }
+    }
+
+    /// <summary>
+    /// A model client whose provider rejects the credentials with status 401 and a message that must not
+    /// reach a log.
+    /// </summary>
+    private sealed class RejectingChatClient : IChatClient
+    {
+        public const string ProviderMessage = "protected-provider-message";
+
+        public Task<ChatResponse> GetResponseAsync(
+            IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null,
+            CancellationToken cancellationToken = default)
+        {
+            throw new HttpRequestException(ProviderMessage, null, System.Net.HttpStatusCode.Unauthorized);
+        }
+
+        public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            await Task.Yield();
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                throw new HttpRequestException(ProviderMessage, null, System.Net.HttpStatusCode.Unauthorized);
+            }
+
+            yield break;
+        }
+
+        public object? GetService(Type serviceType, object? serviceKey = null)
+        {
+            return null;
+        }
+
+        public void Dispose()
+        {
         }
     }
 

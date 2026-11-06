@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using System.Net;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AI;
@@ -85,7 +85,12 @@ public static class NhAiModelFailureCodes
     /// </summary>
     public const string Timeout = "ai-model-timeout";
 
-    /// <summary>The provider failed, after any retry the profile allows.</summary>
+    /// <summary>
+    /// The provider failed, after any retry the profile allows. The failed result carries the
+    /// content-free status, provider code and kind of the failure (<see cref="NhAiModelProviderFailure.Of"/>),
+    /// as does the usage record (<see cref="NhAiUsageRecord.ProviderFailure"/>); the executor logs them as
+    /// a warning. The code is the same for every <see cref="NhAiModelProviderFailureKind"/>.
+    /// </summary>
     public const string DependencyUnavailable = "ai-model-dependency-unavailable";
 
     /// <summary>The stream ended before it completed, for example because its consumer stopped reading.</summary>
@@ -120,10 +125,12 @@ public static class NhAiModelFinishReasons
     public const string DependencyFailure = "dependency-failure";
 }
 
-internal sealed class NhAiChatExecutor(
+internal sealed partial class NhAiChatExecutor(
     INhAiModelProfileResolver modelProfiles,
     INhAiBudgetManager budgetManager,
-    IEnumerable<INhAiUsageSink> usageSinks) : INhAiChatExecutor
+    IEnumerable<INhAiUsageSink> usageSinks,
+    IEnumerable<INhAiModelProviderFailureReader> failureReaders,
+    ILogger<NhAiChatExecutor>? logger = null) : INhAiChatExecutor
 {
     internal const string ActivitySourceName = "NewHeap.Platform.AI";
     internal const string MeterName = "NewHeap.Platform.AI";
@@ -139,6 +146,7 @@ internal sealed class NhAiChatExecutor(
         "nh.ai.model.time_to_first_token",
         "ms");
     private readonly IReadOnlyList<INhAiUsageSink> _usageSinks = usageSinks.ToArray();
+    private readonly IReadOnlyList<INhAiModelProviderFailureReader> _failureReaders = failureReaders.ToArray();
 
     /// <summary>
     /// Retries after the first attempt for a <see cref="NhAiModelProfile.RetryEligible"/>
@@ -246,7 +254,7 @@ internal sealed class NhAiChatExecutor(
             catch (Exception exception) when (exception is not OutOfMemoryException)
             {
                 var elapsed = Stopwatch.GetElapsedTime(startedAt);
-                activity?.SetTag("error.type", exception.GetType().FullName);
+                var providerFailure = RecordProviderFailure(state, exception, activity);
                 await RecordCompletionAsync(
                     request,
                     state,
@@ -258,10 +266,13 @@ internal sealed class NhAiChatExecutor(
                     NhAiModelFinishReasons.DependencyFailure,
                     NhAiOutcomeKind.DependencyUnavailable,
                     activity,
-                    CancellationToken.None);
-                return TaskResult<NhAiChatResult>.Failed(
+                    CancellationToken.None,
+                    providerFailure);
+                return new NhAiModelProviderFailureResult<NhAiChatResult>(
                     NhAiModelFailureCodes.DependencyUnavailable,
-                    DependencyUnavailableMessage);
+                    DependencyUnavailableMessage,
+                    providerFailure,
+                    exception);
             }
         }
     }
@@ -301,7 +312,8 @@ internal sealed class NhAiChatExecutor(
         string? finishReason = null;
         var outcome = NhAiOutcomeKind.Succeeded;
         var reachedEnd = false;
-        var dependencyFailure = false;
+        NhAiModelProviderFailure? providerFailure = null;
+        Exception? providerException = null;
         var timedOut = false;
         using var timeout = CreateTimeout(request.InvocationContext, state.Profile, cancellationToken);
         var enumerator = state.Client.GetStreamingResponseAsync(
@@ -352,8 +364,8 @@ internal sealed class NhAiChatExecutor(
                 {
                     outcome = NhAiOutcomeKind.DependencyUnavailable;
                     finishReason = NhAiModelFinishReasons.DependencyFailure;
-                    dependencyFailure = true;
-                    activity?.SetTag("error.type", exception.GetType().FullName);
+                    providerFailure = RecordProviderFailure(state, exception, activity);
+                    providerException = exception;
                     break;
                 }
 
@@ -419,16 +431,19 @@ internal sealed class NhAiChatExecutor(
                     finishReason,
                     outcome,
                     activity,
-                    CancellationToken.None);
+                    CancellationToken.None,
+                    providerFailure);
             }
             finally
             {
-                if (dependencyFailure)
+                if (providerFailure is not null && providerException is not null)
                 {
                     completion.TrySetResult(
-                        TaskResult<NhAiChatStreamCompletion>.Failed(
+                        new NhAiModelProviderFailureResult<NhAiChatStreamCompletion>(
                             NhAiModelFailureCodes.DependencyUnavailable,
-                            DependencyUnavailableMessage));
+                            DependencyUnavailableMessage,
+                            providerFailure,
+                            providerException));
                 }
                 else if (timedOut)
                 {
@@ -587,7 +602,8 @@ internal sealed class NhAiChatExecutor(
         string? finishReason,
         NhAiOutcomeKind outcome,
         Activity? activity,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        NhAiModelProviderFailure? providerFailure = null)
     {
         var profile = state.Profile;
         var inputTokens = ClampTokenCount(usage?.InputTokenCount);
@@ -643,6 +659,7 @@ internal sealed class NhAiChatExecutor(
             InputCharacters = inputCharacters,
             OutputCharacters = outputCharacters,
             Outcome = outcome,
+            ProviderFailure = providerFailure,
             ExecutionScopes = request.InvocationContext.ExecutionScopes
                 .Take(64)
                 .Select(scope => new NhAiUsageScope(scope.Type, scope.Id))
@@ -694,28 +711,65 @@ internal sealed class NhAiChatExecutor(
 
     /// <summary>
     /// Rate limiting, server errors, timeouts and broken connections are transient. Client
-    /// errors such as an invalid request or rejected credentials are not.
+    /// errors such as an invalid request or rejected credentials are not. A registered
+    /// <see cref="INhAiModelProviderFailureReader"/> supplies the status of an SDK exception.
     /// </summary>
-    internal static bool IsTransient(Exception exception)
+    private bool IsTransient(Exception exception)
     {
-        for (var current = exception; current is not null; current = current.InnerException)
+        return NhAiModelProviderFailure.Read(exception, _failureReaders).Kind
+               == NhAiModelProviderFailureKind.Transient;
+    }
+
+    /// <summary>
+    /// Reads the content-free failure of a call that failed at the provider, tags the activity with it
+    /// and logs it as a warning. The exception's message never leaves this method.
+    /// </summary>
+    private NhAiModelProviderFailure RecordProviderFailure(
+        PreparedChat state,
+        Exception exception,
+        Activity? activity)
+    {
+        var failure = NhAiModelProviderFailure.Read(exception, _failureReaders);
+        activity?.SetTag("error.type", exception.GetType().FullName);
+        activity?.SetTag("newheap.ai.provider.failure_kind", failure.Kind.ToString());
+        if (failure.StatusCode is { } statusCode)
         {
-            switch (current)
-            {
-                case HttpRequestException { StatusCode: null }:
-                    return true;
-                case HttpRequestException { StatusCode: { } status }:
-                    return status == HttpStatusCode.TooManyRequests
-                           || status == HttpStatusCode.RequestTimeout
-                           || (int)status >= 500;
-                case TimeoutException:
-                case IOException:
-                    return true;
-            }
+            activity?.SetTag("http.response.status_code", statusCode);
+        }
+        if (failure.ProviderCode is { } providerCode)
+        {
+            activity?.SetTag("newheap.ai.provider.code", providerCode);
         }
 
-        return false;
+        if (logger is not null)
+        {
+            LogProviderFailure(
+                logger,
+                state.ModelCallId,
+                state.Profile.Name,
+                state.Profile.Version,
+                failure.Kind,
+                failure.StatusCode,
+                failure.ProviderCode,
+                failure.ExceptionType);
+        }
+
+        return failure;
     }
+
+    [LoggerMessage(
+        EventId = 1,
+        Level = LogLevel.Warning,
+        Message = "AI model call {ModelCallId} of profile {ProfileName} v{ProfileVersion} failed at the provider: {FailureKind}, status {StatusCode}, provider code {ProviderCode}, {ExceptionType}; the caller receives ai-model-dependency-unavailable.")]
+    private static partial void LogProviderFailure(
+        ILogger logger,
+        Guid modelCallId,
+        string profileName,
+        int profileVersion,
+        NhAiModelProviderFailureKind failureKind,
+        int? statusCode,
+        string? providerCode,
+        string exceptionType);
 
     private static CancellationTokenSource CreateTimeout(
         NhAiInvocationContext context,

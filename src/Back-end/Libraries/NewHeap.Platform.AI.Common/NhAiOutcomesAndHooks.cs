@@ -214,6 +214,14 @@ public sealed record NhAiUsageRecord(
     public int InputCharacters { get; init; }
     public int OutputCharacters { get; init; }
     public NhAiOutcomeKind Outcome { get; init; } = NhAiOutcomeKind.Succeeded;
+
+    /// <summary>
+    /// The content-free status, provider code and kind of a call that failed at the provider, with
+    /// <see cref="Outcome"/> <see cref="NhAiOutcomeKind.DependencyUnavailable"/>; <see langword="null"/>
+    /// for every other call. A usage sink may store it next to the other fields; NewHeap persists none.
+    /// </summary>
+    public NhAiModelProviderFailure? ProviderFailure { get; init; }
+
     public IReadOnlyList<NhAiUsageScope> ExecutionScopes { get; init; } = [];
     public NhAiRetentionCategory RetentionCategory { get; init; } = NhAiRetentionCategory.UsageAggregate;
 }

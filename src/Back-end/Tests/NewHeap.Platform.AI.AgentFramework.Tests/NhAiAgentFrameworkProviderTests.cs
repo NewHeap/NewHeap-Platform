@@ -151,6 +151,45 @@ public sealed class NhAiAgentFrameworkProviderTests
     }
 
     [Fact]
+    public async Task A_provider_failure_reaches_the_agent_with_its_status_and_the_provider_exception()
+    {
+        var client = new RejectingChatClient();
+        await using var provider = CreateServices(client).BuildServiceProvider();
+        await using var scope = provider.CreateAsyncScope();
+        var creation = await scope.ServiceProvider
+            .GetRequiredService<INhAiAgentFrameworkAdapter>()
+            .CreateAsync(Request(), scope.ServiceProvider);
+        Assert.True(creation.Success);
+        var agent = creation.Data.Agent;
+
+        var call = await Assert.ThrowsAsync<NhAiAgentModelCallException>(() => agent.RunAsync("Answer."));
+        var stream = await Assert.ThrowsAsync<NhAiAgentModelCallException>(async () =>
+        {
+            await foreach (var _ in agent.RunStreamingAsync("Answer."))
+            {
+            }
+        });
+
+        Assert.All(new[] { call, stream }, exception =>
+        {
+            Assert.Equal(NhAiModelFailureCodes.DependencyUnavailable, exception.Code);
+            Assert.Equal(
+                new NhAiModelProviderFailure(
+                    NhAiModelProviderFailureKind.Authentication,
+                    401,
+                    null,
+                    typeof(HttpRequestException).FullName!),
+                exception.ProviderFailure);
+            // The provider exception stays the inner exception; the exception's own message has no provider text.
+            Assert.IsType<HttpRequestException>(exception.InnerException);
+            Assert.DoesNotContain(RejectingChatClient.ProviderMessage, exception.Message, StringComparison.Ordinal);
+        });
+        Assert.All(
+            scope.ServiceProvider.GetRequiredService<NhAiCapturedUsageSink>().Records,
+            record => Assert.Equal(401, record.ProviderFailure?.StatusCode));
+    }
+
+    [Fact]
     public async Task A_caller_cancellation_of_an_agent_run_still_throws_as_cancellation()
     {
         var client = new UnansweredChatClient();
@@ -691,6 +730,47 @@ public sealed class NhAiAgentFrameworkProviderTests
     /// <summary>
     /// A model that never answers: it waits until the call's token is cancelled.
     /// </summary>
+    /// <summary>
+    /// A model client whose provider rejects the credentials with status 401.
+    /// </summary>
+    private sealed class RejectingChatClient : IChatClient
+    {
+        public const string ProviderMessage = "protected-provider-message";
+
+        public Task<ChatResponse> GetResponseAsync(
+            IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null,
+            CancellationToken cancellationToken = default)
+        {
+            throw new HttpRequestException(ProviderMessage, null, System.Net.HttpStatusCode.Unauthorized);
+        }
+
+        public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<ChatMessage> messages,
+            ChatOptions? options = null,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            await Task.Yield();
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                throw new HttpRequestException(ProviderMessage, null, System.Net.HttpStatusCode.Unauthorized);
+            }
+
+            yield break;
+        }
+
+        public object? GetService(Type serviceType, object? serviceKey = null)
+        {
+            return serviceKey is null && serviceType.IsInstanceOfType(this)
+                ? this
+                : null;
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+
     private sealed class UnansweredChatClient : IChatClient
     {
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);

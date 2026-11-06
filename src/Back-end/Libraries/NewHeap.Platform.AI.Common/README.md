@@ -24,10 +24,14 @@ way, and uses `NhAiToolResult.Failed` for a call it refuses before the invoker r
 
 A tool's `MaxConcurrency` bounds its concurrent invocations per process. The
 default limiter keeps a separate bound per tool and tenant, so one tenant's load
-never refuses another tenant's call; invocations without a tenant share one
-bound. Use `UseInProcessConcurrencyLimiter` with
-`NhAiToolConcurrencyPartition.Tool` to share one bound across tenants, or
-`UseConcurrencyLimiter<TLimiter>()` for a limiter shared between instances.
+never holds up another tenant's call; invocations without a tenant share one
+bound. A further call waits in line for a free slot until the tool's timeout or
+the invocation's deadline on the application's clock, and is refused with
+`ai-tool-concurrency-limited` only when that wait ends first. Use
+`UseInProcessConcurrencyLimiter` with `NhAiToolConcurrencyPartition.Tool` to
+share one bound across tenants, or `UseConcurrencyLimiter<TLimiter>()` for a
+limiter shared between instances; it waits only when it implements
+`WaitToAcquireAsync`.
 
 Provider-backed `IChatClient` instances remain consumer-owned. Register them as
 keyed services, then map stable application intent to those keys with
@@ -43,7 +47,11 @@ no prompt, response, tool-argument, credential, or retrieved-document fields.
 
 `INhAiChatExecutor` applies profile and run budgets, deadlines, streaming
 cleanup, content-free OpenTelemetry and usage accounting while returning the
-standard Microsoft chat response types. Hierarchical context resolution
+standard Microsoft chat response types. A call that fails at the provider
+returns `ai-model-dependency-unavailable` with its content-free status, provider
+code and kind (`NhAiModelProviderFailure`) and logs them as a warning; register
+an `INhAiModelProviderFailureReader` for a provider SDK whose exception type the
+executor does not know. Hierarchical context resolution
 authorizes before retrieval and preserves provenance, trust, conflicts,
 replacement and budget traces.
 

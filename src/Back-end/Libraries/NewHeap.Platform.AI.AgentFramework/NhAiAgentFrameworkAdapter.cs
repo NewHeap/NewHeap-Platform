@@ -95,7 +95,10 @@ public sealed record NhAiAgentCreateRequest(
 /// failed. <see cref="Code"/> keeps the result's failure code, such as
 /// <see cref="NhAiModelFailureCodes.Timeout"/> when a governed deadline ended the call or
 /// <see cref="NhAiModelFailureCodes.DependencyUnavailable"/>. The caller's own cancellation still
-/// throws <see cref="OperationCanceledException"/>.
+/// throws <see cref="OperationCanceledException"/>. A call that failed at the provider keeps the
+/// provider's exception as <see cref="Exception.InnerException"/> and its content-free status, code and
+/// kind as <see cref="ProviderFailure"/>; the inner exception's message can carry provider text, so log
+/// <see cref="ProviderFailure"/> and <see cref="Code"/> rather than the exception.
 /// </summary>
 public sealed class NhAiAgentModelCallException : InvalidOperationException
 {
@@ -105,10 +108,24 @@ public sealed class NhAiAgentModelCallException : InvalidOperationException
     public const string UnclassifiedCode = "ai-model-call-failed";
 
     public NhAiAgentModelCallException(string message, string code)
-        : base(message)
+        : this(message, code, null, null)
+    {
+    }
+
+    /// <summary>
+    /// Creates the exception of a call that failed at the provider, with its content-free
+    /// <paramref name="providerFailure"/> and the provider's own exception.
+    /// </summary>
+    public NhAiAgentModelCallException(
+        string message,
+        string code,
+        NhAiModelProviderFailure? providerFailure,
+        Exception? innerException)
+        : base(message, innerException)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
         Code = code;
+        ProviderFailure = providerFailure;
     }
 
     /// <summary>
@@ -116,12 +133,23 @@ public sealed class NhAiAgentModelCallException : InvalidOperationException
     /// </summary>
     public string Code { get; }
 
+    /// <summary>
+    /// The content-free status, provider code and kind of a call that failed at the provider, with
+    /// <see cref="Code"/> <see cref="NhAiModelFailureCodes.DependencyUnavailable"/>;
+    /// <see langword="null"/> for any other failure.
+    /// </summary>
+    public NhAiModelProviderFailure? ProviderFailure { get; }
+
     internal static NhAiAgentModelCallException Of(TaskResult result, string message)
     {
         var code = result.GetResultItems()
             .Select(item => item.Name)
             .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
-        return new NhAiAgentModelCallException(message, code ?? UnclassifiedCode);
+        return new NhAiAgentModelCallException(
+            message,
+            code ?? UnclassifiedCode,
+            NhAiModelProviderFailure.Of(result),
+            NhAiModelProviderFailure.ExceptionOf(result));
     }
 }
 

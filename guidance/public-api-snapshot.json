@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.114",
   "backEnd": {
-    "hash": "4a3362eb5692400ced70f8bbf36bf8d8df791ed520f52396e693dcd73d3cf7a2",
-    "declarationCount": 13730,
+    "hash": "bc0595bee452dddf73e4bd9f075ec265a8ee3c4a6d5b3dfc4a460ce69e8251d7",
+    "declarationCount": 13746,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -47,11 +47,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
-        "declaration": "public NhAiAgentModelCallException(string message, string code) : base(message) {"
+        "declaration": "public NhAiAgentModelCallException(string message, string code) : this(message, code, null, null) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public NhAiAgentModelCallException( string message, string code, NhAiModelProviderFailure? providerFailure, Exception? innerException) : base(message, innerException) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
         "declaration": "public string Code { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public NhAiModelProviderFailure? ProviderFailure { get; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -33323,6 +33331,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
+        "declaration": "public async ValueTask<NhAiConcurrencyDecision> WaitToAcquireAsync( NhAiToolDescriptor descriptor, NhAiInvocationContext context, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
         "declaration": "public int Limit { get; } = limit;"
       },
       {
@@ -33331,7 +33343,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
+        "declaration": "public async ValueTask<bool> EnterAsync(string partition, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
         "declaration": "public void Exit(string partition) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
+        "declaration": "public int Active { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
+        "declaration": "public LinkedList<TaskCompletionSource> Waiting { get; } = new();"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiConcurrency.cs",
@@ -34278,6 +34302,38 @@
         "declaration": "public interface INhAiModelProfileResolver {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProviderFailures.cs",
+        "declaration": "public enum NhAiModelProviderFailureKind { Unknown = 0, Transient = 1, Authentication = 2, Request = 3 }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProviderFailures.cs",
+        "declaration": "public sealed record NhAiModelProviderFailure( NhAiModelProviderFailureKind Kind, int? StatusCode, string? ProviderCode, string ExceptionType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProviderFailures.cs",
+        "declaration": "public static NhAiModelProviderFailure? Of(TaskResult result) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProviderFailures.cs",
+        "declaration": "public sealed record NhAiModelProviderError( int? StatusCode, string? ProviderCode = null);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProviderFailures.cs",
+        "declaration": "public interface INhAiModelProviderFailureReader {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProviderFailures.cs",
+        "declaration": "public NhAiModelProviderFailureResult( string code, string message, NhAiModelProviderFailure providerFailure, Exception providerException) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProviderFailures.cs",
+        "declaration": "public NhAiModelProviderFailure ProviderFailure { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiModelProviderFailures.cs",
+        "declaration": "public Exception ProviderException { get; }"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
         "declaration": "public enum NhAiOutcomeKind { Succeeded = 0, ValidationFailed = 1, NotFound = 2, AuthorizationDenied = 3, Conflict = 4, ApprovalRequired = 5, BudgetExhausted = 6, DependencyUnavailable = 7, TerminalFailure = 8, TimedOut = 9 }"
       },
@@ -34468,6 +34524,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
         "declaration": "public NhAiOutcomeKind Outcome { get; init; } = NhAiOutcomeKind.Succeeded;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
+        "declaration": "public NhAiModelProviderFailure? ProviderFailure { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiOutcomesAndHooks.cs",
@@ -34840,6 +34900,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
         "declaration": "public NhAiBuilder AddUsageSink<TSink>() where TSink : class, INhAiUsageSink {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
+        "declaration": "public NhAiBuilder AddModelProviderFailureReader<TReader>() where TReader : class, INhAiModelProviderFailureReader {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
@@ -59632,6 +59696,11 @@
       "NhAiChatStreamCompletion",
       "NhAiModelFailureCodes",
       "NhAiModelFinishReasons",
+      "NhAiModelProviderFailure",
+      "NhAiModelProviderFailureKind",
+      "NhAiModelProviderError",
+      "INhAiModelProviderFailureReader",
+      "AddModelProviderFailureReader",
       "NhAiOutcomeKind",
       "NhAiStrictStructuredOutput",
       "NhAiStrictSchemaViolation",
