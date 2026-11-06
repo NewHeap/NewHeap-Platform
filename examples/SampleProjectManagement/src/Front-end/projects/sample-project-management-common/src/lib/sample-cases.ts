@@ -235,13 +235,17 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-016",
     "title": "Free-text search",
     "category": "Collections, filtering, and projections",
-    "surface": "[Searchable], searchable request",
-    "outcome": "Changing the name or description changes the result and count.",
+    "surface": "[Searchable], searchable request, UseNewHeapPostgreSql, UseNewHeapCaseSensitiveCollectionTextMatch, NhCollectionTextMatch",
+    "outcome": "Changing the name or description changes the result and count. The search ignores case on both providers: SQL Server runs `LIKE` on its case-insensitive default collation and PostgreSQL, configured with `UseNewHeapPostgreSql`, runs `ILIKE`, so `platform` finds `Platform samples`, `PLATFORM migration` and a project whose description says `platform`. The `%` and `_` wildcards keep their `LIKE` meaning. `UseNewHeapCaseSensitiveCollectionTextMatch` in the PostgreSQL configure action keeps PostgreSQL's case-sensitive `LIKE`, and `NhCollectionTextMatch.Pattern` gives a query of its own the same match.",
     "implementation": "implemented",
     "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
-      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectSearchCaseSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CollectionAndProjectionSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionTextMatchProviderTests.cs"
     ]
   },
   {
@@ -276,12 +280,15 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Text operators",
     "category": "Collections, filtering, and projections",
     "surface": "fluent .like()",
-    "outcome": "The playground compares contains, starts-with, and ends-with behavior.",
+    "outcome": "The playground compares contains, starts-with, and ends-with behavior. A `LIKE` filter follows the same case rule as the free-text search of SPM-016: `%platform%` finds `Platform samples` and `PLATFORM migration` on SQL Server and on PostgreSQL configured with `UseNewHeapPostgreSql`, and only exact case after `UseNewHeapCaseSensitiveCollectionTextMatch`.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
-      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts"
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectSearchCaseSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/CollectionAndProjectionSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/CollectionTextMatchProviderTests.cs"
     ]
   },
   {

@@ -18,6 +18,8 @@ Reference `NewHeap.Platform.AspNet.Common.SqlServer` or `NewHeap.Platform.AspNet
 
 Use provider-neutral LINQ and model configuration in shared code. Put `UseSqlServer` or `UseNpgsql`, provider SQL, and provider-owned migrations in the owning implementation. Consumer entities and migrations belong in the consumer's database project. Use UTC-safe values in translated queries, preferably a captured `DateTimeOffset.UtcNow` value.
 
+Collection search and the `LIKE` filter ignore case on both providers: SQL Server matches with `LIKE` on its case-insensitive default collation, and a context configured with `UseNewHeapPostgreSql` matches with `ILIKE`, so the same search returns the same rows. The wildcards keep their `LIKE` meaning. Call `postgres.UseNewHeapCaseSensitiveCollectionTextMatch()` in the `UseNewHeapPostgreSql` configure action only when PostgreSQL must keep its case-sensitive `LIKE`. To match text the same way in a query of your own, mark the pattern: `EF.Functions.Like(x.Name, NhCollectionTextMatch.Pattern(pattern))`; an unmarked `EF.Functions.Like` keeps each provider's own case rule.
+
 Raw SQL is provider-specific until both dialects have executable proof. Parameterize data values and obtain schema, table, and column names from EF metadata where possible. Provide separate implementations or clearly separated subcases for SQL Server and PostgreSQL.
 
 ## Avoid
@@ -28,10 +30,11 @@ Raw SQL is provider-specific until both dialects have executable proof. Paramete
 - Combining `EnsureCreated` with migrations as the normal schema-update path.
 - Using only native `UseSqlServer`/`UseNpgsql` for a context that executes NewHeap bulk upsert or transaction locks; the NewHeap registration is required.
 - EF Core InMemory as evidence for raw SQL, constraints, transactions, or migrations.
+- Assuming a text match ignores case: test mixed-case search and `LIKE` filters on both providers, and configure PostgreSQL contexts with `UseNewHeapPostgreSql` rather than plain `UseNpgsql` when they serve collection search.
 
 ## Verification
 
-Run the same integration scenarios on real SQL Server and PostgreSQL: query translation, migration to an empty database, constraints, transactions, and raw SQL. Explicitly report any provider that was not run as unverified.
+Run the same integration scenarios on real SQL Server and PostgreSQL: query translation, mixed-case search and `LIKE` filters, migration to an empty database, constraints, transactions, and raw SQL. Explicitly report any provider that was not run as unverified.
 
 ## Optional source evidence
 

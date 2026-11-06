@@ -32,6 +32,7 @@ Test AND/OR, null, text, date ranges, multiple values, single and multi-column s
 ## Executable evidence
 
 - SPM-016 — Free-text search
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs)
   - [src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts)
@@ -48,6 +49,7 @@ Test AND/OR, null, text, date ranges, multiple values, single and multi-column s
   - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs)
   - [src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectSearchCaseSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/ProjectSearchCaseSamplesTests.cs)
 - SPM-020 — Date range
   - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs)
