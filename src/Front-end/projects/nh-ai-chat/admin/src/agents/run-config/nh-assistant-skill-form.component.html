@@ -45,15 +45,16 @@
     <legend>{{ 'nh-assistant.admin.run-config.skills.how.title' | translate }}</legend>
     <div class="field">
       <label [for]="id + '-skill-rules'">{{ 'nh-assistant.admin.run-config.way-of-working' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('ruleHandler')" /></label>
-      <nh-assistant-picker
+      <nh-combobox
         [inputId]="id + '-skill-rules'"
         [disabled]="locked('ruleHandler')"
         [options]="rules()"
         [value]="ruleHandler()"
         [noneLabel]="'nh-assistant.admin.run-config.model' | translate"
+        noneValue=""
         [invalid]="fieldError('ruleHandler') !== null"
         [describedBy]="describedBy(id + '-skill-rules-hint', 'ruleHandler', id + '-skill-rules-error')"
-        (valueChange)="ruleHandler.set($event); touch('ruleHandler')" />
+        (valueChange)="ruleHandler.set($event ?? ''); touch('ruleHandler')" />
       <p class="hint" [id]="id + '-skill-rules-hint'">
         {{ (ruleHandler() ? 'nh-assistant.admin.run-config.skills.rules-hint' : 'nh-assistant.admin.run-config.skills.model-hint') | translate }}
       </p>
@@ -111,15 +112,16 @@
     </fieldset>
     <div class="field">
       <label [for]="id + '-skill-profile'">{{ 'nh-assistant.admin.run-config.skills.profile' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('profile')" /></label>
-      <nh-assistant-picker
+      <nh-combobox
         [inputId]="id + '-skill-profile'"
         [disabled]="locked('profile')"
         [options]="profiles()"
         [value]="profile()"
         [noneLabel]="'nh-assistant.admin.run-config.skills.agent-profile' | translate"
+        noneValue=""
         [invalid]="fieldError('profile') !== null"
         [describedBy]="describedBy(id + '-skill-profile-hint', 'profile', id + '-skill-profile-error')"
-        (valueChange)="profile.set($event); touch('profile')" />
+        (valueChange)="profile.set($event ?? ''); touch('profile')" />
       <p class="hint" [id]="id + '-skill-profile-hint'">{{ 'nh-assistant.admin.run-config.skills.profile-hint' | translate }}</p>
       @if (errorKey('profile'); as key) {
         <p class="field-error" [id]="id + '-skill-profile-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('profile')?.params }}</p>
@@ -127,15 +129,16 @@
     </div>
     <div class="field" data-classification>
       <label [for]="id + '-skill-classification'">{{ 'nh-assistant.admin.run-config.skills.classification.label' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('dataClassification')" /></label>
-      <nh-assistant-picker
+      <nh-combobox
         [inputId]="id + '-skill-classification'"
         [disabled]="locked('dataClassification')"
         [options]="classifications()"
         [value]="dataClassification()"
         [noneLabel]="'nh-assistant.admin.run-config.skills.classification.agent' | translate"
+        noneValue=""
         [invalid]="fieldError('dataClassification') !== null"
         [describedBy]="describedBy(id + '-skill-classification-hint', 'dataClassification', id + '-skill-classification-error')"
-        (valueChange)="dataClassification.set($event); touch('dataClassification')" />
+        (valueChange)="dataClassification.set($event ?? ''); touch('dataClassification')" />
       <p class="hint" [id]="id + '-skill-classification-hint'">{{ 'nh-assistant.admin.run-config.skills.classification.hint' | translate }}</p>
       @for (warning of warnings(); track warning) {
         <p class="message warning" [attr.data-skill-form-warning]="warning">
@@ -170,15 +173,16 @@
     <legend>{{ 'nh-assistant.admin.run-config.settings.approval.title' | translate }}</legend>
     <div class="field">
       <label [for]="id + '-skill-policy'">{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('approvalPolicy')" /></label>
-      <nh-assistant-picker
+      <nh-combobox
         [inputId]="id + '-skill-policy'"
         [disabled]="locked('approvalPolicy')"
         [options]="policies()"
         [value]="approvalPolicy()"
         [noneLabel]="'nh-assistant.admin.run-config.skills.agent-policy' | translate"
+        noneValue=""
         [invalid]="fieldError('approvalPolicy') !== null"
         [describedBy]="describedBy(null, 'approvalPolicy', id + '-skill-policy-error')"
-        (valueChange)="approvalPolicy.set($event); touch('approvalPolicy')" />
+        (valueChange)="approvalPolicy.set($event ?? ''); touch('approvalPolicy')" />
       @if (rightsLocked('approvalPolicy')) {
         <nh-assistant-agent-rights-hint [hintId]="id + '-approval-rights'" />
       }

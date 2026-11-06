@@ -49,15 +49,16 @@
     <legend>{{ 'nh-assistant.admin.run-config.settings.how.title' | translate }}</legend>
     <div class="field">
       <label [for]="id + '-rule-handler'">{{ 'nh-assistant.admin.run-config.way-of-working' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('ruleHandler')" /></label>
-      <nh-assistant-picker
+      <nh-combobox
         [inputId]="id + '-rule-handler'"
         [disabled]="locked('ruleHandler')"
         [options]="rules()"
         [value]="ruleHandler()"
         [noneLabel]="'nh-assistant.admin.run-config.model' | translate"
+        noneValue=""
         [invalid]="fieldError('ruleHandler') !== null"
         [describedBy]="describedBy(id + '-rule-handler-hint', 'ruleHandler', id + '-rule-handler-error')"
-        (valueChange)="ruleHandler.set($event); touch('ruleHandler')" />
+        (valueChange)="ruleHandler.set($event ?? ''); touch('ruleHandler')" />
       <p class="hint" [id]="id + '-rule-handler-hint'">{{ 'nh-assistant.admin.run-config.settings.how.hint' | translate }}</p>
       @if (errorKey('ruleHandler'); as key) {
         <p class="field-error" [id]="id + '-rule-handler-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('ruleHandler')?.params }}</p>
@@ -87,15 +88,16 @@
     <legend>{{ 'nh-assistant.admin.run-config.settings.approval.title' | translate }}</legend>
     <div class="field">
       <label [for]="id + '-policy'">{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('approvalPolicy')" /></label>
-      <nh-assistant-picker
+      <nh-combobox
         [inputId]="id + '-policy'"
         [disabled]="locked('approvalPolicy')"
         [options]="policies()"
         [value]="approvalPolicy()"
         [noneLabel]="'nh-assistant.admin.run-config.settings.approval.default' | translate"
+        noneValue=""
         [invalid]="fieldError('approvalPolicy') !== null"
         [describedBy]="describedBy(id + '-policy-hint', 'approvalPolicy', id + '-policy-error')"
-        (valueChange)="approvalPolicy.set($event); touch('approvalPolicy')" />
+        (valueChange)="approvalPolicy.set($event ?? ''); touch('approvalPolicy')" />
       <p class="hint" [id]="id + '-policy-hint'">{{ 'nh-assistant.admin.run-config.settings.approval.hint' | translate }}</p>
       @if (rightsLocked('approvalPolicy')) {
         <nh-assistant-agent-rights-hint [hintId]="id + '-approval-rights'" />
@@ -200,15 +202,16 @@
       </div>
       <div class="field">
         <label [for]="id + '-triage'">{{ 'nh-assistant.admin.run-config.settings.triage' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('triageProfile')" /></label>
-        <nh-assistant-picker
+        <nh-combobox
           [inputId]="id + '-triage'"
           [disabled]="locked('triageProfile')"
           [options]="profiles()"
           [value]="triageProfile()"
           [noneLabel]="'nh-assistant.admin.run-config.settings.no-triage' | translate"
+          noneValue=""
           [invalid]="fieldError('triageProfile') !== null"
           [describedBy]="describedBy(id + '-triage-hint', 'triageProfile', id + '-triage-error')"
-          (valueChange)="triageProfile.set($event); touch('triageProfile')" />
+          (valueChange)="triageProfile.set($event ?? ''); touch('triageProfile')" />
         <p class="hint" [id]="id + '-triage-hint'">{{ 'nh-assistant.admin.run-config.settings.triage-hint' | translate }}</p>
         @if (errorKey('triageProfile'); as key) {
           <p class="field-error" [id]="id + '-triage-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('triageProfile')?.params }}</p>

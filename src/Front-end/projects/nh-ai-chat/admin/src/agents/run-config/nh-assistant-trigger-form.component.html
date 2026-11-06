@@ -46,7 +46,7 @@
     @if (source() === 'event') {
       <div class="field">
         <label [for]="id + '-trigger-event'">{{ 'nh-assistant.admin.run-config.triggers.event' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('event')" /></label>
-        <nh-assistant-picker
+        <nh-combobox
           [inputId]="id + '-trigger-event'"
           [disabled]="locked('event')"
           [options]="events()"
@@ -54,7 +54,7 @@
           [placeholder]="'nh-assistant.admin.run-config.choose' | translate"
           [invalid]="fieldError('event') !== null"
           [describedBy]="describedBy(null, 'event', id + '-trigger-event-error')"
-          (valueChange)="setEvent($event)" />
+          (valueChange)="setEvent($event ?? '')" />
         @if (errorKey('event'); as key) {
           <p class="field-error" [id]="id + '-trigger-event-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('event')?.params }}</p>
         }
@@ -125,15 +125,16 @@
         </div>
         <div class="field">
           <label [for]="id + '-trigger-zone'">{{ 'nh-assistant.admin.run-config.triggers.time-zone' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('timeZone')" /></label>
-          <nh-assistant-picker
+          <nh-combobox
             [inputId]="id + '-trigger-zone'"
             [disabled]="locked('timeZone')"
             [options]="timeZones"
             [value]="timeZone()"
             [noneLabel]="'UTC'"
+            noneValue=""
             [invalid]="fieldError('timeZone') !== null"
             [describedBy]="describedBy(null, 'timeZone', id + '-trigger-zone-error')"
-            (valueChange)="timeZone.set($event); touch('timeZone')" />
+            (valueChange)="timeZone.set($event ?? ''); touch('timeZone')" />
           @if (errorKey('timeZone'); as key) {
             <p class="field-error" [id]="id + '-trigger-zone-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('timeZone')?.params }}</p>
           }
@@ -173,7 +174,7 @@
       @if (target() === 'set') {
         <div class="field">
           <label [for]="id + '-trigger-set'">{{ 'nh-assistant.admin.run-config.triggers.subject-set' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('subjectSet')" /></label>
-          <nh-assistant-picker
+          <nh-combobox
             [inputId]="id + '-trigger-set'"
             [disabled]="locked('subjectSet')"
             [options]="subjectSets()"
@@ -181,7 +182,7 @@
             [placeholder]="'nh-assistant.admin.run-config.choose' | translate"
             [invalid]="fieldError('subjectSet') !== null"
             [describedBy]="describedBy(id + '-trigger-set-hint', 'subjectSet', id + '-trigger-set-error')"
-            (valueChange)="subjectSet.set($event); touch('subjectSet')" />
+            (valueChange)="subjectSet.set($event ?? ''); touch('subjectSet')" />
           <p class="hint" [id]="id + '-trigger-set-hint'">
             {{ (applicationDropped() ? 'nh-assistant.admin.run-config.triggers.target.dropped' : 'nh-assistant.admin.run-config.triggers.subject-set-hint') | translate }}
           </p>
@@ -209,22 +210,23 @@
     <div class="grid">
       <div class="field">
         <label [for]="id + '-trigger-skill'">{{ 'nh-assistant.admin.run-config.triggers.skill' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('skill')" /></label>
-        <nh-assistant-picker
+        <nh-combobox
           [inputId]="id + '-trigger-skill'"
           [disabled]="locked('skill')"
           [options]="skills()"
           [value]="skill()"
           [noneLabel]="'nh-assistant.admin.run-config.triggers.agent-routes' | translate"
+          noneValue=""
           [invalid]="fieldError('skill') !== null"
           [describedBy]="describedBy(null, 'skill', id + '-trigger-skill-error')"
-          (valueChange)="skill.set($event); touch('skill')" />
+          (valueChange)="skill.set($event ?? ''); touch('skill')" />
         @if (errorKey('skill'); as key) {
           <p class="field-error" [id]="id + '-trigger-skill-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('skill')?.params }}</p>
         }
       </div>
       <div class="field">
         <label [for]="id + '-trigger-conflict'">{{ 'nh-assistant.admin.run-config.triggers.conflict' | translate }}<nh-assistant-package-locked-mark [lock]="lockOf('conflict')" /></label>
-        <nh-assistant-picker
+        <nh-combobox
           [inputId]="id + '-trigger-conflict'"
           [disabled]="locked('conflict')"
           [options]="conflictOptions()"

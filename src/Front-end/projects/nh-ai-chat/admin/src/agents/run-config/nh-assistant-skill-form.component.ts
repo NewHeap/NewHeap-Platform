@@ -10,9 +10,10 @@ import {
   ToolCatalogEntry,
   SkillApplyMode,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
-  ɵNhAssistantPickerComponent as NhAssistantPickerComponent,
-  ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
+  ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
+  ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
+import { NhComboboxComponent } from '@newheap/platform-select';
 import { agentRightsSkillFields, mayChangeAgentRights } from '../agent-rights';
 import { NhAssistantAgentRightsHintComponent } from '../nh-assistant-agent-rights-hint.component';
 import { NhAssistantPackageLockComponent } from '../agent-packages/nh-assistant-package-lock.component';
@@ -65,7 +66,7 @@ export interface SkillFormSaved {
     TranslatePipe,
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
-    NhAssistantPickerComponent,
+    NhComboboxComponent,
     NhAssistantAgentRightsHintComponent,
     NhAssistantFileLimitsFieldsComponent,
     NhAssistantInstructionsAssetComponent,
@@ -73,6 +74,7 @@ export interface SkillFormSaved {
     NhAssistantPackageLockedMarkComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [provideNhAssistantSelect()],
   templateUrl: './nh-assistant-skill-form.component.html',
   styleUrls: ['../../nh-assistant-admin-shared.scss', './run-config-forms.scss']
 })

@@ -47,6 +47,7 @@
 - frontend-lifecycle-modals: ./frontend-lifecycle-modals.md
 - frontend-relative-time: ./frontend-relative-time.md
 - frontend-root-configuration: ./frontend-root-configuration.md
+- frontend-select: ./frontend-select.md
 - frontend-toast-notifications: ./frontend-toast-notifications.md
 - media: ./media.md
 - observability-logging: ./observability-logging.md

@@ -60398,6 +60398,15 @@
       "NhFormDropDownSettings",
       "AbstractValueAccessor"
     ],
+    "nh-frontend-select": [
+      "NhComboboxComponent",
+      "NhMultiselectComponent",
+      "NhSelectOption",
+      "provideNhSelect",
+      "NhSelectConfig",
+      "NhSelectTexts",
+      "NH_SELECT_CONFIG"
+    ],
     "nh-frontend-toast-notifications": [
       "provideNhToastr",
       "NhToastrService",

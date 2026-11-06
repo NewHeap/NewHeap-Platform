@@ -479,7 +479,34 @@
     "assistant-colleague-needs-conversation": "Open or start a conversation first.",
     "assistant-alerts-title": "Alerts",
     "assistant-alerts-description": "The deadline watch's alerts and the notification choices on the mock API, without the assistant back-end.",
-    "assistant-alerts-open": "Open the alerts"
+    "assistant-alerts-open": "Open the alerts",
+    "select-sample-title": "Combobox and multiselect",
+    "select-sample-description": "@newheap/platform-select: nh-combobox searches the public project catalog on the server and offers to create a project, nh-multiselect shows labels as chips. Both are form controls that stay pristine until you choose.",
+    "select-project": "Project",
+    "select-project-placeholder": "Search projects by name or key",
+    "select-project-hint": "Type two characters to search the public catalog. \"Create\" proposes a new project that saving would create.",
+    "select-new-project": "New project, created when the form is saved",
+    "select-unavailable": "Simulate an unavailable search",
+    "select-search-failed": "The project search is unavailable (status {{status}}). Try again in a moment.",
+    "select-labels": "Labels",
+    "select-labels-placeholder": "Add labels",
+    "select-labels-hint": "Enter adds or removes a label and keeps the list open. Backspace in the empty field removes the last chip; type a new name to create a label.",
+    "select-label-bug": "Bug",
+    "select-label-feature": "Feature",
+    "select-label-docs": "Documentation",
+    "select-label-customer": "Customer request",
+    "select-label-security": "Security review",
+    "select-label-locked": "Required by the security policy",
+    "select-priority": "Priority",
+    "select-priority-none": "No priority",
+    "select-priority-low": "Low",
+    "select-priority-normal": "Normal",
+    "select-priority-high": "High",
+    "select-set-from-code": "Set from code",
+    "select-reset": "Reset",
+    "select-toggle-disabled": "Toggle disabled",
+    "select-keyboard": "Keyboard: the arrow keys, Home and End move, Enter chooses, Escape closes the list and Tab leaves the field.",
+    "select-state": "Form state"
   },
   "nh-background-operations": {
     "operation": "Background operation",
@@ -750,6 +777,20 @@
         "name": "Weekly count of changed tasks"
       }
     }
+  },
+  "nh-select": {
+    "toggle": "Show the options",
+    "searching": "Searching…",
+    "no-results": "Nothing found.",
+    "type-more": "Type at least {{count}} characters.",
+    "search-failed": "The search failed.",
+    "create-failed": "The option could not be created.",
+    "retry": "Try again",
+    "create": "Create \"{{text}}\"",
+    "creating": "Creating…",
+    "remove": "Remove {{label}}",
+    "added": "{{label}} added.",
+    "removed": "{{label}} removed."
   },
   "nh-two-factor": {
     "required": "Enter the code from your authenticator app to finish signing in.",

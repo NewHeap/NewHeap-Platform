@@ -9,10 +9,11 @@ import {
   NhAssistantError,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
-  ɵNhAssistantPickerComponent as NhAssistantPickerComponent,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
-  ɵtoNhAssistantError as toNhAssistantError
+  ɵtoNhAssistantError as toNhAssistantError,
+  ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
+import { NhComboboxComponent } from '@newheap/platform-select';
 import { RunConfigFieldError, dashCase } from './run-config-shared';
 
 /** Where the instructions of a skill version or an agent created here come from. */
@@ -33,8 +34,9 @@ const shownHashLength = 12;
 @Component({
   selector: 'nh-assistant-instructions-asset',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantPickerComponent],
+  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhComboboxComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [provideNhAssistantSelect()],
   templateUrl: './nh-assistant-instructions-asset.component.html',
   styleUrls: ['../../nh-assistant-admin-shared.scss', './run-config-forms.scss', './nh-assistant-instructions-asset.component.scss']
 })

@@ -86,6 +86,13 @@
       "expectedOutcome": "NhContextMenuService opens the menu from the row and from an actions button through NhContextMenu.fromElement, titles stay text, icons use iconClass, and onClick failures close the menu and reach the ErrorHandler."
     },
     {
+      "id": "consumer-frontend-select",
+      "skill": "newheap-frontend-development",
+      "prompt": "Add a searchable owner field backed by a server search and a tag field that creates new tags to an Angular reactive form, usable with the keyboard and inside a modal.",
+      "expectedRules": ["nh-frontend-select"],
+      "expectedOutcome": "nh-combobox with search, errorText and selectedLabel and nh-multiselect with create are bound as form controls that stay pristine for written values, texts come from one provideNhSelect registration, and nh-form-dropdown is named only as the legacy alternative."
+    },
+    {
       "id": "consumer-auth-scopes",
       "skill": "newheap-authentication",
       "prompt": "Create application roles, division roles, and a consumer-specific resource permission with claim hydration.",

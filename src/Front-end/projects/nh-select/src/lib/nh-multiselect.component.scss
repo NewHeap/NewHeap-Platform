@@ -1,0 +1,89 @@
+@use 'styles/nh-select' as select;
+
+@include select.tokens;
+@include select.control;
+@include select.listbox;
+
+// Chips flow in front of the search field and wrap onto further lines.
+.nh-select-control.nh-select-has-chips {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 4px;
+
+  .nh-select-field {
+    height: calc(var(--nhs-min-height) - 10px);
+    padding-left: 4px;
+  }
+}
+
+.nh-select-chip {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-height: calc(var(--nhs-min-height) - 12px);
+  border-radius: 999px;
+  padding: 2px 3px 2px 10px;
+  color: var(--nhs-chip-text);
+  background: var(--nhs-chip-background);
+  font-size: .9em;
+  line-height: 1.2;
+  cursor: default;
+
+  &.nh-select-chip-locked {
+    padding-right: 10px;
+  }
+
+  .nh-select-image {
+    width: 1.3em;
+    height: 1.3em;
+    margin-left: -6px;
+  }
+
+  .nh-select-option-icon {
+    color: inherit;
+  }
+}
+
+.nh-select-chip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nh-select-chip-remove {
+  @include select.bare-button;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  --nh-select-icon-size: 14px;
+
+  &:hover {
+    background: color-mix(in srgb, currentColor 16%, transparent);
+  }
+}
+
+// The multiselect marks chosen options with a box, so the list reads as a set of toggles.
+.nh-select-checkbox {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--nhs-border);
+  border-radius: 5px;
+  --nh-select-icon-size: 13px;
+}
+
+.nh-select-option[aria-selected='true'] .nh-select-checkbox {
+  border-color: var(--nhs-accent);
+  color: var(--nhs-background);
+  background: var(--nhs-accent);
+}
+
+@include select.reduced-motion;

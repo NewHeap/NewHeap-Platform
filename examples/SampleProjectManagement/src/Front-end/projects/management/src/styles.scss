@@ -27,4 +27,23 @@
   --nh-assistant-radius-control: var(--radius-control);
   // The sticky topbar of the management layout: an agent's Build page scrolls its sections below it.
   --nh-assistant-scroll-margin-top: 88px;
+
+  /* Comboboxes and multiselects (@newheap/platform-select) on the same tokens. */
+  --nh-select-font: var(--font-sans);
+  --nh-select-radius: var(--radius-control);
+  --nh-select-background: var(--surface);
+  --nh-select-text: var(--ink);
+  --nh-select-text-muted: var(--muted);
+  --nh-select-border: var(--line-strong);
+  --nh-select-border-hover: var(--brand);
+  --nh-select-focus: var(--accent);
+  --nh-select-accent: var(--info);
+  --nh-select-danger: var(--danger);
+  --nh-select-popup-background: var(--surface);
+  --nh-select-popup-border: var(--line);
+  --nh-select-popup-shadow: var(--shadow-md);
+  --nh-select-option-active-background: var(--surface-muted);
+  --nh-select-chip-background: var(--info-soft);
+  --nh-select-chip-text: var(--ink);
+  --nh-select-motion-duration: var(--motion-fast);
 }

@@ -9,10 +9,10 @@ import {
   SkillApplyMode,
   TriggerConflict,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
-  ɵNhAssistantPickerComponent as NhAssistantPickerComponent,
-  ɵNhAssistantPickerOption as NhAssistantPickerOption,
-  ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
+  ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
+  ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
+import { NhComboboxComponent, NhSelectOption } from '@newheap/platform-select';
 import { NhAssistantPackageLockComponent } from '../agent-packages/nh-assistant-package-lock.component';
 import { NhAssistantPackageLockedMarkComponent } from '../agent-packages/nh-assistant-package-locked-mark.component';
 import { PackageLockView } from '../agent-packages/package-parts';
@@ -57,11 +57,12 @@ const conflicts: TriggerConflict[] = ['coalesce', 'queue', 'supersede', 'ignore'
     TranslatePipe,
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
-    NhAssistantPickerComponent,
+    NhComboboxComponent,
     NhAssistantPackageLockComponent,
     NhAssistantPackageLockedMarkComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [provideNhAssistantSelect()],
   templateUrl: './nh-assistant-trigger-form.component.html',
   styleUrls: ['../../nh-assistant-admin-shared.scss', './run-config-forms.scss']
 })
@@ -76,7 +77,7 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
    */
   readonly worksOn = input<WorksOnStatement | null>(null);
   /** The agent's skills, in code and as data, a trigger can start. */
-  readonly skills = input<readonly NhAssistantPickerOption[]>([]);
+  readonly skills = input<readonly NhSelectOption<string>[]>([]);
   /** The trigger to change; `null` adds one. */
   readonly trigger = input<DataTrigger | null>(null);
   readonly takenIds = input<readonly string[]>([]);
@@ -144,7 +145,7 @@ export class NhAssistantTriggerFormComponent extends RunConfigForm implements On
     const trigger = this.trigger();
     return trigger?.source === 'schedule' && !trigger.subjectSet && !this.offersApplication();
   });
-  readonly conflictOptions = computed<NhAssistantPickerOption[]>(() => {
+  readonly conflictOptions = computed<NhSelectOption<string>[]>(() => {
     this.language();
     return conflicts.map(conflict => ({
       value: conflict,

@@ -6,11 +6,11 @@ import {
   NhAssistantError,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
-  ɵNhAssistantPickerComponent as NhAssistantPickerComponent,
-  ɵNhAssistantPickerOption as NhAssistantPickerOption,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
-  ɵtoNhAssistantError as toNhAssistantError
+  ɵtoNhAssistantError as toNhAssistantError,
+  ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
+import { NhComboboxComponent, NhSelectOption } from '@newheap/platform-select';
 
 const lookupDelayMs = 300;
 
@@ -26,11 +26,12 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-account-picker',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantPickerComponent],
+  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhComboboxComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [provideNhAssistantSelect()],
   template: `
     @if (searchable()) {
-      <nh-assistant-picker
+      <nh-combobox
         [inputId]="inputId()"
         [value]="value()"
         [selectedLabel]="label()"
@@ -39,7 +40,7 @@ let nextId = 0;
         [invalid]="invalid()"
         [describedBy]="fieldDescribedBy()"
         [placeholder]="'nh-assistant.admin.run-config.account.search-placeholder' | translate"
-        (valueChange)="valueChange.emit($event)"
+        (valueChange)="valueChange.emit($event ?? '')"
         (optionChange)="label.set($event?.label ?? null)" />
     } @else {
       <input
@@ -115,7 +116,7 @@ export class NhAssistantAccountPickerComponent {
   private readonly admin = inject(NhAssistantAdminApiService);
   private lookupTimer?: ReturnType<typeof setTimeout>;
   private lookupSubscription?: Subscription;
-  private readonly picker = viewChild(NhAssistantPickerComponent);
+  private readonly picker = viewChild(NhComboboxComponent);
   private readonly manual = viewChild<{ nativeElement: HTMLInputElement }>('manual');
 
   readonly inputId = input.required<string>();
@@ -137,7 +138,7 @@ export class NhAssistantAccountPickerComponent {
   readonly fieldDescribedBy = computed(() =>
     [this.describedBy(), this.lookupError() ? this.lookupErrorId : null].filter(Boolean).join(' ') || null);
 
-  readonly search = (query: string): Observable<NhAssistantPickerOption[]> =>
+  readonly search = (query: string): Observable<NhSelectOption<string>[]> =>
     this.admin.searchAccounts(query).pipe(map(accounts => accounts.map(account => ({
       value: account.actorId,
       label: account.displayName,

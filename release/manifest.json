@@ -196,6 +196,17 @@
       "buildScript": "nh-toastr:build:production",
       "distDirectory": "src/Front-end/dist/nh-toastr"
     },
+    "npm-platform-select": {
+      "displayName": "@newheap/platform-select",
+      "kind": "npm",
+      "version": "0.0.0",
+      "tagPrefix": "npm-platform-select-v",
+      "packageName": "@newheap/platform-select",
+      "packageJson": "src/Front-end/projects/nh-select/package.json",
+      "workspace": "src/Front-end",
+      "buildScript": "nh-select:build:production",
+      "distDirectory": "src/Front-end/dist/nh-select"
+    },
     "npm-ai-chat": {
       "displayName": "@newheap/platform-ai-chat",
       "kind": "npm",

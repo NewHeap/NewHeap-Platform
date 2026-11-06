@@ -41,11 +41,11 @@
             @if (source() === 'event') {
               <div class="field">
                 <label [for]="id + '-event'">{{ 'nh-assistant.admin.run-config.triggers.event' | translate }}</label>
-                <nh-assistant-picker [inputId]="id + '-event'" [options]="events()" [value]="event()"
+                <nh-combobox [inputId]="id + '-event'" [options]="events()" [value]="event()"
                   [placeholder]="'nh-assistant.admin.run-config.choose' | translate"
                   [invalid]="fieldError('event') !== null"
                   [describedBy]="describedBy(null, 'event', id + '-event-error')"
-                  (valueChange)="event.set($event); touch('event')" />
+                  (valueChange)="event.set($event ?? ''); touch('event')" />
                 @if (errorKey('event'); as key) {
                   <p class="field-error" [id]="id + '-event-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('event')?.params }}</p>
                 }
@@ -73,10 +73,10 @@
                 </div>
                 <div class="field">
                   <label [for]="id + '-zone'">{{ 'nh-assistant.admin.run-config.triggers.time-zone' | translate }}</label>
-                  <nh-assistant-picker [inputId]="id + '-zone'" [options]="timeZones" [value]="timeZone()" [noneLabel]="'UTC'"
+                  <nh-combobox [inputId]="id + '-zone'" [options]="timeZones" [value]="timeZone()" [noneLabel]="'UTC'" noneValue=""
                     [invalid]="fieldError('timeZone') !== null"
                     [describedBy]="describedBy(null, 'timeZone', id + '-zone-error')"
-                    (valueChange)="timeZone.set($event); touch('timeZone')" />
+                    (valueChange)="timeZone.set($event ?? ''); touch('timeZone')" />
                   @if (errorKey('timeZone'); as key) {
                     <p class="field-error" [id]="id + '-zone-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('timeZone')?.params }}</p>
                   }
@@ -116,11 +116,11 @@
               @if (target() === 'set') {
                 <div class="field">
                   <label [for]="id + '-set'">{{ 'nh-assistant.admin.run-config.triggers.subject-set' | translate }}</label>
-                  <nh-assistant-picker [inputId]="id + '-set'" [options]="subjectSets()" [value]="subjectSet()"
+                  <nh-combobox [inputId]="id + '-set'" [options]="subjectSets()" [value]="subjectSet()"
                     [placeholder]="'nh-assistant.admin.run-config.choose' | translate"
                     [invalid]="fieldError('subjectSet') !== null"
                     [describedBy]="describedBy(id + '-set-hint', 'subjectSet', id + '-set-error')"
-                    (valueChange)="subjectSet.set($event); touch('subjectSet')" />
+                    (valueChange)="subjectSet.set($event ?? ''); touch('subjectSet')" />
                   <p class="hint" [id]="id + '-set-hint'">{{ 'nh-assistant.admin.run-config.triggers.subject-set-hint' | translate }}</p>
                   @if (errorKey('subjectSet'); as key) {
                     <p class="field-error" [id]="id + '-set-error'"><nh-assistant-icon name="warning" />{{ key | translate: fieldError('subjectSet')?.params }}</p>
@@ -173,11 +173,12 @@
             </div>
             <div class="field">
               <label [for]="id + '-rules'">{{ 'nh-assistant.admin.run-config.way-of-working' | translate }}</label>
-              <nh-assistant-picker [inputId]="id + '-rules'" [options]="rules()" [value]="ruleHandler()"
+              <nh-combobox [inputId]="id + '-rules'" [options]="rules()" [value]="ruleHandler()"
                 [noneLabel]="'nh-assistant.admin.run-config.model' | translate"
+                noneValue=""
                 [invalid]="fieldError('ruleHandler') !== null"
                 [describedBy]="describedBy(id + '-rules-hint', 'ruleHandler', id + '-rules-error')"
-                (valueChange)="ruleHandler.set($event); touch('ruleHandler'); touch('instructions')" />
+                (valueChange)="ruleHandler.set($event ?? ''); touch('ruleHandler'); touch('instructions')" />
               <p class="hint" [id]="id + '-rules-hint'">
                 {{ (ruleHandler() ? 'nh-assistant.admin.run-config.skills.rules-hint' : 'nh-assistant.admin.run-config.skills.model-hint') | translate }}
               </p>
@@ -273,11 +274,12 @@
             <legend tabindex="-1">{{ 'nh-assistant.admin.run-config.setup.limits.title' | translate }}</legend>
             <div class="field">
               <label [for]="id + '-policy'">{{ 'nh-assistant.admin.run-config.approval-policy' | translate }}</label>
-              <nh-assistant-picker [inputId]="id + '-policy'" [disabled]="locked('approvalPolicy')" [options]="policies()" [value]="approvalPolicy()"
+              <nh-combobox [inputId]="id + '-policy'" [disabled]="locked('approvalPolicy')" [options]="policies()" [value]="approvalPolicy()"
                 [noneLabel]="'nh-assistant.admin.run-config.settings.approval.default' | translate"
+                noneValue=""
                 [invalid]="fieldError('approvalPolicy') !== null"
                 [describedBy]="describedBy(id + '-policy-hint' + (rightsLocked('approvalPolicy') ? ' ' + id + '-policy-rights' : ''), 'approvalPolicy', id + '-policy-error')"
-                (valueChange)="approvalPolicy.set($event); touch('approvalPolicy')" />
+                (valueChange)="approvalPolicy.set($event ?? ''); touch('approvalPolicy')" />
               <p class="hint" [id]="id + '-policy-hint'">{{ 'nh-assistant.admin.run-config.settings.approval.hint' | translate }}</p>
               @if (rightsLocked('approvalPolicy')) {
                 <nh-assistant-agent-rights-hint [hintId]="id + '-policy-rights'" />

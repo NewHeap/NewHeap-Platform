@@ -34,14 +34,14 @@
     } @else if (listed()) {
       <div class="field">
         <label [for]="idPrefix() + '-asset'">{{ 'nh-assistant.admin.instruction-assets.asset' | translate }}</label>
-        <nh-assistant-picker
+        <nh-combobox
           [inputId]="idPrefix() + '-asset'"
           [options]="options()"
           [value]="chosen()"
           [placeholder]="'nh-assistant.admin.instruction-assets.choose' | translate"
           [invalid]="errorKey() !== null"
           [describedBy]="idPrefix() + '-asset-hint'"
-          (valueChange)="pick($event)" />
+          (valueChange)="pick($event ?? '')" />
         <p class="hint" [id]="idPrefix() + '-asset-hint'">{{ 'nh-assistant.admin.instruction-assets.asset-hint' | translate }}</p>
       </div>
       @if (chosen()) {

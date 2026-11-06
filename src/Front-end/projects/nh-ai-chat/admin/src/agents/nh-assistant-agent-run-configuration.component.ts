@@ -34,10 +34,10 @@ import {
   TriggerComparison,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
-  ɵNhAssistantPickerOption as NhAssistantPickerOption,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
+import { NhSelectOption } from '@newheap/platform-select';
 import { NhAssistantAccountLabelComponent, NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
 import { mayChangeAgentRights } from './agent-rights';
 import { agentDisplayName, policyKeys, readableId, skillDescriptionKeys, skillNameKeys, warningKeys } from './agent-texts';
@@ -258,7 +258,7 @@ export class NhAssistantAgentRunConfigurationComponent implements OnInit {
     const configuration = this.configuration();
     return configuration !== null && (configuration.source === 'code' || configuration.runSettings !== null);
   });
-  readonly skillOptions = computed<NhAssistantPickerOption[]>(() => {
+  readonly skillOptions = computed<NhSelectOption<string>[]>(() => {
     this.language();
     const configuration = this.configuration();
     return configuration
