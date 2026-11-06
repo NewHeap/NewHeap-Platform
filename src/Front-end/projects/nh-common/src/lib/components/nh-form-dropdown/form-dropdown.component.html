@@ -1,4 +1,4 @@
-<div>
+<div (keydown.escape)="onEscapeKey($event)">
   @if (settings.lazyLoad) {
     <ngx-bootstrap-multiselect
       #lazyLoadComponent
@@ -9,9 +9,11 @@
       [texts]="settings.multiSelectTexts"
       [settings]="settings.multiSelectSettings"
       [ngModel]="value"
-      (dropdownClosed)="closed.emit()"
+      (added)="onUserSelection()"
+      (removed)="onUserSelection()"
+      (dropdownClosed)="onDropdownClosed()"
       (dropdownOpened)="onDropdownOpened()"
-      (ngModelChange)="onModelChange($event)"
+      (ngModelChange)="onInnerModelChange($event)"
       (lazyLoad)="lazyLoadData($event)"
     ></ngx-bootstrap-multiselect>
   }
@@ -22,12 +24,14 @@
       (blur)="hasFocus = false"
       [options]="options"
       [disabled]="disabled"
-      (dropdownClosed)="closed.emit()"
+      (added)="onUserSelection()"
+      (removed)="onUserSelection()"
+      (dropdownClosed)="onDropdownClosed()"
       (dropdownOpened)="opened.emit()"
       [texts]="settings.multiSelectTexts"
       [settings]="settings.multiSelectSettings"
       [ngModel]="value"
-      (ngModelChange)="onModelChange($event)"
+      (ngModelChange)="onInnerModelChange($event)"
     ></ngx-bootstrap-multiselect>
   }
 </div>

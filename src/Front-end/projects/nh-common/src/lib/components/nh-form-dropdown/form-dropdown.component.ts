@@ -1,16 +1,21 @@
 import {
   ChangeDetectorRef,
   Component,
+  ElementRef,
   EventEmitter,
   Inject,
+  inject,
   Input,
+  NgZone,
   OnDestroy,
   OnInit, output,
   Optional,
   Output,
+  PLATFORM_ID,
   ViewChild,
   ViewEncapsulation
 } from '@angular/core';
+import {DOCUMENT, isPlatformBrowser} from '@angular/common';
 import {TranslateService} from '@ngx-translate/core';
 import {Observable, Subject, Subscription} from 'rxjs';
 import {HttpErrorResponse} from '@angular/common/http';
@@ -82,6 +87,11 @@ export class NhFormDropDownSettings {
     return x.id
   };
   imageGetLambda = (x: any) => undefined;
+  /**
+   * Optional CSS classes for the list item of an option, for example to mark an inactive item.
+   * Applies to the options of `loadLambda`, `lazyLoadLambda` and `selectedLazyLoadLambda`.
+   */
+  classesGetLambda?: (x: any) => string | undefined;
   valueGetLambda = (x: any) => {
     return x.name
   };
@@ -97,7 +107,6 @@ export class NhFormDropDownSettings {
 @Component({
   selector: 'nh-form-dropdown',
   templateUrl: './form-dropdown.component.html',
-  styleUrls: ['./form-dropdown.component.scss'],
   encapsulation: ViewEncapsulation.None,
   providers: [MakeProvider(NhFormDropDownComponent)],
   standalone: false
@@ -120,6 +129,10 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
     return this._settings;
   }
 
+  /**
+   * Every new settings object reloads the options, so keep one settings object per dropdown
+   * instead of creating it in a template expression or a getter.
+   */
   @Input() set settings (value: NhFormDropDownSettings) {
     if (!value.multiSelectTexts) {
       value.multiSelectTexts = new DefaultMultiSelectTexts();
@@ -159,6 +172,18 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
   private activeLazyLoadSelectedDataValueKey?: string;
   private activeLazyLoadSelectedDataObservers: Array<any> = [];
   private valueKey = '';
+  private readonly hostElement = inject<ElementRef<HTMLElement>>(ElementRef, {optional: true})?.nativeElement;
+  private readonly document = inject(DOCUMENT, {optional: true});
+  private readonly browser = isPlatformBrowser(inject(PLATFORM_ID, {optional: true}) ?? 'server');
+  private readonly ngZone = inject(NgZone, {optional: true});
+  private userSelectionPending = false;
+  private closedPending = false;
+  private pendingOpenTimer?: ReturnType<typeof setTimeout>;
+  private pointerEventInDispatch?: Event;
+  private destroyed = false;
+  private readonly trackPointerEvent = (event: Event) => {
+    this.pointerEventInDispatch = event;
+  };
 
   constructor(
     private translate: TranslateService,
@@ -166,12 +191,17 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
     @Optional() @Inject(NhCommonModuleConfig) private commonModuleConfig?: NhCommonModuleConfig
   ) {
     super();
+    this.startPointerTracking();
   }
 
   ngOnInit() {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
+    this.stopPointerTracking();
+    this.cancelPendingOpen();
+    this.closedPending = false;
     this.destroy$.next();
     this.destroy$.complete();
 
@@ -199,13 +229,38 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
     return component;
   }
 
+  /**
+   * Opens the list when it is closed and closes it when it is open.
+   *
+   * When this is called while a click or touch outside the dropdown is still being dispatched, for
+   * example from the click handler of a separate edit button, the list opens once that event has
+   * finished (after a `setTimeout` of 0), and `opened` is emitted then. Opening at once would let the
+   * list treat the same click as a click outside and close again immediately. A second call before
+   * the deferred open cancels it. Called from code outside such an event, or to close the list, it
+   * takes effect immediately.
+   */
   public toggleDropdown() {
     const component = this.getDropdownComponent();
+
+    if (this.pendingOpenTimer !== undefined) {
+      this.cancelPendingOpen();
+      return;
+    }
+
+    if (!component!.isVisible && this.isOutsidePointerEventInDispatch()) {
+      this.pendingOpenTimer = setTimeout(() => {
+        this.pendingOpenTimer = undefined;
+        this.openDeferredDropdown();
+      });
+      return;
+    }
+
     component!.toggleDropdown();
     this.cdr.markForCheck();
   }
 
   public closeDropdown() {
+    this.cancelPendingOpen();
     const component = this.getDropdownComponent();
     component!.closeDropdown();
     this.cdr.markForCheck();
@@ -217,10 +272,68 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
     const currentValueKey = this.valueKey;
     super.writeValue(nextValue);
     this.valueKey = valueKey;
+    this.cdr.markForCheck();
 
     if (this.settings.lazyLoad && this.deferLazyLoadUntilOpened && valueKey !== currentValueKey) {
       this.loadSelectedOptions();
     }
+  }
+
+  /**
+   * Marks the next model of the inner multiselect as the user's choice. The inner list reports
+   * `added` and `removed` only for a user selection, check all and uncheck all, and reports the
+   * resulting model right after them.
+   */
+  onUserSelection() {
+    if (this.userSelectionPending) {
+      return;
+    }
+
+    this.userSelectionPending = true;
+    queueMicrotask(() => {
+      this.userSelectionPending = false;
+    });
+  }
+
+  /**
+   * Handles a model from the inner multiselect. The inner list also reports the model the form wrote
+   * into it whenever its options change. That model is not a choice and can be older than the form's
+   * current value, so only a model that follows a user selection becomes the new value.
+   */
+  onInnerModelChange(event: any) {
+    if (!this.userSelectionPending) {
+      return;
+    }
+
+    this.userSelectionPending = false;
+    this.onModelChange(event);
+    this.emitPendingClosed();
+  }
+
+  onDropdownClosed() {
+    if (this.userSelectionPending) {
+      // With closeOnSelect the inner list closes before it reports the choice; report the choice first.
+      this.closedPending = true;
+      queueMicrotask(() => this.emitPendingClosed());
+      return;
+    }
+
+    this.closed.emit();
+  }
+
+  /**
+   * Escape closes an open list and returns focus to the toggle button. The key is marked as handled,
+   * so a surrounding modal stays open.
+   */
+  onEscapeKey(event: Event) {
+    const component = this.getDropdownComponent();
+    if (!component?.isVisible) {
+      return;
+    }
+
+    event.preventDefault();
+    this.closeDropdown();
+    this.hostElement?.querySelector<HTMLButtonElement>('button.dropdown-toggle')?.focus();
   }
 
   public onDropdownOpened() {
@@ -270,11 +383,10 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
         this.activeLoadRequestSubscription = this.settings.loadLambda().pipe(
           takeUntil(this.destroy$)
         ).subscribe((options) => {
-          this.options = options.map(x => {
-            return {id: this.settings.keyGetLambda(x), name: this.settings.valueGetLambda(x), image: this.settings.imageGetLambda(x)}
-          });
+          this.options = options.map(x => this.createOption(x));
           this.rawOptions = options;
           this.activeLoadRequestSubscription = null;
+          this.cdr.markForCheck();
         }, () => {
           this.activeLoadRequestSubscription = null;
         });
@@ -284,6 +396,100 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
 
   private get deferLazyLoadUntilOpened(): boolean {
     return this.settings.deferLazyLoadUntilOpened ?? this.commonModuleConfig?.formDropdown?.deferLazyLoadUntilOpened ?? false;
+  }
+
+  private emitPendingClosed() {
+    if (!this.closedPending || this.destroyed) {
+      return;
+    }
+
+    this.closedPending = false;
+    this.closed.emit();
+  }
+
+  private openDeferredDropdown() {
+    if (this.destroyed) {
+      return;
+    }
+
+    const component = this.getDropdownComponent();
+    if (!component || component.isVisible) {
+      return;
+    }
+
+    component.toggleDropdown();
+    this.cdr.markForCheck();
+  }
+
+  private cancelPendingOpen() {
+    if (this.pendingOpenTimer === undefined) {
+      return;
+    }
+
+    clearTimeout(this.pendingOpenTimer);
+    this.pendingOpenTimer = undefined;
+  }
+
+  /**
+   * The inner list closes on a document click or touch that did not start inside it. While such an
+   * event is still being dispatched, the list must not open yet.
+   */
+  private isOutsidePointerEventInDispatch(): boolean {
+    const event = this.pointerEventInDispatch;
+    if (!event || event.eventPhase === Event.NONE) {
+      return false;
+    }
+
+    const target = event.target;
+    const dropdownElement = this.hostElement?.querySelector('ngx-bootstrap-multiselect > .dropdown') ?? this.hostElement;
+    if (!dropdownElement || !(target instanceof Node)) {
+      return true;
+    }
+
+    return !dropdownElement.contains(target);
+  }
+
+  private startPointerTracking() {
+    const document = this.document;
+    if (!this.browser || !document) {
+      return;
+    }
+
+    const listen = () => {
+      document.addEventListener('click', this.trackPointerEvent, true);
+      document.addEventListener('touchstart', this.trackPointerEvent, {capture: true, passive: true});
+    };
+
+    if (this.ngZone) {
+      this.ngZone.runOutsideAngular(listen);
+    } else {
+      listen();
+    }
+  }
+
+  private stopPointerTracking() {
+    const document = this.document;
+    if (!this.browser || !document) {
+      return;
+    }
+
+    document.removeEventListener('click', this.trackPointerEvent, true);
+    document.removeEventListener('touchstart', this.trackPointerEvent, true);
+    this.pointerEventInDispatch = undefined;
+  }
+
+  private createOption(item: any): IMultiSelectOption {
+    const option: IMultiSelectOption = {
+      id: this.settings.keyGetLambda(item),
+      name: this.settings.valueGetLambda(item),
+      image: this.settings.imageGetLambda(item)
+    };
+
+    if (this.settings.classesGetLambda) {
+      option.classes = this.settings.classesGetLambda(item);
+    }
+
+    return option;
   }
 
   private cloneValue(value: any) {
@@ -327,6 +533,7 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
   private loadSelectedOptions() {
     this.lazyLoadSelectedData().subscribe((selectedItems: Array<IMultiSelectOption>) => {
       this.selectedHandleLazyLoadResponse(selectedItems);
+      this.cdr.markForCheck();
     });
   }
 
@@ -375,7 +582,7 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
           const selectedOptions: IMultiSelectOption[] = [];
           if (response && response.items && response.items.length > 0) {
             for (const item of response.items) {
-              const option = {id: this.settings.keyGetLambda(item), name: this.settings.valueGetLambda(item), image: this.settings.imageGetLambda(item)};
+              const option = this.createOption(item);
 
               if (this.settings.translateOptionValue) {
                 option.name = this.translate.instant(option.name);
@@ -468,6 +675,7 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
             (err: HttpErrorResponse) => {
               this.activeLazyLoadDataRequestSubscription = null;
               this.isLoading = false;
+              this.cdr.markForCheck();
               this.onLazyLoadError.emit(err);
             }
           );
@@ -488,6 +696,7 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
             (err: HttpErrorResponse) => {
               this.activeLazyLoadDataRequestSubscription = null;
               this.isLoading = false;
+              this.cdr.markForCheck();
               this.onLazyLoadError.emit(err);
             }
           );
@@ -501,11 +710,14 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
     });
   }
 
+  /**
+   * Takes a model of the inner multiselect as the user's choice. In single-select mode the first
+   * item becomes the value, including `0` and `false`; an empty model clears it.
+   */
   onModelChange(event: any) {
-    const value = (this.settings.multiSelectSettings.selectionLimit === 1
-        ? (event[0] || undefined)
-        : (this.cloneValue(event) || undefined)
-    );
+    const value = this.settings.multiSelectSettings.selectionLimit === 1
+      ? this.firstSelectedValue(event)
+      : (this.cloneValue(event) || undefined);
     const valueKey = this.getValueKey(value);
 
     if (valueKey === this.valueKey) {
@@ -517,12 +729,19 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
     this.loadSelectedOptions();
   }
 
+  private firstSelectedValue(event: any) {
+    if (!Array.isArray(event) || event.length === 0) {
+      return undefined;
+    }
+
+    return event[0];
+  }
 
   private handleLazyLoadResponse(response: CollectionHttpResponse<any>, selectedItems: Array<IMultiSelectOption> = []) {
     const options: IMultiSelectOption[] = [];
     const rawOptions: any[] = [];
     for (const item of response.items) {
-      const option = {id: this.settings.keyGetLambda(item), name: this.settings.valueGetLambda(item)};
+      const option = this.createOption(item);
 
       if (this.settings.translateOptionValue) {
         option.name = this.translate.instant(option.name);
@@ -541,6 +760,8 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
     if (response.resultCount < response.itemsPerPage) {
       this.hasMoreLazyLoadItems = false;
     }
+
+    this.cdr.markForCheck();
   }
 
   private selectedHandleLazyLoadResponse(selectedItems: Array<IMultiSelectOption> = []) {
