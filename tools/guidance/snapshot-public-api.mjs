@@ -40,7 +40,11 @@ for (const path of (await walk(backEndRoot)).filter(path => extname(path) === '.
 }
 
 const frontEndProject = resolve(repositoryRoot, 'src', 'Front-end', 'projects', 'nh-common');
-const frontEndRoots = [resolve(frontEndProject, 'src'), resolve(frontEndProject, 'two-factor', 'src')];
+const frontEndRoots = [
+  resolve(frontEndProject, 'src'),
+  resolve(frontEndProject, 'two-factor', 'src'),
+  resolve(frontEndProject, 'sanitize', 'src')
+];
 const frontEndEntries = [];
 for (const path of (await Promise.all(frontEndRoots.map(root => walk(root)))).flat()
   .filter(path => extname(path) === '.ts' && !path.endsWith('.spec.ts'))

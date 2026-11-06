@@ -43,7 +43,9 @@
 - database-providers: ./database-providers.md
 - frontend-collection-query: ./frontend-collection-query.md
 - frontend-context-menu: ./frontend-context-menu.md
+- frontend-html-sanitizer: ./frontend-html-sanitizer.md
 - frontend-lifecycle-modals: ./frontend-lifecycle-modals.md
+- frontend-relative-time: ./frontend-relative-time.md
 - frontend-root-configuration: ./frontend-root-configuration.md
 - frontend-toast-notifications: ./frontend-toast-notifications.md
 - media: ./media.md

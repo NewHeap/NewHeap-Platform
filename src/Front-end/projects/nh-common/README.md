@@ -103,3 +103,49 @@ The components inject `NhAuthService` and add their English and Dutch texts unde
 to register the texts at startup when a custom login page translates the `nh-two-factor.`
 failure keys without the components. The authenticator QR code is a PNG data URI, so a Content
 Security Policy must allow `img-src data:`.
+
+## Sanitized rich text
+
+Show untrusted HTML, such as pasted e-mail or Word content or text that users wrote, through the
+HTML sanitizer in the optional `@newheap/platform-common/sanitize` entry point. It uses DOMPurify,
+an optional peer dependency that only this entry point needs:
+
+```bash
+npm install dompurify
+```
+
+```typescript
+import { NhSanitizeHtmlPipe, provideNhHtmlSanitizer } from '@newheap/platform-common/sanitize';
+```
+
+```html
+<div [innerHTML]="message.body | nhSanitizeHtml"></div>
+```
+
+The default allow-list keeps the structure and inline formatting of rich text: paragraphs,
+headings, lists, tables, links, quotes and emphasis, without `class`, `id` or `style`. Scripts,
+styles, event handlers, frames, embedded objects, forms and SVG are always removed, also when an
+allow-list names them. Links keep only `http`, `https`, `mailto` and `tel` URLs, get
+`rel="noopener noreferrer"` and open in a new tab. Configure the allow-list with
+`provideNhHtmlSanitizer({...})` at the root or in a component, or per call; spread
+`NH_HTML_SANITIZER_DEFAULT_TAGS` to extend it. `NhHtmlSanitizer.sanitize(html)` returns the
+sanitized string for code. During server-side rendering there is no DOM, so the HTML is escaped
+and shows as text until the browser renders it.
+
+`safeHtml` is deprecated: it calls `bypassSecurityTrustHtml`, which skips Angular's sanitizer
+instead of sanitizing, so use it only for HTML the application wrote itself.
+
+## Relative times
+
+`nhRelativeTime` shows a moment relative to now in the active language with
+`Intl.RelativeTimeFormat`, for example "3 minutes ago" or "in 2 days":
+
+```html
+<span>{{ task.lastModifiedDateTime | nhRelativeTime }}</span>
+<span>{{ task.dueDateTime | nhRelativeTime: now : { style: 'short' } }}</span>
+```
+
+The unit goes from seconds to years and the amount is rounded to the nearest whole unit. Without a `now` argument the
+pipe keeps itself current in the browser through one shared timer, also in `OnPush` and zoneless
+components; pass `now` for deterministic tests and server renders. `nhFormatRelativeTime(value,
+now, language)` formats the same text in code.

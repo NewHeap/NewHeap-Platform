@@ -2309,25 +2309,38 @@
     {
       "id": "SPM-155",
       "categoryId": "10",
-      "title": "Safe content",
-      "surface": "safe HTML/style/URL pipes",
-      "outcome": "Only trusted content is exposed.",
+      "title": "Sanitized rich text and safe content",
+      "surface": "`NhHtmlSanitizer` (`sanitize`, `sanitizeToSafeHtml`, `isSupported`), the `nhSanitizeHtml` pipe (`NhSanitizeHtmlPipe`), `NhHtmlSanitizerOptions`, `NH_HTML_SANITIZER_OPTIONS`, `provideNhHtmlSanitizer` and the `NH_HTML_SANITIZER_DEFAULT_TAGS`, `NH_HTML_SANITIZER_DEFAULT_ATTRIBUTES` and `NH_HTML_SANITIZER_DEFAULT_URI_SCHEMES` allow-lists from the optional `@newheap/platform-common/sanitize` entry point with its optional `dompurify` peer; the deprecated `safeHtml` and the `safeUrl` and `safeResourceUrl` pipes as low-level alternatives for content the application wrote itself",
+      "outcome": "The utility playground shows pasted rich text: the raw HTML that an e-mail client or Word put on the clipboard, which the reader can edit or paste, next to its rendering through `nhSanitizeHtml` and the markup that `NhHtmlSanitizer.sanitize` returns. Headings, lists, tables, links and emphasis stay; scripts, styles, event handlers, frames, images, comments, Word markup and `javascript:` links disappear, and links open in a new tab with `rel=\"noopener noreferrer\"`. The deprecated `safeHtml` stays as the labelled low-level alternative for HTML the application wrote itself, because it bypasses Angular's sanitizer. The library specs prove the default allow-list, XSS payloads, link schemes and relative links, allow-lists from options, the root and a component, the always-forbidden elements and attributes, and the escaped text without a DOM during a server render; the sample's frontend integrity check keeps pasted content away from `safeHtml`.",
       "implementation": "implemented",
       "evidence": [
         "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
-        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html",
+        "src/Front-end/projects/management/public/i18n/en.json",
+        "src/Front-end/projects/management/public/i18n/nl.json",
+        "src/Front-end/scripts/verify-frontend-integrity.mjs",
+        "../../src/Front-end/projects/nh-common/sanitize/src/lib/nh-html-sanitizer.service.ts",
+        "../../src/Front-end/projects/nh-common/sanitize/src/lib/nh-html-sanitizer-options.ts",
+        "../../src/Front-end/projects/nh-common/sanitize/src/lib/nh-sanitize-html.pipe.ts",
+        "../../src/Front-end/projects/nh-common/sanitize/src/lib/nh-html-sanitizer.spec.ts",
+        "../../src/Front-end/projects/nh-common/src/lib/pipes/safe-html.pipes.ts"
       ]
     },
     {
       "id": "SPM-156",
       "categoryId": "10",
-      "title": "Date and primitive pipes",
-      "surface": "date/boolean pipes",
-      "outcome": "Timezone, null, and boolean values are localized.",
+      "title": "Date, relative time and primitive pipes",
+      "surface": "date/boolean pipes; the `nhRelativeTime` pipe (`NhRelativeTimePipe`) with `NhRelativeTimeOptions` and `NhRelativeTimeInput`, and `nhFormatRelativeTime`",
+      "outcome": "Timezone, null, and boolean values are localized. The utility playground lists project activity relative to now in the active language with `nhRelativeTime`, in the past and the future and from seconds to years: a live column that keeps itself current through one shared timer, a column against the fixed moment the page opened, as a test or a server render passes it, and the short style. `nhFormatRelativeTime` formats the same text in code. The library specs prove the units, languages, past and future, invalid input, the language fallback, the refresh of an `OnPush` view and that a fixed `now` or a server render starts no timer.",
       "implementation": "implemented",
       "evidence": [
         "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
-        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+        "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html",
+        "src/Front-end/projects/management/public/i18n/en.json",
+        "src/Front-end/projects/management/public/i18n/nl.json",
+        "../../src/Front-end/projects/nh-common/src/lib/pipes/date.pipes.ts",
+        "../../src/Front-end/projects/nh-common/src/lib/pipes/nh-relative-time-refresh.ts",
+        "../../src/Front-end/projects/nh-common/src/lib/pipes/date.pipes.spec.ts"
       ]
     },
     {

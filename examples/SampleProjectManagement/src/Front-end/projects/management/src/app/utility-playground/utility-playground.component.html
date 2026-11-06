@@ -52,6 +52,58 @@
     </dl>
   </section>
 
+  <section class="rich-text-sample" aria-labelledby="rich-text-sample-title">
+    <header>
+      <span class="preferred-badge">{{ 'project.preferred-way' | translate }}</span>
+      <h3 id="rich-text-sample-title">{{ 'project.rich-text-title' | translate }}</h3>
+      <p>{{ 'project.rich-text-description' | translate }}</p>
+    </header>
+    <div class="rich-text-raw">
+      <label for="rich-text-source">{{ 'project.rich-text-source' | translate }}</label>
+      <textarea id="rich-text-source" rows="12" spellcheck="false" [value]="pastedHtml()" (input)="editPastedHtml($any($event.target).value)" (paste)="onRichTextPaste($event)"></textarea>
+      <div class="actions">
+        <button type="button" (click)="resetPastedHtml()"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>{{ 'project.rich-text-reset' | translate }}</button>
+        <small>{{ (pastedFromClipboard() ? 'project.rich-text-from-clipboard' : 'project.rich-text-paste-hint') | translate }}</small>
+      </div>
+    </div>
+    <div class="rich-text-result">
+      <h4>{{ 'project.rich-text-preview' | translate }}</h4>
+      <div class="rich-text-preview" [innerHTML]="pastedHtml() | nhSanitizeHtml"></div>
+      <h4>{{ 'project.rich-text-markup' | translate }}</h4>
+      <pre>{{ sanitizedMarkup() || '-' }}</pre>
+    </div>
+  </section>
+
+  <section class="relative-time-sample" aria-labelledby="relative-time-sample-title">
+    <header>
+      <span class="preferred-badge">{{ 'project.preferred-way' | translate }}</span>
+      <h3 id="relative-time-sample-title">{{ 'project.relative-time-title' | translate }}</h3>
+      <p>{{ 'project.relative-time-description' | translate }}</p>
+    </header>
+    <div class="relative-time-table">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">{{ 'project.relative-time-event' | translate }}</th>
+            <th scope="col">{{ 'project.relative-time-live' | translate }}</th>
+            <th scope="col">{{ 'project.relative-time-fixed' | translate }}</th>
+            <th scope="col">{{ 'project.relative-time-short' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of activity; track item.key) {
+            <tr>
+              <th scope="row">{{ item.key | translate }}</th>
+              <td><time [attr.datetime]="item.iso" [title]="item.at | nhDateTime">{{ item.at | nhRelativeTime }}</time></td>
+              <td>{{ item.at | nhRelativeTime: openedAt }}</td>
+              <td>{{ item.at | nhRelativeTime: openedAt : { style: 'short' } }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
   <div class="runners">
     <article><h3>NhAsyncLock + NhMutex</h3><p>{{ 'project.mutex-description' | translate }}</p><button type="button" (click)="runMutex()">RunExclusive</button><button type="button" (click)="runMutexPrimitive()">lock/release</button><pre>{{ asyncLog().join('\n') || '-' }}</pre></article>
     <article><h3>NhEncodingUtil</h3><p>{{ 'project.encoding-description' | translate }}</p><button type="button" (click)="runEncoding()">Blob to Base64</button><pre>{{ encodedBlob() || '-' }}</pre></article>
@@ -60,6 +112,6 @@
     <article><h3>Form, API, and HTTP utility matrix</h3><p>Runs nested clearErrors, request parsing, objectToFormData, and HttpError-to-TaskResult conversion.</p><button type="button" (click)="runUtilityMatrix()">Run utility matrix</button><pre>{{ utilityMatrixResult() || '-' }}</pre></article>
     <article><h3>Button debounce</h3><p>Ten rapid clicks produce one onDebounce event only after 400 ms.</p><button type="button" nhButtonDebounce [debounce]="400" (onDebounce)="runDebouncedButton()">Click rapidly</button><pre>Executed events: {{ debouncedButtonRuns() }}</pre></article>
     <article><h3>Loader and error boundary</h3><p>Separate loading and error states with the library components.</p><nh-loader [hasBackdrop]="false"></nh-loader><nh-error [key]="undefined" [errors]="presentationError"></nh-error></article>
-    <article><h3>Safe/date/encoding/primitive pipes</h3><p [innerHTML]="trustedHtml | safeHtml"></p><a [href]="'https://newheap.com' | safeUrl">Trusted URL</a><iframe title="Safe empty resource" [src]="'about:blank' | safeResourceUrl"></iframe><pre>{{ now | nhDate }} | {{ now | nhDateTime }} | {{ '2026-07-24T10:00:00' | nhDateUtc }} | {{ true | nhBooleanToString }} | {{ 'project planning/roadmap' | nhUrlEncode }}</pre></article>
+    <article><span class="alternative-badge">{{ 'project.low-level-alternative' | translate }}</span><h3>Safe/date/encoding/primitive pipes</h3><p>{{ 'project.safe-html-alternative' | translate }}</p><p [innerHTML]="trustedHtml | safeHtml"></p><a [href]="'https://newheap.com' | safeUrl">Trusted URL</a><iframe title="Safe empty resource" [src]="'about:blank' | safeResourceUrl"></iframe><pre>{{ now | nhDate }} | {{ now | nhDateTime }} | {{ '2026-07-24T10:00:00' | nhDateUtc }} | {{ true | nhBooleanToString }} | {{ 'project planning/roadmap' | nhUrlEncode }}</pre></article>
   </div>
 </section>

@@ -178,9 +178,17 @@ Source release: `newheap-platform-plugin-v1.13.114`
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.114/docs/consumer-guide/frontend-context-menu.md)
 
+## Frontend Html Sanitizer
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.114/docs/consumer-guide/frontend-html-sanitizer.md)
+
 ## Frontend Lifecycle Modals
 
 - [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.114/docs/consumer-guide/frontend-lifecycle-modals.md)
+
+## Frontend Relative Time
+
+- [Immutable guide and executable evidence](https://github.com/NewHeap/NewHeap-Platform/blob/newheap-platform-plugin-v1.13.114/docs/consumer-guide/frontend-relative-time.md)
 
 ## Frontend Root Configuration
 

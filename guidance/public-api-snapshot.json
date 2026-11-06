@@ -55036,9 +55036,65 @@
     ]
   },
   "frontEnd": {
-    "hash": "10f57b18422f1a7e4fda83fc3f911841d6737cd0b9d2d1593cad0dbf29ac9d79",
-    "declarationCount": 900,
+    "hash": "1676b57133cc6d22f7f54601c33b5f1db5fba21ce3dcbb868f770dc115730bf5",
+    "declarationCount": 920,
     "declarations": [
+      {
+        "path": "src/Front-end/projects/nh-common/sanitize/src/lib/nh-html-sanitizer-options.ts",
+        "declaration": "export interface NhHtmlSanitizerOptions {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/sanitize/src/lib/nh-html-sanitizer-options.ts",
+        "declaration": "export const NH_HTML_SANITIZER_DEFAULT_TAGS: readonly string[] = ["
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/sanitize/src/lib/nh-html-sanitizer-options.ts",
+        "declaration": "export const NH_HTML_SANITIZER_DEFAULT_ATTRIBUTES: readonly string[] = ["
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/sanitize/src/lib/nh-html-sanitizer-options.ts",
+        "declaration": "export const NH_HTML_SANITIZER_DEFAULT_URI_SCHEMES: readonly string[] = ['http', 'https', 'mailto', 'tel'];"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/sanitize/src/lib/nh-html-sanitizer-options.ts",
+        "declaration": "export const NH_HTML_SANITIZER_OPTIONS = new InjectionToken<NhHtmlSanitizerOptions>('NH_HTML_SANITIZER_OPTIONS');"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/sanitize/src/lib/nh-html-sanitizer-options.ts",
+        "declaration": "export function provideNhHtmlSanitizer(options: NhHtmlSanitizerOptions): Provider {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/sanitize/src/lib/nh-html-sanitizer-options.ts",
+        "declaration": "export function mergeNhHtmlSanitizerOptions("
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/sanitize/src/lib/nh-html-sanitizer.service.ts",
+        "declaration": "@Injectable({providedIn: 'root'})"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/sanitize/src/lib/nh-html-sanitizer.service.ts",
+        "declaration": "export class NhHtmlSanitizer {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/sanitize/src/lib/nh-sanitize-html.pipe.ts",
+        "declaration": "export class NhSanitizeHtmlPipe implements PipeTransform {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/sanitize/src/public-api.ts",
+        "declaration": "export {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/sanitize/src/public-api.ts",
+        "declaration": "export type {NhHtmlSanitizerOptions} from './lib/nh-html-sanitizer-options';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/sanitize/src/public-api.ts",
+        "declaration": "export * from './lib/nh-html-sanitizer.service';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/sanitize/src/public-api.ts",
+        "declaration": "export * from './lib/nh-sanitize-html.pipe';"
+      },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/accessors/abstract-value.accessor.ts",
         "declaration": "export abstract class AbstractValueAccessor implements ControlValueAccessor {"
@@ -56816,8 +56872,32 @@
         "declaration": "export class NhDateUtcPipe implements PipeTransform {"
       },
       {
+        "path": "src/Front-end/projects/nh-common/src/lib/pipes/date.pipes.ts",
+        "declaration": "export type NhRelativeTimeInput = Date | number | string | null | undefined;"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/pipes/date.pipes.ts",
+        "declaration": "export interface NhRelativeTimeOptions {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/pipes/date.pipes.ts",
+        "declaration": "export function nhFormatRelativeTime("
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/pipes/date.pipes.ts",
+        "declaration": "export class NhRelativeTimePipe implements PipeTransform, OnDestroy {"
+      },
+      {
         "path": "src/Front-end/projects/nh-common/src/lib/pipes/encode.pipes.ts",
         "declaration": "export class NhUrlEncodePipe implements PipeTransform {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/pipes/nh-relative-time-refresh.ts",
+        "declaration": "@Injectable({providedIn: 'root'})"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/pipes/nh-relative-time-refresh.ts",
+        "declaration": "export class NhRelativeTimeRefresh {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/pipes/primitive-type.pipes.ts",
@@ -60276,6 +60356,17 @@
       "NhContextMenuItem",
       "NhContextMenuServiceConfig"
     ],
+    "nh-frontend-html-sanitizer": [
+      "NhHtmlSanitizer",
+      "NhSanitizeHtmlPipe",
+      "NhHtmlSanitizerOptions",
+      "NH_HTML_SANITIZER_OPTIONS",
+      "provideNhHtmlSanitizer",
+      "NH_HTML_SANITIZER_DEFAULT_TAGS",
+      "NH_HTML_SANITIZER_DEFAULT_ATTRIBUTES",
+      "NH_HTML_SANITIZER_DEFAULT_URI_SCHEMES",
+      "SafeHtmlPipe"
+    ],
     "nh-frontend-lifecycle-modals": [
       "NhPageTypeBaseComponent",
       "NhCollectionTypeBaseComponent",
@@ -60286,6 +60377,14 @@
       "INhModalComponent",
       "NhModalOptions",
       "NH_COMMON_TRANSLATIONS"
+    ],
+    "nh-frontend-relative-time": [
+      "NhRelativeTimePipe",
+      "NhRelativeTimeOptions",
+      "NhRelativeTimeInput",
+      "nhFormatRelativeTime",
+      "NhDatePipe",
+      "NhDateTimePipe"
     ],
     "nh-frontend-root-configuration": [
       "NhCommonModule",

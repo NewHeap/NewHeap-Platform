@@ -22,6 +22,9 @@
       "@newheap/platform-common/two-factor": [
         "./projects/nh-common/two-factor/src/public-api"
       ],
+      "@newheap/platform-common/sanitize": [
+        "./projects/nh-common/sanitize/src/public-api"
+      ],
       "@newheap/nh-toastr": [
         "./projects/nh-toastr/src/public-api"
       ],

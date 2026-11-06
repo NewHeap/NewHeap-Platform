@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse, HttpHeaders } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
@@ -32,8 +32,11 @@ import {
   groupBy,
   languageToCultureMap,
   nameof,
+  nhFormatRelativeTime,
+  NhRelativeTimePipe,
   uppercaseFirst
 } from '@newheap/platform-common';
+import { NhHtmlSanitizer, NhSanitizeHtmlPipe } from '@newheap/platform-common/sanitize';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { of } from 'rxjs';
 import {
@@ -42,10 +45,22 @@ import {
   projectStatusTranslationKey
 } from 'sample-project-management-common';
 
+/** Rich text as an e-mail client or Word puts it on the clipboard, including what must not survive. */
+const examplePastedHtml = [
+  '<html><head><style>p.MsoNormal { margin: 0; }</style></head><body>',
+  '<!--[if gte mso 9]><xml><o:OfficeDocumentSettings></o:OfficeDocumentSettings></xml><![endif]-->',
+  '<p class="MsoNormal" style="color: #c00"><b>Release plan</b> for <span style="font-size: 11pt">Customer Portal</span></p>',
+  '<ul><li>Freeze on <em>Friday</em></li><li onclick="alert(1)">Review the <a href="https://newheap.com/docs" target="_self">checklist</a></li></ul>',
+  '<p><a href="javascript:alert(2)">Confirm your account</a><img src="https://tracker.example/pixel.gif" onerror="alert(3)"></p>',
+  '<script>alert(4)</script><iframe src="https://example.com"></iframe>',
+  '<table><tr><th scope="col">Owner</th><td colspan="2">Operations</td></tr></table>',
+  '</body></html>'
+].join('\n');
+
 @Component({
   selector: 'app-utility-playground',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, TranslateModule, NhCommonModule],
+  imports: [CommonModule, ReactiveFormsModule, TranslateModule, NhCommonModule, NhRelativeTimePipe, NhSanitizeHtmlPipe],
   templateUrl: './utility-playground.component.html',
   styleUrl: './utility-playground.component.scss'
 })
@@ -56,6 +71,7 @@ export class UtilityPlaygroundComponent {
   private readonly cookieService = inject(NhCookieService);
   private readonly connectionService = inject(NhInternetConnectionService);
   private readonly moduleConfig = inject(NhCommonModuleConfig);
+  private readonly htmlSanitizer = inject(NhHtmlSanitizer);
 
   readonly internetConnected = toSignal(
     this.connectionService.internetIsConnected,
@@ -70,6 +86,23 @@ export class UtilityPlaygroundComponent {
   readonly presentationError = new TaskResult().withError('', 'The API could not load the project list.');
   readonly trustedHtml = '<strong>Trusted sample content only</strong>';
   readonly now = new Date();
+  readonly pastedHtml = signal(examplePastedHtml);
+  readonly sanitizedMarkup = computed(() => this.htmlSanitizer.sanitize(this.pastedHtml()).trim());
+  readonly pastedFromClipboard = signal(false);
+  // A fixed reference makes the second column deterministic, as a test or server render would pass it.
+  readonly openedAt = this.now.getTime();
+  readonly activity = [
+    { key: 'project.relative-time-comment-added', offset: -20 * 1000 },
+    { key: 'project.relative-time-task-moved', offset: -5 * 60 * 1000 },
+    { key: 'project.relative-time-status-changed', offset: -3 * 60 * 60 * 1000 },
+    { key: 'project.relative-time-project-created', offset: -9 * 24 * 60 * 60 * 1000 },
+    { key: 'project.relative-time-review-due', offset: 2 * 24 * 60 * 60 * 1000 },
+    { key: 'project.relative-time-contract-renewal', offset: 400 * 24 * 60 * 60 * 1000 }
+  ].map(item => ({
+    key: item.key,
+    at: this.openedAt + item.offset,
+    iso: new Date(this.openedAt + item.offset).toISOString()
+  }));
   readonly enumStatusOptions = getProjectStatusOptions(this.translateService, false);
   // Single-select yields one value; multi-select yields an array.
   readonly singleStatus = new FormControl<ProjectStatus | null>(ProjectStatus.Active);
@@ -95,6 +128,10 @@ export class UtilityPlaygroundComponent {
     { name: 'enumValuesToArray(ProjectStatus)', value: JSON.stringify(enumValuesToArray(ProjectStatus)) },
     { name: 'enumStringValuesToArray(ProjectStatus)', value: JSON.stringify(enumStringValuesToArray(ProjectStatus)) },
     { name: 'languageToCultureMap.nl', value: languageToCultureMap.nl },
+    {
+      name: 'nhFormatRelativeTime(now - 3 h, now, "nl")',
+      value: nhFormatRelativeTime(this.openedAt - 3 * 60 * 60 * 1000, this.openedAt, 'nl') ?? '-'
+    },
     { name: 'NhAngularUtil.idTrackBy()', value: NhAngularUtil.idTrackBy(0, { id: 'NHP' }) },
     { name: '[1, 2, 3].firstOrDefault()', value: String([1, 2, 3].firstOrDefault()) },
     { name: '[1, 2, 3].lastOrDefault()', value: String([1, 2, 3].lastOrDefault()) },
@@ -210,6 +247,28 @@ export class UtilityPlaygroundComponent {
   selectProjectFromCode(): void {
     // The selected-option lookup of this sample answers synchronously, as a cached store does.
     this.deferredProjectIds.setValue(['project-c']);
+  }
+
+  onRichTextPaste(event: ClipboardEvent): void {
+    // Pasting rich text into a textarea keeps only its plain text; read the HTML the source put on the clipboard.
+    const html = event.clipboardData?.getData('text/html');
+    if (!html) {
+      return;
+    }
+
+    event.preventDefault();
+    this.pastedHtml.set(html);
+    this.pastedFromClipboard.set(true);
+  }
+
+  editPastedHtml(value: string): void {
+    this.pastedHtml.set(value);
+    this.pastedFromClipboard.set(false);
+  }
+
+  resetPastedHtml(): void {
+    this.pastedHtml.set(examplePastedHtml);
+    this.pastedFromClipboard.set(false);
   }
 
   runDebouncedButton(): void {

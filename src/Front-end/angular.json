@@ -34,7 +34,8 @@
             ],
             "include": [
               "**/*.spec.ts",
-              "../two-factor/**/*.spec.ts"
+              "../two-factor/**/*.spec.ts",
+              "../sanitize/**/*.spec.ts"
             ]
           }
         }

@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "pluginVersion": "1.13.114",
   "guidanceVersion": "1.13.114",
-  "skillContentHash": "0b4c97db3a3e19593f0b40c411d3d11d381034c5235537f828e95624c6923e6d",
+  "skillContentHash": "8036881946f383efd370ed314bdace4045d79b7e913a6fc3297dd780ee113fc1",
   "skills": [
     "newheap-platform-development"
   ],
@@ -93,6 +93,7 @@
       "@newheap/nh-toastr": "^0.0.7 || ^0.0.8",
       "@ngx-translate/core": "^17.0.0 || ^18.0.0",
       "@swimlane/ngx-datatable": "^23.0.1 || ^24.0.0 || ^25.0.0",
+      "dompurify": "^3.4.0",
       "js-base64": "^3.7.7",
       "luxon": "^3.5.0",
       "ngx-bootstrap-multiselect": "^4.0.0",

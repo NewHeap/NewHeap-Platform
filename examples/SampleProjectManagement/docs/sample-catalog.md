@@ -34,7 +34,7 @@ is inside it.
 | Operations API | CAP, Hangfire, email with a named SMTP security mode, and notification delivery | event configurator, `NhHangfireUtil`, `NhMailService` with `MailServiceSettings.SecurityMode`, notification builder |
 | Notification playground | polling, badge, mark-as-read, and archive | abstract notification component, service, and controller |
 | Platform playground | text, binary, download, modal, multi-select, custom control, context menu, head, and JSON-LD | HTTP options, modal, form, context menu, head, and configuration services |
-| Utility playground | strings, arrays, encoding, mutex, cookies, safe and date pipes | concrete utilities and components |
+| Utility playground | strings, arrays, encoding, mutex, cookies, sanitized pasted rich text, safe, date and relative time pipes | concrete utilities, the HTML sanitizer and components |
 | EF Core chunks | ordered project query in bounded asynchronous batches | `IQueryable.ChunkAsync` with cancellation |
 | Project members | members with reader, participant and approver roles that decide access to the project's agent threads | `ProjectMemberController`, `ProjectSubjectAccessResolver`, `INhAiSubjectAccess.RefreshAsync` |
 | Intake reviews | proposals waiting for the signed-in person, and one project's proposals, runs, working memory and files | `@newheap/platform-ai-chat/agent-runs`, `NhAssistantAgentRunApiService` |
@@ -1312,6 +1312,30 @@ list, and `classesGetLambda` shows the archived status as inactive. Each
 dropdown keeps one settings object, because every new settings object reloads
 the options. The custom project-code control in the platform playground shows
 the same pristine state after "Set from code" (SPM-148).
+
+## Sanitized rich text and relative times
+
+The utility playground shows pasted rich text next to its sanitized rendering
+(SPM-155). The field holds the raw HTML that an e-mail client or Word puts on the
+clipboard; pasting rich text into it shows that HTML instead of the plain text a
+textarea would keep. Beside it, `nhSanitizeHtml` from the optional
+`@newheap/platform-common/sanitize` entry point renders the content, and the
+markup that `NhHtmlSanitizer.sanitize` returns is printed below. The example keeps
+its headings, lists, table and the documentation link, which gets
+`rel="noopener noreferrer"` and opens in a new tab, and loses the Word styles and
+comments, the event handler, the `javascript:` link, the tracking image, the
+script and the frame. The sample installs `dompurify`, the entry point's optional
+peer. The deprecated `safeHtml` remains in the pipe overview as the labelled
+low-level alternative for HTML the application wrote itself, because it bypasses
+Angular's sanitizer; the frontend integrity check keeps pasted content away from
+it.
+
+The same playground lists project activity with `nhRelativeTime` (SPM-156): a
+comment twenty seconds ago, a status change three hours ago, a review in two days
+and a renewal next year, in the active language. The live column keeps itself
+current through the pipe's shared timer, the next column passes the moment the
+page opened as `now`, as a test or server render does, and the last uses the
+short style. The value grid shows `nhFormatRelativeTime` in Dutch.
 
 ## Public, composite, and short surfaces
 
