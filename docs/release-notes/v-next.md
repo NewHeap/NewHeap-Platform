@@ -248,3 +248,9 @@ application's translations override, and the `--nh-color-*` custom properties fo
   whether a status is unfinished.
 
 No breaking changes: existing components, `NhCommonModule` and their texts are unchanged.
+
+## @newheap/platform-ai-chat: ordered list start and table column alignment in Markdown
+
+- Assistant messages and `nh-assistant-document` now keep `start` on an ordered list that does not begin at 1
+  (`3.` renders as 3) and `align` on the cells of an aligned table column. DOMPurify used to drop both because it
+  checked their plain values against the link pattern. The set of allowed attributes is unchanged.

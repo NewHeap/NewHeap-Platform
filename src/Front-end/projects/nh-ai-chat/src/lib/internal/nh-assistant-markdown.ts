@@ -9,6 +9,12 @@ export const nhAssistantMarkdownTags: readonly string[] = [
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td'
 ];
 export const nhAssistantMarkdownAttributes: readonly string[] = ['href', 'title', 'start', 'align'];
+/**
+ * The allowed attributes that hold plain values rather than URIs: an ordered list's `start` and
+ * a table cell's `align`. DOMPurify checks every attribute outside its URI-safe list against
+ * `ALLOWED_URI_REGEXP`, which would drop `start="3"` and `align="center"`.
+ */
+export const nhAssistantMarkdownUriSafeAttributes: readonly string[] = ['start', 'align'];
 const allowedUris = /^(?:https?:|mailto:|\/(?!\/)|#)/i;
 
 export function nhAssistantEscapeHtml(text: string): string {
@@ -53,6 +59,7 @@ export class NhAssistantMarkdownRenderer {
     return purifier.sanitize(html, {
       ALLOWED_TAGS: [...nhAssistantMarkdownTags],
       ALLOWED_ATTR: [...nhAssistantMarkdownAttributes],
+      ADD_URI_SAFE_ATTR: [...nhAssistantMarkdownUriSafeAttributes],
       ALLOWED_URI_REGEXP: allowedUris,
       ALLOW_DATA_ATTR: false,
       ALLOW_ARIA_ATTR: false

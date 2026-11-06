@@ -3,7 +3,12 @@ import { Injectable, inject } from '@angular/core';
 import createDOMPurify, { DOMPurify } from 'dompurify';
 import { Marked, Renderer, Token, Tokens, TokensList } from 'marked';
 import { NhAssistantDocumentHeading } from '../models/assistant-document.models';
-import { nhAssistantEscapeHtml, nhAssistantMarkdownAttributes, nhAssistantMarkdownTags } from './nh-assistant-markdown';
+import {
+  nhAssistantEscapeHtml,
+  nhAssistantMarkdownAttributes,
+  nhAssistantMarkdownTags,
+  nhAssistantMarkdownUriSafeAttributes
+} from './nh-assistant-markdown';
 
 /** Links that leave the bundle: only these schemes, and they open in a new tab. */
 export const nhAssistantExternalLinkPattern = /^(?:https?:|mailto:)/i;
@@ -319,6 +324,7 @@ export class NhAssistantDocumentMarkdownRenderer {
       return purifier.sanitize(html, {
         ALLOWED_TAGS: [...nhAssistantMarkdownTags],
         ALLOWED_ATTR: [...nhAssistantMarkdownAttributes, 'id'],
+        ADD_URI_SAFE_ATTR: [...nhAssistantMarkdownUriSafeAttributes],
         ALLOWED_URI_REGEXP: /^(?:https?:|mailto:|#)/i,
         ALLOW_DATA_ATTR: false,
         ALLOW_ARIA_ATTR: false
