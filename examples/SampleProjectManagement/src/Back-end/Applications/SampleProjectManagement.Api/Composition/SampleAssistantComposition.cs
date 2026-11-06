@@ -129,7 +129,10 @@ public static class SampleAssistantComposition
             // SPM-359: internal data only and no fallback, as for a model hosted outside the application's
             // control. GET agents offers no uploads for an agent on it.
             .AddChatProfile(InternalProfileName, profile => ConfigureChatProfile(profile, model, mediaTypes, regions)
-                .PermitDataClassifications(NhAiDataClassification.Internal)));
+                .PermitDataClassifications(NhAiDataClassification.Internal))
+            // SPM-232: a call the OpenAI-compatible endpoint refuses reports its status and error code,
+            // such as 401 and invalid_api_key, without the provider's message.
+            .AddModelProviderFailureReader<SampleOpenAiFailureReader>());
 
         services.AddNewHeapAssistant(assistant => assistant
             .UsePostgreSql(

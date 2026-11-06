@@ -724,7 +724,7 @@ public sealed class AiToolSamplesTests
     }
 
     [Fact]
-    public async Task Project_tool_concurrency_is_bounded_per_tenant()
+    public async Task Project_tool_concurrency_is_bounded_per_tenant_and_a_further_call_waits_for_the_free_slot()
     {
         var divisionId = Guid.NewGuid();
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -750,18 +750,21 @@ public sealed class AiToolSamplesTests
 
         var tenantA = SearchAsTenantAsync(provider, descriptor, "tenant-a");
         await readService.SearchHeld.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        // The held search fills tenant A's MaxConcurrency of one. A further search of tenant A waits for
+        // that slot, at most until the tool's timeout or the call's deadline on the application's clock,
+        // while another tenant's search runs at once.
+        var tenantAWaiting = SearchAsTenantAsync(provider, descriptor, "tenant-a");
         var tenantB = await SearchAsTenantAsync(provider, descriptor, "tenant-b");
-        var tenantAOverflow = await SearchAsTenantAsync(provider, descriptor, "tenant-a");
+        Assert.False(tenantAWaiting.IsCompleted);
         release.SetResult();
 
         Assert.Equal(1, descriptor.MaxConcurrency);
         Assert.True(tenantB.Success);
-        Assert.False(tenantAOverflow.Success);
-        Assert.Contains(
-            tenantAOverflow.GetResultItems(),
-            item => item.Name == NhAiToolFailureCodes.ConcurrencyLimited);
         Assert.True((await tenantA).Success);
-        Assert.Equal(2, readService.SearchCount);
+        // The waiting search runs once the held one has finished; it would be refused with
+        // ai-tool-concurrency-limited only when its wait ended first.
+        Assert.True((await tenantAWaiting.WaitAsync(TimeSpan.FromSeconds(30))).Success);
+        Assert.Equal(3, readService.SearchCount);
     }
 
     [Fact]
