@@ -27,7 +27,7 @@ The same consumer check runs before either package is published.
 | Authentication playground | password, OAuth, refresh, multiple roles, scoped permissions, and authentication overrides | authentication service, request claims, policies, guards, and pipes |
 | Operations API | CAP, Hangfire, email with a named SMTP security mode, and notification delivery | event configurator, `NhHangfireUtil`, `NhMailService` with `MailServiceSettings.SecurityMode`, notification builder |
 | Notification playground | polling, badge, mark-as-read, and archive | abstract notification component, service, and controller |
-| Platform playground | text, binary, download, modal, multi-select, custom control, head, and JSON-LD | HTTP options, modal, form, head, and configuration services |
+| Platform playground | text, binary, download, modal, multi-select, custom control, context menu, head, and JSON-LD | HTTP options, modal, form, context menu, head, and configuration services |
 | Utility playground | strings, arrays, encoding, mutex, cookies, safe and date pipes | concrete utilities and components |
 | EF Core chunks | ordered project query in bounded asynchronous batches | `IQueryable.ChunkAsync` with cancellation |
 | Project members | members with reader, participant and approver roles that decide access to the project's agent threads | `ProjectMemberController`, `ProjectSubjectAccessResolver`, `INhAiSubjectAccess.RefreshAsync` |
@@ -1156,6 +1156,25 @@ body does. `nh-json-ld` writes every `<` in the serialized JSON as a
 JSON unicode escape and escapes the line and paragraph separators, so that text
 stays data inside the one structured-data script element and parses back
 unchanged.
+
+## Context menu
+
+The platform playground opens one project menu in two ways (SPM-140): a
+right-click on the project row opens it at the pointer with
+`NhContextMenu.fromEvent`, and the Project actions button opens it below itself
+with `NhContextMenu.fromElement`, so keyboard users reach the same actions.
+`NhContextMenuService` renders a WAI-ARIA menu: focus moves to the first item,
+the arrow keys, Home and End move, Enter and Space activate, and Escape or Tab
+close the menu and return focus to the button.
+
+The item titles are translated text with the project code the user typed in
+them; the service renders titles as text, so markup in the code stays visible
+as characters. Icons come from `iconClass`. The Pinned item is a checkbox item,
+Archive is disabled, and the failing action rejects: the menu still closes and
+the error reaches the `ErrorHandler` providers. The menu is fixed to the
+viewport, flips near the right and bottom edges and scrolls when it is taller
+than the viewport. The library's service spec proves the keyboard, placement,
+dismissal and failure behavior.
 
 ## Backend configuration for runtime and automation
 
