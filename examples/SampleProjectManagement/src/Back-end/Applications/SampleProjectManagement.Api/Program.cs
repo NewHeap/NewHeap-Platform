@@ -171,6 +171,8 @@ builder.Services
             authentication.EnableRefreshToken = true;
             authentication.EnableDivisions = true;
             authentication.EnableImpersonate = true;
+            // SPM-067: an impersonation has no refresh token and ends when this token expires.
+            authentication.ExpirationTimespanImpersonationToken = TimeSpan.FromHours(1);
             authentication.AccessTokenCookieName = "sample_project_management_auth";
             authentication.RefreshTokenCookieName = "sample_project_management_refresh";
             authentication.Enabled = true;

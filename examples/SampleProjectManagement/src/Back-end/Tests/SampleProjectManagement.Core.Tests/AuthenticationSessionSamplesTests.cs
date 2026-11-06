@@ -17,6 +17,7 @@ using SampleProjectManagement.Api.Authorization;
 using SampleProjectManagement.Api.Composition;
 using SampleProjectManagement.Api.Services;
 using SampleProjectManagement.DAL;
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Xunit;
@@ -26,7 +27,8 @@ namespace SampleProjectManagement.Core.Tests;
 /// <summary>
 /// Evidence for the session cases with the API's own authentication composition: the refresh-token
 /// table holds only digests of the tokens, a blocked account receives no session and cannot refresh,
-/// and an impersonation ends with the session of the user who started it.
+/// an impersonation is short-lived and ends with the session of the user who started it, and Identity
+/// explains a refused password in the user's language.
 /// </summary>
 public sealed class AuthenticationSessionSamplesTests(SamplePostgreSqlServer postgreSql)
 {
@@ -107,6 +109,11 @@ public sealed class AuthenticationSessionSamplesTests(SamplePostgreSqlServer pos
         var principal = PrincipalOf(impersonation.Data.Token);
         Assert.True(await sessionValidator.ValidateAsync(principal, cancellationToken));
 
+        // Without a refresh token the impersonation ends with its access token, after the hour the
+        // API configures with ExpirationTimespanImpersonationToken instead of the one-day default.
+        var impersonationToken = new JwtSecurityTokenHandler().ReadJwtToken(impersonation.Data.Token);
+        Assert.Equal(TimeSpan.FromHours(1), impersonationToken.ValidTo - impersonationToken.ValidFrom);
+
         // Blocking the manager ends the impersonation, and revert restores no session of the manager.
         await userManager.UpdateUserLockout(manager, DateTimeOffset.UtcNow.AddMinutes(-1), end: null, cancellationToken);
         Assert.False(await sessionValidator.ValidateAsync(principal, cancellationToken));
@@ -126,6 +133,55 @@ public sealed class AuthenticationSessionSamplesTests(SamplePostgreSqlServer pos
             cancellationToken: cancellationToken);
         Assert.True(passwordChange.Success);
         Assert.False(await sessionValidator.ValidateAsync(principal, cancellationToken));
+    }
+
+    /// <summary>
+    /// SPM-092: the platform's Identity error describer explains a refused password in the user's
+    /// language, Dutch for nl-NL and English for the API's other culture, without resources of the
+    /// application's own.
+    /// </summary>
+    [Fact]
+    public async Task APasswordTheIdentityRulesRefuseIsExplainedInTheUsersLanguage()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        using var application = BuildApplication(await postgreSql.CreateMigratedDatabaseAsync("authentication_identity_errors"));
+        using var scope = application.Services.CreateScope();
+        await SampleDevelopmentIdentitySeeder.SeedAsync(scope.ServiceProvider);
+
+        var userManager = scope.ServiceProvider.GetRequiredService<INhUserManager<NhUser>>();
+        var manager = (await userManager.FindByNameAsync(SampleAuthorizationDefaults.ManagerEmail))!;
+
+        async Task<IReadOnlyList<string>> RefusedPasswordMessagesAsync(string culture)
+        {
+            var previousCulture = CultureInfo.CurrentUICulture;
+            try
+            {
+                CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(culture);
+
+                // Long enough for the model, but without the uppercase letter Identity requires.
+                var change = await userManager.ChangePasswordWithoutCurrentPasswordAsync(
+                    manager.Id,
+                    new NhWithoutCurrentPasswordChangePasswordUserMutateModel
+                    {
+                        Password = "zonder-hoofdletter1",
+                        ConfirmPassword = "zonder-hoofdletter1",
+                    },
+                    cancellationToken: cancellationToken);
+                Assert.False(change.Success);
+                return change.AllErrorMessages.Select(message => message.ToString()).ToList();
+            }
+            finally
+            {
+                CultureInfo.CurrentUICulture = previousCulture;
+            }
+        }
+
+        Assert.Equal(
+            ["Wachtwoorden moeten minstens één hoofdletter ('A'-'Z') bevatten."],
+            await RefusedPasswordMessagesAsync("nl-NL"));
+        Assert.Equal(
+            ["Passwords must have at least one uppercase ('A'-'Z')."],
+            await RefusedPasswordMessagesAsync("en-US"));
     }
 
     /// <summary>
@@ -211,6 +267,7 @@ public sealed class AuthenticationSessionSamplesTests(SamplePostgreSqlServer pos
                     authentication.EnableRefreshToken = true;
                     authentication.EnableDivisions = true;
                     authentication.EnableImpersonate = true;
+                    authentication.ExpirationTimespanImpersonationToken = TimeSpan.FromHours(1);
                 });
                 options.AddTwoFactor(twoFactor => twoFactor.ConfigureSampleTwoFactor(builder.Configuration));
             })
