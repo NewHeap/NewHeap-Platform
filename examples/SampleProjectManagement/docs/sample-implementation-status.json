@@ -425,7 +425,8 @@
     "SPM-007": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/PublicProjectCatalogController.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/BackendLibraryPartialSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/PublicProjectCatalogSamplesTests.cs"
     ],
     "SPM-008": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectCompositeController.cs",
@@ -4507,6 +4508,7 @@
       "src/Front-end/projects/management/public/i18n/en.json",
       "src/Front-end/projects/management/src/styles.scss",
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/PublicProjectCatalogController.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/PublicProjectCatalogSamplesTests.cs",
       "../../src/Front-end/projects/nh-select/src/lib/nh-combobox.component.ts",
       "../../src/Front-end/projects/nh-select/src/lib/nh-multiselect.component.ts",
       "../../src/Front-end/projects/nh-select/src/lib/nh-select-base.ts",
