@@ -102,7 +102,10 @@ export class PlatformPlaygroundComponent {
   });
 
   readonly result = signal('Choose an action to execute the concrete library call.');
+  readonly debounceInput = signal('initial value');
   readonly debouncedValue = signal('');
+  readonly preDebounceCount = signal(0);
+  readonly debounceCount = signal(0);
   readonly buttonDebounceCount = signal(0);
   readonly teardownProbeVisible = signal(true);
   readonly teardownProbeValue = signal('begin');
@@ -438,8 +441,13 @@ export class PlatformPlaygroundComponent {
     this.projectCode.disabled ? this.projectCode.enable() : this.projectCode.disable();
   }
 
+  preDebounced(): void {
+    this.preDebounceCount.update(value => value + 1);
+  }
+
   debounce(value: string): void {
     this.debouncedValue.set(value);
+    this.debounceCount.update(count => count + 1);
   }
 
   buttonDebounced(): void {

@@ -18,16 +18,20 @@ Build collection requests with fluent helpers such as `.equals()`, `.and()`, `.o
 
 Let a collection component perform its own initial load. Use `beforeLoad`, `onLoad`, and `afterLoad` around every request and provide useful loading, empty, and error states. Show raw filter construction only as a lower-level alternative.
 
+Take free-text search from `nh-search-input` or from a field with `[ngModel][nhDebounce]`. `onDebounce` reports the value once typing pauses and `preDebounce` reports each change at once. Neither reports the initial `ngModel` value, and a value still waiting when the field is destroyed is not reported, so the initial load fetches the first page and each pause in typing adds one request. Pass the visible label text to `nh-search-input` through `label`; without it the field is named by the translated `general.search` text that its placeholder shows. `inputId` puts an id on the field for a page label's `for` attribute.
+
 ## Avoid
 
 - Calling `load()` again from `appOnInit` to force the initial load.
 - Client-side `ToList`, `AsEnumerable`, or array filtering to hide a provider translation problem.
 - Manually assembled filter strings as the recommended example.
 - `if (value)` for filters that may contain `false` or `0`.
+- Waiting for `onDebounce` to report the initial search value instead of loading the first page yourself.
+- A search field that only a placeholder names.
 
 ## Verification
 
-Test AND/OR, null, text, date ranges, multiple values, single and multi-column sorting, and paging through the frontend and API. Run backend query tests on SQL Server and PostgreSQL whenever a query shape or translation changes.
+Test AND/OR, null, text, date ranges, multiple values, single and multi-column sorting, and paging through the frontend and API. Check that a search field reports no initial value, that rapid typing produces one request, and that the field's accessible name matches its visible label. Run backend query tests on SQL Server and PostgreSQL whenever a query shape or translation changes.
 
 ## Executable evidence
 
@@ -72,3 +76,12 @@ Test AND/OR, null, text, date ranges, multiple values, single and multi-column s
   - [src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Controllers/ProjectController.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectCollectionSampleService.cs)
   - [src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts)
+- SPM-127 — Search debounce
+  - [src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts)
+  - [src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.html)
+  - [../../src/Front-end/projects/nh-common/src/lib/components/nh-search-input/search-input.component.spec.ts](../../examples/SampleProjectManagement/../../src/Front-end/projects/nh-common/src/lib/components/nh-search-input/search-input.component.spec.ts)
+  - [src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts)
+- SPM-157 — Debounced events
+  - [src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts)
+  - [src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html)
+  - [../../src/Front-end/projects/nh-common/src/lib/directives/nh-debounce.directives.spec.ts](../../examples/SampleProjectManagement/../../src/Front-end/projects/nh-common/src/lib/directives/nh-debounce.directives.spec.ts)

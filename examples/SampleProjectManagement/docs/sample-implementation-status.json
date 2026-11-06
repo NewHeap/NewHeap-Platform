@@ -1206,6 +1206,8 @@
     ],
     "SPM-127": [
       "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.html",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-search-input/search-input.component.spec.ts",
       "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
       "src/Front-end/projects/management/src/app/sample.routes.ts"
     ],
@@ -1352,7 +1354,8 @@
     ],
     "SPM-157": [
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
-      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html",
+      "../../src/Front-end/projects/nh-common/src/lib/directives/nh-debounce.directives.spec.ts"
     ],
     "SPM-158": [
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",

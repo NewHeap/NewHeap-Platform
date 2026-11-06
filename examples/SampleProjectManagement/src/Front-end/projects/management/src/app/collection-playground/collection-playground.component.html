@@ -10,7 +10,7 @@
   <div class="library-controls">
     <label>
       <span>{{ 'project.library-search-control' | translate }}</span>
-      <nh-search-input [value]="search()" (onDebounce)="updateSearchValue($event)"></nh-search-input>
+      <nh-search-input [label]="'project.library-search-control' | translate" [value]="search()" (onDebounce)="updateSearchValue($event)"></nh-search-input>
     </label>
     <label>
       <span>{{ 'project.library-page-size-control' | translate }}</span>

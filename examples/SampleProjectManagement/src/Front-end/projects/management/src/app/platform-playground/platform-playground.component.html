@@ -49,9 +49,9 @@
 
     <article>
       <h3>Input and button debounce with teardown</h3>
-      <p>Both directives run live. The teardown sample destroys the input before the timer expires and verifies that no event follows.</p>
-      <label class="debounce-field">Inputdebounce
-        <input type="text" ngModel [nhDebounce]="350" (onDebounce)="debounce($event)" placeholder="Typ snel…">
+      <p>Both directives run live. The input starts with a value that neither output reports: preDebounce reports each change at once and onDebounce the last one after 350 ms. The teardown sample destroys the input before the timer expires and verifies that no event follows.</p>
+      <label class="debounce-field">Input debounce
+        <input type="text" [(ngModel)]="debounceInput" [nhDebounce]="350" (preDebounce)="preDebounced()" (onDebounce)="debounce($event)" placeholder="Type quickly…">
       </label>
       <div class="actions">
         <button type="button" nhButtonDebounce [debounce]="350" (onDebounce)="buttonDebounced()">Click rapidly several times</button>
@@ -60,7 +60,7 @@
       @if (teardownProbeVisible()) {
         <input class="hidden-probe" [ngModel]="teardownProbeValue()" [nhDebounce]="350" (onDebounce)="recordTeardownEmission()" aria-label="Debounce teardown probe">
       }
-      <small>Input: {{ debouncedValue() || '-' }} | button events: {{ buttonDebounceCount() }} | probe events: {{ teardownEmissionCount() }}</small>
+      <small>Input: {{ debouncedValue() || '-' }} | preDebounce events: {{ preDebounceCount() }} | onDebounce events: {{ debounceCount() }} | button events: {{ buttonDebounceCount() }} | probe events: {{ teardownEmissionCount() }}</small>
     </article>
 
     <article>
