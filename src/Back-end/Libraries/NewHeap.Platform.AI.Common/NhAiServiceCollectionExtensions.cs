@@ -238,6 +238,20 @@ public sealed class NhAiBuilder
     }
 
     /// <summary>
+    /// Adds a reader that gets the content-free status and code from the exceptions of one provider
+    /// SDK, so a failed model call reports them (<see cref="NhAiModelProviderFailure"/>) and a
+    /// retry-eligible profile retries its transient statuses. The executor reads
+    /// <see cref="HttpRequestException"/> itself; readers answer in their registration order.
+    /// </summary>
+    public NhAiBuilder AddModelProviderFailureReader<TReader>()
+        where TReader : class, INhAiModelProviderFailureReader
+    {
+        _services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<INhAiModelProviderFailureReader, TReader>());
+        return this;
+    }
+
+    /// <summary>
     /// Adds a source of the application map that agents with <c>UseApplicationMap()</c> read at the
     /// start of a turn. The API bridge gateway registers its own.
     /// </summary>
