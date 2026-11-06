@@ -1,0 +1,24 @@
+<div class="nh-skeleton" [attr.data-shape]="shape()" aria-hidden="true">
+  @for (index of indexes(); track index) {
+    @if (shape() === 'row') {
+      <div class="nh-skeleton__row">
+        <span class="nh-skeleton__bone nh-skeleton__bone--avatar"></span>
+        <span class="nh-skeleton__lines">
+          <span class="nh-skeleton__bone nh-skeleton__bone--line"></span>
+          <span class="nh-skeleton__bone nh-skeleton__bone--line nh-skeleton__bone--short"></span>
+        </span>
+      </div>
+    } @else {
+      <span
+        class="nh-skeleton__bone"
+        [class.nh-skeleton__bone--line]="shape() === 'line'"
+        [class.nh-skeleton__bone--block]="shape() === 'block'"
+        [class.nh-skeleton__bone--avatar]="shape() === 'avatar'"
+        [style.width]="width() ?? null"
+        [style.height]="height() ?? null"></span>
+    }
+  }
+</div>
+@if (announce()) {
+  <span class="nh-skeleton__status" role="status">{{ announced() ? (label() || ('nh-common.skeleton.loading' | nhCommonText)) : '' }}</span>
+}

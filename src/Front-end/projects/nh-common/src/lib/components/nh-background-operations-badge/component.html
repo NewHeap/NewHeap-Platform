@@ -1,0 +1,23 @@
+@if (visible()) {
+  @let name = nameKey() | nhCommonText: {
+    label: label() || ('nh-common.background-operations-badge.label' | nhCommonText),
+    count: activeCount()
+  };
+  <button
+    type="button"
+    class="nh-operations-badge"
+    [class.nh-operations-badge--active]="activeCount() > 0"
+    [class.nh-operations-badge--unavailable]="unavailable()"
+    [disabled]="disabled()"
+    [attr.aria-label]="name"
+    [attr.title]="name"
+    (click)="open()">
+    <nh-common-icon class="nh-operations-badge__icon" name="background-operations" />
+    @if (unavailable()) {
+      <span class="nh-operations-badge__alert" aria-hidden="true"></span>
+    } @else if (activeCount() > 0) {
+      <span class="nh-operations-badge__count" aria-hidden="true">{{ displayCount() }}</span>
+    }
+  </button>
+}
+<span class="nh-operations-badge__announcement" aria-live="polite" aria-atomic="true">{{ announcement() }}</span>

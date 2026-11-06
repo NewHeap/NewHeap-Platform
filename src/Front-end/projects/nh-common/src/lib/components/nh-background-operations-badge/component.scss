@@ -1,0 +1,108 @@
+// A 40px header button. Applications theme it with the `--nh-color-*` and `--nh-radius-control`
+// custom properties; every value has a fallback.
+:host {
+  display: inline-flex;
+  flex: none;
+  color: var(--nh-color-text, inherit);
+}
+
+.nh-operations-badge {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--nh-color-border, color-mix(in srgb, currentColor 22%, transparent));
+  border-radius: var(--nh-radius-control, .75rem);
+  color: inherit;
+  background: var(--nh-color-surface, transparent);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--nh-motion-fast, 120ms) ease;
+}
+
+.nh-operations-badge:hover:not(:disabled) {
+  background: var(--nh-color-surface-subtle, color-mix(in srgb, currentColor 8%, transparent));
+}
+
+.nh-operations-badge:focus-visible {
+  outline: 3px solid var(--nh-color-focus, currentColor);
+  outline-offset: 2px;
+}
+
+.nh-operations-badge:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.nh-operations-badge__icon {
+  font-size: 1.25rem;
+}
+
+.nh-operations-badge--active .nh-operations-badge__icon {
+  color: var(--nh-color-accent, #ff6700);
+}
+
+.nh-operations-badge__count {
+  position: absolute;
+  top: -.375rem;
+  right: -.375rem;
+  min-width: 1.125rem;
+  padding: 1px .3125rem;
+  border: 2px solid var(--nh-color-badge-ring, var(--nh-color-surface, #ffffff));
+  border-radius: 999px;
+  color: var(--nh-color-on-accent, #000000);
+  background: var(--nh-color-accent, #ff6700);
+  font-size: .625rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: .875rem;
+  text-align: center;
+}
+
+.nh-operations-badge__alert {
+  position: absolute;
+  top: -.25rem;
+  right: -.25rem;
+  width: .75rem;
+  height: .75rem;
+  border: 2px solid var(--nh-color-badge-ring, var(--nh-color-surface, #ffffff));
+  border-radius: 50%;
+  background: var(--nh-color-danger, #b42318);
+}
+
+.nh-operations-badge__announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .nh-operations-badge--active .nh-operations-badge__icon {
+    animation: nh-operations-badge-pulse 2.4s ease-in-out infinite;
+  }
+}
+
+@keyframes nh-operations-badge-pulse {
+  50% {
+    opacity: .55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nh-operations-badge {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .nh-operations-badge__count,
+  .nh-operations-badge__alert {
+    border-color: CanvasText;
+  }
+}

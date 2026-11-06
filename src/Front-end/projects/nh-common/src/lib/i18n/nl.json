@@ -2,6 +2,40 @@
   "nh-common": {
     "modal": {
       "close": "Sluiten"
+    },
+    "pager": {
+      "label": "Paginering",
+      "previous": "Vorige pagina",
+      "next": "Volgende pagina",
+      "page": "Pagina {{page}}",
+      "status": "Pagina {{page}} van {{pageCount}}",
+      "range": "{{from}}–{{to}} van {{total}}"
+    },
+    "empty-state": {
+      "no-data": {
+        "title": "Hier staat nog niets",
+        "description": "Items verschijnen hier zodra ze zijn toegevoegd."
+      },
+      "no-results": {
+        "title": "Geen overeenkomende resultaten",
+        "description": "Probeer een andere zoekterm of wis de filters."
+      },
+      "error": {
+        "title": "Deze lijst kon niet worden geladen",
+        "description": "Controleer je verbinding en probeer het opnieuw."
+      }
+    },
+    "skeleton": {
+      "loading": "Laden…"
+    },
+    "background-operations-badge": {
+      "label": "Achtergrondtaken",
+      "running": "{{label}}: {{count}} actief",
+      "idle": "{{label}}: geen actief",
+      "unavailable": "{{label}}: status niet beschikbaar",
+      "announce-one": "1 achtergrondtaak actief",
+      "announce-other": "{{count}} achtergrondtaken actief",
+      "announce-none": "Geen achtergrondtaken actief"
     }
   }
 }

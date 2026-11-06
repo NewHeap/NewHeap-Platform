@@ -40,18 +40,39 @@ function lookup(bundle: TranslationTree, key: string): string | undefined {
   return typeof current === 'string' ? current : undefined;
 }
 
+/** Arguments of a library text, such as `{page: 2}` for `Page {{page}}`. */
+export type NhCommonTextParameters = Readonly<Record<string, string | number>>;
+
+/** Fills the `{{name}}` placeholders of a bundled text, as the default ngx-translate parser does. */
+function interpolate(text: string, parameters: NhCommonTextParameters | undefined): string {
+  if (!parameters) {
+    return text;
+  }
+
+  return text.replace(/{{\s*([\w.-]+)\s*}}/g, (placeholder, name: string) => {
+    return Object.hasOwn(parameters, name) ? String(parameters[name]) : placeholder;
+  });
+}
+
 /**
  * The text of a library key: the application's translation when it has one, otherwise the
  * bundled text of the current language, otherwise English. Works without `TranslateService`.
+ * `parameters` fill `{{name}}` placeholders in either text.
  */
-export function nhCommonText(translate: TranslateService | null, key: string): string {
+export function nhCommonText(
+  translate: TranslateService | null,
+  key: string,
+  parameters?: NhCommonTextParameters
+): string {
   if (translate) {
-    const translated = translate.instant(key);
+    const translated = translate.instant(key, parameters);
     if (typeof translated === 'string' && translated.length > 0 && translated !== key) {
       return translated;
     }
   }
 
   const language = translate?.getCurrentLang() || translate?.getFallbackLang() || 'en';
-  return lookup(bundleOf(language), key) ?? lookup(NH_COMMON_TRANSLATIONS.en as TranslationTree, key) ?? key;
+  const bundled = lookup(bundleOf(language), key) ?? lookup(NH_COMMON_TRANSLATIONS.en as TranslationTree, key);
+
+  return bundled === undefined ? key : interpolate(bundled, parameters);
 }

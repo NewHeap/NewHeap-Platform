@@ -1,0 +1,17 @@
+<div class="nh-empty-state" [attr.data-variant]="variant()">
+  <div class="nh-empty-state__icon" aria-hidden="true">
+    <ng-content select="[nhEmptyStateIcon]"><nh-common-icon [name]="iconName()" /></ng-content>
+  </div>
+
+  <div class="nh-empty-state__text" [attr.role]="liveRole()">
+    <p
+      class="nh-empty-state__heading"
+      [attr.role]="headingLevel() ? 'heading' : null"
+      [attr.aria-level]="headingLevel() ?? null">{{ heading() || (headingKey() | nhCommonText) }}</p>
+    @if (description() ?? (descriptionKey() | nhCommonText); as text) {
+      <p class="nh-empty-state__description">{{ text }}</p>
+    }
+  </div>
+
+  <div class="nh-empty-state__actions"><ng-content /></div>
+</div>

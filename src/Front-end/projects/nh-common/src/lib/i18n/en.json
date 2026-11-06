@@ -2,6 +2,40 @@
   "nh-common": {
     "modal": {
       "close": "Close"
+    },
+    "pager": {
+      "label": "Pagination",
+      "previous": "Previous page",
+      "next": "Next page",
+      "page": "Page {{page}}",
+      "status": "Page {{page}} of {{pageCount}}",
+      "range": "{{from}}–{{to}} of {{total}}"
+    },
+    "empty-state": {
+      "no-data": {
+        "title": "Nothing here yet",
+        "description": "Items appear here as soon as they are added."
+      },
+      "no-results": {
+        "title": "No matching results",
+        "description": "Try another search term or clear the filters."
+      },
+      "error": {
+        "title": "This list could not be loaded",
+        "description": "Check your connection and try again."
+      }
+    },
+    "skeleton": {
+      "loading": "Loading…"
+    },
+    "background-operations-badge": {
+      "label": "Background operations",
+      "running": "{{label}}: {{count}} running",
+      "idle": "{{label}}: none running",
+      "unavailable": "{{label}}: status unavailable",
+      "announce-one": "1 background operation running",
+      "announce-other": "{{count}} background operations running",
+      "announce-none": "No background operations running"
     }
   }
 }

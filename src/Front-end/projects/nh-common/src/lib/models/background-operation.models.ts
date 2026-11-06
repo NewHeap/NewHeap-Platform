@@ -242,6 +242,25 @@ export function nhBackgroundOperationStatusName(status: NhBackgroundOperationSta
   } as Record<number, string>)[status] ?? 'Unknown';
 }
 
+const activeBackgroundOperationStatuses = new Set([
+  'PendingDispatch',
+  'Queued',
+  'Running',
+  'WaitingForChildren',
+  'WaitingForSignal',
+  'CancelRequested',
+  'RetryScheduled'
+]);
+
+/**
+ * Whether an operation with this status has not finished yet: it waits to start, runs, waits for
+ * children or a signal, is being cancelled or waits for a retry. Succeeded, failed, cancelled,
+ * timed-out and unknown statuses are not active.
+ */
+export function nhBackgroundOperationIsActive(status: NhBackgroundOperationStatus): boolean {
+  return activeBackgroundOperationStatuses.has(nhBackgroundOperationStatusName(status));
+}
+
 export function nhBackgroundOperationStepStatusName(status: NhBackgroundOperationStepStatus): string {
   if (typeof status === 'string') {
     return status;
