@@ -193,10 +193,17 @@ export class NhToastrComponent {
     }
 
     protected leaveFocus(event: FocusEvent): void {
-        // Moving focus between the buttons of the same toast keeps it paused.
         const toastElement = event.currentTarget as HTMLElement;
         const nextFocus = event.relatedTarget as Node | null;
+
+        // Moving focus between the buttons of the same toast keeps it paused.
         if (nextFocus && toastElement.contains(nextFocus)) {
+            return;
+        }
+
+        // Switching to another window or tab blurs the button without moving focus away from it, and
+        // focus returns to it afterwards; keep the toast paused so it is still there on return.
+        if (!nextFocus && !toastElement.ownerDocument.hasFocus()) {
             return;
         }
 

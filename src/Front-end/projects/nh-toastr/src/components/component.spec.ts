@@ -147,6 +147,7 @@ describe('NhToastrComponent action button', () => {
             action: { label: 'Undo' }
         });
         render();
+        spyOn(document, 'hasFocus').and.returnValue(true);
         const pause = spyOn(toastr, 'pause').and.callThrough();
         const resume = spyOn(toastr, 'resume').and.callThrough();
 
@@ -161,6 +162,31 @@ describe('NhToastrComponent action button', () => {
 
         focusOut(actionButton(), null);
         expect(resume).toHaveBeenCalledTimes(1);
+        tick(500);
+        expect(state()).toBe('leaving');
+
+        flush();
+    }));
+
+    it('stays paused while the window is in the background with focus on the toast button', fakeAsync(() => {
+        toastr.success('Status changed', undefined, {
+            timeOut: 1000,
+            extendedTimeOut: 500,
+            action: { label: 'Undo' }
+        });
+        render();
+        const hasFocus = spyOn(document, 'hasFocus').and.returnValue(false);
+
+        focusIn(actionButton());
+        // Another window or tab takes focus: the button blurs, but stays the focused element of the page.
+        focusOut(actionButton(), null);
+        tick(5000);
+        expect(state()).toBe('active');
+
+        // Back in the window, focus returns to the button and then moves elsewhere on the page.
+        hasFocus.and.returnValue(true);
+        focusIn(actionButton());
+        focusOut(actionButton(), null);
         tick(500);
         expect(state()).toBe('leaving');
 
