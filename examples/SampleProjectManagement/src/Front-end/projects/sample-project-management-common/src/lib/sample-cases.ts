@@ -1844,13 +1844,15 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-127",
     "title": "Search debounce",
     "category": "Frontend collections, routing, authentication, and interaction",
-    "surface": "search input/directive",
-    "outcome": "Rapid typing produces one request.",
+    "surface": "search input/directive, NhSearchInputComponent.label",
+    "outcome": "Rapid typing produces one request, the initial value is not reported as a search, and the search field's accessible name matches its visible label.",
     "implementation": "implemented",
     "evidence": [
       "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.html",
       "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
-      "src/Front-end/projects/management/src/app/sample.routes.ts"
+      "src/Front-end/projects/management/src/app/sample.routes.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-search-input/search-input.component.spec.ts"
     ]
   },
   {
@@ -2231,11 +2233,12 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Debounced events",
     "category": "Utilities, SEO, SSR, and observability",
     "surface": "input/click directives",
-    "outcome": "Timing and teardown are visible.",
+    "outcome": "Timing and teardown are visible: neither preDebounce nor onDebounce reports the initial ngModel value, and a value still waiting when the field is destroyed is not reported.",
     "implementation": "implemented",
     "evidence": [
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
-      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html",
+      "../../src/Front-end/projects/nh-common/src/lib/directives/nh-debounce.directives.spec.ts"
     ]
   },
   {

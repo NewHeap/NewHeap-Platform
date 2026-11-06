@@ -207,7 +207,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | ID | Case | Library surface | Verifiable outcome |
 |---|---|---|---|
 | SPM-126 | Collection base | collection base component + `appOn...` | appOnInit runs before the initial beforeLoad, onLoad, and afterLoad cycle. |
-| SPM-127 | Search debounce | search input/directive | Rapid typing produces one request. |
+| SPM-127 | Search debounce | search input/directive, `NhSearchInputComponent.label` | Rapid typing produces one request, the initial value is not reported as a search, and the search field's accessible name matches its visible label. |
 | SPM-128 | Page size | page-size component | Changing page size resets the page and preserves the preference. |
 | SPM-129 | Page base | page base component + `appOn...` | Title, breadcrumb, and route loading use the base lifecycle; independent work is detached with observed errors while required ordering remains awaitable. |
 | SPM-130 | Dirty navigation | cancel guard/interface | Confirmation respects cancellation. |
@@ -242,7 +242,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-154 | Loader and error boundary | components/handlers | Loading, empty, and error states are separate. |
 | SPM-155 | Safe content | safe HTML/style/URL pipes | Only trusted content is exposed. |
 | SPM-156 | Date and primitive pipes | date/boolean pipes | Timezone, null, and boolean values are localized. |
-| SPM-157 | Debounced events | input/click directives | Timing and teardown are visible. |
+| SPM-157 | Debounced events | input/click directives | Timing and teardown are visible: neither preDebounce nor onDebounce reports the initial ngModel value, and a value still waiting when the field is destroyed is not reported. |
 | SPM-158 | Application and page state | app/page/config services | Runtime configuration changes without a reload. |
 | SPM-159 | Provider-neutral frontend error handling | NH_ERROR_HANDLERS/ErrorHandler provider chain | Application errors reach registered providers without requiring a vendor SDK or storing raw messages. |
 | SPM-160 | SSR stack | server/node-fetch/translate loaders | SSR is localized and makes no browser-only call. |
