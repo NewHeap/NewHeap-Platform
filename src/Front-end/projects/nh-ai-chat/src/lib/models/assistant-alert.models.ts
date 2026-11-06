@@ -242,9 +242,12 @@ export interface NotificationAlertKind {
   urgentBreaksQuietHours?: boolean;
   /** The kind's digest goes out on working days only. */
   workdaysOnly: boolean;
-  /** The channels that deliver the kind for the person, as they apply. */
+  /**
+   * The channels that deliver the kind for the person, as they apply, whether or not the server offers
+   * them: only those also in `availableChannels` deliver anything.
+   */
   channels: NotificationAlertChannels;
-  /** The channels the person may choose from. */
+  /** The channels the server offers, which the person may choose from where the kind allows it. */
   availableChannels: NotificationAlertChannel[];
 }
 

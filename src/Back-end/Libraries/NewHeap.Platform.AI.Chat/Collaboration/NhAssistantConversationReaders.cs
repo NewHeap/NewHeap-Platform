@@ -254,6 +254,16 @@ internal interface INhAssistantRecipientRules
     /// asks it before anything reaches a person.
     /// </summary>
     ValueTask<bool> IsResolvedForAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether the platform can tell the person's rights for <paramref name="subject"/> now:
+    /// <see langword="false"/> only where principals come from the application's access source
+    /// (<c>UsePrincipalsFromAccessSource</c>) and it holds no fresh context of the person, so a missing
+    /// role may mean that the person was away rather than that they lack it; <see langword="true"/>
+    /// otherwise. The recipient check of alerts asks it when a person lacks the read role, and lets the
+    /// delivery wait instead of dropping it.
+    /// </summary>
+    ValueTask<bool> HoldsFreshContextAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -276,6 +286,11 @@ internal sealed class NhAssistantEveryoneReceives : INhAssistantRecipientRules
     }
 
     public ValueTask<bool> IsResolvedForAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken)
+    {
+        return ValueTask.FromResult(true);
+    }
+
+    public ValueTask<bool> HoldsFreshContextAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken)
     {
         return ValueTask.FromResult(true);
     }

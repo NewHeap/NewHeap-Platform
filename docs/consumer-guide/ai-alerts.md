@@ -89,7 +89,14 @@ Every recipient is checked before anything reaches them, when the alert is raise
 the person exists, the application's principal factory still rebuilds them for the subject in its
 division or tenant, and the subject's resolver gives them at least `Reader`, or the role of a kind that
 selects only members (see below). Anyone else is left out
-with the content-free audit `AgentAlertRecipientDropped`. Replace the selectors only with an
+with the content-free audit `AgentAlertRecipientDropped`. In a host whose principals come from the
+application's access source (`UsePrincipalsFromAccessSource`), a person who lacks the read role while
+the application holds no fresh context of their rights is not left out: the platform cannot tell yet,
+so the raise plans them, the delivery stays pending and a later maintenance pass checks them again. It
+goes out once they are back, is taken back when the alert expires, or is dropped with
+`NhAssistantAlertDropReasons.NoFreshContext` (`no-fresh-context`) once `NhAssistantLimits.AlertFreshContextWait`
+(24 hours by default) passed since it fell due; a person whose fresh rights give no read role is dropped
+at once with `no-access`. Replace the selectors only with an
 `INhAssistantAlertPolicy` registered through `UseAlertPolicy`; the check applies to what it returns too.
 `MaxAlertsPerRun` and `MaxAlertsPerSubjectPerDay` bound the noise. The audit kinds
 `AgentAlertRaised`, `AgentAlertResolved`, `AgentAlertDismissed` and `AgentAlertRecipientDropped` carry
@@ -475,10 +482,17 @@ problem of kind `alert-kind` while the run settings stay in effect, on SQL Serve
 (SPM-395). For the delivery, move the application's clock to 07:30 in a person's time zone
 and assert one digest per person and digest time with its counts, an immediate alert on its own, a
 person in another zone at their own 07:30 and a digest across a change to or from daylight saving time.
-Assert that a person who lost `Reader` before the delivery gets nothing, that a muted kind is withheld
+Run each delivery in a test through `INhAssistantMaintenance.RunOnceAsync` after moving the
+application's clock, instead of waiting for the maintenance interval: when it returns, what fell due
+went out. Assert that a person who lost `Reader` before the delivery gets nothing, that a muted kind is withheld
 and a required one cannot be muted, that a resolved, expired or read alert leaves a waiting digest,
 that the daily limit holds, that two dispatchers never send one delivery twice and that a failing
-channel does not stop the others. Assert that `PUT notifications` changes only the caller's choices and
+channel does not stop the others. With an access source, assert that a person without a fresh context
+is planned and waits, that one whose fresh rights do not read the subject is dropped with `no-access` at
+once, that the waiting delivery goes out once the person is back and is dropped with `no-fresh-context`
+after `AlertFreshContextWait`, and that an alert that expires first takes it back, on SQL Server and
+PostgreSQL. In Angular, assert that the channel hint of a kind the person may not choose names only the
+channels in `availableChannels`. Assert that `PUT notifications` changes only the caller's choices and
 refuses what a kind does not allow. Run the store tests on SQL Server and PostgreSQL. SPM-392 is the
 executable reference.
 

@@ -328,6 +328,19 @@ public sealed class NhAssistantLimits
     /// </summary>
     public int MaxAlertDigestLines { get; set; } = 10;
 
+    /// <summary>
+    /// How long a delivery of an alert waits for a fresh context of its person's rights in a host whose
+    /// principals come from the application's access source (<c>UsePrincipalsFromAccessSource</c>),
+    /// counted from the moment the delivery fell due on the application's clock, from one minute to 30
+    /// days: 24 hours by default. While the application holds no fresh context the platform cannot tell
+    /// whether the person may read the alert's subject, so the delivery stays pending and a later
+    /// maintenance pass checks the person again, about every five minutes. Once the person is back it
+    /// goes out; after this wait it is dropped with <see cref="NhAssistantAlertDropReasons.NoFreshContext"/>,
+    /// and an alert that expires earlier takes it back as expired. A person whose fresh rights give no
+    /// read role is dropped at once.
+    /// </summary>
+    public TimeSpan AlertFreshContextWait { get; set; } = TimeSpan.FromHours(24);
+
     internal void Validate()
     {
         if (MaintenanceInterval < TimeSpan.FromSeconds(1) || MaintenanceInterval > TimeSpan.FromHours(1))
@@ -380,7 +393,9 @@ public sealed class NhAssistantLimits
             || AlertRetention < TimeSpan.FromDays(1)
             || AlertRetention > TimeSpan.FromDays(365)
             || MaxAlertsPerPersonPerDay is < 1 or > 1_000
-            || MaxAlertDigestLines is < 1 or > 50)
+            || MaxAlertDigestLines is < 1 or > 50
+            || AlertFreshContextWait < TimeSpan.FromMinutes(1)
+            || AlertFreshContextWait > TimeSpan.FromDays(30))
         {
             throw new InvalidOperationException("Assistant limits must be positive and bounded.");
         }

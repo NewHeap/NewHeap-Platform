@@ -265,6 +265,18 @@ describe('NhAssistantNotificationPreferencesComponent', () => {
     expect(mutes().map(mute => mute.getAttribute('data-mute-id'))).toEqual(['mute-2']);
   });
 
+  it('names only the channels the server offers in the hint of a kind the person may not choose', async () => {
+    // A server without Web Push still reports that the required kind would push; the hint leaves it out.
+    const withoutPush = await render({ kinds: [{ ...escalated, availableChannels: ['in-app'] }], timeZone: 'Europe/Amsterdam' });
+    const hint = kind(withoutPush, 'task-escalated').querySelector('[data-kind-channels-hint]');
+    expect(hint?.textContent).toContain('Notifications in the application');
+    expect(hint?.textContent).not.toContain('Desktop notifications');
+
+    TestBed.resetTestingModule();
+    const withNothing = await render({ kinds: [{ ...escalated, availableChannels: [] }], timeZone: 'Europe/Amsterdam' });
+    expect(kind(withNothing, 'task-escalated').querySelector('[data-kind-channels-hint]')).withContext('no channel to name').toBeNull();
+  });
+
   it('lists no kinds for a server without alerts and keeps working', async () => {
     const element = await render(null);
 

@@ -39,11 +39,16 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database) 
     private const string Statistics = "weekly-statistics";
     private const string Regional = "regional-review";
     private const string ProjectAgent = "project-assistant";
+    private const string ObjectWork = "object-work";
+    private const string Steward = "project-steward";
     private const string ViewPolicy = "app.results.view";
     private const string Admin = "admin-1";
     private const string Manager = "manager-1";
     private const string Reader = "reader-1";
     private const string Viewer = "viewer-1";
+
+    /// <summary>The prefix of the ids of the test's projects of division North.</summary>
+    private const string NorthProjectPrefix = "north-";
 
     /// <summary>A person with an account id, as background operations name their actors: the reader's rights.</summary>
     private static readonly Guid ReaderUser = Guid.Parse("8d5c6f7e-1a2b-4c3d-9e8f-0a1b2c3d4e5f");
@@ -479,6 +484,76 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database) 
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_agent_that_works_only_on_objects_counts_its_work_at_the_objects_the_reader_reads(AssistantTestProvider provider)
+    {
+        await using var app = await StartAsync(provider, assistant => assistant
+            .AddAgentGroup(ObjectWork, group => group.Named(new() { ["en"] = "Object work" }, fallbackLanguage: "en"))
+            .AddAgent(AssistantTestData.Agent(Steward))
+            .ConfigureAgent(Steward, run => run.WorksOn("project").InGroup(ObjectWork)));
+        var now = DateTimeOffset.UtcNow;
+        // Two projects the reader reads, one of division North the reader reads too, and one the reader
+        // does not read, whose run is the newest of all.
+        var first = new NhAiSubjectRef("project", "steward-1");
+        var second = new NhAiSubjectRef("project", "steward-2");
+        var north = new NhAiSubjectRef("project", NorthProjectPrefix + "steward-3");
+        var hidden = new NhAiSubjectRef("project", "steward-4");
+        var firstRun = await SeedRunAsync(app, Steward, first, now.AddHours(-3), "Project one is on track.");
+        var secondRun = await SeedRunAsync(app, Steward, second, now.AddHours(-2), "Project two is late.");
+        var northRun = await SeedRunAsync(app, Steward, north, now.AddHours(-1), "North's project is late.");
+        var hiddenRun = await SeedRunAsync(app, Steward, hidden, now.AddMinutes(-10), "Someone else's project.");
+        var threads = new Dictionary<NhAiSubjectRef, AssistantThread>();
+        foreach (var subject in new[] { first, second, north, hidden })
+        {
+            threads[subject] = await ThreadAtAsync(app, Steward, subject);
+        }
+        Assert.Equal(AssistantSystemSubjectTests.North, threads[north].DivisionId);
+
+        // Proposals wait at each project; one at the second project has expired.
+        await AddProposalAsync(app, threads[first].ConversationId, firstRun, now.AddHours(-3));
+        await AddProposalAsync(app, threads[second].ConversationId, secondRun, now.AddHours(-2));
+        await AddProposalAsync(app, threads[second].ConversationId, secondRun, now.AddDays(-2));
+        await AddProposalAsync(app, threads[north].ConversationId, northRun, now.AddMinutes(-50));
+        await AddProposalAsync(app, threads[hidden].ConversationId, hiddenRun, now.AddMinutes(-5));
+        // The member snapshot says what the reader reads: not the fourth project, where the viewer has
+        // no role either.
+        await SnapshotAsync(app, threads[first], (Reader, NhAiSubjectRole.Reader));
+        await SnapshotAsync(app, threads[second], (Reader, NhAiSubjectRole.Approver));
+        await SnapshotAsync(app, threads[north], (Reader, NhAiSubjectRole.Participant));
+        await SnapshotAsync(app, threads[hidden], (Viewer, NhAiSubjectRole.None));
+
+        // The whole application's board counts the three proposals that wait where the reader reads and
+        // shows the newest run there, not the newer one at the project the reader does not read.
+        using var reader = app.CreateClient(Reader);
+        var tile = Agent(await ReadJsonAsync(await reader.GetAsync($"/api/assistant/boards/{ObjectWork}")), Steward);
+        Assert.Equal((JsonValueKind.Null, JsonValueKind.Null, false), (
+            tile.GetProperty("subjectType").ValueKind,
+            tile.GetProperty("conversationId").ValueKind,
+            tile.GetProperty("canStart").GetBoolean()));
+        Assert.Equal((3, northRun, true), (
+            tile.GetProperty("openProposals").GetInt32(),
+            tile.GetProperty("latestRun").GetProperty("runId").GetGuid(),
+            tile.GetProperty("isNew").GetBoolean()));
+
+        // A visit after the newest run and proposal marks them seen.
+        await ReadJsonAsync(await reader.PostAsync($"/api/assistant/boards/{ObjectWork}/visit", null));
+        Assert.False(Agent(await ReadJsonAsync(await reader.GetAsync($"/api/assistant/boards/{ObjectWork}")), Steward).GetProperty("isNew").GetBoolean());
+
+        // North's board counts North's project only.
+        var northTile = Agent(await ReadJsonAsync(await reader.GetAsync($"/api/assistant/boards/{ObjectWork}?divisionId={AssistantSystemSubjectTests.North}")), Steward);
+        Assert.Equal((1, northRun), (northTile.GetProperty("openProposals").GetInt32(), northTile.GetProperty("latestRun").GetProperty("runId").GetGuid()));
+
+        // A person who reads none of the projects sees the agent without work.
+        using var viewer = app.CreateClient(Viewer);
+        var empty = Agent(await ReadJsonAsync(await viewer.GetAsync($"/api/assistant/boards/{ObjectWork}")), Steward);
+        Assert.Equal((0, JsonValueKind.Null, false), (
+            empty.GetProperty("openProposals").GetInt32(),
+            empty.GetProperty("latestRun").ValueKind,
+            empty.GetProperty("isNew").GetBoolean()));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task The_run_maintenance_removes_old_board_visits_and_those_of_groups_that_are_gone(AssistantTestProvider provider)
     {
         await using var app = await StartAsync(provider);
@@ -554,7 +629,7 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database) 
         services.BuildServiceProvider().GetRequiredService<NhAssistantRegistrationState>().ValidateAgentRuns();
     }
 
-    private Task<AssistantWebApplication> StartAsync(AssistantTestProvider provider)
+    private Task<AssistantWebApplication> StartAsync(AssistantTestProvider provider, Action<NhAssistantBuilder>? more = null)
     {
         return AssistantWebApplication.StartAsync(
             database,
@@ -572,7 +647,7 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database) 
                 // Runs are seeded here, not executed by background operations.
                 services.Remove(services.Single(descriptor => descriptor.ImplementationType == typeof(NhAssistantStartupValidator)));
             },
-            assistantBuilder: assistant => assistant
+            assistantBuilder: assistant => More(assistant, more)
                 .AddAgentNotificationChannel<RecordingChannel>()
                 .AddSubjectType<BoardProjectResolver>(type => type
                     .Named(new() { ["en"] = "Project", ["nl"] = "Project" }, fallbackLanguage: "en")
@@ -595,6 +670,29 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database) 
                 .ConfigureAgent(Statistics, run => run.WorksOn("project").WorksOnApplication().InGroup(Group).InGroup(Reporting))
                 .ConfigureAgent(Regional, run => run.WorksOnApplication().PerDivision().InGroup(Group)),
             provider: provider);
+    }
+
+    /// <summary>
+    /// The test's own registrations first, such as another group and agent, then the board's.
+    /// </summary>
+    private static NhAssistantBuilder More(NhAssistantBuilder assistant, Action<NhAssistantBuilder>? more)
+    {
+        more?.Invoke(assistant);
+        return assistant;
+    }
+
+    /// <summary>
+    /// Replaces the member snapshot of the thread's subject in its scope with <paramref name="members"/>.
+    /// </summary>
+    private static async Task SnapshotAsync(AssistantWebApplication app, AssistantThread thread, params (string ActorId, NhAiSubjectRole Role)[] members)
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<NhAssistantRunStore>().ReplaceMembersAsync(
+            thread.ScopeKey,
+            new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
+            members.Select(member => new NhAiSubjectMember(member.ActorId, member.Role)).ToArray(),
+            DateTimeOffset.UtcNow,
+            CancellationToken.None);
     }
 
     private static async Task<AssistantThread> ThreadAtAsync(AssistantWebApplication app, string agentId, NhAiSubjectRef subject)
@@ -792,7 +890,13 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database) 
 
         public ValueTask<NhAiSubjectInfo?> DescribeAsync(NhAiSubjectRef subject, CancellationToken cancellationToken = default)
         {
-            return ValueTask.FromResult<NhAiSubjectInfo?>(new NhAiSubjectInfo(subject, NhAiSubjectInfo.CreateScopeKey(null, null)) { DisplayName = "Project " + subject.Id });
+            // A project whose id starts with the North prefix belongs to division North.
+            Guid? division = subject.Id.StartsWith(NorthProjectPrefix, StringComparison.Ordinal) ? AssistantSystemSubjectTests.North : null;
+            return ValueTask.FromResult<NhAiSubjectInfo?>(new NhAiSubjectInfo(subject, NhAiSubjectInfo.CreateScopeKey(null, division))
+            {
+                DisplayName = "Project " + subject.Id,
+                DivisionId = division
+            });
         }
 
         public ValueTask<NhAiSubjectAccess> ResolveAsync(NhAiSubjectRef subject, string actorId, CancellationToken cancellationToken = default)

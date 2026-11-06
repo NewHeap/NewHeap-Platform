@@ -52,7 +52,9 @@ internal static class NhAssistantPlatformPrincipals
 /// rebuilt person must pass the policy. A factory that resolves people and rebuilds nobody means the
 /// person is unknown or may no longer sign in, such as a deleted, blocked or locked-out account, so they
 /// pass nothing and are not resolved. A host whose factory cannot tell, or an access source without a
-/// fresh context of the person, keeps delivering as before. A failing lookup passes nothing for that
+/// fresh context of the person, keeps delivering as before; the recipient check of alerts asks
+/// <see cref="HoldsFreshContextAsync"/> separately, so an alert waits for the person's fresh rights
+/// rather than dropping them for a missing role. A failing lookup passes nothing for that
 /// person and is logged. A person the factory rebuilds nobody for is reported to
 /// <see cref="NhAssistantUnrebuiltRecipientWarnings"/>, which warns about them at most once an hour.
 /// </summary>
@@ -147,6 +149,32 @@ internal sealed partial class NhAssistantPrincipalRecipientRules(
         try
         {
             return Rebuilt(actorId, await principals.CreateAsync(actorId, subject, cancellationToken));
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+        {
+            LogLookupFailed(logger, exception);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Whether the platform can tell the person's rights for <paramref name="subject"/>: with the access
+    /// source's factory (<c>UsePrincipalsFromAccessSource</c>), whether it builds the person from a fresh
+    /// context; with any other factory always. A failing lookup counts as no fresh context, so the
+    /// recipient check of alerts lets the delivery wait and asks again; it is logged.
+    /// </summary>
+    public async ValueTask<bool> HoldsFreshContextAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
+        ArgumentNullException.ThrowIfNull(subject);
+        if (NhAssistantPlatformPrincipals.Rebuilding(services) is not NhAiAccessSourcePrincipalFactory source)
+        {
+            return true;
+        }
+
+        try
+        {
+            return await source.CreateAsync(actorId, subject, cancellationToken) is not null;
         }
         catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
         {

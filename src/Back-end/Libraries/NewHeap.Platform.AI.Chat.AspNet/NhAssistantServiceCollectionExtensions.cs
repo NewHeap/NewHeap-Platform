@@ -231,7 +231,12 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddEnumerable(ServiceDescriptor.Scoped<
                 NewHeap.Platform.AspNet.Common.Services.BackgroundOperations.INhBackgroundOperationAccess,
                 NhAssistantBackgroundOperationAccess>());
-            services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAssistantRunMaintenance>());
+            // The run maintenance: one instance runs every MaintenanceInterval and serves a pass on
+            // demand through INhAssistantMaintenance, for tests and operator tools.
+            services.TryAddSingleton<NhAssistantRunMaintenance>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, NhAssistantRunMaintenance>(
+                provider => provider.GetRequiredService<NhAssistantRunMaintenance>()));
+            services.TryAddSingleton<INhAssistantMaintenance>(provider => provider.GetRequiredService<NhAssistantRunMaintenance>());
 
             // Consultations: the generated consult and request tools of every AllowConsultation.
             services.TryAddScoped<NhAssistantConsultationToolHandler>();

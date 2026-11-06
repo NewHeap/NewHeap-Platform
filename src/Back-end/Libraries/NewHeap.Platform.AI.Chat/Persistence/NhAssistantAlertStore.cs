@@ -594,7 +594,8 @@ internal sealed partial class NhAssistantAlertStore(NhAssistantDbContextFactory 
     /// <summary>
     /// Claims up to <paramref name="batchSize"/> waiting deliveries of open alerts that are due at
     /// <paramref name="now"/>, oldest first, for <paramref name="claimant"/> until
-    /// <paramref name="claimedUntil"/>; a claim that ran out is taken over. Each row is claimed with a
+    /// <paramref name="claimedUntil"/>; a claim that ran out is taken over, and a delivery that waits
+    /// (<see cref="DeferAsync"/>) is taken once its wait ended. Each row is claimed with a
     /// conditional update, so two instances never claim the same row. Returns the claimed rows with their
     /// alerts.
     /// </summary>
@@ -713,6 +714,40 @@ internal sealed partial class NhAssistantAlertStore(NhAssistantDbContextFactory 
                     .SetProperty(delivery => delivery.ReasonCode, reasonCode)
                     .SetProperty(delivery => delivery.ClaimedBy, (string?)null)
                     .SetProperty(delivery => delivery.ClaimedUntil, (DateTimeOffset?)null)
+                    .SetProperty(delivery => delivery.UpdatedAt, now)
+                    .SetProperty(delivery => delivery.ConcurrencyStamp, Guid.NewGuid()),
+                cancellationToken);
+        return changed == 1;
+    }
+
+    /// <summary>
+    /// Lets a claimed delivery wait until <paramref name="retryAt"/> without moving the moment it fell
+    /// due, with why (<paramref name="reasonCode"/>), such as for a person whose rights the application
+    /// cannot tell without a fresh context: no claim holds it meanwhile, a pass claims it again only after
+    /// <paramref name="retryAt"/>, and the wait counts as no attempt to send it. Returns
+    /// <see langword="false"/> when the claim was lost or the delivery was taken back meanwhile.
+    /// </summary>
+    public async Task<bool> DeferAsync(
+        Guid deliveryId,
+        string claimant,
+        DateTimeOffset retryAt,
+        string reasonCode,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reasonCode);
+        await using var context = contextFactory.CreateDbContext();
+        var changed = await context.AlertDeliveries
+            .Where(delivery => delivery.Id == deliveryId
+                && delivery.ClaimedBy == claimant
+                && delivery.Status == NhAssistantAlertDeliveryStatuses.Pending)
+            .ExecuteUpdateAsync(
+                update => update
+                    .SetProperty(delivery => delivery.ReasonCode, reasonCode)
+                    .SetProperty(delivery => delivery.ClaimedBy, (string?)null)
+                    // ClaimDueAsync takes a pending delivery only once ClaimedUntil passed.
+                    .SetProperty(delivery => delivery.ClaimedUntil, retryAt)
+                    .SetProperty(delivery => delivery.Attempts, delivery => delivery.Attempts > 0 ? delivery.Attempts - 1 : 0)
                     .SetProperty(delivery => delivery.UpdatedAt, now)
                     .SetProperty(delivery => delivery.ConcurrencyStamp, Guid.NewGuid()),
                 cancellationToken);

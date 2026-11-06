@@ -335,7 +335,8 @@ internal sealed partial class NhAssistantAlertService(
     /// <summary>
     /// The people the alert reaches now and those who were chosen but no longer qualify, with why. The
     /// kind's selectors choose, unless the application's policy does; at most
-    /// <see cref="NhAssistantAlertLimits.MaxRecipients"/> people are planned.
+    /// <see cref="NhAssistantAlertLimits.MaxRecipients"/> people are planned. A person the check cannot
+    /// tell about without a fresh context of their rights is planned too; the delivery waits for one.
     /// </summary>
     private async Task<(IReadOnlyList<NhAssistantAlertPlannedRecipient> Planned, Dictionary<string, string> Dropped)> PlanRecipientsAsync(
         NhAssistantAlertKind kind,
@@ -398,8 +399,10 @@ internal sealed partial class NhAssistantAlertService(
                 continue;
             }
 
+            // A person whose rights the application cannot tell without a fresh context is planned:
+            // the delivery waits for one (NhAssistantLimits.AlertFreshContextWait) and checks again.
             var verdict = await recipientCheck.CheckAsync(actorId, subject, kind, cancellationToken);
-            if (!verdict.Qualifies)
+            if (!verdict.Qualifies && !verdict.AwaitsFreshContext)
             {
                 dropped.TryAdd(actorId, verdict.DropReason!);
                 continue;

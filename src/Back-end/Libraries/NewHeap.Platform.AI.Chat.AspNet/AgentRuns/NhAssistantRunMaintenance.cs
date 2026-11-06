@@ -85,17 +85,26 @@ internal sealed class NhAssistantBackgroundOperationAccess(
 /// deliveries of alerts that are due while the assistant is enabled. Every change is a compare-and-set update or a conditional delete, so
 /// several instances can run it at the same time. A proposal's expiry, escalation, reminders and decision
 /// follow the application's clock (a registered <see cref="TimeProvider"/>, otherwise the system
-/// clock); runs, background-operation liveness and board visits keep the system clock.
+/// clock); runs, background-operation liveness and board visits keep the system clock. One instance
+/// serves the hosted loop and <see cref="INhAssistantMaintenance"/>, and its passes never overlap.
 /// </summary>
 internal sealed class NhAssistantRunMaintenance(
     IServiceScopeFactory scopeFactory,
     NhAssistantRegistrationState registration,
     ILogger<NhAssistantRunMaintenance> logger,
-    TimeProvider? timeProvider = null) : BackgroundService
+    TimeProvider? timeProvider = null) : BackgroundService, INhAssistantMaintenance
 {
     private const int BatchSize = 100;
 
     private readonly TimeProvider _applicationClock = timeProvider ?? TimeProvider.System;
+
+    /// <summary>
+    /// One pass at a time in this instance, whether the interval or a caller of
+    /// <see cref="INhAssistantMaintenance.RunOnceAsync"/> started it: the pass keeps where the check of
+    /// runs continues and when board visits were cleaned up. It is not disposed: it holds no wait handle,
+    /// and the container may dispose this instance while a caller's pass still releases it.
+    /// </summary>
+    private readonly SemaphoreSlim _pass = new(1, 1);
 
     /// <summary>
     /// How often board visits are cleaned up; they change once per person, group and visit.
@@ -131,7 +140,23 @@ internal sealed class NhAssistantRunMaintenance(
         }
     }
 
-    internal async Task RunOnceAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Runs one pass, after a pass that is already running in this instance ended.
+    /// </summary>
+    public async Task RunOnceAsync(CancellationToken cancellationToken = default)
+    {
+        await _pass.WaitAsync(cancellationToken);
+        try
+        {
+            await RunPassAsync(cancellationToken);
+        }
+        finally
+        {
+            _pass.Release();
+        }
+    }
+
+    private async Task RunPassAsync(CancellationToken cancellationToken)
     {
         // FB87: alerts need maintenance with or without agent runs, since the application's code raises
         // them too; a host without alert kinds has none.

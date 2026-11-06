@@ -50,6 +50,10 @@ to real time.
 
 Wait for work through a signal, or poll a condition with a generous upper bound
 that only matters when the test fails. Assert the outcome, not how long it took.
+For the assistant's run maintenance (proposal reminders and expiry, overdue
+reports, alert delivery), move the clock and run one pass with
+`INhAssistantMaintenance.RunOnceAsync` instead of polling for the maintenance
+interval: when it returns, what fell due on that clock is done.
 
 While building, run the focused test class
 (`dotnet test --filter FullyQualifiedName~<Class>`). Run the complete suite, on

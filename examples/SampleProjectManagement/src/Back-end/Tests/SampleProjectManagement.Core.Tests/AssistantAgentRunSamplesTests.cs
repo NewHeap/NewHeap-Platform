@@ -1358,6 +1358,14 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         Assert.Equal(NhAssistantRunKinds.Rule, proposing.Kind);
         Assert.Equal(0, proposing.InputTokens + proposing.OutputTokens);
         Assert.Equal(1, proposing.ProposalCount);
+
+        // SPM-304: the closer works per project, so the Project management board counts its proposals
+        // at the projects the colleague reads, this one among them, and shows its newest run there.
+        var board = await colleague.GetFromJsonAsync<NhAssistantBoardDto>($"/api/assistant/boards/{SampleAgentGroupComposition.ProjectManagement}", Json);
+        var closerTile = Assert.Single(board!.Agents, agent => agent.AgentId == SampleProjectCloserComposition.AgentId);
+        Assert.Null(closerTile.SubjectType);
+        Assert.True(closerTile.OpenProposals >= 1, $"The closer's tile counts {closerTile.OpenProposals} open proposals.");
+        Assert.NotNull(closerTile.LatestRun);
         var thread = await ReadConversationAsync(colleague, conversationId);
         var ruleMessage = Assert.Single(
             thread.Messages,
@@ -2370,9 +2378,10 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             Assert.Contains(toSecondApprover.Message, new[] { "A proposal waits for a decision.", "Een voorstel wacht op een besluit." });
 
             // A day later the reminders of the run's proposals fall due together. The host's clock moves
-            // forward instead of waiting, and the maintenance job reminds each approver once for the
+            // forward instead of waiting, and one maintenance pass reminds each approver once for the
             // run, in the same group.
             host.Clock.Advance(TimeSpan.FromDays(1));
+            await host.RunMaintenanceAsync();
             var remindColleague = await WaitForInboxAsync(host.ColleagueId, runGroup, 2);
             Assert.Equal(2, remindColleague.Length);
             Assert.Contains(remindColleague[1].Message, new[]
@@ -4360,6 +4369,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         var monitors = await WaitForOrderAsync(desk, item => item.HandOff?.ApprovalId == pending.ApprovalId, "the monitors");
 
         host.Clock.Advance(SampleEquipmentOrderComposition.ReportWithin);
+        await host.RunMaintenanceAsync();
 
         var overdue = await WaitForProposalAsync(colleague, second, NhAssistantApprovalStatuses.ExecutionUnknown, ProjectAiEquipmentTools.OrderEquipmentToolId);
         Assert.Equal("report-overdue", overdue.ExecutionResultCode);
@@ -4575,6 +4585,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
 
         // No report in time: it waits for an approver to resolve it.
         host.Clock.Advance(SampleEquipmentOrderComposition.ReportWithin);
+        await host.RunMaintenanceAsync();
         await WaitForProposalAsync(colleague, conversationId, NhAssistantApprovalStatuses.ExecutionUnknown, ProjectAiEquipmentTools.OrderEquipmentToolId);
         Assert.Equal(before with { ExecutionUnknown = before.ExecutionUnknown + 1 }, await DigestAsync(host.ColleagueId));
         Assert.Contains(proposal.ApprovalId, await InboxAsync(colleague, NhAssistantInboxStatuses.ExecutionUnknown));
@@ -4697,6 +4708,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         await host.DecideAsync(owner, second, secondCard, "approve");
         var headsets = Assert.Single(desk.Orders, item => item.HandOff?.ApprovalId == secondCard.GetProperty("approvalId").GetGuid());
         host.Clock.Advance(SampleEquipmentOrderComposition.ReportWithin);
+        await host.RunMaintenanceAsync();
         var uncertain = await WaitForChatApprovalAsync(owner, second, headsets.HandOff!.ApprovalId, NhAssistantApprovalStatuses.ExecutionUnknown);
         Assert.Equal((true, "report-overdue"), (uncertain.CanResolve, uncertain.ExecutionResultCode));
         using var colleague = host.CreateClient(host.ColleagueId.ToString());
@@ -7179,8 +7191,9 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
         services.AddHttpClient(NhAiMvcBridgeDefaults.HttpClientName)
             .ConfigurePrimaryHttpMessageHandler(() => new SelfHttpHandler(this));
         services.AddNewHeapPlatformAIDelegatedReads();
-        // SPM-302: the run maintenance reminds and escalates every second instead of every minute, so
-        // a test that moves the clock past a reminder reads it without waiting a minute.
+        // SPM-302: a test that moves the clock past a reminder, a report deadline or an alert's delivery
+        // runs a maintenance pass itself (RunMaintenanceAsync, INhAssistantMaintenance). The run
+        // maintenance still runs every second instead of every minute for the work no test drives.
         services.AddNewHeapAssistant(assistant => assistant.WithLimits(limits => limits.MaintenanceInterval = TimeSpan.FromSeconds(1)));
         // SPM-251: agent notifications, such as a server a background run left out for want of the
         // person's consent, also reach the application's inbox (Inbox), which the base host turns on.
@@ -7233,6 +7246,17 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
         // SPM-278: every principal anything asks for is counted, and people are refused while a test
         // proves that consultations never rebuild a person's principal.
         SamplePrincipalWatch.Install(services, PrincipalWatch);
+    }
+
+    /// <summary>
+    /// Runs one pass of the assistant's run maintenance now through the public
+    /// <see cref="INhAssistantMaintenance"/>, as a test does after it moved the host's clock: when it
+    /// returns, the reminders, overdue reports and alert deliveries that fell due on that clock are done,
+    /// so the test reads them without waiting for the maintenance interval.
+    /// </summary>
+    public Task RunMaintenanceAsync()
+    {
+        return Services.GetRequiredService<INhAssistantMaintenance>().RunOnceAsync(TestContext.Current.CancellationToken);
     }
 
     /// <summary>

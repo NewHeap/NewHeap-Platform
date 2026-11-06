@@ -361,25 +361,6 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
         return (await client.GetFromJsonAsync<NhAssistantAlertListDto>("/api/assistant/alerts?" + query, Json))!;
     }
 
-    /// <summary>
-    /// The alert as the person's list shows it once the dispatcher withheld their delivery, or as it is
-    /// after 30 seconds, so a busy machine does not read it before the pass reached that person.
-    /// </summary>
-    private static async Task<NhAssistantAlertDto> WaitForWithheldAsync(HttpClient client, string about, Guid alertId)
-    {
-        var deadline = DateTime.UtcNow.AddSeconds(30);
-        while (true)
-        {
-            var alert = Assert.Single((await ListAlertsAsync(client, about)).Items, item => item.Id == alertId);
-            if (alert.IsWithheld || DateTime.UtcNow > deadline)
-            {
-                return alert;
-            }
-
-            await Task.Delay(100);
-        }
-    }
-
     private static async Task<NhAssistantAlertSummaryDto> SummaryAsync(HttpClient client, string about)
     {
         return (await client.GetFromJsonAsync<NhAssistantAlertSummaryDto>("/api/assistant/alerts/summary?" + about, Json))!;
@@ -434,8 +415,8 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
 
         // 07:30 in Amsterdam: the owner's digest goes out, as one notification on every channel.
         var amsterdam = SampleDeadlineAlertsComposition.At(today, new TimeOnly(7, 30), SampleDeadlineAlertsComposition.TimeZone);
-        host.MoveTo(amsterdam);
-        var ownerDigest = await host.WaitForOutboxAsync(host.OwnerId, warned.Data.AlertId);
+        await host.MoveToAsync(amsterdam);
+        var ownerDigest = host.OutboxEntry(host.OwnerId, warned.Data.AlertId);
         Assert.True(ownerDigest.SentAt >= amsterdam);
         Assert.NotNull(ownerDigest.DigestId);
         Assert.Equal([warned.Data.AlertId], ownerDigest.AlertIds);
@@ -444,8 +425,8 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
 
         // 07:30 in New York, six hours later: the colleague there gets theirs.
         var newYork = SampleDeadlineAlertsComposition.At(today, new TimeOnly(7, 30), TimeZoneInfo.FindSystemTimeZoneById("America/New_York"));
-        host.MoveTo(newYork);
-        var travellerDigest = await host.WaitForOutboxAsync(traveller, warned.Data.AlertId);
+        await host.MoveToAsync(newYork);
+        var travellerDigest = host.OutboxEntry(traveller, warned.Data.AlertId);
         Assert.True(travellerDigest.SentAt >= newYork);
         Assert.Single(host.Outbox.Entries, entry => entry.RecipientActorId == traveller.ToString("D"));
 
@@ -503,13 +484,13 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
         // Raised at 07:00: the 07:30 digest for the owner and the first colleague, 12:30 for the other.
         var warned = await WarnAsync(project);
         Assert.Equal(3, warned.Data!.RecipientCount);
-        host.MoveTo(SampleDeadlineAlertsComposition.At(today, new TimeOnly(7, 30), SampleDeadlineAlertsComposition.TimeZone));
-        await host.WaitForOutboxAsync(host.OwnerId, warned.Data.AlertId);
-        await host.WaitForOutboxAsync(muting, warned.Data.AlertId);
+        await host.MoveToAsync(SampleDeadlineAlertsComposition.At(today, new TimeOnly(7, 30), SampleDeadlineAlertsComposition.TimeZone));
+        host.OutboxEntry(host.OwnerId, warned.Data.AlertId);
+        host.OutboxEntry(muting, warned.Data.AlertId);
         Assert.DoesNotContain(host.Outbox.Entries, entry => entry.RecipientActorId == lunch.ToString("D"));
         var lunchtime = SampleDeadlineAlertsComposition.At(today, new TimeOnly(12, 30), SampleDeadlineAlertsComposition.TimeZone);
-        host.MoveTo(lunchtime);
-        Assert.True((await host.WaitForOutboxAsync(lunch, warned.Data.AlertId)).SentAt >= lunchtime);
+        await host.MoveToAsync(lunchtime);
+        Assert.True(host.OutboxEntry(lunch, warned.Data.AlertId).SentAt >= lunchtime);
 
         // The first colleague dismisses the warning and hears nothing more about the project for a week.
         var dismissedAt = host.Clock.GetUtcNow();
@@ -528,7 +509,7 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
         // colleague whose quiet hours start at 23:00 gets it now, while the owner's waits for 07:00, after
         // the warning about today expired at midnight.
         var evening = SampleDeadlineAlertsComposition.At(today, new TimeOnly(21, 0), SampleDeadlineAlertsComposition.TimeZone);
-        host.MoveTo(evening);
+        await host.MoveToAsync(evening);
         NhAssistantAlertReceipt urgent;
         await using (var scope = host.Services.CreateAsyncScope())
         {
@@ -538,7 +519,8 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
             urgent = raised.Data!;
         }
         Assert.Equal((warned.Data.AlertId, NhAssistantAlertOutcome.Redelivered), (urgent.AlertId, urgent.Outcome));
-        var atOnce = await host.WaitForOutboxAsync(lunch, urgent.AlertId, count: 2);
+        await host.RunMaintenanceAsync();
+        var atOnce = host.OutboxEntry(lunch, urgent.AlertId, count: 2);
         Assert.True(atOnce.SentAt < evening.AddHours(1));
         // The pass that told the colleague left the owner's delivery alone: it is not due before 07:00.
         Assert.Single(host.Outbox.Entries, entry => entry.RecipientActorId == host.OwnerId.ToString("D") && entry.AlertIds.Contains(urgent.AlertId));
@@ -550,10 +532,10 @@ public sealed class AssistantAlertSamplesTests(AssistantAlertSampleHost host) : 
         await host.MoveDeadlineAsync(project, SampleDeadlineAlertsComposition.StartOf(nextDay).AddHours(17));
         var again = await WarnAsync(project);
         Assert.NotEqual(warned.Data.AlertId, again.Data!.AlertId);
-        host.MoveTo(SampleDeadlineAlertsComposition.At(nextDay, new TimeOnly(7, 30), SampleDeadlineAlertsComposition.TimeZone));
-        await host.WaitForOutboxAsync(host.OwnerId, again.Data.AlertId);
-        // The pass that sent the owner's digest may reach the muted colleague's delivery a moment later.
-        var withheld = await WaitForWithheldAsync(mutingClient, about, again.Data.AlertId);
+        await host.MoveToAsync(SampleDeadlineAlertsComposition.At(nextDay, new TimeOnly(7, 30), SampleDeadlineAlertsComposition.TimeZone));
+        host.OutboxEntry(host.OwnerId, again.Data.AlertId);
+        // The same pass withheld the muted colleague's delivery.
+        var withheld = Assert.Single((await ListAlertsAsync(mutingClient, about)).Items, item => item.Id == again.Data.AlertId);
         Assert.Equal((true, NhAssistantAlertWithholdReasons.SubjectMuted), (withheld.IsWithheld, withheld.WithheldReason));
         Assert.Equal(0, (await SummaryAsync(mutingClient, about)).Unread);
         Assert.Single(host.Outbox.Entries, entry => entry.RecipientActorId == muting.ToString("D"));
@@ -645,16 +627,18 @@ public sealed class AssistantAlertSampleHost(SamplePostgreSqlServer postgreSql) 
     }
 
     /// <summary>
-    /// Moves the host's clock to <paramref name="moment"/>; the run maintenance, every second in this
-    /// host, then delivers what falls due.
+    /// Moves the host's clock to <paramref name="moment"/> and runs one maintenance pass through the
+    /// public <see cref="INhAssistantMaintenance"/>, which delivers what fell due by then.
     /// </summary>
-    public void MoveTo(DateTimeOffset moment)
+    public async Task MoveToAsync(DateTimeOffset moment)
     {
         var now = Clock.GetUtcNow();
         if (moment > now)
         {
             Clock.Advance(moment - now);
         }
+
+        await RunMaintenanceAsync();
     }
 
     /// <summary>
@@ -677,26 +661,16 @@ public sealed class AssistantAlertSampleHost(SamplePostgreSqlServer postgreSql) 
     }
 
     /// <summary>
-    /// The notification of <paramref name="alertId"/> to <paramref name="personId"/> in the outbox, once
-    /// the delivery sent it.
+    /// Notification <paramref name="count"/> of <paramref name="alertId"/> to <paramref name="personId"/>
+    /// in the outbox, which the maintenance pass that delivered it wrote before it returned.
     /// </summary>
-    public async Task<SampleAlertOutboxEntry> WaitForOutboxAsync(Guid personId, Guid alertId, int count = 1)
+    public SampleAlertOutboxEntry OutboxEntry(Guid personId, Guid alertId, int count = 1)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(90);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            var entries = Outbox.Entries
-                .Where(item => item.RecipientActorId == personId.ToString("D") && item.AlertIds.Contains(alertId))
-                .ToArray();
-            if (entries.Length >= count)
-            {
-                return entries[count - 1];
-            }
-
-            await Task.Delay(PollInterval);
-        }
-
-        throw new TimeoutException($"Notification {count} of alert {alertId} did not reach person {personId} within 90 s.");
+        var entries = Outbox.Entries
+            .Where(item => item.RecipientActorId == personId.ToString("D") && item.AlertIds.Contains(alertId))
+            .ToArray();
+        Assert.True(entries.Length >= count, $"Notification {count} of alert {alertId} did not reach person {personId}; it has {entries.Length}.");
+        return entries[count - 1];
     }
 
     /// <summary>

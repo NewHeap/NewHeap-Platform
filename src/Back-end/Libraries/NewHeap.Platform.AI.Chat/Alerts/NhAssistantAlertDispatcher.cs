@@ -27,8 +27,8 @@ internal sealed record NhAssistantAlertDispatchItem(
 
 /// <summary>
 /// What one pass of the delivery did, by delivery: claimed, sent, withheld (muted, over the daily limit
-/// or without a text), dropped because the person no longer qualified, and released to be tried again;
-/// and how many notifications went out.
+/// or without a text), dropped because the person no longer qualified, released to be tried again, and
+/// left waiting for a fresh context of the person's rights; and how many notifications went out.
 /// </summary>
 internal sealed record NhAssistantAlertDispatchResult(
     int Claimed,
@@ -36,7 +36,8 @@ internal sealed record NhAssistantAlertDispatchResult(
     int Withheld,
     int Dropped,
     int Released,
-    int Notifications)
+    int Notifications,
+    int Waiting = 0)
 {
     public static NhAssistantAlertDispatchResult None { get; } = new(0, 0, 0, 0, 0, 0);
 }
@@ -45,7 +46,11 @@ internal sealed record NhAssistantAlertDispatchResult(
 /// The delivery of alerts (FB87 phase 1, lane AB), run by the run maintenance in a host with alert kinds.
 /// It claims the deliveries that are due in bounded batches, so several instances never send one twice,
 /// and for each person checks every recipient again right before sending: a person who no longer
-/// qualifies is dropped with the content-free audit <c>AgentAlertRecipientDropped</c>. A person who
+/// qualifies is dropped with the content-free audit <c>AgentAlertRecipientDropped</c>. A person whose
+/// rights the application cannot tell without a fresh context (<c>UsePrincipalsFromAccessSource</c>)
+/// keeps a pending delivery that a pass after <see cref="FreshContextRetryDelay"/> checks again, until
+/// the person is back, the alert expires or <see cref="NhAssistantLimits.AlertFreshContextWait"/> passed
+/// since it fell due; then it is dropped with <see cref="NhAssistantAlertDropReasons.NoFreshContext"/>. A person who
 /// muted a kind that is not required, who muted the kind about the alert's subject for a while (FB87-11),
 /// or who reached <see cref="NhAssistantLimits.MaxAlertsPerPersonPerDay"/>, gets nothing and the delivery
 /// is withheld; the alert stays in their list, as it does when an administrator switched its kind off
@@ -97,6 +102,12 @@ internal sealed class NhAssistantAlertDispatcher(
 
     /// <summary>The code of a delivery released because every channel that tried failed.</summary>
     internal const string ChannelsFailedCode = "assistant-alert-channels-failed";
+
+    /// <summary>The code of a delivery that waits for a fresh context of its person's rights.</summary>
+    internal const string AwaitingFreshContextCode = "assistant-alert-awaiting-fresh-context";
+
+    /// <summary>How long a delivery that waits for a fresh context of its person waits before it is checked again.</summary>
+    internal static readonly TimeSpan FreshContextRetryDelay = TimeSpan.FromMinutes(5);
 
     /// <summary>How long a claim holds; another instance takes the delivery over after it.</summary>
     internal static readonly TimeSpan ClaimDuration = TimeSpan.FromMinutes(5);
@@ -162,15 +173,23 @@ internal sealed class NhAssistantAlertDispatcher(
             }
         }
 
-        var result = new NhAssistantAlertDispatchResult(pass.Claimed, pass.Sent, pass.Withheld, pass.Dropped, pass.Released, pass.Notifications);
+        var result = new NhAssistantAlertDispatchResult(
+            pass.Claimed,
+            pass.Sent,
+            pass.Withheld,
+            pass.Dropped,
+            pass.Released,
+            pass.Notifications,
+            pass.Waiting);
         logger.LogInformation(
-            "Assistant alert delivery claimed {Claimed}, sent {Sent} in {Notifications} notifications, withheld {Withheld}, dropped {Dropped} and released {Released} deliveries.",
+            "Assistant alert delivery claimed {Claimed}, sent {Sent} in {Notifications} notifications, withheld {Withheld}, dropped {Dropped}, released {Released} and left {Waiting} deliveries waiting for a fresh context.",
             result.Claimed,
             result.Sent,
             result.Notifications,
             result.Withheld,
             result.Dropped,
-            result.Released);
+            result.Released,
+            result.Waiting);
         return result;
     }
 
@@ -210,13 +229,14 @@ internal sealed class NhAssistantAlertDispatcher(
 
             // The one check of a person against an alert, right before anything reaches them.
             var verdict = await recipientCheck.CheckAsync(actorId, alert, cancellationToken);
+            if (verdict.AwaitsFreshContext)
+            {
+                await AwaitFreshContextAsync(pass, delivery, actorId, cancellationToken);
+                continue;
+            }
             if (!verdict.Qualifies)
             {
-                if (await store.DropAsync(delivery.Id, verdict.DropReason!, pass.Now, cancellationToken))
-                {
-                    pass.Dropped++;
-                    await events.AlertRecipientDroppedAsync(alert, actorId, verdict.DropReason!, cancellationToken);
-                }
+                await DropAsync(pass, delivery, actorId, verdict.DropReason!, cancellationToken);
                 continue;
             }
 
@@ -550,6 +570,45 @@ internal sealed class NhAssistantAlertDispatcher(
         };
     }
 
+    /// <summary>
+    /// Lets the delivery of a person whose rights the application cannot tell without a fresh context
+    /// wait for the next check, or drops it once <see cref="NhAssistantLimits.AlertFreshContextWait"/>
+    /// passed since it fell due.
+    /// </summary>
+    private async Task AwaitFreshContextAsync(
+        Pass pass,
+        AssistantAlertDelivery delivery,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        // A deferred delivery keeps the moment it fell due, so the wait counts from there.
+        var dueAt = delivery.DueAt ?? pass.Now;
+        if (pass.Now - dueAt >= registration.Limits.AlertFreshContextWait)
+        {
+            await DropAsync(pass, delivery, actorId, NhAssistantAlertDropReasons.NoFreshContext, cancellationToken);
+            return;
+        }
+
+        if (await store.DeferAsync(delivery.Id, pass.Claimant, pass.Now + FreshContextRetryDelay, AwaitingFreshContextCode, pass.Now, cancellationToken))
+        {
+            pass.Waiting++;
+        }
+    }
+
+    private async Task DropAsync(
+        Pass pass,
+        AssistantAlertDelivery delivery,
+        string actorId,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        if (await store.DropAsync(delivery.Id, reason, pass.Now, cancellationToken))
+        {
+            pass.Dropped++;
+            await events.AlertRecipientDroppedAsync(delivery.Alert!, actorId, reason, cancellationToken);
+        }
+    }
+
     private async Task WithholdAsync(Pass pass, AssistantAlertDelivery delivery, string reason, CancellationToken cancellationToken)
     {
         if (await store.WithholdAsync(delivery.Id, pass.Claimant, reason, pass.Now, cancellationToken))
@@ -683,5 +742,7 @@ internal sealed class NhAssistantAlertDispatcher(
         public int Released { get; set; }
 
         public int Notifications { get; set; }
+
+        public int Waiting { get; set; }
     }
 }

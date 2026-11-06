@@ -3096,7 +3096,8 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantRunFactsTests.cs",
       "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts",
       "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.html",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-compact-proposals.spec.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-compact-proposals.spec.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentBoardContracts.cs"
     ],
     "SPM-305": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/ProjectMediaFileSource.cs",
@@ -3334,7 +3335,8 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiAccessSourceTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAccessSourceTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiDelegatedReads.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeDelegatedReadTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.AspNet.Mvc.Tests/NhAiMvcBridgeDelegatedReadTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAlertFreshContextTests.cs"
     ],
     "SPM-316": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAgentConfigurationService.cs",
@@ -4346,7 +4348,10 @@
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-agent-alert-model.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/page/nh-assistant-agent-alert-model.component.html",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-alert-model-admin.spec.ts",
-      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-alert-model.ts"
+      "../../src/Front-end/projects/nh-ai-chat/testing/src/nh-assistant-mock-alert-model.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMaintenance.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantRecipientRules.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAlertFreshContextTests.cs"
     ],
     "SPM-393": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleRuleScriptsComposition.cs",

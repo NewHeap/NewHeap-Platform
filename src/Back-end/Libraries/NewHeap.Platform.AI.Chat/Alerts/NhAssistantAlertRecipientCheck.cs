@@ -8,10 +8,24 @@ namespace NewHeap.Platform.AI.Chat.Alerts;
 /// Whether one person may receive or read one alert now, and why not.
 /// </summary>
 /// <param name="Qualifies">The person qualifies.</param>
-/// <param name="DropReason">Why not, one of <see cref="NhAssistantAlertDropReasons"/>; <see langword="null"/> when they qualify.</param>
+/// <param name="DropReason">Why not, one of <see cref="NhAssistantAlertDropReasons"/>; <see langword="null"/>
+/// when they qualify or when the check <see cref="AwaitsFreshContext"/>.</param>
 internal sealed record NhAssistantAlertRecipientVerdict(bool Qualifies, string? DropReason)
 {
     public static NhAssistantAlertRecipientVerdict Qualified { get; } = new(true, null);
+
+    /// <summary>
+    /// The person lacks the read role while the application holds no fresh context of their rights
+    /// (<c>UsePrincipalsFromAccessSource</c>), so the check cannot tell yet: a raise plans the person,
+    /// the delivery waits and asks again, and a read shows nothing.
+    /// </summary>
+    public static NhAssistantAlertRecipientVerdict FreshContextMissing { get; } = new(false, null) { AwaitsFreshContext = true };
+
+    /// <summary>
+    /// The check cannot tell before the application holds a fresh context of the person; see
+    /// <see cref="FreshContextMissing"/>.
+    /// </summary>
+    public bool AwaitsFreshContext { get; private init; }
 
     public static NhAssistantAlertRecipientVerdict Dropped(string reason)
     {
@@ -27,7 +41,10 @@ internal sealed record NhAssistantAlertRecipientVerdict(bool Qualifies, string? 
 /// and the subject's resolver gives them at least <see cref="NhAiSubjectRole.Reader"/> on the subject now,
 /// or the role of the kind's members selector for a kind that selects only members (<see cref="RequiredRoleOf"/>).
 /// A read in a request also names the caller's tenant, which must reach the subject's
-/// (<see cref="NhAssistantTenancy"/>). The verdict carries no content, so a caller can audit a drop.
+/// (<see cref="NhAssistantTenancy"/>). A person without the read role while the application holds no
+/// fresh context of their rights (<see cref="INhAssistantRecipientRules.HoldsFreshContextAsync"/>) is not
+/// dropped: the verdict <see cref="NhAssistantAlertRecipientVerdict.AwaitsFreshContext"/>, and the
+/// delivery waits for one. The verdict carries no content, so a caller can audit a drop.
 /// </summary>
 internal sealed class NhAssistantAlertRecipientCheck(
     NhAssistantSubjectAccessService subjects,
@@ -60,6 +77,13 @@ internal sealed class NhAssistantAlertRecipientCheck(
         var access = await subjects.ResolveAsync(subject.Subject, actorId, cancellationToken);
         if (!access.Has(NhAiSubjectRole.Reader))
         {
+            // Without a fresh context of the person a resolver that rebuilds them, as the whole
+            // application's does, finds no role either: that is no answer yet, so the delivery waits.
+            if (!await recipients.HoldsFreshContextAsync(actorId, subject, cancellationToken))
+            {
+                return NhAssistantAlertRecipientVerdict.FreshContextMissing;
+            }
+
             return NhAssistantAlertRecipientVerdict.Dropped(NhAssistantAlertDropReasons.NoAccess);
         }
 

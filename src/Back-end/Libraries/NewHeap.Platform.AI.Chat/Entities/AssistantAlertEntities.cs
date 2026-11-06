@@ -169,7 +169,8 @@ public sealed class AssistantAlertDelivery
 
     /// <summary>
     /// The instance that claimed the delivery to send it, and until when the claim holds; another instance
-    /// takes it over after that.
+    /// takes it over after that. A delivery that waits, such as for a fresh context of its person's
+    /// rights, has no claimant and is claimed again only after <see cref="ClaimedUntil"/>.
     /// </summary>
     public string? ClaimedBy { get; set; }
 

@@ -245,6 +245,17 @@ public static class NhAssistantAlertDropReasons
     /// <summary>The person has no <see cref="NhAiSubjectRole.Reader"/> role on the alert's subject, in its division or tenant.</summary>
     public const string NoAccess = "no-access";
 
+    /// <summary>
+    /// The application held no fresh context of the person's rights
+    /// (<c>UsePrincipalsFromAccessSource</c>) for as long as a delivery waits for one: from the moment
+    /// it fell due until <see cref="NhAssistantLimits.AlertFreshContextWait"/> passed. Until then the
+    /// delivery stays pending and a later maintenance pass checks the person again, so a person who
+    /// comes back still receives the alert; an alert that expires first takes the delivery back as
+    /// expired. A person whose fresh rights give no <see cref="NhAiSubjectRole.Reader"/> role is dropped
+    /// at once with <see cref="NoAccess"/>.
+    /// </summary>
+    public const string NoFreshContext = "no-fresh-context";
+
     /// <summary>The alert's subject no longer exists.</summary>
     public const string SubjectGone = "subject-gone";
 

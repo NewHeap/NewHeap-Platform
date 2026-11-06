@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.114",
   "backEnd": {
-    "hash": "bc0595bee452dddf73e4bd9f075ec265a8ee3c4a6d5b3dfc4a460ce69e8251d7",
-    "declarationCount": 13746,
+    "hash": "ef982f92930c3fcc3b6d6ea9e599978ec4d02873b1cf3de715adc1ce041f13a3",
+    "declarationCount": 13757,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -7062,6 +7062,10 @@
         "declaration": "protected override async Task ExecuteAsync(CancellationToken stoppingToken) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunMaintenance.cs",
+        "declaration": "public async Task RunOnceAsync(CancellationToken cancellationToken = default)"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSchedules.cs",
         "declaration": "[AutomaticRetry(Attempts = 0)] public async Task RunAsync(string triggerId) {"
       },
@@ -9910,6 +9914,10 @@
         "declaration": "public static TaskResult<T> Refused<T>() {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMaintenance.cs",
+        "declaration": "public interface INhAssistantMaintenance {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpChain.cs",
         "declaration": "public sealed record NhAssistantMcpChainCaller(string ApplicationId, string Issuer) {"
       },
@@ -10476,6 +10484,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantRecipientRules.cs",
         "declaration": "public async ValueTask<bool> IsResolvedForAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantRecipientRules.cs",
+        "declaration": "public async ValueTask<bool> HoldsFreshContextAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Notifications/NhAssistantUnrebuiltRecipientWarnings.cs",
@@ -16338,6 +16350,10 @@
         "declaration": "public int Notifications { get; set; }"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertDispatcher.cs",
+        "declaration": "public int Waiting { get; set; }"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertKindSettings.cs",
         "declaration": "public TimeOnly? DigestTime => Mode == NhAssistantAlertDeliveryMode.DailyDigest && DigestTimes.Count > 0 ? DigestTimes[0] : null;"
       },
@@ -16975,6 +16991,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertRecipientCheck.cs",
+        "declaration": "public static NhAssistantAlertRecipientVerdict FreshContextMissing { get; } = new(false, null) { AwaitsFreshContext = true };"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertRecipientCheck.cs",
+        "declaration": "public bool AwaitsFreshContext { get; private init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlertRecipientCheck.cs",
         "declaration": "public static NhAssistantAlertRecipientVerdict Dropped(string reason) {"
       },
       {
@@ -17343,6 +17367,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
+        "declaration": "public const string NoFreshContext = \"no-fresh-context\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Alerts/NhAssistantAlerts.cs",
         "declaration": "public const string SubjectGone = \"subject-gone\";"
       },
       {
@@ -17644,6 +17672,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationReaders.cs",
         "declaration": "public ValueTask<bool> IsResolvedForAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantConversationReaders.cs",
+        "declaration": "public ValueTask<bool> HoldsFreshContextAsync(string actorId, NhAiSubjectInfo subject, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Collaboration/NhAssistantRetentionParticipant.cs",
@@ -25507,6 +25539,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public TimeSpan AlertFreshContextWait { get; set; } = TimeSpan.FromHours(24);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
         "declaration": "public sealed class NhAssistantDbContextOptions {"
       },
       {
@@ -27007,6 +27043,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.cs",
+        "declaration": "public async Task<bool> DeferAsync( Guid deliveryId, string claimant, DateTimeOffset retryAt, string reasonCode, DateTimeOffset now, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantAlertStore.cs",
         "declaration": "public async Task<bool> DropAsync(Guid deliveryId, string reason, DateTimeOffset now, CancellationToken cancellationToken) {"
       },
       {
@@ -28312,6 +28352,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<IReadOnlyDictionary<Guid, (int Count, DateTimeOffset Newest)>> GetOpenProposalStatsAsync( IReadOnlyCollection<Guid> conversationIds, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<IReadOnlyDictionary<string, NhAssistantObjectAgentWork>> GetObjectAgentWorkAsync( string actorId, IReadOnlyCollection<string> agentIds, string? tenantId, Guid? divisionId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
@@ -59271,7 +59315,10 @@
       "NhAssistantRunConfigurationProblems.AlertKindKind",
       "NhAssistantRunConfigurationProblems.UnknownAlertKind",
       "RunAlertKind",
-      "NH_ASSISTANT_MAX_RUN_ALERT_KINDS"
+      "NH_ASSISTANT_MAX_RUN_ALERT_KINDS",
+      "NhAssistantAlertDropReasons.NoFreshContext",
+      "AlertFreshContextWait",
+      "INhAssistantMaintenance"
     ],
     "nh-ai-api-bridge": [
       "AddNewHeapPlatformAIMvcBridge",
@@ -60627,7 +60674,8 @@
       "NhProxyApiAuthenticationOptions"
     ],
     "nh-fast-consumer-tests": [
-      "TimeProvider"
+      "TimeProvider",
+      "INhAssistantMaintenance"
     ],
     "nh-reusable-test-helper-boundaries": [
       "NhTestingContext",
