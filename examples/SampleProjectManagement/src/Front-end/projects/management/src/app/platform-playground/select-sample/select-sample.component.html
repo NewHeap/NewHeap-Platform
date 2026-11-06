@@ -1,0 +1,57 @@
+<article class="select-sample" [formGroup]="form">
+  <h3>{{ 'project.select-sample-title' | translate }}</h3>
+  <p>{{ 'project.select-sample-description' | translate }}</p>
+
+  <div class="select-fields">
+    <div class="select-field">
+      <label for="select-sample-project">{{ 'project.select-project' | translate }}</label>
+      <nh-combobox
+        inputId="select-sample-project"
+        formControlName="project"
+        describedBy="select-sample-project-hint"
+        [placeholder]="'project.select-project-placeholder' | translate"
+        [search]="searchProjects"
+        [create]="proposeProject"
+        [selectedOptions]="proposedProjects()"
+        [errorText]="searchErrorText"
+        (optionCreated)="rememberProject($event)" />
+      <small id="select-sample-project-hint">{{ 'project.select-project-hint' | translate }}</small>
+      <label class="select-switch">
+        <input type="checkbox" [checked]="unavailable()" (change)="unavailable.set(!unavailable())" />
+        {{ 'project.select-unavailable' | translate }}
+      </label>
+    </div>
+
+    <div class="select-field">
+      <label for="select-sample-labels">{{ 'project.select-labels' | translate }}</label>
+      <nh-multiselect
+        inputId="select-sample-labels"
+        formControlName="labels"
+        describedBy="select-sample-labels-hint"
+        [placeholder]="'project.select-labels-placeholder' | translate"
+        [options]="labelOptions()"
+        [create]="createLabel"
+        (optionCreated)="rememberLabel($event)" />
+      <small id="select-sample-labels-hint">{{ 'project.select-labels-hint' | translate }}</small>
+    </div>
+
+    <div class="select-field select-field-compact">
+      <label for="select-sample-priority">{{ 'project.select-priority' | translate }}</label>
+      <nh-combobox
+        inputId="select-sample-priority"
+        formControlName="priority"
+        size="compact"
+        [options]="priorityOptions()"
+        [noneLabel]="'project.select-priority-none' | translate" />
+    </div>
+  </div>
+
+  <div class="actions">
+    <button type="button" (click)="setFromCode()"><i class="ph ph-code" aria-hidden="true"></i> {{ 'project.select-set-from-code' | translate }}</button>
+    <button type="button" (click)="reset()"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i> {{ 'project.select-reset' | translate }}</button>
+    <button type="button" (click)="toggleDisabled()"><i class="ph ph-prohibit" aria-hidden="true"></i> {{ 'project.select-toggle-disabled' | translate }}</button>
+  </div>
+  <small>{{ 'project.select-keyboard' | translate }}</small>
+  <h4>{{ 'project.select-state' | translate }}</h4>
+  <pre aria-live="polite">{{ state() }}</pre>
+</article>

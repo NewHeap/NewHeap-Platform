@@ -446,7 +446,34 @@
     "assistant-colleague-needs-conversation": "Open of start eerst een gesprek.",
     "assistant-alerts-title": "Attenties",
     "assistant-alerts-description": "De attenties van de deadlinewacht en de meldingskeuzes op de mock-API, zonder de back-end van de assistent.",
-    "assistant-alerts-open": "Attenties openen"
+    "assistant-alerts-open": "Attenties openen",
+    "select-sample-title": "Combobox en multiselect",
+    "select-sample-description": "@newheap/platform-select: nh-combobox zoekt in de openbare projectcatalogus op de server en biedt aan een project aan te maken, nh-multiselect toont labels als chips. Beide zijn formulierbesturingen die ongewijzigd blijven tot je kiest.",
+    "select-project": "Project",
+    "select-project-placeholder": "Zoek projecten op naam of sleutel",
+    "select-project-hint": "Typ twee tekens om in de openbare catalogus te zoeken. \"Aanmaken\" stelt een nieuw project voor dat bij opslaan wordt aangemaakt.",
+    "select-new-project": "Nieuw project, aangemaakt bij het opslaan van het formulier",
+    "select-unavailable": "Simuleer een onbeschikbare zoekopdracht",
+    "select-search-failed": "Het zoeken naar projecten is niet beschikbaar (status {{status}}). Probeer het zo opnieuw.",
+    "select-labels": "Labels",
+    "select-labels-placeholder": "Labels toevoegen",
+    "select-labels-hint": "Enter voegt een label toe of haalt het weg en houdt de lijst open. Backspace in het lege veld verwijdert de laatste chip; typ een nieuwe naam om een label aan te maken.",
+    "select-label-bug": "Bug",
+    "select-label-feature": "Functie",
+    "select-label-docs": "Documentatie",
+    "select-label-customer": "Klantverzoek",
+    "select-label-security": "Beveiligingsreview",
+    "select-label-locked": "Verplicht volgens het beveiligingsbeleid",
+    "select-priority": "Prioriteit",
+    "select-priority-none": "Geen prioriteit",
+    "select-priority-low": "Laag",
+    "select-priority-normal": "Normaal",
+    "select-priority-high": "Hoog",
+    "select-set-from-code": "Vanuit code zetten",
+    "select-reset": "Herstellen",
+    "select-toggle-disabled": "Uitschakelen aan/uit",
+    "select-keyboard": "Toetsenbord: de pijltjestoetsen, Home en End verplaatsen, Enter kiest, Escape sluit de lijst en Tab verlaat het veld.",
+    "select-state": "Formulierstatus"
   },
   "nh-background-operations": {
     "operation": "Achtergrondtaak",
@@ -720,6 +747,20 @@
         "name": "Weektelling van gewijzigde taken"
       }
     }
+  },
+  "nh-select": {
+    "toggle": "Toon de opties",
+    "searching": "Zoeken…",
+    "no-results": "Niets gevonden.",
+    "type-more": "Typ minstens {{count}} tekens.",
+    "search-failed": "Het zoeken is mislukt.",
+    "create-failed": "De optie kon niet worden aangemaakt.",
+    "retry": "Opnieuw proberen",
+    "create": "\"{{text}}\" aanmaken",
+    "creating": "Aanmaken…",
+    "remove": "{{label}} verwijderen",
+    "added": "{{label}} toegevoegd.",
+    "removed": "{{label}} verwijderd."
   },
   "nh-two-factor": {
     "required": "Voer de code uit je authenticator-app in om het aanmelden af te ronden.",

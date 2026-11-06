@@ -1,0 +1,43 @@
+@use '../../../../../../styles/playground' as pg;
+
+:host { display: block; min-width: 0; }
+@include pg.panel('.select-sample');
+@include pg.buttons('.select-sample');
+@include pg.code-block('.select-sample');
+
+.select-sample { display: flex; flex-direction: column; align-items: stretch; }
+h3 { margin: 0 0 7px; }
+h4 { margin: 18px 0 4px; }
+p { margin: 0; color: var(--muted); font-size: 12px; }
+small { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
+pre { width: 100%; min-height: 48px; max-height: 220px; }
+
+.select-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.select-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.select-field > label:first-child { color: var(--ink-subtle); font-size: 12px; font-weight: 700; }
+.select-field-compact { max-width: 240px; }
+
+.select-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: 100%;
+  color: var(--ink-subtle);
+  font-size: 12px;
+}
+
+.select-switch input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+
+.actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 16px; }
+
+@media (max-width: 760px) {
+  .select-fields { grid-template-columns: minmax(0, 1fr); }
+  .select-field-compact { max-width: none; }
+}

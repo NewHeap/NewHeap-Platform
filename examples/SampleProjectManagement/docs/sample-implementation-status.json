@@ -382,7 +382,8 @@
     "SPM-393",
     "SPM-394",
     "SPM-395",
-    "SPM-396"
+    "SPM-396",
+    "SPM-397"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -2889,7 +2890,7 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhIdentityActorSearchProviderTests.cs",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-agent-work-setup.component.ts",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-picker.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-select.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs",
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-agent-flow.component.ts",
@@ -4466,6 +4467,24 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderBlockers.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGatewayResources.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentBuilderAdministrationTests.cs"
+    ],
+    "SPM-397": [
+      "src/Front-end/projects/management/src/app/platform-playground/select-sample/select-sample.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/select-sample/select-sample.component.html",
+      "src/Front-end/projects/management/src/app/platform-playground/select-sample/sample-select.config.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html",
+      "src/Front-end/projects/management/src/app/app.config.ts",
+      "src/Front-end/projects/management/public/i18n/en.json",
+      "src/Front-end/projects/management/src/styles.scss",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/PublicProjectCatalogController.cs",
+      "../../src/Front-end/projects/nh-select/src/lib/nh-combobox.component.ts",
+      "../../src/Front-end/projects/nh-select/src/lib/nh-multiselect.component.ts",
+      "../../src/Front-end/projects/nh-select/src/lib/nh-select-base.ts",
+      "../../src/Front-end/projects/nh-select/src/lib/nh-select.models.ts",
+      "../../src/Front-end/projects/nh-select/src/lib/nh-combobox.component.spec.ts",
+      "../../src/Front-end/projects/nh-select/src/lib/nh-multiselect.component.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-select.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-select.spec.ts"
     ]
   }
 }

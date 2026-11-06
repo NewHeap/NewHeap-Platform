@@ -40,12 +40,13 @@ import {
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { forkJoin, map, of, switchMap } from 'rxjs';
 import { ProjectCodeInputComponent } from '../project-code-input/project-code-input.component';
+import { SelectSampleComponent } from './select-sample/select-sample.component';
 import { SampleFrontendErrorState } from 'sample-project-management-common';
 
 @Component({
   selector: 'app-platform-playground',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, TranslateModule, NhCommonModule, ProjectCodeInputComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, TranslateModule, NhCommonModule, ProjectCodeInputComponent, SelectSampleComponent],
   templateUrl: './platform-playground.component.html',
   styleUrl: './platform-playground.component.scss'
 })

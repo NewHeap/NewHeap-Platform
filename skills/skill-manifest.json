@@ -14,6 +14,7 @@
     "@newheap/nh-toastr": "0.0.8",
     "@newheap/platform-ai-chat": "0.32.0",
     "@newheap/platform-common": "5.0.2",
+    "@newheap/platform-select": "0.0.0",
     "NewHeap.Platform.AI.AgentFramework": "35.0.0",
     "NewHeap.Platform.AI.AspNet.Common": "35.0.0",
     "NewHeap.Platform.AI.AspNet.Mvc": "35.0.0",
@@ -295,6 +296,7 @@
         "references/frontend-context-menu.md",
         "references/frontend-lifecycle-modals.md",
         "references/frontend-root-configuration.md",
+        "references/frontend-select.md",
         "references/frontend-toast-notifications.md",
         "references/observability-logging.md"
       ]

@@ -4963,7 +4963,7 @@
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAdminEndpointTests.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhIdentityActorSearchProviderTests.cs",
         "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-agent-work-setup.component.ts",
-        "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-picker.component.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-select.ts",
         "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantAdminEndpoints.cs",
         "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/run-config/nh-assistant-agent-flow.component.ts",
@@ -7244,6 +7244,32 @@
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilderBlockers.cs",
         "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeGatewayResources.cs",
         "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentBuilderAdministrationTests.cs"
+      ]
+    },
+    {
+      "id": "SPM-397",
+      "categoryId": "8",
+      "title": "Accessible combobox and multiselect form controls with server search, create and chips",
+      "surface": "`NhComboboxComponent` (`nh-combobox`) and `NhMultiselectComponent` (`nh-multiselect`) of `@newheap/platform-select` with `NhSelectOption`, `search`, `minQueryLength`, `searchDebounceMs`, `create` and `optionCreated`, `noneLabel` and `noneValue`, `selectedOptions`, `errorText`, `compareWith`, `size` and `describedBy`; `provideNhSelect` with `NhSelectConfig` and `NhSelectTexts`; the comboboxes of `@newheap/platform-ai-chat` through its internal select provider; `nh-form-dropdown` of `@newheap/platform-common` as the legacy alternative",
+      "outcome": "The platform lab holds one reactive form with three controls of the new package. The project combobox searches the anonymous public project catalog on the server after two characters and a short pause, shows the matches with their keys, and offers \"Create\" for a name the catalog does not know, which proposes a new project the form would create on save. With the unavailable search switched on, it calls the sample's intentional error endpoint and says, localized and with the status, why the search failed instead of \"nothing found\", and Try again searches once more. The label multiselect shows the chosen labels as chips with icons, keeps the security review that policy requires as a locked chip, adds or removes a label with Enter while the list stays open, removes the last chip with Backspace in the empty field, announces each change, and creates a new label after a short round trip. The compact priority combobox keeps Low with the value 0 and offers No priority as an explicit empty choice. Set from code and Reset change the values while the form stays pristine; only a choice makes it dirty and leaving a field marks it touched; Toggle disabled disables all three. The arrow keys, Home, End, Enter, Escape and Tab work as the ARIA 1.2 combobox pattern prescribes, Escape closes only the list inside a modal, and every text follows the runtime language through one provideNhSelect registration at the application root. The assistant administration uses the same combobox with its own texts and translated error codes. The legacy nh-form-dropdown stays beside it, labelled as the alternative.",
+      "implementation": "implemented",
+      "evidence": [
+        "src/Front-end/projects/management/src/app/platform-playground/select-sample/select-sample.component.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/select-sample/select-sample.component.html",
+        "src/Front-end/projects/management/src/app/platform-playground/select-sample/sample-select.config.ts",
+        "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html",
+        "src/Front-end/projects/management/src/app/app.config.ts",
+        "src/Front-end/projects/management/public/i18n/en.json",
+        "src/Front-end/projects/management/src/styles.scss",
+        "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/PublicProjectCatalogController.cs",
+        "../../src/Front-end/projects/nh-select/src/lib/nh-combobox.component.ts",
+        "../../src/Front-end/projects/nh-select/src/lib/nh-multiselect.component.ts",
+        "../../src/Front-end/projects/nh-select/src/lib/nh-select-base.ts",
+        "../../src/Front-end/projects/nh-select/src/lib/nh-select.models.ts",
+        "../../src/Front-end/projects/nh-select/src/lib/nh-combobox.component.spec.ts",
+        "../../src/Front-end/projects/nh-select/src/lib/nh-multiselect.component.spec.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-select.ts",
+        "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-select.spec.ts"
       ]
     }
   ]

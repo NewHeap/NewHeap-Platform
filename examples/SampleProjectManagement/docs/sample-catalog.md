@@ -33,7 +33,7 @@ is inside it.
 | Authentication playground | password, OAuth, refresh, multiple roles, scoped permissions, and authentication overrides | authentication service, request claims, policies, guards, and pipes |
 | Operations API | CAP, Hangfire, email with a named SMTP security mode, and notification delivery | event configurator, `NhHangfireUtil`, `NhMailService` with `MailServiceSettings.SecurityMode`, notification builder |
 | Notification playground | polling, badge, mark-as-read, and archive | abstract notification component, service, and controller |
-| Platform playground | text, binary, download, modal, multi-select, custom control, context menu, head, and JSON-LD | HTTP options, modal, form, context menu, head, and configuration services |
+| Platform playground | text, binary, download, modal, multi-select, combobox and multiselect, custom control, context menu, head, and JSON-LD | HTTP options, modal, form, `@newheap/platform-select`, context menu, head, and configuration services |
 | Utility playground | strings, arrays, encoding, mutex, cookies, safe and date pipes | concrete utilities and components |
 | EF Core chunks | ordered project query in bounded asynchronous batches | `IQueryable.ChunkAsync` with cancellation |
 | Project members | members with reader, participant and approver roles that decide access to the project's agent threads | `ProjectMemberController`, `ProjectSubjectAccessResolver`, `INhAiSubjectAccess.RefreshAsync` |
@@ -1312,6 +1312,23 @@ list, and `classesGetLambda` shows the archived status as inactive. Each
 dropdown keeps one settings object, because every new settings object reloads
 the options. The custom project-code control in the platform playground shows
 the same pristine state after "Set from code" (SPM-148).
+
+## Combobox and multiselect
+
+New forms choose values with `@newheap/platform-select` (SPM-397);
+`nh-form-dropdown` stays available as the legacy alternative. The platform
+playground holds one reactive form with three of its controls. The project
+`nh-combobox` asks `GET /public/projects` for matching projects after two
+characters and a short pause, and offers "Create" for a name the catalog does not
+know; with the unavailable search switched on, it says why the search failed,
+localized and with the status, and searches again on request. The label
+`nh-multiselect` shows chips, locks the label that policy requires, keeps its
+list open while labels are added or removed with Enter, removes the last chip
+with Backspace and creates new labels. The compact priority combobox keeps the
+value `0` and has an explicit empty choice. Values set from code keep the form
+pristine, and one `provideNhSelect` registration at the application root gives
+every control its translated texts. The library specs prove the keyboard, the
+form-control contract, the server-search states, create and the chips.
 
 ## Public, composite, and short surfaces
 

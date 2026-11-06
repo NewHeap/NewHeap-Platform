@@ -29,6 +29,7 @@
     "@newheap/nh-toastr": "file:../../../../src/Front-end/projects/nh-toastr",
     "@newheap/platform-ai-chat": "file:../../../../src/Front-end/projects/nh-ai-chat",
     "@newheap/platform-common": "file:../../../../src/Front-end/projects/nh-common",
+    "@newheap/platform-select": "file:../../../../src/Front-end/projects/nh-select",
     "@ngx-translate/core": "^17.0.0",
     "@ngx-translate/http-loader": "^17.0.0",
     "@phosphor-icons/web": "^2.1.2",

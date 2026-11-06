@@ -45,8 +45,11 @@
       </div>
       <h4>Translated member multi-select</h4>
       <nh-form-dropdown [formControl]="memberIds" [settings]="memberSettings"></nh-form-dropdown>
-      <small>Selected IDs: {{ memberIds.value.join(', ') || '-' }}</small>
+      <small>Selected IDs: {{ memberIds.value.join(', ') || '-' }} | legacy <code>nh-form-dropdown</code>; new forms use the combobox and multiselect below.</small>
     </article>
+
+    <!-- SPM-397: the preferred combobox and multiselect of @newheap/platform-select. -->
+    <app-select-sample class="platform-wide" />
 
     <article>
       <h3>{{ 'project.context-menu-title' | translate }}</h3>

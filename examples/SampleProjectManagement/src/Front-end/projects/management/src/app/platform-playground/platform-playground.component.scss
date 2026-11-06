@@ -10,6 +10,7 @@
 
 .platform-grid { display: grid; grid-template-columns: repeat(2, minmax(260px, 1fr)); gap: 14px; margin-top: 22px; }
 .platform-grid article { display: flex; flex-direction: column; align-items: flex-start; }
+.platform-wide { grid-column: 1 / -1; min-width: 0; }
 .platform-grid h3 { margin: 0 0 7px; }
 .platform-grid h4 { margin: 18px 0 4px; }
 .platform-grid p { min-height: 44px; margin: 0; color: var(--muted); font-size: 12px; }
