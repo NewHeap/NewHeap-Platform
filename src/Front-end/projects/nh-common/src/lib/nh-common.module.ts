@@ -22,7 +22,7 @@ import {
   IsOneClaimGrantedPipe, IsOneDivisionPermissionGrantedPipe, IsOneDivisionRoleGrantedPipe,
   IsOnePermissionGrantedPipe, IsOneRoleGrantedPipe
 } from "./pipes/auth.pipes";
-import {NhDatePipe, NhDateTimePipe, NhDateUtcPipe} from "./pipes/date.pipes";
+import {NhDatePipe, NhDateTimePipe, NhDateUtcPipe, NhRelativeTimePipe} from "./pipes/date.pipes";
 import {NhBooleanToStringPipe} from "./pipes/primitive-type.pipes";
 import {NhUrlEncodePipe} from "./pipes/encode.pipes";
 import {NhEncodeHttpParamsInterceptor} from "./interceptors/nh-encode-http-params.interceptor";
@@ -68,7 +68,9 @@ import {NhSearchInputComponent} from "./components/nh-search-input/search-input.
     TranslateDirective,
     TranslatePipe,
     NgxBootstrapMultiselectModule,
-    FormsModule
+    FormsModule,
+    // Standalone pipes
+    NhRelativeTimePipe
   ],
   declarations: [
     // Components
@@ -125,6 +127,7 @@ import {NhSearchInputComponent} from "./components/nh-search-input/search-input.
     NhDatePipe,
     NhDateTimePipe,
     NhDateUtcPipe,
+    NhRelativeTimePipe,
     NhBooleanToStringPipe,
     IsAuthenticatedPipe,
     IsAllPermissionsGrantedPipe,
