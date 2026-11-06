@@ -26,15 +26,15 @@
   },
   "private": true,
   "dependencies": {
-    "@angular/animations": "^20.3.28",
+    "@angular/animations": "^20.3.35",
     "@angular/cdk": "^20.2.14",
-    "@angular/common": "^20.3.28",
-    "@angular/compiler": "^20.3.28",
-    "@angular/core": "^20.3.28",
-    "@angular/forms": "^20.3.28",
-    "@angular/platform-browser": "^20.3.28",
-    "@angular/platform-browser-dynamic": "^20.3.28",
-    "@angular/router": "^20.3.28",
+    "@angular/common": "^20.3.35",
+    "@angular/compiler": "^20.3.35",
+    "@angular/core": "^20.3.35",
+    "@angular/forms": "^20.3.35",
+    "@angular/platform-browser": "^20.3.35",
+    "@angular/platform-browser-dynamic": "^20.3.35",
+    "@angular/router": "^20.3.35",
     "@microsoft/signalr": "^10.0.11",
     "@msgpack/msgpack": "^2.8.0",
     "@ngx-translate/core": "^17.0.0",
@@ -54,9 +54,9 @@
     "zone.js": "~0.15.0"
   },
   "devDependencies": {
-    "@angular-devkit/build-angular": "^22.2.3",
-    "@angular/cli": "^20.3.40",
-    "@angular/compiler-cli": "^20.3.28",
+    "@angular-devkit/build-angular": "^20.3.42",
+    "@angular/cli": "^22.2.6",
+    "@angular/compiler-cli": "^20.3.35",
     "@types/jasmine": "~5.1.0",
     "jasmine-core": "~5.1.0",
     "karma": "~6.4.0",
@@ -77,3 +77,4 @@
     "vite": "7.3.7"
   }
 }
+
