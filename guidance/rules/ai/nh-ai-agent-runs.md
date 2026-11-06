@@ -743,13 +743,16 @@ of starts by hand, the thread when the caller may read it, the latest run with t
 result, the open proposals of its thread and those its runs placed at objects, and `IsNew`: the latest
 run ended or a proposal was made after the caller's last visit of that board in that scope, and before
 the first visit everything shown is new. An agent that works on the whole application shows by its view
-policy, another by its required policy without a result or a start; shadow variants and agents without
+policy, another by its required policy without a start. An agent that works only on objects counts the
+open proposals in its threads at the objects the caller reads by the member snapshot, in the caller's
+tenant and on a division's board in that division, and shows its newest run there; the inbox lists
+those the caller may decide. Shadow variants and agents without
 run settings never show, and a caller bound to a tenant sees no work of the whole application. `POST
 boards/{group}/visit` records the visit in `AssistantBoardVisit` (person, group, scope key and time,
 nothing else); a board the caller may not open answers `404 assistant-board-not-found`, a malformed
 division id `400 assistant-board-scope-invalid`. One board reads the group's choices, the agents, the
-threads of at most two subjects, their latest runs, their open proposals and the visit, each in one
-query. The run maintenance removes visits older than `NhAssistantLimits.BoardVisitRetention` (default
+threads of at most two subjects, their latest runs, their open proposals, the work of the agents that
+work only on objects and the visit, each in one query. The run maintenance removes visits older than `NhAssistantLimits.BoardVisitRetention` (default
 180 days) and visits of groups the host no longer registers, once an hour; a host that registers no
 group removes none. The migration `AgentBoards` adds both tables.
 
@@ -2914,7 +2917,9 @@ groups. For groups, assert the startup checks
 stores only choices that differ from code and that they win over `InGroup`, that `GET boards` and `GET
 boards/{group}` show the agents by their view or required policy, that `IsNew` follows the visit per
 person and per scope (the whole application and a division), that open proposals count the proposals a
-run placed at objects, and that a board of another division or an unknown group answers
+run placed at objects, that an agent that works only on objects counts the proposals and shows the newest
+run at the objects the caller reads, without those of an object the caller does not read and on a
+division's board only that division's, on SQL Server and PostgreSQL, and that a board of another division or an unknown group answers
 `assistant-board-not-found`. For the overview of an agent, assert that `GET admin/tools` names the
 type of a tool with `[NhAiSubject]` and `null` for one without and for MCP tools, that a schedule in
 code without subjects reports `nh-system` and an untyped trigger `null`, and that an agent in code

@@ -1358,6 +1358,14 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         Assert.Equal(NhAssistantRunKinds.Rule, proposing.Kind);
         Assert.Equal(0, proposing.InputTokens + proposing.OutputTokens);
         Assert.Equal(1, proposing.ProposalCount);
+
+        // SPM-304: the closer works per project, so the Project management board counts its proposals
+        // at the projects the colleague reads, this one among them, and shows its newest run there.
+        var board = await colleague.GetFromJsonAsync<NhAssistantBoardDto>($"/api/assistant/boards/{SampleAgentGroupComposition.ProjectManagement}", Json);
+        var closerTile = Assert.Single(board!.Agents, agent => agent.AgentId == SampleProjectCloserComposition.AgentId);
+        Assert.Null(closerTile.SubjectType);
+        Assert.True(closerTile.OpenProposals >= 1, $"The closer's tile counts {closerTile.OpenProposals} open proposals.");
+        Assert.NotNull(closerTile.LatestRun);
         var thread = await ReadConversationAsync(colleague, conversationId);
         var ruleMessage = Assert.Single(
             thread.Messages,
