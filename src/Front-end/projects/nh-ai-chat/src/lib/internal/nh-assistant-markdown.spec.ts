@@ -71,4 +71,42 @@ describe('NhAssistantMarkdownRenderer', () => {
     expect(anchor?.getAttribute('target')).toBe('_blank');
     expect(anchor?.getAttribute('rel')).toBe('noopener noreferrer');
   });
+
+  it('keeps the start of an ordered list and the alignment of table columns', () => {
+    const element = toElement(renderer.render([
+      '3. three',
+      '4. four',
+      '',
+      '| Left | Center | Right | Plain |',
+      '| :--- | :---: | ---: | --- |',
+      '| a | b | c | d |'
+    ].join('\n')));
+
+    expect(element.querySelector('ol')?.getAttribute('start')).toBe('3');
+    expect(Array.from(element.querySelectorAll('th')).map(cell => cell.getAttribute('align'))).toEqual(['left', 'center', 'right', null]);
+    expect(Array.from(element.querySelectorAll('td')).map(cell => cell.getAttribute('align'))).toEqual(['left', 'center', 'right', null]);
+  });
+
+  it('keeps no attribute outside its allow-list', () => {
+    const element = toElement(renderer.render([
+      '3. [docs](https://example.com/docs "Docs")',
+      '',
+      '- [x] done',
+      '',
+      '```js',
+      'const answer = 42;',
+      '```',
+      '',
+      '| Left | Center |',
+      '| :--- | :---: |',
+      '| a | b |'
+    ].join('\n')));
+
+    const names = new Set(Array.from(element.querySelectorAll('*')).flatMap(node => node.getAttributeNames()));
+
+    expect([...names].sort()).toEqual(['align', 'href', 'rel', 'start', 'target', 'title']);
+    // Marked writes a language class and a task-list checkbox; neither survives.
+    expect(element.querySelector('code')?.hasAttribute('class')).toBeFalse();
+    expect(element.querySelector('input')).toBeNull();
+  });
 });
