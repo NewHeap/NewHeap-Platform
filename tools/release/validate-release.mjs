@@ -70,6 +70,12 @@ const requiredNpmPeers = {
     '@angular/core',
     '@ngx-translate/core',
     'rxjs'
+  ],
+  '@newheap/platform-select': [
+    '@angular/common',
+    '@angular/core',
+    '@angular/forms',
+    'rxjs'
   ]
 };
 const supportedNpmPeerRanges = {
@@ -87,7 +93,16 @@ const supportedNpmPeerRanges = {
     '@angular/common': '^20.3.28 || ^21.0.0 || ^22.0.0',
     '@angular/core': '^20.3.28 || ^21.0.0 || ^22.0.0',
     '@ngx-translate/core': '^17.0.0 || ^18.0.0'
+  },
+  '@newheap/platform-select': {
+    '@angular/common': '^20.3.28 || ^21.0.0 || ^22.0.0',
+    '@angular/core': '^20.3.28 || ^21.0.0 || ^22.0.0',
+    '@angular/forms': '^20.3.28 || ^21.0.0 || ^22.0.0'
   }
+};
+// Packages that may depend on nothing but these runtime packages, so they stay free of third parties.
+const exclusiveNpmRuntime = {
+  '@newheap/platform-select': dependency => dependency.startsWith('@angular/') || dependency === 'rxjs'
 };
 if (!rootPackage.scripts?.['release:test']?.includes('test-verify-public-release-targets.mjs')) {
   failures.push('release:test must exercise anonymous registry access, delayed package visibility and exact-version verification.');
@@ -142,6 +157,14 @@ for (const [id, unit] of Object.entries(manifest.units)) {
         failures.push(`${unit.packageJson}: peer dependency ${dependency} ${declaredRange} must match the supported range ${supportedRange}.`);
       } else if (!supportedRange && workspaceRange && declaredRange !== workspaceRange) {
         failures.push(`${unit.packageJson}: peer dependency ${dependency} ${declaredRange} must match the tested workspace range ${workspaceRange}.`);
+      }
+    }
+    const allowedRuntime = exclusiveNpmRuntime[unit.packageName];
+    if (allowedRuntime) {
+      for (const dependency of [...Object.keys(packageJson.peerDependencies ?? {}), ...Object.keys(packageJson.dependencies ?? {})]) {
+        if (!allowedRuntime(dependency)) {
+          failures.push(`${unit.packageJson}: ${dependency} is not allowed; the package depends on Angular and rxjs only.`);
+        }
       }
     }
     for (const dependency of forbiddenBrowserTelemetryPackages) {

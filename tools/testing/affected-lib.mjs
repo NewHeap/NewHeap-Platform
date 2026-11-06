@@ -131,16 +131,58 @@ export function testableFrontEndLibraries(projects, specFiles) {
   return { testable, withoutSpecs };
 }
 
-/** The Angular libraries under `src/Front-end/projects` whose files changed. */
-export function affectedFrontEndLibraries(changedFiles, libraries) {
-  const affected = new Set();
-  for (const file of changedFiles.map(normalizePath)) {
-    const match = /^src\/Front-end\/projects\/([^/]+)\//.exec(file);
-    if (match && libraries.includes(match[1])) {
-      affected.add(match[1]);
+/**
+ * The Angular libraries that depend on each library, from the peer and regular dependencies in
+ * their package.json: `@newheap/platform-ai-chat` peers on `@newheap/platform-select`, so a change to
+ * nh-select reaches nh-ai-chat as well. `packages` maps an Angular project name to its parsed
+ * package.json; projects without one are left out.
+ */
+export function frontEndLibraryDependents(packages) {
+  const projectOfPackage = new Map();
+  for (const [project, packageJson] of Object.entries(packages)) {
+    if (packageJson?.name) {
+      projectOfPackage.set(packageJson.name, project);
     }
   }
-  return [...affected].sort();
+
+  const dependents = {};
+  for (const [project, packageJson] of Object.entries(packages)) {
+    const names = Object.keys({ ...packageJson?.dependencies, ...packageJson?.peerDependencies });
+    for (const name of names) {
+      const dependency = projectOfPackage.get(name);
+      if (dependency && dependency !== project) {
+        (dependents[dependency] ??= []).push(project);
+      }
+    }
+  }
+  return dependents;
+}
+
+/**
+ * The Angular libraries under `src/Front-end/projects` whose files changed, and the libraries that
+ * depend on them (`dependents`, from `frontEndLibraryDependents`), directly or further down.
+ */
+export function affectedFrontEndLibraries(changedFiles, libraries, dependents = {}) {
+  const reached = new Set();
+  const pending = [];
+  for (const file of changedFiles.map(normalizePath)) {
+    const match = /^src\/Front-end\/projects\/([^/]+)\//.exec(file);
+    if (match && !reached.has(match[1])) {
+      reached.add(match[1]);
+      pending.push(match[1]);
+    }
+  }
+
+  while (pending.length > 0) {
+    for (const dependent of dependents[pending.pop()] ?? []) {
+      if (!reached.has(dependent)) {
+        reached.add(dependent);
+        pending.push(dependent);
+      }
+    }
+  }
+
+  return [...reached].filter(library => libraries.includes(library)).sort();
 }
 
 /**

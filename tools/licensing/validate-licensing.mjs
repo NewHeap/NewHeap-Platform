@@ -53,7 +53,8 @@ for (const path of [
   'skills/newheap-consumer-development/LICENSE',
   'plugins/newheap-platform/skills/newheap-platform-development/skills/foundation/LICENSE',
   'src/Front-end/projects/nh-common/LICENSE',
-  'src/Front-end/projects/nh-toastr/LICENSE'
+  'src/Front-end/projects/nh-toastr/LICENSE',
+  'src/Front-end/projects/nh-select/LICENSE'
 ]) {
   if (await read(path) !== license) failures.push(`${path} must match the root Apache-2.0 license.`);
 }
@@ -61,7 +62,8 @@ for (const path of [
 for (const path of [
   'package.json',
   'src/Front-end/projects/nh-common/package.json',
-  'src/Front-end/projects/nh-toastr/package.json'
+  'src/Front-end/projects/nh-toastr/package.json',
+  'src/Front-end/projects/nh-select/package.json'
 ]) {
   const packageMetadata = JSON.parse(await read(path));
   if (packageMetadata.license !== 'Apache-2.0') {
@@ -85,7 +87,8 @@ requireText(buildTargets, '..\\..\\README.md', 'src/Back-end/Directory.Build.tar
 
 const packageAssets = new Map([
   ['src/Front-end/projects/nh-common/ng-package.json', ['LICENSE', 'NOTICE', 'THIRD-PARTY-NOTICES.md']],
-  ['src/Front-end/projects/nh-toastr/ng-package.json', ['LICENSE', 'NOTICE']]
+  ['src/Front-end/projects/nh-toastr/ng-package.json', ['LICENSE', 'NOTICE']],
+  ['src/Front-end/projects/nh-select/ng-package.json', ['LICENSE', 'NOTICE']]
 ]);
 
 for (const [path, requiredAssets] of packageAssets) {

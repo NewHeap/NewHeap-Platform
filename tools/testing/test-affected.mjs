@@ -26,6 +26,7 @@ import {
   affectedTestProjects,
   buildsThroughSolution,
   durationsFilePath,
+  frontEndLibraryDependents,
   frontEndRoot,
   isTestProject,
   jobReport,
@@ -147,7 +148,18 @@ async function findSpecFiles(folder, found = []) {
 
 async function frontEndLibraries() {
   const angular = JSON.parse(await readFile(resolve(repositoryRoot, frontEndRoot, 'angular.json'), 'utf8'));
-  return testableFrontEndLibraries(angular.projects, await findSpecFiles('projects'));
+  const packages = {};
+  for (const [name, project] of Object.entries(angular.projects)) {
+    try {
+      packages[name] = JSON.parse(await readFile(resolve(repositoryRoot, frontEndRoot, project.root ?? `projects/${name}`, 'package.json'), 'utf8'));
+    } catch {
+      // A project without a package.json, such as an application, is nobody's dependency.
+    }
+  }
+  return {
+    ...testableFrontEndLibraries(angular.projects, await findSpecFiles('projects')),
+    dependents: frontEndLibraryDependents(packages)
+  };
 }
 
 const windowsShell = process.platform === 'win32';
@@ -211,11 +223,11 @@ const branchScope = option('--branch') || valueOf('--base') !== undefined;
 
 const files = everything ? [] : explicitFiles ?? changedFiles(base);
 const { graph, tests } = await projectGraph();
-const { testable: libraries, withoutSpecs: librariesWithoutSpecs } = await frontEndLibraries();
+const { testable: libraries, withoutSpecs: librariesWithoutSpecs, dependents: libraryDependents } = await frontEndLibraries();
 const testProjects = everything ? [...tests].sort() : affectedTestProjects(files, graph, tests);
 const allProviders = everything || option('--all-providers') || needsAllProviders(files);
 const runs = providerRuns(allProviders);
-const angularLibraries = everything ? libraries : affectedFrontEndLibraries(files, libraries);
+const angularLibraries = everything ? libraries : affectedFrontEndLibraries(files, libraries, libraryDependents);
 const sampleChanged = everything || files.some(file => file.startsWith(`${sampleRoot}/`));
 const previousSeconds = await readDurations(durationsFile);
 const dryRun = option('--dry-run');
