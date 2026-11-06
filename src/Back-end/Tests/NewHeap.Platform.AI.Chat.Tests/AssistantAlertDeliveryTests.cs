@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.Alerts;
+using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Collaboration;
 using NewHeap.Platform.AI.Chat.Entities;
@@ -263,9 +264,12 @@ public sealed class AssistantAlertDeliveryTests(AssistantDatabaseFixture databas
             }
         };
 
-        // The run maintenance expires the alert whose expiry passed, then delivers what is left.
+        // The run maintenance expires the alert whose expiry passed, then delivers what is left. A test
+        // runs its pass through the public INhAssistantMaintenance, the hosted maintenance's own instance.
         clock.Advance(MondayDigest - Monday);
-        await host.Services.GetServices<IHostedService>().OfType<NhAssistantRunMaintenance>().Single().RunOnceAsync(CancellationToken.None);
+        var maintenance = host.Services.GetRequiredService<INhAssistantMaintenance>();
+        Assert.Same(host.Services.GetServices<IHostedService>().OfType<NhAssistantRunMaintenance>().Single(), maintenance);
+        await maintenance.RunOnceAsync(CancellationToken.None);
 
         var push = Assert.Single(Pushes(host).Sent);
         Assert.Equal(("1 alert", "Task k5 is due today"), (push.Title, push.Body));
