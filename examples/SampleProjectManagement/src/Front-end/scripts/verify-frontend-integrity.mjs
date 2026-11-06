@@ -25,6 +25,7 @@ const managementHost = read('projects/management/src/app/app-host.component.ts')
 const workspaceHost = read('projects/workspace/src/app/app-host.component.ts');
 const commonPublicApi = read('projects/sample-project-management-common/src/public-api.ts');
 const sampleCaseCatalog = read('projects/management/src/app/sample-case-catalog/sample-case-catalog.component.ts');
+const utilityPlayground = read('projects/management/src/app/utility-playground/utility-playground.component.html');
 
 const flattenTranslations = (value, prefix = '', result = new Map()) => {
   for (const [key, item] of Object.entries(value)) {
@@ -80,6 +81,10 @@ assert.match(login, /!\/\[<>\]\/\.test\(item\)/,
   'The login page must never render raw HTML returned by a proxy or API.');
 assert.match(login, /translate\.instant\('project\.login-failed'\)/,
   'The login fallback must be safe and localized.');
+assert.match(utilityPlayground, /\[innerHTML\]="pastedHtml\(\) \| nhSanitizeHtml"/,
+  'Pasted rich text must be rendered through nhSanitizeHtml.');
+assert.doesNotMatch(utilityPlayground, /pastedHtml\(\) \| safeHtml/,
+  'Pasted rich text must never be trusted with safeHtml, which bypasses the sanitizer.');
 
 assert.match(connectionState, /error\.status === 0 \? 'offline' : 'connected'/,
   'Only a browser network failure may enable offline demo mode.');

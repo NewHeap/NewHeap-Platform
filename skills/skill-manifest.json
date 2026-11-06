@@ -293,7 +293,9 @@
         "references/ai-assistant-ui.md",
         "references/frontend-collection-query.md",
         "references/frontend-context-menu.md",
+        "references/frontend-html-sanitizer.md",
         "references/frontend-lifecycle-modals.md",
+        "references/frontend-relative-time.md",
         "references/frontend-root-configuration.md",
         "references/frontend-toast-notifications.md",
         "references/observability-logging.md"

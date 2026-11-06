@@ -85,6 +85,40 @@ layouts do not change.
 | `AbstractValueAccessor.writeValue` no longer calls `onChange`, so `setValue`, `reset` and an `ngModel` binding no longer emit a second `valueChanges`, mark the control dirty or emit `ngModelChange` at initialization; this includes `nh-form-dropdown` and `nh-page-size`. | Remove workarounds for the echo, such as skipping the first change or resetting the dirty state, and start initial work from initialization instead of the first `ngModelChange`. |
 | `nh-form-dropdown` emits `closed` after the chosen value with `closeOnSelect`, and `toggleDropdown()` called from a click outside the dropdown opens the list once that click has finished, instead of opening and closing at once. | Read the chosen value in `closed`, and handle `opened` instead of acting right after such a `toggleDropdown()` call. |
 
+## @newheap/platform-common: HTML sanitizer for rich text
+
+The new optional entry point `@newheap/platform-common/sanitize` sanitizes untrusted HTML, such as
+pasted e-mail or Word content, with DOMPurify: `NhHtmlSanitizer` (`sanitize`, `sanitizeToSafeHtml`,
+`isSupported`) and the standalone `nhSanitizeHtml` pipe (`NhSanitizeHtmlPipe`) for `[innerHTML]`.
+The strict default allow-list keeps the structure, links and inline formatting of rich text without
+`class`, `id`, `style` or images; scripts, styles, event handlers, frames, embedded objects, forms,
+SVG and MathML are always removed. Links keep only `http`, `https`, `mailto` and `tel` URLs and get
+`rel="noopener noreferrer"` and `target="_blank"`. Configure it with `NhHtmlSanitizerOptions` through
+`provideNhHtmlSanitizer(...)` (`NH_HTML_SANITIZER_OPTIONS`) at the root or in a component, or per
+call, and extend `NH_HTML_SANITIZER_DEFAULT_TAGS`, `NH_HTML_SANITIZER_DEFAULT_ATTRIBUTES` or
+`NH_HTML_SANITIZER_DEFAULT_URI_SCHEMES`. Without a DOM, during server-side rendering, it returns the
+HTML escaped as text.
+
+`dompurify` `^3.4.0` is a new optional peer dependency: install it when you import the entry point;
+applications that do not import it need not install it. `safeHtml` is deprecated and unchanged: it
+calls `bypassSecurityTrustHtml`, which bypasses Angular's sanitizer, so keep it only for HTML the
+application wrote itself and move other content to `nhSanitizeHtml`.
+
+| Breaking change | Required action |
+|---|---|
+| npm checks the new optional peer `dompurify` `^3.4.0` when an application installs `dompurify` itself, and refuses a version below 3.4. | Upgrade the application's `dompurify` to `^3.4.0`, or remove it when nothing else uses it. |
+
+## @newheap/platform-common: relative times
+
+`nhRelativeTime` (`NhRelativeTimePipe`, standalone and exported by `NhCommonModule`) shows a moment
+relative to now with `Intl.RelativeTimeFormat` in the active language of the module configuration,
+as `nhDate` uses it: "3 minutes ago", "in 2 days", "now". The unit goes from seconds to years and
+the amount is rounded to the nearest whole unit; `NhRelativeTimeOptions` sets `style` and `numeric`.
+Without a `now` argument the pipe keeps itself current in the browser through one shared timer
+outside Angular, also in `OnPush` and zoneless components; with `now`, and during server-side
+rendering, no timer runs. A missing or invalid value gives `null`. `nhFormatRelativeTime(value, now,
+language, options)` formats the same text in code.
+
 ## NewHeap.Platform.AspNet.Common, NewHeap.Platform.AspNet.Common.SqlServer and NewHeap.Platform.AspNet.Common.PostgreSql: bulk upsert writes database-defaulted columns
 
 `ExecuteUpsertAsync` skipped every non-key property generated on add, which includes each

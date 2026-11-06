@@ -416,5 +416,23 @@
       "expectedRules": ["nh-consumer-companist-hosting"],
       "expectedOutcome": "Use the v2 hosting manifest and whole-value Compose mappings, declare managed Companist Auth registration, keep tokens in the BFF, validate the exact tenant/environment/application/deployment scope and project current application permissions into NewHeap claims. Run the hosting validator and real login/revocation checks; do not grant users automatically or block unrelated apps on optional integration advice."
     }
+    ,{
+      "id": "consumer-frontend-sanitized-rich-text",
+      "skill": "newheap-frontend-development",
+      "prompt": "Show the e-mail bodies that support staff paste into a ticket as formatted text, without letting scripts or tracking images from the e-mail run in our Angular application. The ticket page currently uses safeHtml.",
+      "expectedRules": [
+        "nh-frontend-html-sanitizer"
+      ],
+      "expectedOutcome": "The page imports NhSanitizeHtmlPipe from @newheap/platform-common/sanitize, installs the optional dompurify peer and binds [innerHTML] through nhSanitizeHtml with the strict default allow-list, which keeps structure and links with rel=\"noopener noreferrer\" and removes scripts, styles, event handlers, frames, forms and images; safeHtml is replaced because it bypasses Angular's sanitizer, any allow-list change spreads the exported defaults, and tests cover XSS payloads and the escaped text of a server render."
+    }
+    ,{
+      "id": "consumer-frontend-relative-time",
+      "skill": "newheap-frontend-development",
+      "prompt": "Show \"3 minutes ago\" style times in the task list in the user's language, keep them current while the page stays open, and make the component test deterministic.",
+      "expectedRules": [
+        "nh-frontend-relative-time"
+      ],
+      "expectedOutcome": "The template uses nhRelativeTime, which follows the active language of the module configuration and refreshes itself through one shared timer also in OnPush components, without a component interval; the absolute date stays available in a title or time element, and tests pass a fixed now or use fakeAsync and destroy the view."
+    }
 ]
 }
