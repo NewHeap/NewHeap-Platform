@@ -94,21 +94,32 @@ export class NhModalService {
     this.viewContainerRef = viewContainerRef;
   }
 
+  /** Opens a confirmation without a message; see `confirmDialog`. */
   confirm(onConfirm: (() => void) | (() => Promise<any>), onClose?: (() => void), options?: NhModalOptions) {
     return this.confirmDialog('',onConfirm,onClose,options);
   }
 
+  /**
+   * Opens a confirmation that shows `text`. "Yes" runs `onConfirm`, which may return a promise, and
+   * closes the dialog once it completed; when it throws, the dialog stays open and shows the error.
+   * "No", the close button, Escape and back navigation close the dialog without running it.
+   * `onClose` runs once when the dialog closes, whichever way.
+   */
   confirmDialog(text: string,onConfirm: (() => void) | (() => Promise<any>), onClose?: (() => void), options?: NhModalOptions) {
     const modal = this.open(NhModalConfirmComponent, options);
-    modal.contentComponent!.message = text;
-    const onConfirm$ = modal.contentComponent!.confirmed.subscribe(() => {
-      Promise.resolve(onConfirm()).then();
-    });
+    const content = modal.contentComponent!;
+    content.message = text;
+    content.onConfirm = async () => {
+      await onConfirm();
+    };
+    content.onCancel = () => content.closeDialog({});
+
+    const confirmed$ = content.confirmed.subscribe(() => content.closeDialog({}));
     const onClose$ = modal.closed.subscribe(() => {
       if (onClose) {
         onClose();
       }
-      onConfirm$.unsubscribe();
+      confirmed$.unsubscribe();
       onClose$.unsubscribe();
     });
     return modal;
@@ -162,7 +173,12 @@ export class NhModalService {
     modalRef.modalComponent.closeable = options.closeable ?? true;
     modalRef.modalComponent.closeOnBackNavigation = options.closeOnBackNavigation ?? true;
 
+    // Called once for every way the modal leaves; only the first call changes the open modals.
     const modalRefClosed = () => {
+      if (!this.modalRefs.includes(modalRef)) {
+        return;
+      }
+
       this.modalRefs = this.modalRefs.filter(x => x !== modalRef);
       if (this.modalRefs.length === 0) {
         this.modalRefsOpen.next(false);
@@ -171,6 +187,8 @@ export class NhModalService {
 
     modalRef.modalComponent.closed.subscribe(modalRefClosed);
     modalRef.closed.subscribe(modalRefClosed);
+    // A page that hosts the modal destroys it on a route change without closing it.
+    modalComponentRef.onDestroy(modalRefClosed);
     modalRef.contentComponent?.setModalComponentRef(modalRef);
 
     this.modalRefs.push(modalRef);
@@ -218,16 +236,12 @@ export class NhModalService {
    * decides as `NhModalComponent.dismissOnBackNavigation` describes, so a modal that cannot close
    * or opted out stays open wherever it is in the stack. A modal opened meanwhile, such as a
    * confirmation that the content opens before it discards changes, stays open. A modal that its
-   * hosting page already destroyed is skipped.
+   * hosting page destroyed has already left `modalRefs`.
    */
   private dismissForBackNavigation(): void {
     const openModalRefs = [...this.modalRefs].reverse();
 
     for (const modalRef of openModalRefs) {
-      if (modalRef.componentRef.hostView.destroyed) {
-        continue;
-      }
-
       modalRef.modalComponent.dismissOnBackNavigation();
     }
   }
