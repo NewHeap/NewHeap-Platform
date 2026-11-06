@@ -56,10 +56,10 @@
 .rich-text-sample h3, .relative-time-sample h3 { margin: 9px 0 5px; }
 .rich-text-sample header p, .relative-time-sample header p { max-width: 80ch; margin: 0; color: var(--muted); }
 .rich-text-raw, .rich-text-result { display: grid; align-content: start; gap: 8px; min-width: 0; }
-.rich-text-raw textarea { width: 100%; resize: vertical; font: 11px/1.5 var(--font-mono); }
+.rich-text-raw textarea { width: 100%; resize: vertical; font: 11px/1.5 var(--font-mono); font-variant-ligatures: none; }
 .rich-text-raw small { color: var(--muted); font-size: 11px; }
 .rich-text-result h4 { margin: 0; font-size: 13px; }
-.rich-text-result pre { margin: 0; max-height: 180px; }
+.rich-text-result pre { margin: 0; max-height: 180px; font-variant-ligatures: none; }
 .rich-text-preview { min-height: 96px; padding: 12px 14px; overflow-wrap: anywhere; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); }
 .rich-text-preview :first-child { margin-top: 0; }
 .rich-text-preview :last-child { margin-bottom: 0; }

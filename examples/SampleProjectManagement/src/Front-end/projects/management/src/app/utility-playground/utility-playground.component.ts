@@ -87,7 +87,7 @@ export class UtilityPlaygroundComponent {
   readonly trustedHtml = '<strong>Trusted sample content only</strong>';
   readonly now = new Date();
   readonly pastedHtml = signal(examplePastedHtml);
-  readonly sanitizedMarkup = computed(() => this.htmlSanitizer.sanitize(this.pastedHtml()));
+  readonly sanitizedMarkup = computed(() => this.htmlSanitizer.sanitize(this.pastedHtml()).trim());
   readonly pastedFromClipboard = signal(false);
   // A fixed reference makes the second column deterministic, as a test or server render would pass it.
   readonly openedAt = this.now.getTime();
