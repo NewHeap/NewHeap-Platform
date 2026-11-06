@@ -101,7 +101,8 @@ internal sealed class NhAssistantRunMaintenance(
     /// <summary>
     /// One pass at a time in this instance, whether the interval or a caller of
     /// <see cref="INhAssistantMaintenance.RunOnceAsync"/> started it: the pass keeps where the check of
-    /// runs continues and when board visits were cleaned up.
+    /// runs continues and when board visits were cleaned up. It is not disposed: it holds no wait handle,
+    /// and the container may dispose this instance while a caller's pass still releases it.
     /// </summary>
     private readonly SemaphoreSlim _pass = new(1, 1);
 
@@ -153,12 +154,6 @@ internal sealed class NhAssistantRunMaintenance(
         {
             _pass.Release();
         }
-    }
-
-    public override void Dispose()
-    {
-        base.Dispose();
-        _pass.Dispose();
     }
 
     private async Task RunPassAsync(CancellationToken cancellationToken)

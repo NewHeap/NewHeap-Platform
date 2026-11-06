@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.114",
   "backEnd": {
-    "hash": "1e20bee608e26c31ffc30a175487618fd8fadde2a6ae624d0041c489aa9f5109",
-    "declarationCount": 13726,
+    "hash": "9c0e08a9f7cbaa084da8b6730d89512c3dd0d79e9b77690fb3be9273ca62f05d",
+    "declarationCount": 13725,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -7056,10 +7056,6 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunMaintenance.cs",
         "declaration": "public async Task RunOnceAsync(CancellationToken cancellationToken = default)"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunMaintenance.cs",
-        "declaration": "public override void Dispose() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSchedules.cs",
