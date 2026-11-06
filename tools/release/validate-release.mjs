@@ -301,7 +301,7 @@ for (const workflowPath of workflowPaths) {
     if (!workflow.includes('*.symbols.nupkg')) failures.push(`${workflowPath}: must exclude legacy symbol packages from registry publication.`);
     if ((workflow.match(/verify-public-release-targets\.mjs/g) ?? []).length < 2) failures.push(`${workflowPath}: must verify anonymous public targets both before and after publication.`);
     if (!workflow.includes('https://api.nuget.org/v3/index.json')) failures.push(`${workflowPath}: NuGet publication must target nuget.org.`);
-    if (!workflow.includes('id-token: write') || !workflow.includes('NuGet/login@d22cc5f58ff5b88bf9bd452535b4335137e24544')) {
+    if (!workflow.includes('id-token: write') || !workflow.includes('NuGet/login@8d196754b4036150537f80ac539e15c2f1028841')) {
       failures.push(`${workflowPath}: public publication must use pinned OIDC trusted publishing for NuGet.`);
     }
     if (!workflow.includes('dotnet tool install dotnet-ef') || !workflow.includes('sql-scripts.mjs --tool-version')) {
