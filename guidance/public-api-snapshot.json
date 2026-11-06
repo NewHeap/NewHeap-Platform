@@ -59986,7 +59986,8 @@
     "nh-frontend-toast-notifications": [
       "provideNhToastr",
       "NhToastrService",
-      "NhToastrContainerComponent"
+      "NhToastrContainerComponent",
+      "NhToastrAction"
     ],
     "nh-ai-assistant-ui": [
       "McpCustomAuthMode",

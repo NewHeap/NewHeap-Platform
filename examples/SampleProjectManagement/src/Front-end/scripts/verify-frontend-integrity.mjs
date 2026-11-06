@@ -94,6 +94,10 @@ assert.match(providers, /provideNhToastr\(\{ positionClass: 'toast-bottom-right'
   'The NewHeap toast provider must be registered once in shared root composition.');
 assert.match(notificationPlayground, /inject\(NhToastrService\)/,
   'The notification playground must exercise the public NewHeap toast service.');
+assert.match(management, /action:\s*\{\s*label:\s*this\.translateService\.instant\('project\.undo'\),\s*value:\s*previous\.status\s*\}/,
+  'A project status change must offer undo through the NewHeap toast action button, carrying the previous status.');
+assert.match(management, /toast\?\.onAction\.subscribe\(/,
+  'The status undo must react to the toast action through onAction.');
 for (const [name, host] of [['management', managementHost], ['workspace', workspaceHost]]) {
   assert.match(host, /<nh-toastr-container \/>/,
     `The ${name} application root must render one NewHeap toast container.`);

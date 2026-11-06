@@ -29,6 +29,30 @@ A toast is visible only while a container is rendered. In development mode
 while no `NhToastrContainerComponent` is on the page, and names the fix; in
 production nothing is logged.
 
+## Offer undo with a toast action
+
+To let people reverse a change they just made, such as a status change, pass
+an `NhToastrAction` per toast as `action` in the `override` parameter, with a
+translated `label` and the data the reversal needs as `value`. Subscribe to the
+returned toast's `onAction`: it emits that value when the button is clicked and
+completes when the toast is hidden, so the subscription ends by itself. The
+toast is dismissed after the click unless the action sets `dismiss: false`.
+Before reverting, check that no later change superseded the one being undone.
+
+```typescript
+const toast = this.toastr.success(message, undefined, {
+  action: { label: this.translate.instant('project.undo'), value: previous.status }
+});
+toast?.onAction.subscribe(status => this.restoreStatus(previous.id, status as ProjectStatus));
+```
+
+The button is a real `<button type="button">`; its click is not a tap, so
+`onTap` and `tapToDismiss` stay out of it. The timeout pauses while the pointer
+is over the toast or keyboard focus is inside it, so a keyboard user can reach
+the button. Theme it with the `--nh-toastr-action-*` custom properties. Use
+`triggerAction(toastId, value)` only to emit on `onAction` from your own code;
+it neither renders a button nor dismisses the toast.
+
 ## Migrate from ngx-toastr
 
 Replace `ToastrModule.forRoot(config)` or `provideToastr(config)` with
@@ -50,6 +74,9 @@ custom properties.
 - Showing toasts without a rendered container; the service keeps them, but
   nobody sees them.
 - Passing raw server errors, HTML, or stack traces to a toast.
+- Making the whole toast the undo control through `onTap`; keyboard and screen
+  reader users cannot reach it. Use an `action` button instead.
+- Setting `action` in `provideNhToastr(...)`; every toast would get the button.
 - Expanding the Angular peer range beyond versions exercised by the package
   compatibility check.
 
@@ -61,7 +88,10 @@ compile consumers against Angular 20, 21, and 22 with
 verify that each application root owns exactly one container and that the
 notification playground emits localized feedback through `NhToastrService`.
 In development, check that the console shows no warning about a missing toast
-container.
+container. Change a project's status in the management register, reach the
+toast's Undo button with the keyboard and check that the previous status
+returns; `component.spec.ts` in `nh-toastr` covers the button, the dismissal
+and the pause on focus.
 
 Run `npm --prefix src/Front-end run nh-common:test:compatibility` as well.
 It installs the locally packed common and toast artifacts together and compiles

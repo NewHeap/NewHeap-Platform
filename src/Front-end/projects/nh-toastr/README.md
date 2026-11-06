@@ -70,3 +70,29 @@ export class MyComponent {
   }
 }
 ```
+
+### Action button
+
+Pass `action` per toast through the `override` parameter to render a real
+button, such as "Undo", inside the toast. Clicking it emits `action.value` on
+the toast's `onAction` and dismisses the toast; set `dismiss: false` to keep it
+open. The click never counts as a tap, so `onTap` and `tapToDismiss` are not
+involved. Pass a translated label, as for the message.
+
+```typescript
+const toast = this.toastr.success(
+  this.translate.instant('project.status-update-succeeded', { key: project.key }),
+  undefined,
+  { action: { label: this.translate.instant('project.undo'), value: previousStatus } }
+);
+
+toast?.onAction.subscribe(status => this.restoreStatus(project, status as ProjectStatus));
+```
+
+The timeout pauses while the pointer is over the toast or keyboard focus is
+inside it, so keyboard users can reach the button. Theme the button with the
+`--nh-toastr-action-*` custom properties (`color`, `background`,
+`hover-background`, `border-color`, `border-width`, `radius`, `padding`,
+`font-size`, `font-weight` and `min-height`), and place it with
+`--nh-toastr-actions-justify` and `--nh-toastr-actions-margin-top`;
+its focus outline uses `--nh-toastr-focus-color`.
