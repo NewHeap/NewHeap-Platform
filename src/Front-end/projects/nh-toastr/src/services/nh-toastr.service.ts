@@ -15,6 +15,16 @@ export type NhToastrPosition =
     | 'toast-bottom-center'
     | 'bs-toast-container';
 
+/** A button inside a toast, such as "Undo", that reports its value through `NhActiveToast.onAction`. */
+export interface NhToastrAction {
+    /** The visible button text. Pass translated text, as for the toast message. */
+    label: string;
+    /** The value `onAction` emits when the button is clicked; `undefined` when omitted. */
+    value?: unknown;
+    /** Whether clicking the button dismisses the toast. Defaults to `true`. */
+    dismiss?: boolean;
+}
+
 /** A compatible subset of the legacy toast configuration. */
 export interface NhToastrConfig {
     disableTimeOut?: boolean | 'timeOut' | 'extendedTimeOut';
@@ -30,6 +40,11 @@ export interface NhToastrConfig {
     newestOnTop?: boolean;
     preventDuplicates?: boolean;
     includeTitleDuplicates?: boolean;
+    /**
+     * Renders an action button in the toast. Pass it per toast through the `override` parameter of
+     * `success`, `error`, `info`, `warning` or `show`; as an application default every toast would get the button.
+     */
+    action?: NhToastrAction;
 }
 
 export const NH_TOASTR_CONFIG = new InjectionToken<NhToastrConfig>('NH_TOASTR_CONFIG');
@@ -238,6 +253,25 @@ export class NhToastrService {
 
     public triggerAction(toastId: number, value?: unknown): void {
         this.lifecycles.get(toastId)?.onAction.next(value);
+    }
+
+    /**
+     * Runs the toast's `action` button: emits `action.value` on `onAction` and then dismisses the toast,
+     * unless `action.dismiss` is `false`. Does nothing for a toast without an action or one that is leaving.
+     * The toast component calls this when the button is clicked; it never counts as a tap.
+     */
+    public runAction(toastId: number): void {
+        const toast = this.toasts().find(item => item.toastId === toastId);
+        const action = toast?.config.action;
+        if (!toast || toast.state === 'leaving' || !action) {
+            return;
+        }
+
+        this.triggerAction(toastId, action.value);
+
+        if (action.dismiss !== false) {
+            this.remove(toastId);
+        }
     }
 
     private finalizeRemove(toastId: number): void {

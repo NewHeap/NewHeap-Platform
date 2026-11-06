@@ -12,8 +12,10 @@ import { NhActiveToast, NhToastrPosition, NhToastrService, NH_TOASTR_POSITIONS }
             [class]="toastClasses()"
             [attr.role]="toast().toastType === 'error' ? 'alert' : 'status'"
             (click)="tapped.emit(toast().toastId)"
-            (mouseenter)="paused.emit(toast().toastId)"
-            (mouseleave)="resumed.emit(toast().toastId)">
+            (mouseenter)="setHovered(true)"
+            (mouseleave)="setHovered(false)"
+            (focusin)="setFocusWithin(true)"
+            (focusout)="leaveFocus($event)">
             @if (toast().title || toast().config.closeButton) {
                 <div class="toast-header">
                     <strong [class]="titleClasses()" [attr.aria-label]="toast().title">{{ toast().title }}</strong>
@@ -29,6 +31,11 @@ import { NhActiveToast, NhToastrPosition, NhToastrService, NH_TOASTR_POSITIONS }
                 </div>
             } @else {
                 <div class="toast-body" [class]="messageClasses()" [attr.aria-label]="toast().message">{{ toast().message }}</div>
+            }
+            @if (toast().config.action; as action) {
+                <div class="nh-toastr-actions">
+                    <button class="nh-toastr-action" type="button" (click)="runAction($event)">{{ action.label }}</button>
+                </div>
             }
         </div>
     `,
@@ -102,6 +109,40 @@ import { NhActiveToast, NhToastrPosition, NhToastrService, NH_TOASTR_POSITIONS }
             outline: 2px solid var(--nh-toastr-focus-color, var(--nh-toastr-accent, #0d6efd));
             outline-offset: 2px;
         }
+
+        .nh-toastr-actions {
+            display: flex;
+            justify-content: var(--nh-toastr-actions-justify, flex-end);
+            margin-top: var(--nh-toastr-actions-margin-top, .6rem);
+        }
+
+        .nh-toastr.toast .nh-toastr-actions {
+            margin-top: 0;
+            padding: 0 var(--bs-toast-padding-x, .75rem) var(--bs-toast-padding-x, .75rem);
+        }
+
+        .nh-toastr-action {
+            background: var(--nh-toastr-action-background, transparent);
+            border: var(--nh-toastr-action-border-width, 1px) solid var(--nh-toastr-action-border-color, currentColor);
+            border-radius: var(--nh-toastr-action-radius, .5rem);
+            color: var(--nh-toastr-action-color, inherit);
+            cursor: pointer;
+            font: inherit;
+            font-size: var(--nh-toastr-action-font-size, .875rem);
+            font-weight: var(--nh-toastr-action-font-weight, 600);
+            line-height: 1.25;
+            min-height: var(--nh-toastr-action-min-height, 2rem);
+            padding: var(--nh-toastr-action-padding, .3rem .8rem);
+        }
+
+        .nh-toastr-action:hover {
+            background: var(--nh-toastr-action-hover-background, rgba(100, 116, 139, .12));
+        }
+
+        .nh-toastr-action:focus-visible {
+            outline: 2px solid var(--nh-toastr-focus-color, var(--nh-toastr-accent, #0d6efd));
+            outline-offset: 2px;
+        }
     `]
 })
 export class NhToastrComponent {
@@ -110,6 +151,12 @@ export class NhToastrComponent {
     public readonly tapped = output<number>();
     public readonly paused = output<number>();
     public readonly resumed = output<number>();
+    /** Emits the toast id when the `action` button is clicked. */
+    public readonly actionTriggered = output<number>();
+
+    private hovered = false;
+    private focusWithin = false;
+    private pausedByInteraction = false;
 
     protected toastClasses(): string {
         const toast = this.toast();
@@ -128,6 +175,51 @@ export class NhToastrComponent {
         event.stopPropagation();
         this.dismissed.emit(this.toast().toastId);
     }
+
+    protected runAction(event: MouseEvent): void {
+        // The button is not a tap on the toast: tapToDismiss and onTap stay out of it.
+        event.stopPropagation();
+        this.actionTriggered.emit(this.toast().toastId);
+    }
+
+    protected setHovered(hovered: boolean): void {
+        this.hovered = hovered;
+        this.updatePause();
+    }
+
+    protected setFocusWithin(focusWithin: boolean): void {
+        this.focusWithin = focusWithin;
+        this.updatePause();
+    }
+
+    protected leaveFocus(event: FocusEvent): void {
+        // Moving focus between the buttons of the same toast keeps it paused.
+        const toastElement = event.currentTarget as HTMLElement;
+        const nextFocus = event.relatedTarget as Node | null;
+        if (nextFocus && toastElement.contains(nextFocus)) {
+            return;
+        }
+
+        this.setFocusWithin(false);
+    }
+
+    /**
+     * The timeout pauses while the pointer is over the toast or keyboard focus is inside it, so a keyboard
+     * user can reach its buttons, and resumes only once neither is the case.
+     */
+    private updatePause(): void {
+        const shouldPause = this.hovered || this.focusWithin;
+        if (shouldPause === this.pausedByInteraction) {
+            return;
+        }
+
+        this.pausedByInteraction = shouldPause;
+        if (shouldPause) {
+            this.paused.emit(this.toast().toastId);
+        } else {
+            this.resumed.emit(this.toast().toastId);
+        }
+    }
 }
 
 @Component({
@@ -143,7 +235,8 @@ export class NhToastrComponent {
                         (dismissed)="toastr.remove($event)"
                         (tapped)="toastr.tap($event)"
                         (paused)="toastr.pause($event)"
-                        (resumed)="toastr.resume($event)" />
+                        (resumed)="toastr.resume($event)"
+                        (actionTriggered)="toastr.runAction($event)" />
                 }
             </div>
         }
