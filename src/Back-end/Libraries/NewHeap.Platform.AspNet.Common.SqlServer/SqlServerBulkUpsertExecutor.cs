@@ -67,9 +67,12 @@ internal static class SqlServerBulkUpsertExecutor
             entities,
             plan.StagingProperties,
             sourceOrdinalColumnName);
+        // SELECT ... INTO copies a staged identity column's IDENTITY property to the temporary
+        // table. KeepIdentity stages the supplied key values instead of renumbering them, so an
+        // update of an identity-keyed dependent matches the row it names.
         using (var bulkCopy = new SqlBulkCopy(
                    connection,
-                   SqlBulkCopyOptions.TableLock,
+                   SqlBulkCopyOptions.TableLock | SqlBulkCopyOptions.KeepIdentity,
                    sqlTransaction)
                {
                    DestinationTableName = temporaryTable,

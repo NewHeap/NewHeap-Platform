@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
@@ -70,6 +71,38 @@ public sealed class AuthenticationEndpointRouteTests
 
         Assert.Same(FindEndpoint(applicationWide, "Login"), FindEndpoint(routing, "Login"));
         Assert.Same(FindEndpoint(applicationWide, "Refresh token"), FindEndpoint(routing, "Refresh token"));
+    }
+
+    [Fact]
+    public void TheImpersonationTokenLifetimeReachesTheAuthenticationConfiguration()
+    {
+        using var defaults = BuildWithUserNamePasswordEndpoints(options => options.EnableImpersonate = true);
+        using var configured = BuildWithUserNamePasswordEndpoints(options =>
+        {
+            options.EnableImpersonate = true;
+            options.ExpirationTimespanImpersonationToken = TimeSpan.FromMinutes(45);
+        });
+
+        Assert.Equal(
+            TimeSpan.FromDays(1),
+            defaults.Services.GetRequiredService<AuthenticationConfiguration>().ExpirationTimespanImpersonationToken);
+        Assert.Equal(
+            TimeSpan.FromMinutes(45),
+            configured.Services.GetRequiredService<AuthenticationConfiguration>().ExpirationTimespanImpersonationToken);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public void ANonPositiveImpersonationTokenLifetimeIsRefusedAtRegistration(int minutes)
+    {
+        var exception = Assert.Throws<InvalidOperationException>(() => BuildWithUserNamePasswordEndpoints(options =>
+        {
+            options.EnableImpersonate = true;
+            options.ExpirationTimespanImpersonationToken = TimeSpan.FromMinutes(minutes);
+        }));
+
+        Assert.Contains("ExpirationTimespanImpersonationToken", exception.Message, StringComparison.Ordinal);
     }
 
     private static Dictionary<string, string> MapUserNamePasswordEndpoints(

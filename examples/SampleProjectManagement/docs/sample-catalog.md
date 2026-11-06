@@ -1555,6 +1555,10 @@ login message instead of a page whose requests and notification polls keep
 answering 401. To reproduce it, restart the sample's AppHost while you are
 signed in: the recreated database no longer knows the session.
 
+An impersonation (SPM-067) has no refresh token, so it ends with its access token.
+The API sets `ExpirationTimespanImpersonationToken` to one hour instead of the
+one-day default, and `AuthenticationSessionSamplesTests` checks that lifetime.
+
 Project mutations also use explicit connection state. Only a browser network
 failure with HTTP status `0` enables local demo mode. A server response with 400,
 401, 403, or 500 proves that the API is reachable and must never cause a local
@@ -1583,6 +1587,10 @@ The ModelState button retrieves a real nested error from
 and the empty key on the form. The TaskResult button runs
 `NhTaskResultFormValidationService` with one field error and one general error,
 so both error channels remain independently visible.
+
+Identity's own errors follow the request culture as well (SPM-092): the platform's
+`MultiLanguageIdentityErrorDescriber` ships English and Dutch messages, and
+`AuthenticationSessionSamplesTests` shows a refused password explained in both.
 
 ## Page lifecycle and dirty navigation
 
@@ -1852,7 +1860,7 @@ incorrectly presented as implemented.
 
 ## Explicit ASP.NET database providers
 
-SPM-051 selects `NewHeap.Platform.AspNet.Common.SqlServer` or `.PostgreSql` through `UseNewHeapSqlServer` and `UseNewHeapPostgreSql` in API composition. SPM-053 uses the same per-context registration for native bulk upsert. Common remains free of both database provider stacks. Hangfire storage is configured explicitly in its callback. `DatabaseProviderSamplesTests` verifies both composition variants; the library boundary tests and real-provider scenarios cover package isolation, bulk execution, locks, and identity-context configuration. See `docs/release-notes/v-next.md` for the required upgrade changes.
+SPM-051 selects `NewHeap.Platform.AspNet.Common.SqlServer` or `.PostgreSql` through `UseNewHeapSqlServer` and `UseNewHeapPostgreSql` in API composition. SPM-053 uses the same per-context registration for native bulk upsert; `BulkUpsertSamplesTests` imports budget lines whose currency column has a database default, which is written only when every line sets it, left to the default when none does, and refused when only some lines do. Common remains free of both database provider stacks. Hangfire storage is configured explicitly in its callback. `DatabaseProviderSamplesTests` verifies both composition variants; the library boundary tests and real-provider scenarios cover package isolation, bulk execution, locks, and identity-context configuration. See `docs/release-notes/v-next.md` for the required upgrade changes.
 
 ## Proxy URL diagnostics
 

@@ -593,6 +593,8 @@ public class ProjectService : BaseDbEntityService<Project, ProjectMutateModel, P
     /// <summary>
     /// SPM-053 demonstrates the provider-native import path. The operation is immediate,
     /// bypasses EF change tracking, and upserts explicitly selected dependent tasks by primary key.
+    /// A column with a database default is written only when every imported entity sets it; the
+    /// budget-line import in <c>BulkUpsertSamplesTests</c> shows that rule.
     /// </summary>
     public Task<int> ImportAsync(
         IReadOnlyCollection<Project> projects,

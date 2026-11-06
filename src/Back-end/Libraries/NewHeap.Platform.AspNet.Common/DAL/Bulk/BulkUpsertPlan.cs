@@ -10,19 +10,20 @@ namespace NewHeap.Platform.AspNet.Common.DAL.Bulk;
 internal sealed class BulkUpsertPlan<TEntity>
     where TEntity : class
 {
+    private readonly BulkUpsertPlanShape _shape;
+
     private BulkUpsertPlan(
-        string tableName,
-        string? schema,
-        BulkUpsertOperation operation,
+        BulkUpsertPlanShape shape,
         IReadOnlyList<BulkUpsertProperty<TEntity>> stagingProperties,
         IReadOnlyList<BulkUpsertProperty<TEntity>> insertProperties,
         IReadOnlyList<BulkUpsertProperty<TEntity>> matchProperties,
         IReadOnlyList<BulkUpsertProperty<TEntity>> updateProperties,
         BulkUpsertProperty<TEntity>? generatedPrimaryKey)
     {
-        TableName = tableName;
-        Schema = schema;
-        Operation = operation;
+        _shape = shape;
+        TableName = shape.TableName;
+        Schema = shape.Schema;
+        Operation = shape.Operation;
         StagingProperties = stagingProperties;
         InsertProperties = insertProperties;
         MatchProperties = matchProperties;
@@ -45,6 +46,13 @@ internal sealed class BulkUpsertPlan<TEntity>
     public IReadOnlyList<BulkUpsertProperty<TEntity>> UpdateProperties { get; }
 
     internal BulkUpsertProperty<TEntity>? GeneratedPrimaryKey { get; }
+
+    /// <summary>
+    /// Whether the entity has non-key properties that the database generates on add, typically
+    /// through a default value. Their columns are written only when the batch sets them, so the
+    /// input must be inspected with <see cref="ForBatch"/> before it is staged.
+    /// </summary>
+    internal bool HasGeneratedOnAddProperties => _shape.GeneratedOnAddMetadata.Count > 0;
 
     public static BulkUpsertPlan<TEntity> Create<TMatch>(
         DbContext context,
@@ -136,60 +144,150 @@ internal sealed class BulkUpsertPlan<TEntity>
                 $"Bulk upsert cannot supply required shadow property '{unsupportedShadowProperty.Name}'.");
         }
 
-        var insertMetadata = mappedProperties
+        var writableMetadata = mappedProperties
             .Where(property =>
                 !property.IsShadowProperty() &&
                 property.ValueGenerated == ValueGenerated.Never &&
                 property.GetBeforeSaveBehavior() == PropertySaveBehavior.Save)
             .ToList();
-        if (insertMetadata.Count == 0)
+        if (writableMetadata.Count == 0)
         {
             throw new NotSupportedException(
                 $"Entity type '{typeof(TEntity).Name}' has no writable columns for bulk upsert.");
         }
 
+        // Non-key properties generated on add, by convention every property with a database
+        // default, are written only when the batch sets them; see ForBatch. Properties generated
+        // on update or computed (OnUpdate, OnAddOrUpdate) are never written, as with SaveChanges.
         var primaryKey = entityType.FindPrimaryKey();
+        var generatedOnAddMetadata = mappedProperties
+            .Where(property =>
+                !property.IsShadowProperty() &&
+                property.ValueGenerated == ValueGenerated.OnAdd &&
+                !(primaryKey?.Properties.Contains(property) ?? false) &&
+                !matchMetadata.Contains(property) &&
+                property.GetBeforeSaveBehavior() == PropertySaveBehavior.Save)
+            .ToList();
+
+        var shape = new BulkUpsertPlanShape(
+            tableName,
+            schema,
+            operation,
+            storeObject,
+            primaryKey,
+            matchMetadata,
+            mappedProperties,
+            writableMetadata,
+            generatedOnAddMetadata);
+        return Build(shape, suppliedGeneratedOnAdd: []);
+    }
+
+    /// <summary>
+    /// Returns the plan for one batch. A non-key property generated on add is written when every
+    /// row sets it, and left to the database when no row does, so a value the caller set is never
+    /// dropped silently. A batch in which only some rows set it is refused before any SQL runs,
+    /// because one statement cannot apply the database default to some rows only.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The batch contains a null entity, or only some rows set a property generated on add.</exception>
+    internal BulkUpsertPlan<TEntity> ForBatch(IReadOnlyList<TEntity> entities)
+    {
+        ArgumentNullException.ThrowIfNull(entities);
+
+        if (_shape.GeneratedOnAddMetadata.Count == 0)
+        {
+            return this;
+        }
+
+        var supplied = new List<IProperty>();
+        foreach (var property in _shape.GeneratedOnAddMetadata)
+        {
+            var getter = property.GetGetter();
+            var setCount = 0;
+            foreach (var entity in entities)
+            {
+                if (entity is null)
+                {
+                    throw new InvalidOperationException("Bulk upsert input cannot contain null entities.");
+                }
+
+                if (!getter.HasSentinelValue(entity))
+                {
+                    setCount++;
+                }
+            }
+
+            if (setCount == 0)
+            {
+                continue;
+            }
+
+            if (setCount != entities.Count)
+            {
+                throw new InvalidOperationException(
+                    $"Bulk upsert property '{typeof(TEntity).Name}.{property.Name}' is generated on add " +
+                    $"(it has a database default) and is set on {setCount} of {entities.Count} rows. " +
+                    "Set it on every row to write the values, or on none to let the database default apply; " +
+                    "import rows with and without a value in separate calls.");
+            }
+
+            supplied.Add(property);
+        }
+
+        return supplied.Count == 0
+            ? this
+            : Build(_shape, supplied);
+    }
+
+    private static BulkUpsertPlan<TEntity> Build(
+        BulkUpsertPlanShape shape,
+        IReadOnlyCollection<IProperty> suppliedGeneratedOnAdd)
+    {
+        // Keep the model's column order so supplied generated columns sit where they are mapped.
+        var insertMetadata = shape.MappedProperties
+            .Where(property =>
+                shape.WritableMetadata.Contains(property) ||
+                suppliedGeneratedOnAdd.Contains(property))
+            .ToList();
+
         var creationDateTimeName = typeof(IdDbEntity).IsAssignableFrom(typeof(TEntity))
             ? nameof(IdDbEntity.CreationDateTime)
             : null;
         var updateMetadata = insertMetadata
             .Where(property =>
-                !matchMetadata.Contains(property) &&
-                !(primaryKey?.Properties.Contains(property) ?? false) &&
+                !shape.MatchMetadata.Contains(property) &&
+                !(shape.PrimaryKey?.Properties.Contains(property) ?? false) &&
                 !property.IsConcurrencyToken &&
                 property.GetAfterSaveBehavior() == PropertySaveBehavior.Save &&
                 !string.Equals(property.Name, creationDateTimeName, StringComparison.Ordinal))
             .ToList();
-        if (operation == BulkUpsertOperation.UpdateOnly && updateMetadata.Count == 0)
+        if (shape.Operation == BulkUpsertOperation.UpdateOnly && updateMetadata.Count == 0)
         {
             throw new NotSupportedException(
                 $"Bulk upsert navigation entity '{typeof(TEntity).Name}' has no writable columns to update.");
         }
 
         var stagingMetadata = insertMetadata
-            .Concat(matchMetadata)
+            .Concat(shape.MatchMetadata)
             .Distinct()
             .ToList();
         var propertyMap = stagingMetadata.ToDictionary(
             property => property,
-            property => CreateProperty(property, storeObject));
-        var generatedPrimaryKeyMetadata = primaryKey?.Properties.Count == 1
-            ? primaryKey.Properties[0]
+            property => CreateProperty(property, shape.StoreObject));
+        var generatedPrimaryKeyMetadata = shape.PrimaryKey?.Properties.Count == 1
+            ? shape.PrimaryKey.Properties[0]
             : null;
         var generatedPrimaryKey = generatedPrimaryKeyMetadata is not null &&
                                   generatedPrimaryKeyMetadata.ValueGenerated == ValueGenerated.OnAdd &&
                                   !generatedPrimaryKeyMetadata.IsShadowProperty() &&
                                   IsSupportedKeyType(generatedPrimaryKeyMetadata.ClrType)
-            ? CreateProperty(generatedPrimaryKeyMetadata, storeObject)
+            ? CreateProperty(generatedPrimaryKeyMetadata, shape.StoreObject)
             : null;
 
         return new BulkUpsertPlan<TEntity>(
-            tableName,
-            schema,
-            operation,
+            shape,
             stagingMetadata.Select(property => propertyMap[property]).ToList(),
             insertMetadata.Select(property => propertyMap[property]).ToList(),
-            matchMetadata.Select(property => propertyMap[property]).ToList(),
+            shape.MatchMetadata.Select(property => propertyMap[property]).ToList(),
             updateMetadata.Select(property => propertyMap[property]).ToList(),
             generatedPrimaryKey);
     }
@@ -300,6 +398,21 @@ internal sealed class BulkUpsertPlan<TEntity>
         }
     }
 }
+
+/// <summary>
+/// The model facts a bulk upsert plan is built from; one batch only decides which properties
+/// generated on add it writes.
+/// </summary>
+internal sealed record BulkUpsertPlanShape(
+    string TableName,
+    string? Schema,
+    BulkUpsertOperation Operation,
+    StoreObjectIdentifier StoreObject,
+    IKey? PrimaryKey,
+    IReadOnlyList<IProperty> MatchMetadata,
+    IReadOnlyList<IProperty> MappedProperties,
+    IReadOnlyList<IProperty> WritableMetadata,
+    IReadOnlyList<IProperty> GeneratedOnAddMetadata);
 
 internal sealed class BulkUpsertProperty<TEntity>(
     IProperty property,

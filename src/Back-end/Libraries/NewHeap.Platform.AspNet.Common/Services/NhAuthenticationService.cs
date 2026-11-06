@@ -749,8 +749,9 @@ public class NhAuthenticationService<
     /// The impersonation session deliberately has no refresh token. A refresh would rebuild
     /// the token from the target user's claims and silently drop the impersonation origin,
     /// turning the session into an ordinary long-lived login as the target user. The session
-    /// therefore ends when the access token expires or the origin user reverts it.
-    /// The token also carries a digest of the origin user's security stamp
+    /// therefore ends when the access token expires, after
+    /// <see cref="AuthenticationConfiguration.ExpirationTimespanImpersonationToken"/>, or when the origin
+    /// user reverts it. The token also carries a digest of the origin user's security stamp
     /// (<see cref="NhPlatformClaimTypes.ImpersonateOriginSecurityStamp"/>), so the session validator
     /// ends the impersonation when that stamp changes or the origin user is blocked. An origin user
     /// who may not sign in cannot start one.
@@ -779,7 +780,7 @@ public class NhAuthenticationService<
         var token = await CreateToken(
             user.Id,
             c: claims,
-            expiration: null
+            expiration: _authConfiguration.ExpirationTimespanImpersonationToken
         );
 
         return CreateUserToken(

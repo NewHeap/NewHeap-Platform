@@ -295,7 +295,9 @@ internal static class BulkUpsertGraph
         CancellationToken cancellationToken)
         where TDependent : class
     {
-        var plan = BulkUpsertPlan<TDependent>.CreateForPrimaryKey(context, operation);
+        var plan = BulkUpsertPlan<TDependent>
+            .CreateForPrimaryKey(context, operation)
+            .ForBatch(dependents);
         return RepositoryBulkExtensions.ExecuteProviderAsync(
             context,
             provider,

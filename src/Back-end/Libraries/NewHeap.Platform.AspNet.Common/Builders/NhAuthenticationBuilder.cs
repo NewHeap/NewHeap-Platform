@@ -151,6 +151,13 @@ public class NhAuthenticationBuilder<
         public string? AccountInformationEndpoint { get; set; }
         public bool EnableDivisions { get; set; } = false;
         public bool EnableImpersonate { get; set; } = false;
+
+        /// <summary>
+        /// How long an impersonation access token is valid; it must be positive. The impersonation
+        /// session has no refresh token, so keep it short. Defaults to one day.
+        /// </summary>
+        public TimeSpan ExpirationTimespanImpersonationToken { get; set; } = TimeSpan.FromDays(1);
+
         public string? AuthenticationServiceKey { get; set; }
         public List<Claim> AuthenticateRequiredClaims { get; set; } = new List<Claim>();
     }
@@ -173,6 +180,13 @@ public class NhAuthenticationBuilder<
             
         });
         
+        if (UserNamePasswordOptionsValue.ExpirationTimespanImpersonationToken <= TimeSpan.Zero)
+        {
+            throw new InvalidOperationException(
+                "UserNamePasswordOptions.ExpirationTimespanImpersonationToken must be positive; it is " +
+                $"{UserNamePasswordOptionsValue.ExpirationTimespanImpersonationToken}.");
+        }
+
         var authConfig = new AuthenticationConfiguration
         {
             RefreshTokenEnabled = UserNamePasswordOptionsValue.EnableRefreshToken,
@@ -188,6 +202,7 @@ public class NhAuthenticationBuilder<
             RevertImpersonateEndpoint = UserNamePasswordOptionsValue.RevertImpersonateEndpoint,
             AuthenticationServiceKey = UserNamePasswordOptionsValue.AuthenticationServiceKey,
             AuthenticateRequiredClaims = UserNamePasswordOptionsValue.AuthenticateRequiredClaims,
+            ExpirationTimespanImpersonationToken = UserNamePasswordOptionsValue.ExpirationTimespanImpersonationToken,
         };
         services.AddSingleton(authConfig);
 

@@ -20,6 +20,199 @@ public sealed class BulkUpsertProviderTests
         await VerifyProviderAsync(database.UseNewHeapProvider, database.Label);
     }
 
+    /// <summary>
+    /// A property with a database default is generated on add, so the bulk plan used to skip its
+    /// column even when the caller set it. It is now written when every row sets it, left to the
+    /// database default when no row does, and a batch that mixes both is refused before any SQL.
+    /// </summary>
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task DatabaseDefaultedColumnsAreWrittenWhenEveryRowSetsThemOnEachRelationalProvider(
+        RelationalTestProvider provider)
+    {
+        var database = await ProviderTestDatabase.CreateAsync(provider);
+        await using var environment = await BulkUpsertEnvironment.CreateAsync(database.UseNewHeapProvider);
+        var context = environment.Context;
+        var repository = environment.Repository<DefaultedImportRow>();
+
+        // No row sets the defaulted columns: the database defaults apply, as before.
+        (await repository.ExecuteUpsertAsync(
+            [
+                new DefaultedImportRow { ExternalKey = "DEFAULT-1", Name = "First" },
+                new DefaultedImportRow { ExternalKey = "DEFAULT-2", Name = "Second" }
+            ],
+            row => row.ExternalKey)).Should().Be(2);
+        var defaulted = await StoredDefaultedRowsAsync(context);
+        defaulted["DEFAULT-1"].Priority.Should().Be(3);
+        defaulted["DEFAULT-1"].Category.Should().Be("general");
+        defaulted["DEFAULT-1"].ImportedAt.Should().NotBe(default);
+
+        // Every row sets them: the values are written on insert and on update. The input is a
+        // one-shot sequence; it is read once to inspect the batch.
+        var importedAt = new DateTimeOffset(2026, 3, 1, 8, 30, 0, TimeSpan.Zero);
+        var enumerations = 0;
+        IEnumerable<DefaultedImportRow> SetRows()
+        {
+            enumerations++;
+            yield return new DefaultedImportRow
+            {
+                ExternalKey = "DEFAULT-1",
+                Name = "First updated",
+                Priority = 7,
+                Category = "sales",
+                ImportedAt = importedAt
+            };
+            yield return new DefaultedImportRow
+            {
+                ExternalKey = "DEFAULT-3",
+                Name = "Third",
+                Priority = 1,
+                Category = "support",
+                ImportedAt = importedAt
+            };
+        }
+
+        (await repository.ExecuteUpsertAsync(SetRows(), row => row.ExternalKey)).Should().Be(2);
+        enumerations.Should().Be(1);
+        var written = await StoredDefaultedRowsAsync(context);
+        written["DEFAULT-1"].Name.Should().Be("First updated");
+        written["DEFAULT-1"].Priority.Should().Be(7);
+        written["DEFAULT-1"].Category.Should().Be("sales");
+        written["DEFAULT-1"].ImportedAt.Should().Be(importedAt);
+        written["DEFAULT-3"].Priority.Should().Be(1);
+        written["DEFAULT-3"].Category.Should().Be("support");
+        written["DEFAULT-3"].ImportedAt.Should().Be(importedAt);
+
+        // An update that sets none of them keeps the stored values instead of resetting them.
+        (await repository.ExecuteUpsertAsync(
+            [new DefaultedImportRow { ExternalKey = "DEFAULT-1", Name = "First renamed" }],
+            row => row.ExternalKey)).Should().Be(1);
+        var kept = (await StoredDefaultedRowsAsync(context))["DEFAULT-1"];
+        kept.Name.Should().Be("First renamed");
+        kept.Priority.Should().Be(7);
+        kept.Category.Should().Be("sales");
+
+        // Only some rows set a defaulted column: refused with the property named, nothing written.
+        var mixed = () => repository.ExecuteUpsertAsync(
+            [
+                new DefaultedImportRow { ExternalKey = "DEFAULT-2", Name = "Second updated", Priority = 5 },
+                new DefaultedImportRow { ExternalKey = "DEFAULT-4", Name = "Fourth" }
+            ],
+            row => row.ExternalKey);
+        await mixed.Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*'DefaultedImportRow.Priority'*1 of 2 rows*");
+        var afterMixed = await StoredDefaultedRowsAsync(context);
+        afterMixed.Should().NotContainKey("DEFAULT-4");
+        afterMixed["DEFAULT-2"].Name.Should().Be("Second");
+
+        // The graph overload applies the same rule to each group of dependents.
+        var graphRoot = new DefaultedImportRow
+        {
+            ExternalKey = "DEFAULT-GRAPH",
+            Name = "Graph root",
+            Notes =
+            [
+                new DefaultedImportNote { Text = "Weighted", Weight = 4 },
+                new DefaultedImportNote { Text = "Also weighted", Weight = 2 }
+            ]
+        };
+        (await repository.ExecuteUpsertAsync(
+            [graphRoot],
+            row => row.ExternalKey,
+            [row => row.Notes])).Should().Be(3);
+        var unweightedRoot = new DefaultedImportRow
+        {
+            ExternalKey = "DEFAULT-GRAPH-2",
+            Name = "Second graph root",
+            Notes = [new DefaultedImportNote { Text = "Unweighted" }]
+        };
+        (await repository.ExecuteUpsertAsync(
+            [unweightedRoot],
+            row => row.ExternalKey,
+            [row => row.Notes])).Should().Be(2);
+        var notes = await context.DefaultedImportNotes
+            .AsNoTracking()
+            .ToDictionaryAsync(note => note.Text);
+        notes["Weighted"].Weight.Should().Be(4);
+        notes["Also weighted"].Weight.Should().Be(2);
+        notes["Unweighted"].Weight.Should().Be(1);
+
+        var mixedGraph = () => repository.ExecuteUpsertAsync(
+            [
+                new DefaultedImportRow
+                {
+                    ExternalKey = "DEFAULT-GRAPH",
+                    Name = "Must roll back",
+                    Notes =
+                    [
+                        new DefaultedImportNote { Text = "Mixed weighted", Weight = 9 },
+                        new DefaultedImportNote { Text = "Mixed unweighted" }
+                    ]
+                }
+            ],
+            row => row.ExternalKey,
+            [row => row.Notes]);
+        await mixedGraph.Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*'DefaultedImportNote.Weight'*1 of 2 rows*");
+        (await StoredDefaultedRowsAsync(context))["DEFAULT-GRAPH"].Name.Should().Be("Graph root");
+        (await context.DefaultedImportNotes.AsNoTracking().CountAsync()).Should().Be(3);
+    }
+
+    /// <summary>
+    /// A graph update stages the dependent's generated key in a temporary table. On SQL Server that
+    /// table inherits the column's identity, which must not renumber the staged keys.
+    /// </summary>
+    [Theory]
+    [InlineData(RelationalTestProvider.SqlServer)]
+    [InlineData(RelationalTestProvider.PostgreSql)]
+    public async Task GraphUpdatesTheMatchedIdentityKeyedDependentOnEachRelationalProvider(
+        RelationalTestProvider provider)
+    {
+        var database = await ProviderTestDatabase.CreateAsync(provider);
+        await using var environment = await BulkUpsertEnvironment.CreateAsync(database.UseNewHeapProvider);
+        var context = environment.Context;
+        var repository = environment.Repository<GraphParent>();
+
+        var first = new GraphParent
+        {
+            ExternalKey = "IDENTITY-1",
+            Name = "First",
+            Detail = new GraphDetail { Value = "First detail" }
+        };
+        var second = new GraphParent
+        {
+            ExternalKey = "IDENTITY-2",
+            Name = "Second",
+            Detail = new GraphDetail { Value = "Second detail" }
+        };
+        context.GraphParents.AddRange(first, second);
+        await context.SaveChangesAsync();
+        var firstDetailId = first.Detail.Id;
+        var secondDetailId = second.Detail.Id;
+        context.ChangeTracker.Clear();
+
+        (await repository.ExecuteUpsertAsync(
+            [
+                new GraphParent
+                {
+                    ExternalKey = "IDENTITY-2",
+                    Name = "Second updated",
+                    Detail = new GraphDetail { Id = secondDetailId, Value = "Second detail updated" }
+                }
+            ],
+            parent => parent.ExternalKey,
+            [parent => parent.Detail])).Should().Be(2);
+
+        var details = await context.GraphDetails
+            .AsNoTracking()
+            .ToDictionaryAsync(detail => detail.Id);
+        details[firstDetailId].Value.Should().Be("First detail");
+        details[secondDetailId].Value.Should().Be("Second detail updated");
+    }
+
     [Fact]
     public async Task UnsupportedProvidersFailBeforeEnumeratingInput()
     {
@@ -288,6 +481,13 @@ public sealed class BulkUpsertProviderTests
             .Name.Should().Be("Updated root");
     }
 
+    private static Task<Dictionary<string, DefaultedImportRow>> StoredDefaultedRowsAsync(BulkUpsertDbContext context)
+    {
+        return context.DefaultedImportRows
+            .AsNoTracking()
+            .ToDictionaryAsync(row => row.ExternalKey);
+    }
+
     private static ImportRow CreateImportRow(
         int index,
         DateTimeOffset timestamp,
@@ -307,10 +507,54 @@ public sealed class BulkUpsertProviderTests
         };
     }
 
+    /// <summary>
+    /// A scope with the bulk test model created in the test's own database and a repository per
+    /// entity type, as an application registers them.
+    /// </summary>
+    private sealed class BulkUpsertEnvironment : IAsyncDisposable
+    {
+        private readonly ServiceProvider _serviceProvider;
+        private readonly AsyncServiceScope _scope;
+
+        private BulkUpsertEnvironment(ServiceProvider serviceProvider)
+        {
+            _serviceProvider = serviceProvider;
+            _scope = serviceProvider.CreateAsyncScope();
+            Context = _scope.ServiceProvider.GetRequiredService<BulkUpsertDbContext>();
+        }
+
+        public BulkUpsertDbContext Context { get; }
+
+        public static async Task<BulkUpsertEnvironment> CreateAsync(Action<DbContextOptionsBuilder> configureProvider)
+        {
+            var services = new ServiceCollection();
+            services.AddDbContext<BulkUpsertDbContext>(configureProvider);
+            var environment = new BulkUpsertEnvironment(services.BuildServiceProvider());
+            await environment.Context.Database.EnsureCreatedAsync();
+            return environment;
+        }
+
+        public IRepository<TEntity> Repository<TEntity>()
+            where TEntity : class
+        {
+            return new Repository<TEntity>(Context, _scope.ServiceProvider);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await _scope.DisposeAsync();
+            await _serviceProvider.DisposeAsync();
+        }
+    }
+
     private sealed class BulkUpsertDbContext(DbContextOptions<BulkUpsertDbContext> options)
         : DbContext(options)
     {
         public DbSet<ImportRow> ImportRows => Set<ImportRow>();
+
+        public DbSet<DefaultedImportRow> DefaultedImportRows => Set<DefaultedImportRow>();
+
+        public DbSet<DefaultedImportNote> DefaultedImportNotes => Set<DefaultedImportNote>();
 
         public DbSet<NumericImportRow> NumericImportRows => Set<NumericImportRow>();
 
@@ -335,6 +579,32 @@ public sealed class BulkUpsertProviderTests
                 entity.Property(row => row.Name).HasMaxLength(100);
                 entity.Property(row => row.Description).HasMaxLength(200);
                 entity.HasIndex(row => new { row.DivisionId, row.ExternalKey }).IsUnique();
+            });
+
+            // Database defaults make these properties generated on add by convention.
+            modelBuilder.Entity<DefaultedImportRow>(entity =>
+            {
+                entity.ToTable("DefaultedBulkImportRows");
+                entity.HasKey(row => row.Id);
+                entity.Property(row => row.Id).ValueGeneratedOnAdd();
+                entity.Property(row => row.ExternalKey).HasMaxLength(40);
+                entity.Property(row => row.Name).HasMaxLength(100);
+                entity.Property(row => row.Priority).HasDefaultValue(3);
+                entity.Property(row => row.Category).HasMaxLength(40).HasDefaultValue("general");
+                entity.Property(row => row.ImportedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.HasIndex(row => row.ExternalKey).IsUnique();
+            });
+
+            modelBuilder.Entity<DefaultedImportNote>(entity =>
+            {
+                entity.ToTable("DefaultedBulkImportNotes");
+                entity.HasKey(note => note.Id);
+                entity.Property(note => note.Id).ValueGeneratedOnAdd();
+                entity.Property(note => note.Text).HasMaxLength(100);
+                entity.Property(note => note.Weight).HasDefaultValue(1);
+                entity.HasOne(note => note.Row)
+                    .WithMany(row => row.Notes)
+                    .HasForeignKey(note => note.RowId);
             });
 
             modelBuilder.Entity<NumericImportRow>(entity =>
@@ -409,6 +679,36 @@ public sealed class BulkUpsertProviderTests
         public string? Description { get; set; }
 
         public ImportState State { get; set; }
+    }
+
+    private sealed class DefaultedImportRow
+    {
+        public long Id { get; set; }
+
+        public string ExternalKey { get; set; } = "";
+
+        public string Name { get; set; } = "";
+
+        public int Priority { get; set; }
+
+        public string? Category { get; set; }
+
+        public DateTimeOffset ImportedAt { get; set; }
+
+        public ICollection<DefaultedImportNote> Notes { get; set; } = [];
+    }
+
+    private sealed class DefaultedImportNote
+    {
+        public Guid Id { get; set; }
+
+        public long RowId { get; set; }
+
+        public DefaultedImportRow Row { get; set; } = null!;
+
+        public string Text { get; set; } = "";
+
+        public int Weight { get; set; }
     }
 
     private sealed class NumericImportRow
