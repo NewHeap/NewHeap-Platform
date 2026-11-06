@@ -159,8 +159,11 @@ public sealed class NhAiToolAttribute(
     public int TimeoutSeconds { get; set; } = 60;
 
     /// <summary>
-    /// The maximum number of concurrent invocations. The default limiter applies it per process
-    /// and keeps a separate bound per tenant; see <see cref="NhAiToolConcurrencyPartition"/>.
+    /// The maximum number of concurrent invocations. A further call waits for a free slot until the
+    /// earlier of the tool's timeout and the invocation context's deadline, and is refused with
+    /// <see cref="NhAiToolFailureCodes.ConcurrencyLimited"/> when that wait ends first. The default
+    /// limiter applies it per process and keeps a separate bound per tenant; see
+    /// <see cref="NhAiToolConcurrencyPartition"/>.
     /// </summary>
     public int MaxConcurrency { get; set; } = 1;
 
@@ -304,8 +307,11 @@ public sealed record NhAiToolDescriptor(
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(60);
 
     /// <summary>
-    /// The maximum number of concurrent invocations. The default limiter applies it per process
-    /// and keeps a separate bound per tenant; see <see cref="NhAiToolConcurrencyPartition"/>.
+    /// The maximum number of concurrent invocations. A further call waits for a free slot until the
+    /// earlier of the tool's timeout and the invocation context's deadline, and is refused with
+    /// <see cref="NhAiToolFailureCodes.ConcurrencyLimited"/> when that wait ends first. The default
+    /// limiter applies it per process and keeps a separate bound per tenant; see
+    /// <see cref="NhAiToolConcurrencyPartition"/>.
     /// </summary>
     public int MaxConcurrency { get; init; } = 1;
 
