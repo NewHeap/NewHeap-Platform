@@ -28,6 +28,9 @@
       "@newheap/nh-toastr/*": [
         "./projects/nh-toastr/src/public-api/*"
       ],
+      "@newheap/platform-select": [
+        "./projects/nh-select/src/public-api"
+      ],
       "@newheap/platform-ai-chat": [
         "./projects/nh-ai-chat/src/public-api"
       ],

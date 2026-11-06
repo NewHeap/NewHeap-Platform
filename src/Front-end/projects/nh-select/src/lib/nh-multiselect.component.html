@@ -1,0 +1,128 @@
+<div
+  class="nh-select-control"
+  [class.nh-select-invalid]="invalid()"
+  [class.nh-select-has-chips]="chips().length > 0"
+  (mousedown)="onControlMousedown($event)"
+  (click)="onControlClick($event)">
+  @for (chip of chips(); track $index) {
+    <span class="nh-select-chip" data-nh-select-chip [class]="chip.classes" [class.nh-select-chip-locked]="chip.locked || isDisabled()">
+      @if (chip.image) {
+        <img class="nh-select-image" alt="" [src]="chip.image" />
+      } @else if (chip.icon) {
+        <i class="nh-select-option-icon" aria-hidden="true" [class]="chip.icon"></i>
+      }
+      <span class="nh-select-chip-label">{{ chip.label }}</span>
+      @if (!chip.locked && !isDisabled()) {
+        <!-- Out of the tab order: Backspace and the list remove chips from the keyboard. -->
+        <button
+          type="button"
+          class="nh-select-chip-remove"
+          tabindex="-1"
+          data-nh-select-chip-remove
+          [attr.aria-label]="resolvedTexts().remove(chip.label)"
+          [attr.title]="resolvedTexts().remove(chip.label)"
+          (click)="remove(chip)">
+          <nh-select-icon name="x" />
+        </button>
+      }
+    </span>
+  }
+  <input
+    #field
+    class="nh-select-field"
+    type="text"
+    role="combobox"
+    autocomplete="off"
+    autocapitalize="off"
+    spellcheck="false"
+    aria-autocomplete="list"
+    [id]="fieldId()"
+    [attr.aria-expanded]="open()"
+    [attr.aria-controls]="listId"
+    [attr.aria-activedescendant]="activeId()"
+    [attr.aria-invalid]="invalid() ? true : null"
+    [attr.aria-describedby]="fieldDescribedBy()"
+    [attr.aria-label]="ariaLabel()"
+    [attr.aria-labelledby]="ariaLabelledBy()"
+    [attr.placeholder]="chips().length === 0 ? placeholder() : null"
+    [disabled]="isDisabled()"
+    [value]="inputText()"
+    (input)="onInput($event)"
+    (click)="openList()"
+    (keydown)="onKeydown($event)"
+    (blur)="onBlur()" />
+  <button
+    type="button"
+    class="nh-select-toggle"
+    tabindex="-1"
+    [disabled]="isDisabled()"
+    [attr.aria-label]="resolvedTexts().toggle"
+    (click)="toggle()">
+    <nh-select-icon name="chevron-down" />
+  </button>
+</div>
+@if (hasFailure()) {
+  <!-- A failure says why and offers to try again; the list never claims that nothing was found. -->
+  <p class="nh-select-error" role="alert" data-nh-select-error [id]="errorId">
+    <nh-select-icon name="warning" />
+    <span>{{ failureText() }}</span>
+    <button
+      type="button"
+      class="nh-select-retry"
+      data-nh-select-retry
+      [disabled]="isDisabled()"
+      (mousedown)="$event.preventDefault()"
+      (click)="retry()">{{ resolvedTexts().retry }}</button>
+  </p>
+}
+@if (open()) {
+  <ul
+    class="nh-select-listbox"
+    role="listbox"
+    aria-multiselectable="true"
+    [id]="listId"
+    [class.nh-select-above]="above()"
+    [attr.aria-label]="listLabel()"
+    [attr.aria-busy]="searching() || creating() ? true : null">
+    @for (row of rows(); track $index; let index = $index) {
+      <li
+        role="option"
+        class="nh-select-option"
+        [class]="row.classes"
+        [class.nh-select-active]="index === active()"
+        [class.nh-select-create]="row.kind === 'create'"
+        [id]="optionId(index)"
+        [attr.aria-selected]="row.selected"
+        [attr.aria-disabled]="row.disabled ? true : null"
+        (mousedown)="$event.preventDefault()"
+        (mousemove)="hover(index)"
+        (click)="selectRow(row)">
+        @if (row.kind === 'create') {
+          <nh-select-icon class="nh-select-option-icon" name="plus" />
+        } @else if (row.image) {
+          <img class="nh-select-image" alt="" [src]="row.image" />
+        } @else if (row.icon) {
+          <i class="nh-select-option-icon" aria-hidden="true" [class]="row.icon"></i>
+        }
+        <span class="nh-select-option-text">
+          <span class="nh-select-label">{{ row.label }}</span>
+          @if (row.description) {
+            <span class="nh-select-description">{{ row.description }}</span>
+          }
+        </span>
+        @if (row.kind !== 'create') {
+          <span class="nh-select-checkbox" aria-hidden="true">
+            @if (row.selected) {
+              <nh-select-icon name="check" />
+            }
+          </span>
+        }
+      </li>
+    }
+    @if (statusText(); as status) {
+      <li class="nh-select-state" role="presentation">{{ status }}</li>
+    }
+  </ul>
+}
+<span class="nh-select-live" [id]="summaryId">{{ summary() }}</span>
+<span class="nh-select-live" role="status" aria-live="polite">{{ liveText() }}</span>

@@ -1,0 +1,369 @@
+// Styles of nh-combobox and nh-multiselect.
+//
+// Hosts theme the controls with the public `--nh-select-*` custom properties, usually on `:root`
+// or on a container. Each control resolves them into private `--nhs-*` properties with light and
+// dark defaults, so it looks complete without host styles. Nothing here targets elements outside
+// a control.
+
+@mixin tokens {
+  :host {
+    --nhs-font: var(--nh-select-font, inherit);
+    --nhs-font-size: var(--nh-select-font-size, 14px);
+    --nhs-min-height: var(--nh-select-min-height, 40px);
+    --nhs-padding-inline: var(--nh-select-padding-inline, 12px);
+    --nhs-radius: var(--nh-select-radius, 12px);
+    --nhs-option-radius: var(--nh-select-option-radius, 8px);
+    --nhs-background: var(--nh-select-background, #ffffff);
+    --nhs-text: var(--nh-select-text, #080c1d);
+    --nhs-text-muted: var(--nh-select-text-muted, #5b6482);
+    --nhs-border: var(--nh-select-border, #bec6da);
+    --nhs-border-hover: var(--nh-select-border-hover, #626b88);
+    --nhs-focus: var(--nh-select-focus, #ff6700);
+    --nhs-accent: var(--nh-select-accent, #022962);
+    --nhs-danger: var(--nh-select-danger, #b92e52);
+    --nhs-popup-background: var(--nh-select-popup-background, #ffffff);
+    --nhs-popup-border: var(--nh-select-popup-border, #dce0ec);
+    --nhs-popup-shadow: var(--nh-select-popup-shadow, 0 16px 36px rgb(2 41 98 / 16%));
+    --nhs-popup-max-height: var(--nh-select-popup-max-height, 280px);
+    --nhs-option-active: var(--nh-select-option-active-background, #eceff6);
+    --nhs-chip-background: var(--nh-select-chip-background, #e9f1fc);
+    --nhs-chip-text: var(--nh-select-chip-text, #022962);
+    --nhs-z-index: var(--nh-select-z-index, 30);
+    --nhs-motion: var(--nh-select-motion-duration, 120ms);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :host {
+      --nhs-background: var(--nh-select-background, #11152d);
+      --nhs-text: var(--nh-select-text, #ffffff);
+      --nhs-text-muted: var(--nh-select-text-muted, #b8bed8);
+      --nhs-border: var(--nh-select-border, #3b4472);
+      --nhs-border-hover: var(--nh-select-border-hover, #8790b8);
+      --nhs-accent: var(--nh-select-accent, #7eb5ff);
+      --nhs-danger: var(--nh-select-danger, #ff6d8a);
+      --nhs-popup-background: var(--nh-select-popup-background, #11152d);
+      --nhs-popup-border: var(--nh-select-popup-border, #2b3155);
+      --nhs-popup-shadow: var(--nh-select-popup-shadow, 0 16px 36px rgb(0 0 0 / 32%));
+      --nhs-option-active: var(--nh-select-option-active-background, #232a52);
+      --nhs-chip-background: var(--nh-select-chip-background, #10284d);
+      --nhs-chip-text: var(--nh-select-chip-text, #ffffff);
+    }
+  }
+
+  :host(.nh-select-compact) {
+    --nhs-font-size: var(--nh-select-compact-font-size, 13px);
+    --nhs-min-height: var(--nh-select-compact-min-height, 32px);
+    --nhs-padding-inline: var(--nh-select-compact-padding-inline, 8px);
+  }
+}
+
+// A button without the host page's button styles.
+@mixin bare-button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  box-shadow: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+@mixin focus-ring {
+  &:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--nhs-focus) 80%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+@mixin visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@mixin control {
+  :host {
+    position: relative;
+    display: block;
+    min-width: 0;
+    color: var(--nhs-text);
+    font-family: var(--nhs-font);
+    font-size: var(--nhs-font-size);
+    line-height: 1.4;
+  }
+
+  .nh-select-control {
+    position: relative;
+    box-sizing: border-box;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    min-height: var(--nhs-min-height);
+    border: 1px solid var(--nhs-border);
+    border-radius: var(--nhs-radius);
+    padding: 0 38px 0 var(--nhs-padding-inline);
+    background: var(--nhs-background);
+    cursor: text;
+    transition: border-color var(--nhs-motion) ease;
+
+    &:hover {
+      border-color: var(--nhs-border-hover);
+    }
+
+    // The field inside draws no outline of its own: the frame shows where the focus is.
+    &:focus-within {
+      outline: 3px solid color-mix(in srgb, var(--nhs-focus) 80%, transparent);
+      outline-offset: 2px;
+    }
+
+    &.nh-select-invalid {
+      border-color: var(--nhs-danger);
+    }
+  }
+
+  :host(.nh-select-disabled) .nh-select-control {
+    border-color: var(--nhs-border);
+    opacity: .6;
+    cursor: not-allowed;
+  }
+
+  .nh-select-field {
+    box-sizing: border-box;
+    flex: 1 1 60px;
+    width: auto;
+    min-width: 60px;
+    height: calc(var(--nhs-min-height) - 2px);
+    min-height: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    outline: 0;
+    color: inherit;
+    background: transparent;
+    box-shadow: none;
+    font: inherit;
+    text-overflow: ellipsis;
+
+    &::placeholder {
+      color: var(--nhs-text-muted);
+      opacity: 1;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+    }
+  }
+
+  .nh-select-toggle {
+    @include bare-button;
+    position: absolute;
+    top: 0;
+    right: 4px;
+    bottom: 0;
+    width: 30px;
+    height: 30px;
+    margin: auto 0;
+    border-radius: calc(var(--nhs-radius) - 4px);
+    color: var(--nhs-text-muted);
+
+    &:hover:not(:disabled) {
+      color: var(--nhs-text);
+      background: var(--nhs-option-active);
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+    }
+
+    nh-select-icon {
+      transition: transform var(--nhs-motion) ease;
+    }
+  }
+
+  :host(.nh-select-open) .nh-select-toggle nh-select-icon {
+    transform: rotate(180deg);
+  }
+
+  .nh-select-error {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+    margin: 4px 2px 0;
+    color: var(--nhs-danger);
+    font-size: .86em;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+
+    nh-select-icon {
+      align-self: center;
+    }
+
+    span {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+  }
+
+  .nh-select-retry {
+    @include bare-button;
+    @include focus-ring;
+    color: var(--nhs-accent);
+    font-weight: 600;
+    text-decoration: underline;
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: .55;
+    }
+  }
+
+  .nh-select-chosen {
+    margin: 4px 2px 0;
+    color: var(--nhs-text-muted);
+    font-size: .86em;
+    overflow-wrap: anywhere;
+  }
+
+  .nh-select-live {
+    @include visually-hidden;
+  }
+}
+
+@mixin listbox {
+  .nh-select-listbox {
+    position: absolute;
+    z-index: var(--nhs-z-index);
+    top: calc(100% + 4px);
+    right: 0;
+    left: 0;
+    box-sizing: border-box;
+    max-height: var(--nhs-popup-max-height);
+    margin: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: 1px solid var(--nhs-popup-border);
+    border-radius: var(--nhs-radius);
+    padding: 4px;
+    background: var(--nhs-popup-background);
+    box-shadow: var(--nhs-popup-shadow);
+    list-style: none;
+    animation: nh-select-appear var(--nhs-motion) ease-out;
+
+    &.nh-select-above {
+      top: auto;
+      bottom: calc(100% + 4px);
+    }
+  }
+
+  .nh-select-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    border-radius: var(--nhs-option-radius);
+    padding: 7px 10px;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+
+    &.nh-select-active {
+      background: var(--nhs-option-active);
+    }
+
+    &[aria-selected='true'] .nh-select-label {
+      font-weight: 700;
+    }
+
+    &[aria-disabled='true'] {
+      cursor: not-allowed;
+      opacity: .5;
+    }
+
+    &.nh-select-none .nh-select-label {
+      color: var(--nhs-text-muted);
+    }
+
+    &.nh-select-create {
+      color: var(--nhs-accent);
+      font-weight: 600;
+    }
+  }
+
+  .nh-select-option-text {
+    display: grid;
+    flex: 1 1 auto;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .nh-select-description {
+    color: var(--nhs-text-muted);
+    font-size: .86em;
+    line-height: 1.35;
+  }
+
+  .nh-select-option-icon {
+    flex: none;
+    width: 1.15em;
+    color: var(--nhs-text-muted);
+    text-align: center;
+  }
+
+  .nh-select-create .nh-select-option-icon {
+    color: inherit;
+  }
+
+  .nh-select-image {
+    flex: none;
+    width: 1.5em;
+    height: 1.5em;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .nh-select-check {
+    flex: none;
+    color: var(--nhs-accent);
+  }
+
+  .nh-select-state {
+    margin: 0;
+    padding: 8px 10px;
+    color: var(--nhs-text-muted);
+    font-size: .86em;
+  }
+
+  @keyframes nh-select-appear {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+  }
+}
+
+@mixin reduced-motion {
+  @media (prefers-reduced-motion: reduce) {
+    .nh-select-listbox {
+      animation: none;
+    }
+
+    .nh-select-control,
+    .nh-select-toggle nh-select-icon {
+      transition: none;
+    }
+  }
+}
