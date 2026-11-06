@@ -220,7 +220,7 @@ The complete public-surface mapping and intended sample entry points are documen
 | SPM-137 | All permissions | all-permissions guard/pipe | Both claims are required. |
 | SPM-138 | Active division in the frontend | division guard/pipes | Route and content change with the active division. |
 | SPM-139 | Authorization pipes | claim/permission/auth pipes | The playground displays true and false results. |
-| SPM-140 | Context menu | service/models/events | Opening and closing are accessible. |
+| SPM-140 | Context menu | `NhContextMenuService`, `NhContextMenu.fromEvent` and `NhContextMenu.fromElement`, `NhContextMenuItem` with `iconClass`, `checked` and `disabled` | A right-click on the project row and the Project actions button open the same menu. It is a WAI-ARIA menu: focus moves to the first item, the arrow keys, Home and End move, Enter and Space activate, and Escape or Tab close it and return focus. The project code typed by the user stays text in the titles, icons come from `iconClass`, the menu stays inside the viewport of a scrolled page, and a failing action still closes the menu and reaches the ErrorHandler providers. |
 
 ## 10. Utilities, SEO, SSR, and observability
 

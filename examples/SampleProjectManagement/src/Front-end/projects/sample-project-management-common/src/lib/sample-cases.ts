@@ -2013,13 +2013,15 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-140",
     "title": "Context menu",
     "category": "Frontend collections, routing, authentication, and interaction",
-    "surface": "service/models/events",
-    "outcome": "Opening and closing are accessible.",
+    "surface": "NhContextMenuService, NhContextMenu.fromEvent and NhContextMenu.fromElement, NhContextMenuItem with iconClass, checked and disabled",
+    "outcome": "A right-click on the project row and the Project actions button open the same menu. It is a WAI-ARIA menu: focus moves to the first item, the arrow keys, Home and End move, Enter and Space activate, and Escape or Tab close it and return focus. The project code typed by the user stays text in the titles, icons come from `iconClass`, the menu stays inside the viewport of a scrolled page, and a failing action still closes the menu and reaches the ErrorHandler providers.",
     "implementation": "implemented",
     "evidence": [
-      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
-      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
-      "src/Front-end/projects/management/src/app/sample.routes.ts"
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html",
+      "src/Front-end/styles/_theme.scss",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-context-menu.service.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-context-menu.service.spec.ts"
     ]
   },
   {

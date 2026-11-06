@@ -34,7 +34,7 @@
     </article>
 
     <article>
-      <h3 (contextmenu)="openContextMenu($event)" title="Right-click for the NewHeap context menu">Custom form control, provider, and helpers</h3>
+      <h3>Custom form control, provider, and helpers</h3>
       <p><code>AbstractValueAccessor</code>, <code>MakeProvider</code>, disabled and touched state, and <code>NhFormHelper.clearErrors</code> work in one reactive form.</p>
       <app-project-code-input [formControl]="projectCode" [label]="'Projectcode'"></app-project-code-input>
       <div class="value-row">
@@ -45,6 +45,19 @@
       <h4>Translated member multi-select</h4>
       <nh-form-dropdown [formControl]="memberIds" [settings]="memberSettings"></nh-form-dropdown>
       <small>Selected IDs: {{ memberIds.value.join(', ') || '-' }}</small>
+    </article>
+
+    <article>
+      <h3>{{ 'project.context-menu-title' | translate }}</h3>
+      <p>{{ 'project.context-menu-description' | translate }}</p>
+      <div class="context-menu-row" (contextmenu)="openContextMenu($event)">
+        <span class="context-menu-project"><i class="ph ph-folder" aria-hidden="true"></i> <code>{{ projectCode.value }}</code></span>
+        <button #contextMenuButton type="button" aria-haspopup="menu" (click)="openContextMenuFromButton(contextMenuButton)">
+          <i class="ph ph-dots-three" aria-hidden="true"></i> {{ 'project.context-menu-actions' | translate }}
+        </button>
+      </div>
+      <small>{{ 'project.context-menu-keyboard' | translate }}</small>
+      <small aria-live="polite">{{ contextMenuResult() || '-' }} | {{ (projectPinned() ? 'project.context-menu-state-pinned' : 'project.context-menu-state-unpinned') | translate }}</small>
     </article>
 
     <article>

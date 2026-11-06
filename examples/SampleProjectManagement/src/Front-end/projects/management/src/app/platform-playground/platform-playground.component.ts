@@ -37,7 +37,7 @@ import {
   REVIEW_AGGREGATE_RATING_KEY,
   REVIEW_KEY
 } from '@newheap/platform-common';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { forkJoin, map, of, switchMap } from 'rxjs';
 import { ProjectCodeInputComponent } from '../project-code-input/project-code-input.component';
 import { SampleFrontendErrorState } from 'sample-project-management-common';
@@ -58,6 +58,7 @@ export class PlatformPlaygroundComponent {
   private readonly headService = inject(NhHeadService);
   private readonly jsonLdService = inject(NhJsonLdService);
   private readonly contextMenuService = inject(NhContextMenuService);
+  private readonly translate = inject(TranslateService);
   private readonly configService = inject(NhConfigCommonService);
   private readonly appService = inject(NhAppService);
   private readonly pageService = inject(NhPageService);
@@ -102,6 +103,8 @@ export class PlatformPlaygroundComponent {
   });
 
   readonly result = signal('Choose an action to execute the concrete library call.');
+  readonly contextMenuResult = signal('');
+  readonly projectPinned = signal(false);
   readonly debouncedValue = signal('');
   readonly buttonDebounceCount = signal(0);
   readonly teardownProbeVisible = signal(true);
@@ -402,18 +405,60 @@ export class PlatformPlaygroundComponent {
     }, null, 2));
   }
 
+  /** Right-click on the project row: the menu opens at the pointer. */
   openContextMenu(event: MouseEvent): void {
     event.preventDefault();
-    this.contextMenuService.open(
-      NhContextMenu.fromEvent(event).withItems([
-      new NhContextMenuItem({ title: 'Open project', onClick: async () => this.result.set('Context action: open project') }),
-        new NhContextMenuItem({ type: 'divider' }),
-      new NhContextMenuItem({ title: 'Copy project code', onClick: async () => {
-          await navigator.clipboard?.writeText(this.projectCode.value);
-        this.result.set(`Context action: copied ${this.projectCode.value}`);
-        } })
-      ])
-    );
+    this.contextMenuService.open(NhContextMenu.fromEvent(event).withItems(this.projectMenuItems()));
+  }
+
+  /** The actions button: the keyboard path to the same menu, anchored below the button. */
+  openContextMenuFromButton(button: HTMLElement): void {
+    this.contextMenuService.open(NhContextMenu.fromElement(button).withItems(this.projectMenuItems()));
+  }
+
+  /**
+   * Titles are text, so the project code typed by the user is shown literally, also when it
+   * contains markup. Icons come from `iconClass`, never from markup in the title. A failing
+   * action still closes the menu and reaches the registered ErrorHandler providers.
+   */
+  private projectMenuItems(): NhContextMenuItem[] {
+    const code = this.projectCode.value;
+
+    return [
+      new NhContextMenuItem({
+        title: this.translate.instant('project.context-menu-open', { code }),
+        iconClass: 'ph ph-folder-open',
+        onClick: async () => this.contextMenuResult.set(this.translate.instant('project.context-menu-opened', { code }))
+      }),
+      new NhContextMenuItem({
+        title: this.translate.instant('project.context-menu-copy'),
+        iconClass: 'ph ph-copy',
+        onClick: async () => {
+          await navigator.clipboard.writeText(code);
+          this.contextMenuResult.set(this.translate.instant('project.context-menu-copied', { code }));
+        }
+      }),
+      new NhContextMenuItem({ type: 'divider' }),
+      new NhContextMenuItem({
+        title: this.translate.instant('project.context-menu-pinned'),
+        checked: this.projectPinned(),
+        onClick: async () => this.projectPinned.update(pinned => !pinned)
+      }),
+      new NhContextMenuItem({
+        title: this.translate.instant('project.context-menu-archive'),
+        iconClass: 'ph ph-archive',
+        disabled: true
+      }),
+      new NhContextMenuItem({ type: 'divider' }),
+      new NhContextMenuItem({
+        title: this.translate.instant('project.context-menu-fail'),
+        iconClass: 'ph ph-warning',
+        onClick: async () => {
+          this.contextMenuResult.set(this.translate.instant('project.context-menu-failed'));
+          throw new Error('Intentional context menu action failure');
+        }
+      })
+    ];
   }
 
   async switchLanguage(): Promise<void> {
