@@ -171,6 +171,7 @@ ngx-bootstrap-multiselect .dropdown-item:hover,
 ngx-bootstrap-multiselect .dropdown-item:focus { color: var(--brand-strong); background: var(--brand-soft); }
 ngx-bootstrap-multiselect .dropdown-item:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
 ngx-bootstrap-multiselect .dropdown-item.active { font-weight: 750; }
+ngx-bootstrap-multiselect .dropdown-item.is-inactive { color: var(--muted); }
 ngx-bootstrap-multiselect .search-container { display: flex; padding: 3px 3px 7px; }
 ngx-bootstrap-multiselect .search-container .form-control { flex: 1; min-width: 0; border: 1px solid var(--line-strong); border-radius: var(--radius-control); padding: 8px 9px; }
 ngx-bootstrap-multiselect .input-group-prepend { display: none; }

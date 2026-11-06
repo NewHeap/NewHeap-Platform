@@ -495,6 +495,11 @@ export class PlatformPlaygroundComponent {
     this.preDebounceCount.update(value => value + 1);
   }
 
+  setProjectCodeFromCode(): void {
+    // A value written by the form is not reported back, so the control stays pristine.
+    this.projectCode.setValue('OPS');
+  }
+
   debounce(value: string): void {
     this.debouncedValue.set(value);
     this.debounceCount.update(count => count + 1);

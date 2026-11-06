@@ -38,7 +38,8 @@
       <p><code>AbstractValueAccessor</code>, <code>MakeProvider</code>, disabled and touched state, and <code>NhFormHelper.clearErrors</code> work in one reactive form.</p>
       <app-project-code-input [formControl]="projectCode" [label]="'Projectcode'"></app-project-code-input>
       <div class="value-row">
-        <code>{{ projectCode.value }}</code>
+        <code>{{ projectCode.value }} | dirty: {{ projectCode.dirty }}</code>
+        <button type="button" (click)="setProjectCodeFromCode()">Set from code</button>
         <button type="button" (click)="toggleControl()">Toggle disabled</button>
         <button type="button" (click)="demonstrateFormHelpers()">Server error and clear</button>
       </div>

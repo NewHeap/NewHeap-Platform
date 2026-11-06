@@ -10,11 +10,15 @@ Use only the rules that apply to the current consumer task.
 
 ## Root configuration with compatible opt-ins
 
-Register NhCommonModule once at the root and explicitly enable recommended optimizations without changing library defaults for existing consumers.
+Register NhCommonModule once at the root, explicitly enable recommended optimizations without changing library defaults for existing consumers, and let the form own the value of a dropdown or custom control.
 
 ## Preferred approach
 
 Call `NhCommonModule.forRoot(...)` exactly once at the application root and import only `NhCommonModule` in features. For new implementations, explicitly enable `deduplicateGetRequests` and `deferLazyLoadUntilOpened` in the root configuration. Use translated option builders for enum dropdowns. Let a deferred dropdown resolve an existing selected value through `selectedLazyLoadLambda` before it opens, and reuse the same in-flight lookup.
+
+Bind `nh-form-dropdown` to a form control and let the form own the value. The dropdown takes a new value only from a user selection, check all or uncheck all, so a value set from code stays selected, also when `selectedLazyLoadLambda` answers synchronously from a cache. Single-select yields the chosen value itself, including `0` and `false`, and multi-select yields an array; type the control to match. Create one `NhFormDropDownSettings` object per dropdown and keep the settings object stable: every new settings object reloads the options. Use `imageGetLambda` and `classesGetLambda` for per-option presentation; they apply to every loading mode. With `closeOnSelect`, `closed` follows the chosen value. A separate button may open the list through `toggleDropdown()`; while that click is still being dispatched the list opens right after it, so react to `opened` rather than to the call. Escape closes an open list, returns focus to its toggle button and leaves a surrounding modal open.
+
+A custom form control extends `AbstractValueAccessor` and assigns a user's change to `value`, which reports it through `onChange`. `writeValue` only stores what the form writes, so `setValue`, `patchValue`, `reset` and an `ngModel` binding emit `valueChanges` once, keep the control pristine and emit no `ngModelChange` at initialization.
 
 The package supports Angular 20.3.28+, 21 and 22. Choose peer dependency versions compatible with the consumer's Angular version, including the datatable and cookie service.
 
@@ -32,11 +36,14 @@ Set `apiBaseUrl` and `authApiBaseUrl` explicitly to where the API is, such as `/
 - Turning a recommended sample opt-in into a new global library default.
 - Deduplicating POST, PUT, PATCH, or DELETE requests.
 - Duplicating enum labels or numeric assumptions in templates.
+- Creating `NhFormDropDownSettings` in a template expression or getter, which reloads the options on every new object.
+- Skipping the first `valueChanges` or `ngModelChange`, or resetting the dirty state after `setValue`, to work around a written value being reported back; written values are not reported.
+- Typing a single-select dropdown control as an array, or treating `0` and `false` as no selection.
 - Leaving the API bases empty when the API runs on another origin, or adding the access token to other origins in an interceptor of your own.
 
 ## Verification
 
-Test with the opt-ins enabled in the consumer and test the library defaults separately as `false`. Verify request deduplication with different authorization, division, and language headers, and test a deferred dropdown with a preselected value. Verify that a regional language without its own translation file shows the texts of its base language. Verify that an API request carries the access token and active division, and that another origin, a longer host name that starts with the API's host and a path beside the base receive neither.
+Test with the opt-ins enabled in the consumer and test the library defaults separately as `false`. Verify request deduplication with different authorization, division, and language headers, and test a deferred dropdown with a preselected value. Set a dropdown value from code while the selected-value lookup answers synchronously and check that it stays selected, emits one `valueChanges` and leaves the control pristine; choose an option with the id `0` in single-select mode; check that `closed` follows the chosen value with `closeOnSelect` and that Escape closes the list. Verify that a regional language without its own translation file shows the texts of its base language. Verify that an API request carries the access token and active division, and that another origin, a longer host name that starts with the API's host and a path beside the base receive neither.
 
 Build the package on the oldest supported Angular baseline and compile consumers on Angular 20, 21 and 22 using `npm --prefix src/Front-end run nh-common:test:compatibility`.
 

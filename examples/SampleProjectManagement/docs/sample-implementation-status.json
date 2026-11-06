@@ -1184,7 +1184,8 @@
       "src/Front-end/projects/sample-project-management-common/src/lib/project-status-options.ts",
       "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
       "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
-      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html"
+      "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.rendered.spec.ts"
     ],
     "SPM-122": [
       "src/Front-end/projects/sample-project-management-common/src/lib/project-status-options.ts",
@@ -1219,7 +1220,8 @@
     "SPM-128": [
       "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
       "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
-      "src/Front-end/projects/management/src/app/sample.routes.ts"
+      "src/Front-end/projects/management/src/app/sample.routes.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.rendered.spec.ts"
     ],
     "SPM-129": [
       "src/Front-end/projects/management/src/app/dirty-route-sample/dirty-route-sample.component.ts",
@@ -1319,7 +1321,8 @@
     "SPM-148": [
       "src/Front-end/projects/management/src/app/project-code-input/project-code-input.component.ts",
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
-      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html"
+      "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html",
+      "../../src/Front-end/projects/nh-common/src/lib/accessors/abstract-value.accessor.spec.ts"
     ],
     "SPM-149": [
       "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
@@ -1681,7 +1684,8 @@
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
       "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
       "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html",
-      "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.component.spec.ts"
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.component.spec.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.rendered.spec.ts"
     ],
     "SPM-216": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/RepositoryFoundationSamplesTests.cs",

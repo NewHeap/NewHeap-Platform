@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
   CollectionHttpRequestOptions,
@@ -14,6 +14,7 @@ import {
   NhAsyncLock,
   NhCookieService,
   NhEncodingUtil,
+  NhEnumDropDownItem,
   NhFormHelper,
   NhFormDropDownSettings,
   NhHttpUtil,
@@ -70,7 +71,10 @@ export class UtilityPlaygroundComponent {
   readonly trustedHtml = '<strong>Trusted sample content only</strong>';
   readonly now = new Date();
   readonly enumStatusOptions = getProjectStatusOptions(this.translateService, false);
-  readonly singleStatus = new FormControl<ProjectStatus[]>([ProjectStatus.Active], { nonNullable: true });
+  // Single-select yields one value; multi-select yields an array.
+  readonly singleStatus = new FormControl<ProjectStatus | null>(ProjectStatus.Active);
+  readonly singleStatusValueChanges = signal(0);
+  readonly singleStatusEvents = signal<string[]>([]);
   readonly multipleStatuses = new FormControl<ProjectStatus[]>([ProjectStatus.Draft, ProjectStatus.Active], { nonNullable: true });
   readonly singleStatusSettings = this.createStatusDropDownSettings(1);
   readonly multipleStatusSettings = this.createStatusDropDownSettings(0);
@@ -103,6 +107,16 @@ export class UtilityPlaygroundComponent {
       ))
     }
   ];
+
+  constructor() {
+    // The form reports a value written from code once and only user choices mark it dirty.
+    this.singleStatus.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe(value => {
+        this.singleStatusValueChanges.update(count => count + 1);
+        this.logSingleStatusEvent(`value ${value ?? '-'}`);
+      });
+  }
 
   async runMutex(): Promise<void> {
     this.asyncLog.set([]);
@@ -181,6 +195,23 @@ export class UtilityPlaygroundComponent {
     }, null, 2));
   }
 
+  logSingleStatusEvent(event: string): void {
+    this.singleStatusEvents.update(events => [...events, event].slice(-6));
+  }
+
+  setSingleStatusFromCode(): void {
+    this.singleStatus.setValue(ProjectStatus.Completed);
+  }
+
+  resetSingleStatus(): void {
+    this.singleStatus.reset(ProjectStatus.Active);
+  }
+
+  selectProjectFromCode(): void {
+    // The selected-option lookup of this sample answers synchronously, as a cached store does.
+    this.deferredProjectIds.setValue(['project-c']);
+  }
+
   runDebouncedButton(): void {
     this.debouncedButtonRuns.update(value => value + 1);
   }
@@ -194,6 +225,9 @@ export class UtilityPlaygroundComponent {
     return new NhFormDropDownSettings({
       lazyLoad: false,
       loadLambda: () => of(this.enumStatusOptions),
+      // An archived status stays selectable but is shown as inactive.
+      classesGetLambda: (option: NhEnumDropDownItem<ProjectStatus | ''>) =>
+        option.id === ProjectStatus.Archived ? 'is-inactive' : undefined,
       multiSelectSettings: new DefaultMultiSelectSettings({
         selectionLimit,
         closeOnSelect: selectionLimit === 1,

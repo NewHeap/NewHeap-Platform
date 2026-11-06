@@ -1,6 +1,12 @@
 import {forwardRef} from '@angular/core';
 import {ControlValueAccessor, NG_VALUE_ACCESSOR} from '@angular/forms';
 
+/**
+ * Base class for a custom form control. Assign a user's change to `value`: that reports it to the
+ * form through `onChange`. A value that the form writes through `writeValue` is only stored, because
+ * the form already has it, so `setValue`, `reset` and a template-driven `ngModel` binding do not
+ * echo back as a change and do not make the control dirty.
+ */
 export abstract class AbstractValueAccessor implements ControlValueAccessor {
   _value: any = '';
   get value(): any {
@@ -16,8 +22,6 @@ export abstract class AbstractValueAccessor implements ControlValueAccessor {
 
   writeValue(value: any) {
     this._value = value;
-    // warning: comment below if only want to emit on user intervention
-    this.onChange(value);
   }
 
   onChange = (_: any) => {
