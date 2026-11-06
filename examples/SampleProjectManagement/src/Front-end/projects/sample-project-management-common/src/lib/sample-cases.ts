@@ -3065,8 +3065,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-218",
     "title": "Toast notifications",
     "category": "Events, jobs, email, and notifications",
-    "surface": "provideNhToastr, NhToastrService, and NhToastrContainerComponent",
-    "outcome": "Both application roots host one toast container; the notification playground and inherited collection/mutate toast service use the same NH notification provider without ngx-toastr. In development mode a toast shown while no container is rendered warns once in the console, naming the container and the provider; production logs nothing. The common and toast packages install together within their declared peer range, including toast 0.0.7 and 0.0.8; packaged consumers compile on Angular 20, 21 and 22 without bypassing peer checks.",
+    "surface": "provideNhToastr, NhToastrService, NhToastrContainerComponent, and the per-toast NhToastrAction button",
+    "outcome": "Both application roots host one toast container; the notification playground and inherited collection/mutate toast service use the same NH notification provider without ngx-toastr. In development mode a toast shown while no container is rendered warns once in the console, naming the container and the provider; production logs nothing. A project status change in the management register shows a toast whose Undo button, passed per toast as `action`, emits the previous status on `onAction` and restores it, refusing when a later change superseded it; the button is a real keyboard-reachable button, its click never counts as a tap, and the timeout pauses while the pointer or keyboard focus is on the toast. The common and toast packages install together within their declared peer range, including toast 0.0.7 and 0.0.8; packaged consumers compile on Angular 20, 21 and 22 without bypassing peer checks.",
     "implementation": "implemented",
     "evidence": [
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
@@ -3074,9 +3074,12 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Front-end/projects/workspace/src/app/app-host.component.ts",
       "src/Front-end/projects/management/src/app/notification-playground/notification-playground.component.ts",
       "src/Front-end/projects/management/src/app/notification-playground/notification-playground.component.html",
+      "src/Front-end/projects/management/src/app/app.component.ts",
+      "src/Front-end/projects/management/public/i18n/en.json",
       "src/Front-end/scripts/verify-frontend-integrity.mjs",
       "../../src/Front-end/projects/nh-toastr/src/services/nh-toastr.service.ts",
       "../../src/Front-end/projects/nh-toastr/src/components/component.ts",
+      "../../src/Front-end/projects/nh-toastr/src/components/component.spec.ts",
       "../../src/Front-end/projects/nh-toastr/src/services/nh-toastr-containers.ts",
       "../../src/Front-end/projects/nh-toastr/src/services/nh-toastr.service.spec.ts",
       "../../src/Front-end/projects/nh-common/src/lib/components/nh-base-toastr.spec.ts"

@@ -18,6 +18,12 @@ installs both locally packed artifacts and compiles the consumer on Angular 20, 
 and 22, so a new toast package cannot be masked by an older pinned dependency.
 The same consumer check runs before either package is published.
 
+Changing a project's status in the management register shows a toast with an
+Undo button (`NhToastrConfig.action`). Its value is the previous status, which
+the register restores when `onAction` emits, unless a later change superseded
+it. The button is reachable by keyboard, and the toast stays open while focus
+is inside it.
+
 ## Available workbenches
 
 | Workbench | Examples | Main NewHeap mechanisms |

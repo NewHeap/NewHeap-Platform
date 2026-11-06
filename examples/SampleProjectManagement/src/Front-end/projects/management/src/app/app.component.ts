@@ -16,6 +16,7 @@ import {
   NhStringUtil
 } from '@newheap/platform-common';
 import { NhAssistantSubjectBadgeComponent } from '@newheap/platform-ai-chat';
+import { NhToastrService } from '@newheap/nh-toastr';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import {
   PROJECT_DEMO_DATA,
@@ -47,6 +48,7 @@ export class AppComponent implements OnInit {
   private readonly translateService = inject(TranslateService);
   private readonly connectionState = inject(SampleApiConnectionStateService);
   private readonly authService = inject(SampleAuthService);
+  private readonly toastr = inject(NhToastrService);
   private readonly authorization = toSignal(this.authService.authSubject, {
     initialValue: this.authService.getAuthorization()
   });
@@ -276,39 +278,11 @@ export class AppComponent implements OnInit {
   updateSingleStatus(project: ProjectViewModel, event: Event): void {
     const select = event.target as HTMLSelectElement;
     const status = select.value as ProjectStatus;
-    const localUpdate = () => this.replaceProject({
-      ...project,
-      status
-    });
 
-    if (this.connectionState.demoMode()) {
-      localUpdate();
-      this.reportAction(
-        this.translateService.instant('project.status-update-simulated', { key: project.key }),
-        'simulated'
-      );
-      return;
-    }
-
-    this.setProjectUpdating(project.id, true);
-    this.projectApi.updateStatus(project.id, status).subscribe({
-      next: () => {
-        this.connectionState.markConnected();
-        localUpdate();
-        this.reportAction(
-          this.translateService.instant('project.status-update-succeeded', { key: project.key }),
-          'success'
-        );
-        this.setProjectUpdating(project.id, false);
-      },
-      error: error => {
-        this.connectionState.markFailure(error);
+    this.changeStatus(project, status, {
+      changed: () => this.offerStatusUndo(project, status),
+      failed: () => {
         select.value = project.status;
-        this.reportAction(
-          this.translateService.instant('project.status-update-failed', { key: project.key }),
-          'error'
-        );
-        this.setProjectUpdating(project.id, false);
       }
     });
   }
@@ -392,6 +366,92 @@ export class AppComponent implements OnInit {
 
   statusKey(status: ProjectStatus): string {
     return projectStatusKey(status);
+  }
+
+  private changeStatus(
+    project: ProjectViewModel,
+    status: ProjectStatus,
+    callbacks: { changed?: () => void; failed?: () => void } = {}
+  ): void {
+    const localUpdate = () => this.replaceProject({
+      ...project,
+      status
+    });
+
+    if (this.connectionState.demoMode()) {
+      localUpdate();
+      this.reportAction(
+        this.translateService.instant('project.status-update-simulated', { key: project.key }),
+        'simulated'
+      );
+      callbacks.changed?.();
+      return;
+    }
+
+    this.setProjectUpdating(project.id, true);
+    this.projectApi.updateStatus(project.id, status).subscribe({
+      next: () => {
+        this.connectionState.markConnected();
+        localUpdate();
+        this.reportAction(
+          this.translateService.instant('project.status-update-succeeded', { key: project.key }),
+          'success'
+        );
+        this.setProjectUpdating(project.id, false);
+        callbacks.changed?.();
+      },
+      error: error => {
+        this.connectionState.markFailure(error);
+        callbacks.failed?.();
+        this.reportAction(
+          this.translateService.instant('project.status-update-failed', { key: project.key }),
+          'error'
+        );
+        this.setProjectUpdating(project.id, false);
+      }
+    });
+  }
+
+  /**
+   * SPM-218: the toast's action button undoes the status change. Its value is the previous status:
+   * `onAction` emits it when the button is clicked, then the toast is dismissed and the stream completes.
+   */
+  private offerStatusUndo(previous: ProjectViewModel, status: ProjectStatus): void {
+    const toast = this.toastr.success(
+      this.translateService.instant('project.status-changed-toast', {
+        key: previous.key,
+        status: this.translateService.instant(`project.status-${this.statusKey(status)}`)
+      }),
+      undefined,
+      {
+        // Longer than the default five seconds, so the Undo button can also be reached by keyboard.
+        timeOut: 10000,
+        action: {
+          label: this.translateService.instant('project.undo'),
+          value: previous.status
+        }
+      }
+    );
+
+    toast?.onAction.subscribe(previousStatus => {
+      this.undoStatusChange(previous.id, status, previousStatus as ProjectStatus);
+    });
+  }
+
+  private undoStatusChange(projectId: string, changedStatus: ProjectStatus, previousStatus: ProjectStatus): void {
+    const current = this.projects().find(project => project.id === projectId);
+
+    // A later change or a delete superseded this one; restoring the old status would overwrite it.
+    if (!current || current.status !== changedStatus) {
+      this.toastr.warning(this.translateService.instant('project.status-undo-outdated'));
+      return;
+    }
+
+    this.changeStatus(current, previousStatus, {
+      changed: () => {
+        this.toastr.info(this.translateService.instant('project.status-undo-succeeded', { key: current.key }));
+      }
+    });
   }
 
   private replaceProject(updated: ProjectViewModel): void {

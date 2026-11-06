@@ -49,3 +49,17 @@ button that opens it. A rejected `onClick` closes the menu and reaches the
 | `NhContextMenuItem.title` is rendered as text, no longer as HTML. | Remove markup from titles; put icons in `iconClass` (rendered as `<i class="..." aria-hidden="true">`). |
 | The menu uses `position: fixed` with `x`/`y` as viewport coordinates. | Pass `clientX`/`clientY` (or `NhContextMenu.fromEvent`), not `pageX`/`pageY` or coordinates with the scroll offset added. |
 | Focus moves into the menu on open and returns to the previously focused element on close; a pointer down outside closes it instead of a click. | Do not move focus from code right after `open`; drop a `stopPropagation` that only kept a menu opened from a click handler open. |
+
+## @newheap/nh-toastr: an action button inside a toast
+
+- `NhToastrConfig.action` (`NhToastrAction`: `label`, `value`, `dismiss`) renders a real `<button type="button">`
+  in the toast, for example "Undo". Pass it per toast through the `override` parameter. Clicking it emits `value` on
+  the toast's `onAction` through the new `NhToastrService.runAction(toastId)` and dismisses the toast unless
+  `dismiss` is `false`; the click never counts as a tap, so `onTap` and `tapToDismiss` are not involved.
+- The timeout now also pauses while keyboard focus is inside a toast, not only while the pointer is over it, and
+  resumes once neither is the case, so keyboard users can reach the toast's buttons. Switching to another window
+  while a toast button has focus keeps that toast paused until focus moves elsewhere on the page.
+- Theme the button with the `--nh-toastr-action-*` custom properties and `--nh-toastr-actions-justify` /
+  `--nh-toastr-actions-margin-top`; its focus-visible outline uses `--nh-toastr-focus-color`.
+- `NhToastrComponent` gains the `actionTriggered` output, which `NhToastrContainerComponent` connects to `runAction`.
+  Existing toasts without `action` render as before.
