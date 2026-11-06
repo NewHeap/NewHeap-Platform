@@ -1578,8 +1578,33 @@ the latest events remain visible. `appOnInit` demonstrably runs before that firs
 load cycle, and `appAfterViewInit` only after the view becomes available. The
 Angular hooks remain owned by the base so request state and the active request
 subscription are preserved. The real base lifecycle sends request state to
-`ProjectApiService` and falls back to the same local dataset when no API is
-available.
+`ProjectApiService` and falls back to the same local dataset only when the
+browser cannot reach the API (status 0); an HTTP error shows the list's error
+state with a retry instead.
+
+The same list shows the list building blocks of `@newheap/platform-common`
+(SPM-126). `nh-pager` binds to the base's `collectionResponse` and calls
+`setPage` through `pageChange`; it names its buttons, marks the current page
+with `aria-current`, announces a changed page, moves focus with the arrow keys,
+Home and End, and collapses to "Page 2 of 5" on a phone. While the first page
+loads, `nh-skeleton` shows list rows that assistive technology skips and says
+"Loading projects…" once; a later page keeps the visible rows dimmed with
+`aria-busy`. An empty list uses `nh-empty-state` with the `no-data`,
+`no-results` (with "Clear search") or `error` (with "Try again") variant. The
+collection playground pages its local result with `nh-pager` from a plain
+`{ page, itemsPerPage, totalCount, resultCount }` object, the project directory
+on the home page separates "no projects yet" from "no match for this filter",
+and the operation administration list uses the pager, skeleton and empty
+states as well. `NH_COMMON_ICONS` in the shared providers maps the components'
+icons to Phosphor, and the theme maps their `--nh-color-*` properties to the
+sample tokens.
+
+The management header shows `nh-background-operations-badge` (SPM-083). It
+watches `NhBackgroundOperationStore.watchAll()` while the shell is shown, so it
+uses the store's polling and live updates instead of polling itself, counts the
+person's active root operations, says the count in its accessible name and
+announces a change politely. A click navigates to the background operations
+page.
 
 The ModelState button retrieves a real nested error from
 `GET /library-samples/validation/model-state`.

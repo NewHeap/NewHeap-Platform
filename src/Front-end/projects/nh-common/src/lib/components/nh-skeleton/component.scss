@@ -1,0 +1,111 @@
+// Applications theme the placeholder with `--nh-color-skeleton`, `--nh-color-skeleton-highlight`
+// and `--nh-skeleton-radius`; the fallbacks derive from the inherited text color.
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.nh-skeleton {
+  display: grid;
+  gap: .625rem;
+}
+
+.nh-skeleton[data-shape='avatar'] {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.nh-skeleton[data-shape='row'] {
+  gap: 0;
+}
+
+.nh-skeleton__bone {
+  display: block;
+  overflow: hidden;
+  border-radius: var(--nh-skeleton-radius, .5rem);
+  background: var(--nh-color-skeleton, color-mix(in srgb, currentColor 10%, transparent));
+}
+
+.nh-skeleton__bone--line {
+  width: 100%;
+  height: .75rem;
+}
+
+// Several lines read as a paragraph: the last one is shorter.
+.nh-skeleton[data-shape='line'] > .nh-skeleton__bone--line:last-child:not(:first-child),
+.nh-skeleton__bone--short {
+  width: 60%;
+}
+
+.nh-skeleton__bone--block {
+  width: 100%;
+  height: 4rem;
+}
+
+.nh-skeleton__bone--avatar {
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+}
+
+.nh-skeleton__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: .75rem;
+  padding: .75rem 0;
+  border-bottom: 1px solid var(--nh-color-border, color-mix(in srgb, currentColor 14%, transparent));
+}
+
+.nh-skeleton__row:last-child {
+  border-bottom: 0;
+}
+
+.nh-skeleton__lines {
+  display: grid;
+  gap: .5rem;
+}
+
+.nh-skeleton__lines .nh-skeleton__bone--line {
+  width: 70%;
+  height: .625rem;
+}
+
+.nh-skeleton__lines .nh-skeleton__bone--short {
+  width: 45%;
+}
+
+.nh-skeleton__status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .nh-skeleton__bone {
+    background: linear-gradient(
+      100deg,
+      var(--nh-color-skeleton, color-mix(in srgb, currentColor 10%, transparent)) 20%,
+      var(--nh-color-skeleton-highlight, color-mix(in srgb, currentColor 4%, transparent)) 42%,
+      var(--nh-color-skeleton, color-mix(in srgb, currentColor 10%, transparent)) 64%
+    );
+    background-size: 220% 100%;
+    animation: nh-skeleton-shimmer 1.35s ease-in-out infinite;
+  }
+}
+
+@keyframes nh-skeleton-shimmer {
+  to {
+    background-position-x: -220%;
+  }
+}
+
+@media (forced-colors: active) {
+  .nh-skeleton__bone {
+    border: 1px solid GrayText;
+  }
+}

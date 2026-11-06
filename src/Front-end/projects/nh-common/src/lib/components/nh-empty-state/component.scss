@@ -1,0 +1,63 @@
+// The empty state inherits the text color of its container. Applications theme it with the
+// `--nh-color-*` custom properties; every value has a fallback.
+:host {
+  display: block;
+  color: var(--nh-color-text, inherit);
+}
+
+.nh-empty-state {
+  display: grid;
+  justify-items: center;
+  gap: .5rem;
+  padding: 2.75rem 1.25rem;
+  text-align: center;
+}
+
+.nh-empty-state__icon {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: .25rem;
+  border-radius: 50%;
+  color: var(--nh-color-muted, color-mix(in srgb, currentColor 68%, transparent));
+  background: var(--nh-color-surface-subtle, color-mix(in srgb, currentColor 8%, transparent));
+  font-size: 1.5rem;
+}
+
+.nh-empty-state[data-variant='error'] .nh-empty-state__icon {
+  color: var(--nh-color-danger, #b42318);
+  background: var(--nh-color-danger-background, color-mix(in srgb, currentColor 8%, transparent));
+}
+
+.nh-empty-state__text {
+  display: grid;
+  gap: .25rem;
+  max-width: 42ch;
+}
+
+.nh-empty-state__heading {
+  margin: 0;
+  font-size: .9375rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.nh-empty-state__description {
+  margin: 0;
+  color: var(--nh-color-muted, color-mix(in srgb, currentColor 68%, transparent));
+  font-size: .8125rem;
+  line-height: 1.5;
+}
+
+.nh-empty-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .5rem;
+  margin-top: .5rem;
+}
+
+.nh-empty-state__actions:empty {
+  display: none;
+}

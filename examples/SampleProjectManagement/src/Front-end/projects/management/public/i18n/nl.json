@@ -75,6 +75,18 @@
     "status-completed": "Afgerond",
     "status-archived": "Gearchiveerd",
     "no-projects": "Geen projecten gevonden",
+    "no-projects-yet": "Nog geen projecten",
+    "no-projects-yet-description": "Projecten verschijnen hier zodra iemand er een aanmaakt.",
+    "collection-loading": "Projecten laden…",
+    "collection-load-failed": "De projecten konden niet worden geladen",
+    "collection-load-failed-description": "De API antwoordde met een fout. Probeer het zo opnieuw.",
+    "collection-no-results": "Geen projecten gevonden voor deze zoekopdracht",
+    "collection-no-results-description": "Niets komt overeen met “{{search}}”. Probeer een andere term of wis de zoekopdracht.",
+    "collection-pages": "Projectpagina's",
+    "clear-search": "Zoekopdracht wissen",
+    "try-again": "Opnieuw proberen",
+    "no-projects-filtered": "Geen projecten voor deze zoekterm of statusfilter",
+    "no-projects-filtered-description": "Pas de zoekterm aan of kies een andere status.",
     "filtering-title": "Filtering vanuit de frontend",
     "filtering-description": "De request builder vertaalt UI-state naar een veilig collection request. De backend voert alleen filters, zoekvelden en sorteringen uit die via attributen zijn toegestaan.",
     "preferred-way": "Voorkeursmethode",
@@ -596,10 +608,7 @@
       "cancel-requested-by": "Annulering aangevraagd door",
       "requested-by-owner": "De eigenaar",
       "requested-by-administrator": "Een beheerder",
-      "pagination": "Takenpagina's",
-      "previous-page": "Vorige pagina",
-      "next-page": "Volgende pagina",
-      "page-of": "Pagina {{page}} van {{count}}"
+      "pagination": "Takenpagina's"
     }
   },
   "general": {

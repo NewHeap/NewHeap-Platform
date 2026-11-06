@@ -176,6 +176,32 @@ ngx-bootstrap-multiselect .search-container { display: flex; padding: 3px 3px 7p
 ngx-bootstrap-multiselect .search-container .form-control { flex: 1; min-width: 0; border: 1px solid var(--line-strong); border-radius: var(--radius-control); padding: 8px 9px; }
 ngx-bootstrap-multiselect .input-group-prepend { display: none; }
 
+/* SPM-126 and SPM-083: the list building blocks of NewHeap common take the sample's tokens. */
+nh-pager, nh-empty-state, nh-skeleton, nh-background-operations-badge {
+  --nh-color-text: var(--ink);
+  --nh-color-muted: var(--muted);
+  --nh-color-border: var(--line-strong);
+  --nh-color-border-strong: var(--brand);
+  --nh-color-surface: var(--surface);
+  --nh-color-surface-subtle: var(--surface-subtle);
+  --nh-color-primary: var(--primary);
+  --nh-color-on-primary: var(--nh-white);
+  --nh-color-accent: var(--brand);
+  --nh-color-on-accent: var(--accent-ink);
+  --nh-color-focus: color-mix(in srgb, var(--accent) 78%, transparent);
+  --nh-color-danger: var(--danger);
+  --nh-color-danger-background: var(--danger-soft);
+  --nh-color-skeleton: var(--surface-muted);
+  --nh-color-skeleton-highlight: var(--surface-subtle);
+  --nh-radius-control: var(--radius-control);
+  --nh-skeleton-radius: var(--radius-control);
+  --nh-motion-fast: var(--motion-fast);
+}
+nh-background-operations-badge {
+  --nh-color-border: var(--line);
+  --nh-color-badge-ring: var(--canvas);
+}
+
 .skip-link {
   position: fixed;
   z-index: 1000;

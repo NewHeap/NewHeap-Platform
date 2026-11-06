@@ -79,6 +79,13 @@ export * from './lib/components/nh-modal-mutate-base-component/component';
 export * from './lib/components/nh-error/component';
 export * from './lib/components/nh-user-notifications-component/abstract.component';
 export * from './lib/components/nh-background-operation-progress/component';
+// List building blocks: paging, empty and loading states, and the background-operations badge.
+export * from './lib/components/nh-pager/component';
+export * from './lib/components/nh-empty-state/component';
+export * from './lib/components/nh-skeleton/component';
+export * from './lib/components/nh-background-operations-badge/component';
+export {NH_COMMON_ICONS} from './lib/components/nh-common-icon/component';
+export type {NhCommonIconName} from './lib/components/nh-common-icon/component';
 export * from './lib/components/nh-search-input/search-input.component';
 export * from './lib/components/nh-page-size/page-size.component';
 

@@ -112,22 +112,22 @@
       </label>
     </section>
 
-    <section class="operation-list" aria-live="polite">
+    <section class="operation-list" [attr.aria-busy]="list().status === 'loading'">
       @switch (list().status) {
         @case ('loading') {
-          <div class="loading-state">{{ 'sample-project-management.background-operation-administration.loading' | translate }}</div>
+          <nh-skeleton shape="row" [count]="3" [label]="'sample-project-management.background-operation-administration.loading' | translate" />
         }
         @case ('forbidden') {
-          <div class="empty-state" role="alert">{{ 'sample-project-management.background-operation-administration.forbidden' | translate }}</div>
+          <nh-empty-state variant="error" description="" [heading]="'sample-project-management.background-operation-administration.forbidden' | translate" />
         }
         @case ('unavailable') {
-          <div class="empty-state" role="alert">{{ 'sample-project-management.background-operation-administration.unavailable' | translate }}</div>
+          <nh-empty-state variant="error" description="" [heading]="'sample-project-management.background-operation-administration.unavailable' | translate" />
         }
         @case ('failed') {
-          <div class="empty-state" role="alert">{{ 'sample-project-management.background-operation-administration.load-failed' | translate }}</div>
+          <nh-empty-state variant="error" description="" [heading]="'sample-project-management.background-operation-administration.load-failed' | translate" />
         }
         @default {
-          <p class="result-count">
+          <p class="result-count" aria-live="polite">
             {{ 'sample-project-management.background-operation-administration.result-count' | translate: { count: list().totalCount } }}
           </p>
           @for (operation of list().operations; track operation.id) {
@@ -149,23 +149,16 @@
               <em class="status" [attr.data-tone]="statusTone(operation.status)">{{ statusKey(operation.status) | translate }}</em>
             </a>
           } @empty {
-            <div class="empty-state">{{ 'sample-project-management.background-operation-administration.empty.' + filter() | translate }}</div>
+            @if (search().trim()) {
+              <nh-empty-state variant="no-results" [heading]="'sample-project-management.background-operation-administration.empty.' + filter() | translate" />
+            } @else {
+              <nh-empty-state variant="no-data" description="" [heading]="'sample-project-management.background-operation-administration.empty.' + filter() | translate" />
+            }
           }
-          @if (pageCount() > 1) {
-            <nav class="pagination" [attr.aria-label]="'sample-project-management.background-operation-administration.pagination' | translate">
-              <button class="icon-button" type="button" (click)="goToPage(page() - 1)" [disabled]="page() <= 1"
-                      [attr.aria-label]="'sample-project-management.background-operation-administration.previous-page' | translate"
-                      [title]="'sample-project-management.background-operation-administration.previous-page' | translate">
-                <i class="ph ph-caret-left" aria-hidden="true"></i>
-              </button>
-              <span>{{ 'sample-project-management.background-operation-administration.page-of' | translate: { page: page(), count: pageCount() } }}</span>
-              <button class="icon-button" type="button" (click)="goToPage(page() + 1)" [disabled]="page() >= pageCount()"
-                      [attr.aria-label]="'sample-project-management.background-operation-administration.next-page' | translate"
-                      [title]="'sample-project-management.background-operation-administration.next-page' | translate">
-                <i class="ph ph-caret-right" aria-hidden="true"></i>
-              </button>
-            </nav>
-          }
+          <nh-pager
+            [response]="pagerState()"
+            [label]="'sample-project-management.background-operation-administration.pagination' | translate"
+            (pageChange)="goToPage($event.page)" />
         }
       }
     </section>

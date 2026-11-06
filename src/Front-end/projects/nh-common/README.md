@@ -54,6 +54,28 @@ The interceptors add the access token and the active division only to requests o
 whose path is the base path or continues it after a `/`. An empty base stands for the
 application's own origin, so requests to other origins never receive them.
 
+## List building blocks
+
+Standalone components for collection pages; import them where they are used:
+
+```html
+<nh-pager [response]="collectionResponse" [disabled]="isLoading" (pageChange)="setPage($event)" />
+<nh-skeleton shape="row" [count]="5" />
+<nh-empty-state variant="no-results" [heading]="'projects.no-match' | translate">
+  <button type="button" (click)="clearFilters()">Clear filters</button>
+</nh-empty-state>
+<nh-background-operations-badge (openRequested)="openOperations()" />
+```
+
+`nh-pager` pages a `CollectionHttpResponse` or any `{ page, itemsPerPage, totalCount, resultCount }`
+object. `nh-empty-state` has the `no-data`, `no-results` and `error` variants, an
+`nhEmptyStateIcon` slot and projected actions. `nh-skeleton` hides its shapes from assistive
+technology and announces one polite loading status. `nh-background-operations-badge` counts the
+active operations of `NhBackgroundOperationStore.watchAll()` in the browser. The components bring
+English and Dutch texts under `nh-common.` that the application's translations override. Provide
+`NH_COMMON_ICONS` in the root, for example `{ previous: 'ph ph-caret-left', next: 'ph ph-caret-right' }`,
+to use the application's icon library, and theme them with the `--nh-color-*` custom properties.
+
 ## Migrating toast notifications
 
 The protected `toastrService` on collection and mutate base components now uses `NhToastrService` from `@newheap/nh-toastr`. Remove `ToastrModule.forRoot(...)`, register `provideNhToastr({ positionClass: 'toast-bottom-right' })` in the root providers, import `NhToastrContainerComponent` and render one `<nh-toastr-container />` in the application shell. Configure translation providers as usual.

@@ -3,7 +3,10 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
   FilterRequestOptions,
-  NhCommonModule
+  NhCommonModule,
+  NhEmptyStateComponent,
+  NhPagerComponent,
+  NhPagerSource
 } from '@newheap/platform-common';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import {
@@ -19,7 +22,7 @@ import {
 @Component({
   selector: 'app-collection-playground',
   standalone: true,
-  imports: [CommonModule, FormsModule, NhCommonModule, TranslateModule],
+  imports: [CommonModule, FormsModule, NhCommonModule, NhEmptyStateComponent, NhPagerComponent, TranslateModule],
   templateUrl: './collection-playground.component.html',
   styleUrl: './collection-playground.component.scss'
 })
@@ -138,6 +141,13 @@ export class CollectionPlaygroundComponent {
 
   readonly requestPreview = computed(() => JSON.stringify(this.options(), null, 2));
 
+  readonly pagerState = computed<NhPagerSource>(() => ({
+    page: this.page(),
+    itemsPerPage: this.itemsPerPage(),
+    totalCount: this.totalCount(),
+    resultCount: this.matchingProjects().length
+  }));
+
   updateTextOperator(event: Event): void {
     this.textOperator.set((event.target as HTMLSelectElement).value as 'contains' | 'starts-with' | 'ends-with');
     this.page.set(1);
@@ -215,16 +225,6 @@ export class CollectionPlaygroundComponent {
         this.resolverLimitation.set('The API could not execute the resolver sample.');
       }
     });
-  }
-
-  nextPage(): void {
-    if (this.page() * this.itemsPerPage() < this.totalCount()) {
-      this.page.update(value => value + 1);
-    }
-  }
-
-  previousPage(): void {
-    this.page.update(value => Math.max(1, value - 1));
   }
 
   private applyOrder(options: ProjectCollectionRequestOptions, value: string): void {

@@ -75,6 +75,18 @@
     "status-completed": "Completed",
     "status-archived": "Archived",
     "no-projects": "No projects found",
+    "no-projects-yet": "No projects yet",
+    "no-projects-yet-description": "Projects appear here as soon as someone creates one.",
+    "collection-loading": "Loading projects…",
+    "collection-load-failed": "The projects could not be loaded",
+    "collection-load-failed-description": "The API answered with an error. Try again in a moment.",
+    "collection-no-results": "No projects match this search",
+    "collection-no-results-description": "Nothing matches “{{search}}”. Try another term or clear the search.",
+    "collection-pages": "Project pages",
+    "clear-search": "Clear search",
+    "try-again": "Try again",
+    "no-projects-filtered": "No projects match the search or status filter",
+    "no-projects-filtered-description": "Adjust the search term or choose another status.",
     "filtering-title": "Filtering from the frontend",
     "filtering-description": "The request builder translates UI state into a safe collection request. The backend only executes filters, search fields and sorting allowed through attributes.",
     "preferred-way": "Preferred method",
@@ -596,10 +608,7 @@
       "cancel-requested-by": "Cancellation requested by",
       "requested-by-owner": "The owner",
       "requested-by-administrator": "An administrator",
-      "pagination": "Operation pages",
-      "previous-page": "Previous page",
-      "next-page": "Next page",
-      "page-of": "Page {{page}} of {{count}}"
+      "pagination": "Operation pages"
     }
   },
   "general": {

@@ -10,6 +10,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import {
   NhHttpUtil,
   NhCommonModule,
+  NhEmptyStateComponent,
   NhModalConfirmComponent,
   NhModalOptions,
   NhModalService,
@@ -37,7 +38,7 @@ type ActionKind = 'success' | 'error' | 'simulated' | 'warning';
 @Component({
   selector: 'app-management-overview',
   standalone: true,
-  imports: [CommonModule, NhCommonModule, TranslateModule, NhAssistantSubjectBadgeComponent],
+  imports: [CommonModule, NhCommonModule, NhEmptyStateComponent, TranslateModule, NhAssistantSubjectBadgeComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })

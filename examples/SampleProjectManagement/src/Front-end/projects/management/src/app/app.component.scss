@@ -55,10 +55,6 @@ kbd { padding: 3px 6px; border: 1px solid var(--line); border-radius: 5px; color
 .icon-button { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--line); border-radius: var(--radius-control); color: var(--brand); background: var(--surface); }
 .icon-button:hover { background: var(--surface-subtle); }
 .icon-button.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 25%, var(--line)); background: var(--danger-soft); }
-.empty-state { display: grid; justify-items: center; gap: 7px; padding: 44px 20px; color: var(--muted); text-align: center; }
-.empty-state .ph { font-size: 28px; }
-.empty-state strong { color: var(--ink); font-size: 13px; }
-.empty-state span { font-size: 10px; }
 .skeleton-row .spm-skeleton { height: 10px; }
 .checkbox-skeleton { width: 16px; height: 16px !important; }
 .key-skeleton { width: 48px; height: 48px !important; }

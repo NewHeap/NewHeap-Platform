@@ -12,6 +12,10 @@ import {
   NhBackgroundOperationProgressComponent,
   NhBackgroundOperationStatus,
   NhCommonModuleConfig,
+  NhEmptyStateComponent,
+  NhPagerComponent,
+  NhPagerSource,
+  NhSkeletonComponent,
   nhBackgroundOperationStatusName,
   nhBackgroundOperationTranslationSegment
 } from '@newheap/platform-common';
@@ -80,7 +84,10 @@ const ACTIVE_STATUSES: NhBackgroundOperationStatus[] = [
     FormsModule,
     RouterLink,
     TranslateModule,
-    NhBackgroundOperationProgressComponent
+    NhBackgroundOperationProgressComponent,
+    NhEmptyStateComponent,
+    NhPagerComponent,
+    NhSkeletonComponent
   ],
   templateUrl: './background-operation-administration-page.component.html',
   styleUrl: './background-operation-administration-page.component.scss',
@@ -145,6 +152,12 @@ export class BackgroundOperationAdministrationPageComponent {
   );
 
   readonly pageCount = computed(() => Math.max(1, Math.ceil(this.list().totalCount / PAGE_SIZE)));
+  readonly pagerState = computed<NhPagerSource>(() => ({
+    page: this.page(),
+    itemsPerPage: PAGE_SIZE,
+    totalCount: this.list().totalCount,
+    resultCount: this.list().operations.length
+  }));
 
   setFilter(filter: BackgroundOperationAdministrationFilter): void {
     this.filter.set(filter);

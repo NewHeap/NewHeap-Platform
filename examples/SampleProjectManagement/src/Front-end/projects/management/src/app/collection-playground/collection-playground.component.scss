@@ -33,15 +33,13 @@ legend { margin-bottom: 8px; color: var(--ink-subtle); font-size: 12px; font-wei
 .results article > span { display: grid; place-items: center; height: 40px; border-radius: var(--radius-control); color: var(--brand-strong); background: var(--brand-soft); font: 800 10px/1 var(--font-mono); }
 .results article div { display: grid; gap: 3px; }
 .results small { color: var(--muted); }
-.pager { display: flex; justify-content: flex-end; gap: 7px; margin-top: 12px; }
-.pager button { width: 38px; padding: 0; }
 .request { overflow: hidden; }
 .request > span, .resolver-result > span { color: var(--muted); font: 700 11px/1.4 var(--font-mono); }
 .request pre { max-height: 410px; }
 .request > button { margin-top: 12px; }
 .request p { margin: 12px 0 0; font-size: 12px; }
 .resolver-gap { display: block; margin-top: 8px; color: var(--warning); }
-.empty { padding: 32px 0; color: var(--muted); text-align: center; }
+.results nh-pager { margin-top: 12px; }
 .api-guidance { margin-top: 18px; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--surface-subtle); }
 .api-guidance h3 { margin: 9px 0 5px; }
 .api-guidance p { margin: 0; color: var(--muted); }

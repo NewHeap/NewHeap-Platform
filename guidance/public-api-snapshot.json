@@ -55036,8 +55036,8 @@
     ]
   },
   "frontEnd": {
-    "hash": "4127f70f02073ae336d5356c5d6f1f76be72c860dd31d065dce4da233ef2cdb7",
-    "declarationCount": 874,
+    "hash": "10f57b18422f1a7e4fda83fc3f911841d6737cd0b9d2d1593cad0dbf29ac9d79",
+    "declarationCount": 900,
     "declarations": [
       {
         "path": "src/Front-end/projects/nh-common/src/lib/accessors/abstract-value.accessor.ts",
@@ -55074,6 +55074,14 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-background-operation-progress/component.ts",
         "declaration": "@Output() retryRequested = new EventEmitter<string>();"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-background-operations-badge/component.ts",
+        "declaration": "@Component({"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-background-operations-badge/component.ts",
+        "declaration": "export class NhBackgroundOperationsBadgeComponent implements OnInit, OnDestroy {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-collection-base-component/component.ts",
@@ -55160,6 +55168,22 @@
         "declaration": "export abstract class NhCollectionBaseComponent<TCollectionResponseItem> extends NhCollectionTypeBaseComponent<TCollectionResponseItem, NhAuthorization, NhAuthService> {"
       },
       {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-common-icon/component.ts",
+        "declaration": "export type NhCommonIconName ="
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-common-icon/component.ts",
+        "declaration": "export const NH_COMMON_ICONS = new InjectionToken<Partial<Record<NhCommonIconName, string>>>('NH_COMMON_ICONS');"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-common-icon/component.ts",
+        "declaration": "@Component({"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-common-icon/component.ts",
+        "declaration": "export class NhCommonIconComponent {"
+      },
+      {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-confirm-modal/component.ts",
         "declaration": "@Component({"
       },
@@ -55210,6 +55234,22 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-confirm-modal/component.ts",
         "declaration": "@Input() onCancel: (() => void) | (() => Promise<void>) = () => {};"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-empty-state/component.ts",
+        "declaration": "export type NhEmptyStateVariant = 'no-data' | 'no-results' | 'error';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-empty-state/component.ts",
+        "declaration": "export type NhEmptyStateHeadingLevel = 2 | 3 | 4 | 5 | 6;"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-empty-state/component.ts",
+        "declaration": "@Component({"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-empty-state/component.ts",
+        "declaration": "export class NhEmptyStateComponent {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-error/component.ts",
@@ -55640,6 +55680,22 @@
         "declaration": "@Input() name: string = 'page-size';"
       },
       {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-pager/component.ts",
+        "declaration": "export type NhPagerSource = Pick<ISimpleCollectionHttpResponse<unknown>, 'page' | 'itemsPerPage' | 'totalCount' | 'resultCount'>;"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-pager/component.ts",
+        "declaration": "export interface NhPagerPageChange {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-pager/component.ts",
+        "declaration": "@Component({"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-pager/component.ts",
+        "declaration": "export class NhPagerComponent {"
+      },
+      {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-search-input/search-input.component.ts",
         "declaration": "@Component({"
       },
@@ -55662,6 +55718,18 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-search-input/search-input.component.ts",
         "declaration": "@Output() onDebounce = new EventEmitter<string>();"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-skeleton/component.ts",
+        "declaration": "export type NhSkeletonShape = 'line' | 'block' | 'avatar' | 'row';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-skeleton/component.ts",
+        "declaration": "@Component({"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-skeleton/component.ts",
+        "declaration": "export class NhSkeletonComponent {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-user-notifications-component/abstract.component.ts",
@@ -55804,12 +55872,20 @@
         "declaration": "export interface ICancelNavigationComponent {"
       },
       {
+        "path": "src/Front-end/projects/nh-common/src/lib/i18n/nh-common-text.pipe.ts",
+        "declaration": "export class NhCommonTextPipe implements PipeTransform, OnDestroy {"
+      },
+      {
         "path": "src/Front-end/projects/nh-common/src/lib/i18n/nh-common-translations.ts",
         "declaration": "export const NH_COMMON_TRANSLATIONS: Readonly<Record<'en' | 'nl', TranslationObject>> = {en, nl};"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/i18n/nh-common-translations.ts",
-        "declaration": "export function nhCommonText(translate: TranslateService | null, key: string): string {"
+        "declaration": "export type NhCommonTextParameters = Readonly<Record<string, string | number>>;"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/i18n/nh-common-translations.ts",
+        "declaration": "export function nhCommonText("
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/interceptors/nh-active-division.interceptor.ts",
@@ -56238,6 +56314,10 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
         "declaration": "export function nhBackgroundOperationStatusName(status: NhBackgroundOperationStatus): string {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
+        "declaration": "export function nhBackgroundOperationIsActive(status: NhBackgroundOperationStatus): boolean {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/background-operation.models.ts",
@@ -58397,6 +58477,30 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/public-api.ts",
+        "declaration": "export * from './lib/components/nh-pager/component';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
+        "declaration": "export * from './lib/components/nh-empty-state/component';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
+        "declaration": "export * from './lib/components/nh-skeleton/component';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
+        "declaration": "export * from './lib/components/nh-background-operations-badge/component';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
+        "declaration": "export {NH_COMMON_ICONS} from './lib/components/nh-common-icon/component';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
+        "declaration": "export type {NhCommonIconName} from './lib/components/nh-common-icon/component';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/public-api.ts",
         "declaration": "export * from './lib/components/nh-search-input/search-input.component';"
       },
       {
@@ -60160,7 +60264,11 @@
       "FilterRequestOptions",
       "NhCollectionTypeBaseComponent",
       "NhSearchInputComponent",
-      "NhDebounceDirective"
+      "NhDebounceDirective",
+      "NhPagerComponent",
+      "NhSkeletonComponent",
+      "NhEmptyStateComponent",
+      "NH_COMMON_ICONS"
     ],
     "nh-frontend-context-menu": [
       "NhContextMenuService",
@@ -60605,6 +60713,7 @@
       "NhBackgroundOperationResourceKey",
       "NhBackgroundOperationRetryResult",
       "NhBackgroundOperationStore",
+      "NhBackgroundOperationsBadgeComponent",
       "NhBackgroundOperationsOptions",
       "NhDefaultBackgroundOperationNotificationPolicy",
       "MailServiceSettings",

@@ -1,0 +1,58 @@
+@if (visible()) {
+  <nav class="nh-pager" [attr.aria-label]="label() || ('nh-common.pager.label' | nhCommonText)" (keydown)="onKeydown($event)">
+    @if (showRange()) {
+      <p class="nh-pager__range">{{ 'nh-common.pager.range' | nhCommonText: range() }}</p>
+    }
+
+    <ul class="nh-pager__list">
+      <li>
+        <button
+          type="button"
+          class="nh-pager__button nh-pager__step"
+          [attr.aria-disabled]="disabled() || currentPage() <= 1 ? 'true' : null"
+          [attr.aria-label]="'nh-common.pager.previous' | nhCommonText"
+          [attr.title]="'nh-common.pager.previous' | nhCommonText"
+          (click)="goTo(currentPage() - 1)">
+          <nh-common-icon name="previous" />
+        </button>
+      </li>
+
+      @for (item of items(); track item.key) {
+        @if (item.kind === 'page') {
+          <li class="nh-pager__page-item">
+            <button
+              type="button"
+              class="nh-pager__button nh-pager__page"
+              [class.nh-pager__page--current]="item.page === currentPage()"
+              [attr.aria-current]="item.page === currentPage() ? 'page' : null"
+              [attr.aria-disabled]="disabled() ? 'true' : null"
+              [attr.aria-label]="'nh-common.pager.page' | nhCommonText: {page: item.page}"
+              (click)="goTo(item.page)">
+              {{ item.page }}
+            </button>
+          </li>
+        } @else {
+          <li class="nh-pager__gap" aria-hidden="true">…</li>
+        }
+      }
+
+      <li class="nh-pager__status-item">
+        <span class="nh-pager__status">{{ 'nh-common.pager.status' | nhCommonText: {page: currentPage(), pageCount: pageCount()} }}</span>
+      </li>
+
+      <li>
+        <button
+          type="button"
+          class="nh-pager__button nh-pager__step"
+          [attr.aria-disabled]="disabled() || currentPage() >= pageCount() ? 'true' : null"
+          [attr.aria-label]="'nh-common.pager.next' | nhCommonText"
+          [attr.title]="'nh-common.pager.next' | nhCommonText"
+          (click)="goTo(currentPage() + 1)">
+          <nh-common-icon name="next" />
+        </button>
+      </li>
+    </ul>
+
+    <span class="nh-pager__announcement" aria-live="polite" aria-atomic="true">{{ announcement() }}</span>
+  </nav>
+}

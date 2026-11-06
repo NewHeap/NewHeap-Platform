@@ -67,6 +67,8 @@
       </div>
       <div class="topbar-actions">
         <span class="connection" [attr.data-mode]="connectionState.mode()" role="status" aria-live="polite"><span></span>{{ connectionState.labelKey() | translate }}</span>
+        <!-- SPM-083: the number of the person's running background operations; a click opens their list. -->
+        <nh-background-operations-badge (openRequested)="openBackgroundOperations()" />
         @if (canUseAssistant()) {
           <!-- SPM-392: the bell counts the unread alerts, coloured by the highest urgency, and opens the list. -->
           <a

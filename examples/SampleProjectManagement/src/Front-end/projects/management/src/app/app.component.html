@@ -124,7 +124,18 @@
             </div>
             </article>
           } @empty {
-            <div class="empty-state"><i class="ph ph-folder-dashed" aria-hidden="true"></i><strong>{{ 'project.no-projects' | translate }}</strong><span>Adjust the search term or status filter.</span></div>
+            <!-- SPM-126: a filter without matches and a directory without projects are different empty states. -->
+            @if (search().trim() || statusFilter()) {
+              <nh-empty-state
+                variant="no-results"
+                [heading]="'project.no-projects-filtered' | translate"
+                [description]="'project.no-projects-filtered-description' | translate" />
+            } @else {
+              <nh-empty-state
+                variant="no-data"
+                [heading]="'project.no-projects-yet' | translate"
+                [description]="'project.no-projects-yet-description' | translate" />
+            }
           }
         }
       </div>

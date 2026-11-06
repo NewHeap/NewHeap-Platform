@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import {
   ReactiveFormsModule,
@@ -11,7 +12,10 @@ import {
   CollectionHttpResponse,
   NhCollectionBaseComponent,
   NhCommonModule,
+  NhEmptyStateComponent,
+  NhPagerComponent,
   NhServerSideFormValidationService,
+  NhSkeletonComponent,
   NhTaskResultFormValidationService,
   TaskResultItem
 } from '@newheap/platform-common';
@@ -27,7 +31,15 @@ import {
 @Component({
   selector: 'app-interaction-playground',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, NhCommonModule, TranslateModule],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    NhCommonModule,
+    NhEmptyStateComponent,
+    NhPagerComponent,
+    NhSkeletonComponent,
+    TranslateModule
+  ],
   templateUrl: './interaction-playground.component.html',
   styleUrl: './interaction-playground.component.scss'
 })
@@ -39,6 +51,8 @@ export class InteractionPlaygroundComponent
   private loadSequence = 0;
 
   readonly lifecycleEvents = signal<string[]>([]);
+  /** SPM-126: the last request failed with an HTTP status, so the list shows its error state. */
+  readonly loadFailed = signal(false);
   readonly validationForm = new UntypedFormGroup({
     project: new UntypedFormGroup({
       name: new UntypedFormControl('')
@@ -59,7 +73,7 @@ export class InteractionPlaygroundComponent
   }
 
   override async appOnInit(): Promise<void> {
-    this.record('appOnInit: componentstate initialiseren');
+    this.record('appOnInit: initialize component state');
   }
 
   override async appAfterViewInit(): Promise<void> {
@@ -67,7 +81,7 @@ export class InteractionPlaygroundComponent
   }
 
   override async appOnDestroy(): Promise<void> {
-    this.record('appOnDestroy: componentspecifieke cleanup');
+    this.record('appOnDestroy: component-specific cleanup');
   }
 
   override async onLoad(
@@ -84,42 +98,52 @@ export class InteractionPlaygroundComponent
     this.record(`onLoad #${++this.loadSequence}: page=${request.page}, search=${request.search || '-'}`);
 
     return this.projectApi.list(request).pipe(
-      catchError(() => of(this.createDemoResponse(request)))
+      catchError((error: unknown) => {
+        // Only a browser network failure (status 0) switches to the local demo data. Any HTTP
+        // status proves the API answered, so the list shows its error state with a retry.
+        if (error instanceof HttpErrorResponse && error.status === 0) {
+          return of(this.createDemoResponse(request));
+        }
+
+        this.loadFailed.set(true);
+        return of(new CollectionHttpResponse<ProjectViewModel>({
+          page: request.page,
+          itemsPerPage: request.itemsPerPage,
+          search: request.search
+        }));
+      })
     );
   }
 
   override async beforeLoad(): Promise<void> {
-    this.record('beforeLoad: requeststate synchroniseren');
+    this.loadFailed.set(false);
+    this.record('beforeLoad: synchronize request state');
   }
 
   override async afterLoad(): Promise<void> {
-    this.record(`afterLoad: ${this.items.length} items, ${this.collectionResponse.totalCount} totaal`);
+    this.record(`afterLoad: ${this.items.length} items, ${this.collectionResponse.totalCount} total`);
   }
 
   searchProjects(value: string): void {
     void this.search(value);
   }
 
+  /** Whether the empty list is the result of a search or filter rather than of missing data. */
+  hasActiveFilter(): boolean {
+    return (this.requestOptions.search ?? '').trim().length > 0 || (this.requestOptions.filter?.length ?? 0) > 0;
+  }
+
+  clearSearch(input: HTMLInputElement): void {
+    input.value = '';
+    void this.search('');
+  }
+
+  retryLoad(): void {
+    void this.load();
+  }
+
   sortProjects(direction: 'asc' | 'desc'): void {
     void this.sort({ sorts: [{ prop: 'name', dir: direction }] });
-  }
-
-  previousPage(): void {
-    void this.setPage({
-      page: Math.max(1, this.collectionResponse.page - 1),
-      itemsPerPage: this.collectionResponse.itemsPerPage
-    });
-  }
-
-  nextPage(): void {
-    const maxPage = Math.max(
-      1,
-      Math.ceil(this.collectionResponse.totalCount / this.collectionResponse.itemsPerPage)
-    );
-    void this.setPage({
-      page: Math.min(maxPage, this.collectionResponse.page + 1),
-      itemsPerPage: this.collectionResponse.itemsPerPage
-    });
   }
 
   showAspMvcValidation(): void {

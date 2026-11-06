@@ -4,8 +4,8 @@ title: "Fluent collections, filtering, and ordering"
 area: frontend
 reference: frontend-collection-query
 summary: "Use the fluent collection API by default and keep filtering, ordering, and paging server-side without losing falsy values or enum values."
-sample-cases: ["SPM-016", "SPM-017", "SPM-018", "SPM-019", "SPM-020", "SPM-021", "SPM-022", "SPM-023", "SPM-024", "SPM-025", "SPM-127", "SPM-157"]
-public-symbols: ["CollectionHttpRequestOptions", "FilterRequestOptions", "NhCollectionTypeBaseComponent", "NhSearchInputComponent", "NhDebounceDirective"]
+sample-cases: ["SPM-016", "SPM-017", "SPM-018", "SPM-019", "SPM-020", "SPM-021", "SPM-022", "SPM-023", "SPM-024", "SPM-025", "SPM-126", "SPM-127", "SPM-157"]
+public-symbols: ["CollectionHttpRequestOptions", "FilterRequestOptions", "NhCollectionTypeBaseComponent", "NhSearchInputComponent", "NhDebounceDirective", "NhPagerComponent", "NhSkeletonComponent", "NhEmptyStateComponent", "NH_COMMON_ICONS"]
 skills: ["newheap-frontend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -15,6 +15,8 @@ risk: high
 Build collection requests with fluent helpers such as `.equals()`, `.and()`, `.or()`, and fluent ordering. Combine free-text search, filters, sorting, and paging in one server-side request. Handle `false`, `0`, empty enum values, null, and empty text according to the chosen filter contract; do not use a truthy check that discards a valid value.
 
 Let a collection component perform its own initial load. Use `beforeLoad`, `onLoad`, and `afterLoad` around every request and provide useful loading, empty, and error states. Show raw filter construction only as a lower-level alternative.
+
+Build those states from the `@newheap/platform-common` list building blocks, which are standalone components. Page with `<nh-pager [response]="collectionResponse" [disabled]="isLoading" (pageChange)="setPage($event)" />`: it reads `page`, `itemsPerPage`, `totalCount` and `resultCount`, so it also pages a plain object of those fields, renders a named `<nav>` with `aria-current="page"`, announces a changed page, keeps focus on its buttons while disabled, moves focus with the arrow keys, Home and End, and shows "Page 2 of 5" on phones. Show `<nh-skeleton shape="row" [count]="n" />` while the first page loads: its shapes are hidden from assistive technology and one polite status says "Loading…" (`label` changes it; `[announce]="false"` for a second skeleton in the same region). Keep the loaded items visible with `aria-busy` during a later page load instead of flashing the skeleton. Render an empty list with `nh-empty-state` and choose its `variant`: `no-data` when nothing exists yet, `no-results` when a search or filter matches nothing (offer to clear it), and `error` when the request failed with an HTTP status (offer a retry, announced assertively). Put the page's own texts in `heading` and `description`, project actions as content and an icon with `nhEmptyStateIcon`. The components bring English and Dutch `nh-common.*` texts that the application's translations override; provide `NH_COMMON_ICONS` once at the root to use the application's icon library instead of the built-in glyphs, and theme them with the `--nh-color-*` custom properties.
 
 Take free-text search from `nh-search-input` or from a field with `[ngModel][nhDebounce]`. `onDebounce` reports the value once typing pauses and `preDebounce` reports each change at once. Neither reports the initial `ngModel` value, and a value still waiting when the field is destroyed is not reported, so the initial load fetches the first page and each pause in typing adds one request. Pass the visible label text to `nh-search-input` through `label`; without it the field is named by the translated `general.search` text that its placeholder shows. `inputId` puts an id on the field for a page label's `for` attribute.
 
@@ -26,7 +28,10 @@ Take free-text search from `nh-search-input` or from a field with `[ngModel][nhD
 - `if (value)` for filters that may contain `false` or `0`.
 - Waiting for `onDebounce` to report the initial search value instead of loading the first page yourself.
 - A search field that only a placeholder names.
+- A hand-built pager of unnamed icon buttons, or a disabled attribute that drops the focus of the button just pressed.
+- One empty message for both "no data" and "no results for this filter", or showing demo data or a blank list after a failed request.
+- A loading spinner or skeleton that announces every shape, or that animates for users who prefer reduced motion.
 
 ## Verification
 
-Test AND/OR, null, text, date ranges, multiple values, single and multi-column sorting, and paging through the frontend and API. Check that a search field reports no initial value, that rapid typing produces one request, and that the field's accessible name matches its visible label. Run backend query tests on SQL Server and PostgreSQL whenever a query shape or translation changes.
+Test AND/OR, null, text, date ranges, multiple values, single and multi-column sorting, and paging through the frontend and API. Check that a search field reports no initial value, that rapid typing produces one request, and that the field's accessible name matches its visible label. Check that the pager emits `{page, itemsPerPage}` for `setPage`, ignores the current page and requests while disabled, marks the current page and works with the keyboard, and that the list shows its skeleton, its no-data, no-results and error states at the right moment. Run backend query tests on SQL Server and PostgreSQL whenever a query shape or translation changes.

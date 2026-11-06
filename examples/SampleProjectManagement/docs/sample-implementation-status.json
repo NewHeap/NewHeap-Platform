@@ -980,7 +980,11 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationStaleAttempts.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationStaleCancellationProviderTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationAttemptWriteGate.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationHeartbeatContentionProviderTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationHeartbeatContentionProviderTests.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-background-operations-badge/component.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-background-operations-badge/component.spec.ts",
+      "src/Front-end/projects/management/src/app/management-layout/management-layout.component.ts",
+      "src/Front-end/projects/management/src/app/management-layout/management-layout.component.html"
     ],
     "SPM-084": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
@@ -1222,7 +1226,20 @@
     ],
     "SPM-126": [
       "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
-      "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.html"
+      "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.html",
+      "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.scss",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
+      "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.html",
+      "src/Front-end/projects/management/src/app/app.component.html",
+      "src/Front-end/projects/management/src/app/background-operation-administration/background-operation-administration-page.component.html",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+      "src/Front-end/styles/_theme.scss",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-pager/component.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-pager/component.spec.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-skeleton/component.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-skeleton/component.spec.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-empty-state/component.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-empty-state/component.spec.ts"
     ],
     "SPM-127": [
       "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
