@@ -1721,13 +1721,15 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-117",
     "title": "Confirmation modal",
     "category": "Frontend HTTP, forms, and modals",
-    "surface": "confirm component",
-    "outcome": "Delete respects cancellation.",
+    "surface": "confirm component, NhModalService.confirm and confirmDialog",
+    "outcome": "Delete respects cancellation. The delete confirmation sets its `onConfirm` and `onCancel` inputs and closes itself; `NhModalService.confirmDialog` runs the `onConfirm` it is given, shows its error in the dialog, closes after success and closes on \"No\", and `confirmed` is emitted after a successful `onConfirm`.",
     "implementation": "implemented",
     "evidence": [
       "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",
       "src/Front-end/projects/management/src/app/interaction-playground/interaction-playground.component.ts",
-      "src/Front-end/projects/management/src/app/app.component.ts"
+      "src/Front-end/projects/management/src/app/app.component.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-confirm-modal/component.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-confirm-modal/nh-confirm-modal.spec.ts"
     ]
   },
   {

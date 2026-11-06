@@ -380,4 +380,40 @@ describe('NhModalComponent accessibility', () => {
     expect(() => keydown('Escape')).not.toThrow();
     shell.destroy();
   }));
+
+  it('forgets a modal that a route change destroyed, and reports once that no modal is open', fakeAsync(() => {
+    const shell = TestBed.createComponent(ModalShellComponent);
+    shell.detectChanges();
+    const openStates: boolean[] = [];
+    const subscription = service.modalRefsOpen.subscribe(open => openStates.push(open));
+    const lower = service.open(FormContentComponent, {title: 'Edit project', viewContainerRef: shell.componentInstance.viewContainerRef});
+    service.open(TextContentComponent, {title: 'Details', viewContainerRef: shell.componentInstance.page()!.viewContainerRef});
+    shell.detectChanges();
+
+    // The route changes: its page and the modal it hosts are destroyed without closing.
+    shell.componentInstance.pageShown.set(false);
+    shell.detectChanges();
+    expect(service.modalRefs).toEqual([lower]);
+    expect(service.modalRefsOpen.value).toBeTrue();
+
+    lower.modalComponent.close();
+    tick(600);
+    expect(service.modalRefs.length).toBe(0);
+    expect(openStates).toEqual([false, true, true, false]);
+    subscription.unsubscribe();
+    shell.destroy();
+  }));
+
+  it('reports no open modal once the page that hosted the only one is destroyed', fakeAsync(() => {
+    const fixture = page();
+    open(fixture, TextContentComponent);
+    expect(service.modalRefsOpen.value).toBeTrue();
+
+    fixture.destroy();
+    fixtures = [];
+
+    expect(service.modalRefs.length).toBe(0);
+    expect(service.modalRefsOpen.value).toBeFalse();
+    tick(100);
+  }));
 });

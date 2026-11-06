@@ -1,4 +1,4 @@
-﻿import {Component, Input, OnInit, input, output} from '@angular/core';
+﻿import {Component, DestroyRef, Input, OnInit, inject, input, output} from '@angular/core';
 import {INhModalComponent, NhModalComponentRef, NhModalService} from "../../services/nh-modal.service";
 import { SafeHtml } from '@angular/platform-browser';
 import {TaskResult} from "../../models/misc.models";
@@ -21,11 +21,23 @@ export class NhModalConfirmComponent implements OnInit, INhModalComponent<NhModa
   @Input() showLoader: boolean = false;
   @Input() errorResult: TaskResult<any>|undefined;
 
+  /**
+   * Emitted after the confirm delegate (`onConfirm`) completed without an error. Not emitted when the
+   * delegate failed, showed a failed `errorResult`, or closed the dialog itself.
+   * `NhModalService.confirm` and `confirmDialog` close the dialog on it.
+   */
   readonly confirmed = output();
 
   modalComponentRef: NhModalComponentRef<NhModalConfirmComponent>|undefined;
   /** Whether the confirm or cancel delegate runs. */
   private delegateRunning = false;
+  private destroyed = false;
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => {
+      this.destroyed = true;
+    });
+  }
 
   setModalComponentRef(ref: NhModalComponentRef<NhModalConfirmComponent>): void {
     this.modalComponentRef = ref;
@@ -71,12 +83,32 @@ export class NhModalConfirmComponent implements OnInit, INhModalComponent<NhModa
 
   readonly value = input<any>();
 
+  /**
+   * Runs `onConfirm` and emits `confirmed` when it completed without an error. A click while the
+   * confirm or cancel delegate still runs is ignored, so the delegate never runs twice at once.
+   */
   async confirm() {
+    if (this.delegateRunning) {
+      return;
+    }
+
     this.errorResult = undefined;
     await this.executeDelegate(this.onConfirm);
+
+    // The delegate may have closed the dialog, or shown a failed result without throwing.
+    if (this.destroyed || this.showsFailure()) {
+      return;
+    }
+
+    this.confirmed.emit();
   }
 
+  /** Runs `onCancel`. A click while the confirm or cancel delegate still runs is ignored. */
   async cancel() {
+    if (this.delegateRunning) {
+      return;
+    }
+
     this.errorResult = undefined;
     await this.executeDelegate(this.onCancel);
   }
@@ -93,5 +125,9 @@ export class NhModalConfirmComponent implements OnInit, INhModalComponent<NhModa
     } finally {
       this.delegateRunning = false;
     }
+  }
+
+  private showsFailure(): boolean {
+    return !!this.errorResult && !this.errorResult.isSuccess;
   }
 }
