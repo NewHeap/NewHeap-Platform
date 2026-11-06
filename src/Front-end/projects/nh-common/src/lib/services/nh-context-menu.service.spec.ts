@@ -221,6 +221,17 @@ describe('NhContextMenuService', () => {
       expect(document.activeElement).toBe(invoker);
     });
 
+    it('ignores a repeated Enter of a key held down since the menu opened', async () => {
+      const onClick = jasmine.createSpy('onClick').and.resolveTo();
+      open([new NhContextMenuItem({title: 'Open', onClick})]);
+
+      document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', repeat: true, bubbles: true, cancelable: true}));
+      await settle();
+
+      expect(onClick).not.toHaveBeenCalled();
+      expect(isOpen()).toBeTrue();
+    });
+
     it('does not activate a disabled item and stays open', async () => {
       const onClick = jasmine.createSpy('onClick').and.resolveTo();
       open([new NhContextMenuItem({title: 'Delete', disabled: true, onClick})]);

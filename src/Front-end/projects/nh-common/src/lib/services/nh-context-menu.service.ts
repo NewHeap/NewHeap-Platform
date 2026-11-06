@@ -318,7 +318,8 @@ export class NhContextMenuService implements OnDestroy {
       case 'Enter':
       case ' ':
         event.preventDefault();
-        if(current >= 0) {
+        // A held key that opened the menu from a button must not also activate its first item.
+        if(current >= 0 && !event.repeat) {
           void this.activate(this.entries[current], event, menuElement);
         }
         break;
