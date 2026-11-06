@@ -37,7 +37,9 @@ let nextProjectFormId = 0;
  * title; it focuses the close button while the form data loads and the key field once the form is
  * there, keeps Tab and Shift+Tab inside the dialog (a disabled save button is skipped), and gives
  * focus back to the button that opened it. Escape calls `closeDialog`, as "Cancel" does, through
- * `onModalEscape` of the mutate base; a modal opened with `closeable: false` ignores Escape.
+ * `onModalEscape` of the mutate base; a modal opened with `closeable: false` ignores Escape. The
+ * browser's back and forward buttons take the same way through `onModalBackNavigation` of the mutate
+ * base, except while a save runs: then the editor stays open until the save shows its result.
  */
 @Component({
   selector: 'app-project-edit-modal',

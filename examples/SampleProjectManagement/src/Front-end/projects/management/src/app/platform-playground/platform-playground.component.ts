@@ -251,6 +251,11 @@ export class PlatformPlaygroundComponent {
     });
   }
 
+  /**
+   * The processing modal is opened with `closeable: false`: it has no close button, ignores Escape and
+   * stays open on browser back or forward navigation (SPM-115) until the work is done and this code
+   * closes it.
+   */
   async showLoadingModal(): Promise<void> {
     const modal = this.modalService.open(
       NhModalLoadingComponent,

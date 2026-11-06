@@ -99,6 +99,13 @@ for (const [name, host] of [['management', managementHost], ['workspace', worksp
     `The ${name} application root must render one NewHeap toast container.`);
 }
 
+// SPM-115: modals live in the root's view container, so browser back navigation closes them with
+// their closed event instead of destroying them with the page that opened them.
+assert.match(managementHost, /this\.modalService\.setViewContainerRef\(this\.viewContainerRef\)/,
+  'The management application root must host the modals in its view container.');
+assert.doesNotMatch(management, /setViewContainerRef/,
+  'A routed page must not host the modals: a route change would destroy them without closing them.');
+
 assert.doesNotMatch(commonPublicApi, /^export[^;]*'\.\/lib\/sample-cases'/m,
   'The generated case catalog must stay out of the shared barrel, which both initial bundles load.');
 assert.match(sampleCaseCatalog, /from 'sample-project-management-common\/sample-cases'/,
