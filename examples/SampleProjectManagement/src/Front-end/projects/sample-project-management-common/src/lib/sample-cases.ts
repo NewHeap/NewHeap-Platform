@@ -1850,9 +1850,9 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "evidence": [
       "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
       "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.html",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-search-input/search-input.component.spec.ts",
       "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
-      "src/Front-end/projects/management/src/app/sample.routes.ts",
-      "../../src/Front-end/projects/nh-common/src/lib/components/nh-search-input/search-input.component.spec.ts"
+      "src/Front-end/projects/management/src/app/sample.routes.ts"
     ]
   },
   {
