@@ -35,6 +35,14 @@ function settle(): Promise<void> {
   return new Promise(resolve => setTimeout(resolve));
 }
 
+/**
+ * Resolves in the next rendering frame. The browser dispatches the scroll events of earlier layout
+ * changes before it runs animation frame callbacks, so none of them is still pending afterwards.
+ */
+function nextFrame(): Promise<void> {
+  return new Promise(resolve => requestAnimationFrame(() => resolve()));
+}
+
 function viewport(): {width: number; height: number} {
   return {width: document.documentElement.clientWidth, height: document.documentElement.clientHeight};
 }
@@ -56,18 +64,27 @@ describe('NhContextMenuService', () => {
   let errorHandler: jasmine.SpyObj<ErrorHandler>;
   let invoker: HTMLButtonElement;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     errorHandler = jasmine.createSpyObj<ErrorHandler>('ErrorHandler', ['handleError']);
     TestBed.configureTestingModule({
       providers: [provideRouter([]), {provide: ErrorHandler, useValue: errorHandler}]
     });
     service = TestBed.inject(NhContextMenuService);
 
+    // A document scroll closes an open menu, as it should. The test page may be scrollable because of
+    // what earlier specs left in it, so the invoker sits fixed in the viewport and focusing it never
+    // scrolls the document, and each test starts after the browser has dispatched the scroll events of
+    // earlier layout changes. Otherwise such an event closes the menu whenever the next frame happens
+    // to fall, which under load can be in the middle of a test.
     invoker = document.createElement('button');
     invoker.type = 'button';
     invoker.textContent = 'Project actions';
+    invoker.style.position = 'fixed';
+    invoker.style.left = '0';
+    invoker.style.top = '0';
     document.body.appendChild(invoker);
-    invoker.focus();
+    invoker.focus({preventScroll: true});
+    await nextFrame();
   });
 
   afterEach(() => {
@@ -205,7 +222,7 @@ describe('NhContextMenuService', () => {
 
     it('closes with Escape while focus is outside the menu', () => {
       open([new NhContextMenuItem({title: 'Open'})]);
-      invoker.focus();
+      invoker.focus({preventScroll: true});
 
       press('Escape');
 
