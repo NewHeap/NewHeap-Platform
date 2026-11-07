@@ -8,7 +8,7 @@ import {
   RunCatalog,
   ToolCatalogEntry
 } from '@newheap/platform-ai-chat';
-import { NhSelectOption } from '@newheap/platform-select';
+import { NhSelectOption } from '@newheap/platform-common/select';
 import { nhAssistantSelectorMatches } from '../nh-assistant-admin-agent-editor.component';
 
 /** The longest texts and numbers the server accepts in the run configuration. */

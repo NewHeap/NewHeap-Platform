@@ -13,7 +13,7 @@ import {
   ɵtoNhAssistantError as toNhAssistantError,
   ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
-import { NhComboboxComponent } from '@newheap/platform-select';
+import { NhComboboxComponent } from '@newheap/platform-common/select';
 import { RunConfigFieldError, dashCase } from './run-config-shared';
 
 /** Where the instructions of a skill version or an agent created here come from. */

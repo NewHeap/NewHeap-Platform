@@ -2,7 +2,7 @@ import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { NhAssistantMockScenario, provideNhAssistantMockApi } from '@newheap/platform-ai-chat/testing';
-import { NhComboboxComponent, NhSelectOption } from '@newheap/platform-select';
+import { NhComboboxComponent, NhSelectOption } from '@newheap/platform-common/select';
 import { Observable, firstValueFrom, of, throwError } from 'rxjs';
 import { NhAssistantAccountPickerComponent } from '../../../admin/src/agents/run-config/nh-assistant-account-picker.component';
 import { NH_ASSISTANT_ADMIN_TRANSLATIONS } from '../../../admin/src/i18n/nh-assistant-admin-translations';

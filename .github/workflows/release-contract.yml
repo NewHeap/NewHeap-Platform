@@ -92,7 +92,7 @@ jobs:
           fi
 
           case "$COMPONENT" in
-            all|nuget-common|nuget-caching|nuget-proxy|nuget-media|npm-platform-common|npm-nh-toastr|npm-platform-select|npm-ai-chat|newheap-platform-plugin) ;;
+            all|nuget-common|nuget-caching|nuget-proxy|nuget-media|npm-platform-common|npm-nh-toastr|npm-ai-chat|newheap-platform-plugin) ;;
             *)
               echo "Unsupported release component: $COMPONENT" >&2
               exit 1
@@ -144,12 +144,6 @@ jobs:
         run: |
           npm --prefix src/Front-end ci
           npm --prefix src/Front-end run nh-common:test:compatibility
-      - name: Verify platform-select on Angular 20, 21 and 22
-        if: inputs.component == '' || inputs.component == 'all' || inputs.component == 'npm-platform-select'
-        run: |
-          # The platform-common step above may have installed the workspace already.
-          if [[ ! -d src/Front-end/node_modules ]]; then npm --prefix src/Front-end ci; fi
-          npm --prefix src/Front-end run nh-select:test:compatibility
       - name: Test field selection on SQL Server and PostgreSQL
         if: inputs.component == '' || inputs.component == 'all' || inputs.component == 'nuget-common'
         timeout-minutes: 15

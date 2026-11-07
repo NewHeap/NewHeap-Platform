@@ -64,7 +64,7 @@ export {
   nhAssistantReloadOnAgentWork as ɵnhAssistantReloadOnAgentWork,
   nhAssistantWatchAgentWork as ɵnhAssistantWatchAgentWork
 } from './lib/internal/nh-assistant-agent-work';
-// The texts and error descriptions of the nh-combobox controls of @newheap/platform-select.
+// The texts and error descriptions of the nh-combobox controls of @newheap/platform-common/select.
 export { provideNhAssistantSelect as ɵprovideNhAssistantSelect } from './lib/internal/nh-assistant-select';
 export { NhAssistantSubjectLinkComponent as ɵNhAssistantSubjectLinkComponent } from './lib/internal/nh-assistant-subject-link.component';
 export { NhAssistantMarkdownPipe as ɵNhAssistantMarkdownPipe } from './lib/internal/nh-assistant-markdown.pipe';

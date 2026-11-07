@@ -33,7 +33,7 @@ is inside it.
 | Authentication playground | password, OAuth, refresh, multiple roles, scoped permissions, and authentication overrides | authentication service, request claims, policies, guards, and pipes |
 | Operations API | CAP, Hangfire, email with a named SMTP security mode, and notification delivery | event configurator, `NhHangfireUtil`, `NhMailService` with `MailServiceSettings.SecurityMode`, notification builder |
 | Notification playground | polling, badge, mark-as-read, and archive | abstract notification component, service, and controller |
-| Platform playground | text, binary, download, modal, multi-select, combobox and multiselect, custom control, context menu, head, and JSON-LD | HTTP options, modal, form, `@newheap/platform-select`, context menu, head, and configuration services |
+| Platform playground | text, binary, download, modal, multi-select, combobox and multiselect, custom control, context menu, head, and JSON-LD | HTTP options, modal, form, `@newheap/platform-common/select`, context menu, head, and configuration services |
 | Utility playground | strings, arrays, encoding, mutex, cookies, sanitized pasted rich text, safe, date and relative time pipes | concrete utilities, the HTML sanitizer and components |
 | EF Core chunks | ordered project query in bounded asynchronous batches | `IQueryable.ChunkAsync` with cancellation |
 | Project members | members with reader, participant and approver roles that decide access to the project's agent threads | `ProjectMemberController`, `ProjectSubjectAccessResolver`, `INhAiSubjectAccess.RefreshAsync` |
@@ -1339,7 +1339,7 @@ short style. The value grid shows `nhFormatRelativeTime` in Dutch.
 
 ## Combobox and multiselect
 
-New forms choose values with `@newheap/platform-select` (SPM-397);
+New forms choose values with `@newheap/platform-common/select` (SPM-397);
 `nh-form-dropdown` stays available as the legacy alternative. The platform
 playground holds one reactive form with three of its controls. The project
 `nh-combobox` asks `GET /public/projects` for matching projects after two

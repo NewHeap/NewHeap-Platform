@@ -15,7 +15,6 @@ on:
           - nuget-media
           - npm-platform-common
           - npm-nh-toastr
-          - npm-platform-select
           - npm-ai-chat
           - newheap-platform-plugin
 

@@ -37,7 +37,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
-import { NhSelectOption } from '@newheap/platform-select';
+import { NhSelectOption } from '@newheap/platform-common/select';
 import { NhAssistantAccountLabelComponent, NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
 import { mayChangeAgentRights } from './agent-rights';
 import { agentDisplayName, policyKeys, readableId, skillDescriptionKeys, skillNameKeys, warningKeys } from './agent-texts';

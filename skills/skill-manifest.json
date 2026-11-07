@@ -14,7 +14,6 @@
     "@newheap/nh-toastr": "0.1.0",
     "@newheap/platform-ai-chat": "0.32.0",
     "@newheap/platform-common": "6.0.1",
-    "@newheap/platform-select": "0.1.0",
     "NewHeap.Platform.AI.AgentFramework": "36.0.0",
     "NewHeap.Platform.AI.AspNet.Common": "36.0.0",
     "NewHeap.Platform.AI.AspNet.Mvc": "36.0.0",

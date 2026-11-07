@@ -35,7 +35,8 @@
             "include": [
               "**/*.spec.ts",
               "../two-factor/**/*.spec.ts",
-              "../sanitize/**/*.spec.ts"
+              "../sanitize/**/*.spec.ts",
+              "../select/**/*.spec.ts"
             ]
           }
         }
@@ -66,39 +67,6 @@
           "builder": "@angular-devkit/build-angular:karma",
           "options": {
             "tsConfig": "projects/nh-toastr/tsconfig.spec.json",
-            "polyfills": [
-              "zone.js",
-              "zone.js/testing"
-            ]
-          }
-        }
-      }
-    },
-    "nh-select": {
-      "projectType": "library",
-      "root": "projects/nh-select",
-      "sourceRoot": "projects/nh-select/src",
-      "prefix": "nh",
-      "architect": {
-        "build": {
-          "builder": "@angular-devkit/build-angular:ng-packagr",
-          "options": {
-            "project": "projects/nh-select/ng-package.json"
-          },
-          "configurations": {
-            "production": {
-              "tsConfig": "projects/nh-select/tsconfig.lib.prod.json"
-            },
-            "development": {
-              "tsConfig": "projects/nh-select/tsconfig.lib.json"
-            }
-          },
-          "defaultConfiguration": "development"
-        },
-        "test": {
-          "builder": "@angular-devkit/build-angular:karma",
-          "options": {
-            "tsConfig": "projects/nh-select/tsconfig.spec.json",
             "polyfills": [
               "zone.js",
               "zone.js/testing"

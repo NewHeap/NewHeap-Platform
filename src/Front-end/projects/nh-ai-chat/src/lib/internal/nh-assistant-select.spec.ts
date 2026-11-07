@@ -1,6 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { NhComboboxComponent, NhSelectOption } from '@newheap/platform-select';
+import { NhComboboxComponent, NhSelectOption } from '@newheap/platform-common/select';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { Observable, firstValueFrom, of, throwError } from 'rxjs';
 import { NH_ASSISTANT_TRANSLATIONS } from '../i18n/nh-assistant-translations';

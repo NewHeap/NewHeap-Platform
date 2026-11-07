@@ -10,7 +10,7 @@ import {
   ɵtoNhAssistantError as toNhAssistantError,
   ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
-import { NhComboboxComponent, NhSelectOption } from '@newheap/platform-select';
+import { NhComboboxComponent, NhSelectOption } from '@newheap/platform-common/select';
 
 const lookupDelayMs = 300;
 

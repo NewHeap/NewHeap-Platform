@@ -99,24 +99,23 @@ assert.deepEqual(
   affectedFrontEndLibraries(['src/Front-end/projects/nh-ai-chat/src/lib/x.ts', 'src/Front-end/package.json'], ['nh-common', 'nh-ai-chat']),
   ['nh-ai-chat']);
 // A library's change also reaches the libraries that depend on it through their package.json:
-// platform-ai-chat peers on platform-select and platform-common on nh-toastr.
+// platform-ai-chat peers on platform-common and platform-common on nh-toastr.
 const libraryDependents = frontEndLibraryDependents({
   'nh-toastr': { name: '@newheap/nh-toastr' },
   'nh-common': { name: '@newheap/platform-common', peerDependencies: { '@newheap/nh-toastr': '^0.0.8', rxjs: '~7.8.0' } },
-  'nh-select': { name: '@newheap/platform-select', peerDependencies: { '@angular/core': '^20.3.28' } },
-  'nh-ai-chat': { name: '@newheap/platform-ai-chat', peerDependencies: { '@newheap/platform-select': '>=0.0.0 <0.2.0' } },
+  'nh-ai-chat': { name: '@newheap/platform-ai-chat', peerDependencies: { '@newheap/platform-common': '^6.1.0' } },
   management: undefined
 });
-assert.deepEqual(libraryDependents, { 'nh-toastr': ['nh-common'], 'nh-select': ['nh-ai-chat'] });
+assert.deepEqual(libraryDependents, { 'nh-toastr': ['nh-common'], 'nh-common': ['nh-ai-chat'] });
 assert.deepEqual(
-  affectedFrontEndLibraries(['src/Front-end/projects/nh-select/src/lib/nh-combobox.component.ts'], ['nh-common', 'nh-select', 'nh-ai-chat'], libraryDependents),
-  ['nh-ai-chat', 'nh-select']);
+  affectedFrontEndLibraries(['src/Front-end/projects/nh-common/select/src/lib/nh-combobox.component.ts'], ['nh-common', 'nh-ai-chat'], libraryDependents),
+  ['nh-ai-chat', 'nh-common']);
 // A library without specs is not run itself, but still reaches its dependents.
 assert.deepEqual(
   affectedFrontEndLibraries(['src/Front-end/projects/nh-toastr/src/x.ts'], ['nh-common', 'nh-ai-chat'], libraryDependents),
-  ['nh-common']);
+  ['nh-ai-chat', 'nh-common']);
 assert.deepEqual(
-  affectedFrontEndLibraries(['src/Front-end/projects/nh-ai-chat/src/x.ts'], ['nh-select', 'nh-ai-chat'], libraryDependents),
+  affectedFrontEndLibraries(['src/Front-end/projects/nh-ai-chat/src/x.ts'], ['nh-common', 'nh-ai-chat'], libraryDependents),
   ['nh-ai-chat']);
 // Only libraries with a test target and specs below their root are run; Karma refuses one without specs.
 assert.deepEqual(

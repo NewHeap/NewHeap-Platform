@@ -28,7 +28,7 @@
   // The sticky topbar of the management layout: an agent's Build page scrolls its sections below it.
   --nh-assistant-scroll-margin-top: 88px;
 
-  /* Comboboxes and multiselects (@newheap/platform-select) on the same tokens. */
+  /* Comboboxes and multiselects (@newheap/platform-common/select) on the same tokens. */
   --nh-select-font: var(--font-sans);
   --nh-select-radius: var(--radius-control);
   --nh-select-background: var(--surface);

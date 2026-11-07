@@ -125,19 +125,23 @@ import { Component, importProvidersFrom } from '@angular/core';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { provideTranslateService } from '@ngx-translate/core';
 import { NhAuthService, NhCommonModule, NhCommonModuleConfig } from '@newheap/platform-common';
+import { NhComboboxComponent, NhMultiselectComponent, provideNhSelect } from '@newheap/platform-common/select';
 import { NhPasskeyLoginButtonComponent } from '@newheap/platform-common/two-factor';
 import { NhToastrContainerComponent, provideNhToastr } from '@newheap/nh-toastr';
 
 @Component({
   selector: 'app-root',
-  imports: [NhCommonModule, NhPasskeyLoginButtonComponent, NhToastrContainerComponent],
-  template: '<nh-loader /><nh-passkey-login-button /><nh-toastr-container />'
+  imports: [NhCommonModule, NhPasskeyLoginButtonComponent, NhToastrContainerComponent, NhComboboxComponent, NhMultiselectComponent],
+  template: '<nh-loader /><nh-passkey-login-button /><nh-toastr-container /><nh-combobox ariaLabel="Status" [options]="options" /><nh-multiselect ariaLabel="Tags" [options]="options" />'
 })
-class AppComponent {}
+class AppComponent {
+  readonly options = [{ value: 1, label: "Open" }];
+}
 
 bootstrapApplication(AppComponent, {
   providers: [
     provideTranslateService(),
+    provideNhSelect({}),
     provideNhToastr({}),
     NhAuthService,
     importProvidersFrom(NhCommonModule.forRoot(new NhCommonModuleConfig({
