@@ -8,11 +8,12 @@ import {
   provideHttpClientTesting
 } from '@angular/common/http/testing';
 import {TestBed} from '@angular/core/testing';
-import {BehaviorSubject, of} from 'rxjs';
+import {BehaviorSubject, lastValueFrom, of} from 'rxjs';
+import {encode} from '@msgpack/msgpack';
 
 import {NhAuthorization} from '../models/auth.models';
 import {NhCommonModuleConfig} from '../models/config.models';
-import {HttpRequestOptions} from '../models/http.models';
+import {CollectionHttpRequestOptions, HttpRequestOptions} from '../models/http.models';
 import {NhApiService} from './nh-api.service';
 import {NhAuthService} from './nh-auth.service';
 import {NhBaseApiService} from './nh-base-api.service';
@@ -80,6 +81,21 @@ describe('NhApiService PATCH requests', () => {
 
     const result = await resultPromise;
     expect(result.data).toEqual({id: 'project-id'});
+  });
+
+  it('decodes a MessagePack collection response with a decoder that loads on demand', async () => {
+    const options = new CollectionHttpRequestOptions({page: 1, itemsPerPage: 10});
+    Object.assign(options, {responseType: 'arraybuffer'});
+    const collection = {page: 1, itemsPerPage: 10, totalItems: 1, items: [{id: 'project-id', name: 'Alpha'}]};
+
+    const resultPromise = lastValueFrom(apiService.getCollection<{id: string, name: string}>('/api/projects', options));
+
+    const request = httpTesting.expectOne(r => r.url === '/api/projects');
+    expect(request.request.responseType).toBe('arraybuffer');
+    const body = encode(collection);
+    request.flush(body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength));
+
+    expect(await resultPromise).toEqual(collection as never);
   });
 });
 

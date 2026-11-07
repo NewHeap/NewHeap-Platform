@@ -1,6 +1,6 @@
 import { HttpClient, HttpEvent, HttpHeaders, HttpParams, HttpResponse } from '@angular/common/http';
 import { Injectable, OnDestroy } from '@angular/core';
-import {lastValueFrom, map, Observable, share, Subscription} from 'rxjs';
+import {from, lastValueFrom, map, Observable, share, Subscription, switchMap} from 'rxjs';
 import {
   CollectionHttpRequestOptions,
   CollectionHttpResponse,
@@ -14,7 +14,16 @@ import { NhAuthService } from './nh-auth.service';
 import {NhCommonModuleConfig} from "../models/config.models";
 import {NhAuthorization} from "../models/auth.models";
 import {TaskResult} from "../models/misc.models";
-import {decode as msgpackDecode} from "@msgpack/msgpack";
+
+/**
+ * Decodes a MessagePack collection response. The decoder loads on the first MessagePack request, so an
+ * application that only reads JSON collections does not ship it in its initial bundle.
+ */
+function decodeMessagePack<TResult>(body: ArrayBuffer): Observable<TResult> {
+  return from(import('@msgpack/msgpack')).pipe(
+    map(msgpack => msgpack.decode(body) as TResult)
+  );
+}
 
 @Injectable({
   providedIn: 'root',
@@ -246,7 +255,7 @@ export class NhApiService implements OnDestroy {
           responseType: 'arraybuffer',
           withCredentials: requestOptions.withCredentials
         })
-          .pipe(map(r => msgpackDecode(r) as TCollectionResult))
+          .pipe(switchMap(r => decodeMessagePack<TCollectionResult>(r)))
           .pipe(share());
       default:
         return this.httpClient.get<TCollectionResult>(url, {
