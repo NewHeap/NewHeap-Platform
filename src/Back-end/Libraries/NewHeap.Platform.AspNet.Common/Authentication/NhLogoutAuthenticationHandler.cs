@@ -16,6 +16,16 @@ namespace NewHeap.Platform.AspNet.Common.Authentication;
 
 public class NhLogoutAuthenticationHandler : BaseNhAuthenticationEndpoint
 {
+    /// <summary>
+    /// Response header of a logout with <see cref="LogoutRequest.KeepAuthenticationCookies"/>: its value
+    /// <see cref="AuthenticationCookiesKept"/> confirms that the browser's cookies were left alone. An
+    /// older server, which does not know the option, expires them and sends no such header.
+    /// </summary>
+    public const string AuthenticationCookiesHeaderName = "X-NH-Authentication-Cookies";
+
+    /// <summary>The value of <see cref="AuthenticationCookiesHeaderName"/> when the cookies were kept.</summary>
+    public const string AuthenticationCookiesKept = "kept";
+
     internal string? TokenCookieName { get; set; } = "nh_access_token";
     internal string? RefreshTokenCookieName { get; set; } = "nh_refresh_token";
 
@@ -45,7 +55,7 @@ public class NhLogoutAuthenticationHandler : BaseNhAuthenticationEndpoint
     [Tags("Authentication")]
     [EndpointName("Logout")]
     [EndpointSummary("Log out the current session")]
-    [EndpointDescription("Revokes the presented refresh token and expires the authentication cookies.")]
+    [EndpointDescription("Revokes the presented refresh token and expires the authentication cookies. With keepAuthenticationCookies it revokes only the refresh token in the body and leaves the cookies of the browser's active account alone, which the X-NH-Authentication-Cookies response header confirms.")]
     [AllowAnonymous]
     [Produces<NoContentResult>]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -59,6 +69,22 @@ public class NhLogoutAuthenticationHandler : BaseNhAuthenticationEndpoint
         var authenticationService = GetAuthService();
         var domain = new Uri(authenticationService.GetIssuer()).Host;
         var httpContext = httpContextAccessor.HttpContext!;
+
+        if (request?.KeepAuthenticationCookies == true)
+        {
+            // Signs out one account of several in a browser: only the presented token, never the
+            // cookie's, and the cookies stay with the account that is still active.
+            if (Configuration.RefreshTokenEnabled && !string.IsNullOrWhiteSpace(request.RefreshToken))
+            {
+                await NhRefreshTokenOperations.RevokeAsync(
+                    refreshTokenRepository.GetAll(),
+                    NhRefreshTokenKey.Digest(configuration, request.RefreshToken),
+                    cancellationToken);
+            }
+
+            httpContext.Response.Headers[AuthenticationCookiesHeaderName] = AuthenticationCookiesKept;
+            return TypedResults.NoContent();
+        }
 
         try
         {

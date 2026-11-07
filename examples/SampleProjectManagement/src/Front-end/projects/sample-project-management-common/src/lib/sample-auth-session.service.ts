@@ -26,7 +26,7 @@ export class SampleAuthSessionService implements OnDestroy {
           return;
         }
 
-        if (!this.authenticatedSessionSeen || this.redirecting) {
+        if (!this.authenticatedSessionSeen || this.redirecting || this.isSignInInProgress()) {
           return;
         }
 
@@ -59,6 +59,21 @@ export class SampleAuthSessionService implements OnDestroy {
 
   ngOnDestroy(): void {
     this.subscription?.unsubscribe();
+  }
+
+  /**
+   * A sign-in stores its session before the profile with the claims is loaded. With several
+   * accounts (SPM-398) a second account signs in while the first one is active, so a stored session
+   * with a refresh token, a valid access token and no claims yet is a sign-in, not a sign-out.
+   */
+  private isSignInInProgress(): boolean {
+    const authorization = this.authService.getAuthorization(false);
+    const validTo = Date.parse(authorization?.validTo ?? '');
+
+    return !!authorization?.refreshToken
+      && (authorization.claims?.length ?? 0) === 0
+      && !Number.isNaN(validTo)
+      && validTo > Date.now();
   }
 
   private isLocalReturnUrl(url: string): boolean {

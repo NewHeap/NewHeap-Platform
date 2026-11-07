@@ -23,7 +23,7 @@
         <button type="button" (click)="detectAuthenticationFlow()">Detect flow</button>
         <button type="button" (click)="requestMicrosoftRedirect()">Microsoft URL</button>
         <button type="button" (click)="login()">Password login</button>
-        <button type="button" (click)="refresh()">Refresh</button>
+        <button type="button" (click)="refresh()">{{ 'project.browser-accounts-renew' | translate }}</button>
         <button type="button" (click)="logout()">Logout</button>
       </div>
       <label><span>Impersonate user id</span><input [value]="impersonateUserId()" (input)="updateImpersonateId($event)"></label>
@@ -103,6 +103,46 @@
           <button type="button" (click)="resetUserTwoFactor()">{{ 'project.two-factor-administration-reset' | translate }}</button>
           <button type="button" (click)="startTwoFactorEnrollmentReminders()">{{ 'project.two-factor-administration-reminders' | translate }}</button>
           <button type="button" (click)="startTwoFactorSessionRevocation()">{{ 'project.two-factor-administration-revocation' | translate }}</button>
+        </div>
+      </fieldset>
+      <fieldset class="two-factor browser-accounts" [disabled]="accountActionRunning()" [attr.aria-busy]="accountActionRunning()">
+        <legend>{{ 'project.browser-accounts-title' | translate }}</legend>
+        <p>{{ 'project.browser-accounts-description' | translate }}</p>
+        @if (accounts().length === 0) {
+          <p class="browser-accounts-empty">{{ 'project.browser-accounts-empty' | translate }}</p>
+        } @else {
+          <ul class="browser-account-list">
+            @for (account of accounts(); track account.userId) {
+              <li [class.active]="account.isActive">
+                <span class="browser-account-name">
+                  <strong>{{ account.displayName || account.userName }}</strong>
+                  <small>{{ (account.isActive ? 'project.browser-accounts-active' : 'project.browser-accounts-signed-in') | translate }}</small>
+                </span>
+                <span class="actions">
+                  @if (!account.isActive) {
+                    <button type="button" (click)="switchAccount(account)">{{ 'project.browser-accounts-switch' | translate }}</button>
+                  }
+                  <button type="button" (click)="logoutAccount(account)">{{ 'project.browser-accounts-sign-out' | translate }}</button>
+                  @if (!account.isActive) {
+                    <button type="button" (click)="forgetAccount(account)">{{ 'project.browser-accounts-forget' | translate }}</button>
+                  }
+                </span>
+              </li>
+            }
+          </ul>
+        }
+        <dl class="browser-account-hint">
+          <div>
+            <dt><code>{{ accountHintCookieName }}</code></dt>
+            <dd>{{ accountHintCookie() ?? '-' }}</dd>
+          </div>
+        </dl>
+        <p>{{ 'project.browser-accounts-hint-description' | translate }}</p>
+        <div class="actions">
+          <button type="button" (click)="addAccount()">{{ 'project.browser-accounts-add' | translate }}</button>
+          @if (accounts().length > 0) {
+            <button type="button" (click)="logoutAllAccounts()">{{ 'project.browser-accounts-sign-out-all' | translate }}</button>
+          }
         </div>
       </fieldset>
       <div class="actions local">

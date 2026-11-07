@@ -40,6 +40,34 @@ export class EndpointsAuthenticationNhCommonModuleConfig {
   }
 }
 
+/**
+ * Opt-in support for a browser that is signed in to more than one account, each with a
+ * refresh-token session of its own. Off by default: until an application sets `enabled`, the
+ * browser keeps one authorization in `localStorage['at']` exactly as before, and nothing else is
+ * stored or written. Turning it off again removes the other accounts from the browser at the next
+ * start; their sessions are not revoked and expire on the server. Every application on one origin
+ * shares `at` and the accounts, so configure the option the same way in each of them.
+ */
+export class MultipleAccountsAuthenticationNhCommonModuleConfig {
+  /** Keeps a directory of signed-in accounts next to the active authorization. */
+  enabled: boolean = false;
+  /**
+   * The most accounts one browser keeps. Signing in to one more forgets the least recently used
+   * other account in this browser; its refresh token is not revoked and expires on the server.
+   */
+  maximum: number = 8;
+  /**
+   * Name of a cookie that holds only the number of accounts, so a server-side authorize endpoint
+   * can decide whether to show an account picker. It never identifies an account and never
+   * authorizes anything. The cookie is not written while this is unset.
+   */
+  hintCookieName?: string;
+
+  public constructor(init?: Partial<MultipleAccountsAuthenticationNhCommonModuleConfig>) {
+    Object.assign(this, init);
+  }
+}
+
 export class AuthenticationNhCommonModuleConfig {
   addAuthTokensToRequests: boolean = true;
   additionalClaimPermissionTypes: string[] = [];
@@ -51,6 +79,8 @@ export class AuthenticationNhCommonModuleConfig {
    * server no longer accepts the session, for example after a password change on another device.
    */
   endSessionRejectedByServer: boolean = true;
+  /** Opt-in: lets the browser stay signed in to more than one account. Off by default. */
+  multipleAccounts: MultipleAccountsAuthenticationNhCommonModuleConfig = new MultipleAccountsAuthenticationNhCommonModuleConfig();
 
   public constructor(init?: Partial<AuthenticationNhCommonModuleConfig>) {
     Object.assign(this, init);

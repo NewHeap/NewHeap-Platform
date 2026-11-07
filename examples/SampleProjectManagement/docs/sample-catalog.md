@@ -1603,6 +1603,23 @@ An impersonation (SPM-067) has no refresh token, so it ends with its access toke
 The API sets `ExpirationTimespanImpersonationToken` to one hour instead of the
 one-day default, and `AuthenticationSessionSamplesTests` checks that lifetime.
 
+### Several accounts in one browser
+
+The sample opts in to `authentication.multipleAccounts` (SPM-398); the library
+default keeps one authorization per browser. `localStorage['at']` stays the active
+authorization, and a second key holds the other accounts, each with a refresh-token
+session of its own. The Accounts in this browser panel of the authentication
+workbench signs in to a second demo account without ending the first, switches
+between them with `switchAccount`, signs out one account with `logoutAccount`, whose
+request asks the API to keep the active account's cookies
+(`LogoutRequest.KeepAuthenticationCookies`), and removes another one from the
+browser with `forgetAccount`, which revokes nothing.
+`renewSession` rotates the refresh token once for every tab: two tabs that renew at
+the same time make one request, and a tab whose token another tab already rotated
+continues with the stored session instead of signing out. Only the management
+portal names an account hint cookie, because cookies ignore ports and both apps run
+on one host; it holds only the number of accounts.
+
 Project mutations also use explicit connection state. Only a browser network
 failure with HTTP status `0` enables local demo mode. A server response with 400,
 401, 403, or 500 proves that the API is reachable and must never cause a local

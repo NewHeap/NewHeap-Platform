@@ -153,6 +153,58 @@ export class AuthSessionExpirationInformation {
   }
 }
 
+/**
+ * An account this browser is signed in to, as `BaseNhAuthService.accounts` lists it when
+ * `authentication.multipleAccounts` is enabled. It carries no token: the tokens stay inside the
+ * authorization service.
+ */
+export class NhBrowserAccount {
+  userId: string = '';
+  /** The name the refresh endpoint finds the account by. */
+  userName: string = '';
+  displayName?: string;
+  /** When the account's stored access token expires. */
+  validTo?: string;
+  /** When the account's refresh token expires; the account is listed until then. */
+  refreshTokenExpires?: string;
+  signedInAt: string = '';
+  lastUsedAt: string = '';
+  /** The account of the active authorization, which every tab of the application shares. */
+  isActive: boolean = false;
+
+  public constructor(init?: Partial<NhBrowserAccount>) {
+    Object.assign(this, init);
+  }
+}
+
+/**
+ * Who an authorization belongs to, as `BaseNhAuthService.describeBrowserAccount` reads it. Override
+ * that method when the user's sign-in name is neither the name typed at sign-in, nor `userName`
+ * nor `email` of the account information.
+ */
+export interface NhBrowserAccountIdentity {
+  userId: string;
+  userName?: string;
+  displayName?: string;
+}
+
+export interface NhSessionRenewalOptions {
+  /**
+   * Rotates the refresh token also while the access token is still valid, for example because
+   * the server must write the access cookie again.
+   */
+  force?: boolean;
+}
+
+export enum NhBrowserAccountFailureCodes {
+  /** The browser holds no account with this user id, for example after another tab forgot it. */
+  UnknownAccount = 'browser-account-unknown',
+  /** The session cannot be renewed: it holds no refresh token, or it expired. */
+  NotRenewable = 'browser-account-not-renewable',
+  /** Another account became active, for example in another tab, before the renewal started. */
+  NotActive = 'browser-account-not-active'
+}
+
 export class RefreshTokenLoginAccountMutateModel {
   token: string = '';
   refreshToken: string = '';

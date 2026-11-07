@@ -930,8 +930,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-064",
     "title": "Refresh token",
     "category": "Authentication, identity, and authorization",
-    "surface": "refresh handler, NhRefreshTokenKey and session-validator registration",
-    "outcome": "A refresh token rotates at most once while independent device sessions remain usable, and the platform authentication services pass startup validation. The token table stores only a keyed digest of each token (`NhRefreshTokenKey`), and an account that may not sign in, is locked out or blocked is refused like an unknown token without its token being consumed.",
+    "surface": "refresh handler, NhRefreshTokenKey, session-validator registration and BaseNhAuthService.renewSession",
+    "outcome": "A refresh token rotates at most once while independent device sessions remain usable, and the platform authentication services pass startup validation. The token table stores only a keyed digest of each token (`NhRefreshTokenKey`), and an account that may not sign in, is locked out or blocked is refused like an unknown token without its token being consumed. In the browser `renewSession` rotates the token once for every tab, so two tabs that renew together never present the same token twice.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -940,7 +940,8 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
       "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionSamplesTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhRefreshTokenKeyTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhRefreshTokenKeyTests.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts"
     ]
   },
   {
@@ -968,7 +969,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "title": "Logout",
     "category": "Authentication, identity, and authorization",
     "surface": "logout handler",
-    "outcome": "Logout revokes only the current login's refresh token, clears local state even when server logout fails, and closes the protected route. `BaseNhAuthService.logout()` ends the browser session itself also when the request fails and still returns the failure, and `clearAuthorization()` also removes an authorization whose access token expired, so the sample's auth service keeps both methods and its session coordinator removes an expired session with the library call. A custom logout route configured through `LogoutEndpoint` is mapped to the logout endpoint.",
+    "outcome": "Logout revokes only the current login's refresh token, clears local state even when server logout fails, and closes the protected route. `BaseNhAuthService.logout()` ends the browser session itself also when the request fails and still returns the failure, and `clearAuthorization()` also removes an authorization whose access token expired, so the sample's auth service keeps both methods and its session coordinator removes an expired session with the library call. A custom logout route configured through `LogoutEndpoint` is mapped to the logout endpoint. `LogoutRequest.KeepAuthenticationCookies` revokes only the token in the body and leaves the cookies of the account that stays active alone, which the `X-NH-Authentication-Cookies` response header confirms.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -979,7 +980,9 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "src/Front-end/scripts/verify-frontend-integrity.mjs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs",
       "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
-      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts"
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhLogoutAuthenticationHandler.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/LogoutEndpointProviderTests.cs"
     ]
   },
   {
@@ -7241,6 +7244,31 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Front-end/projects/nh-common/select/src/lib/nh-multiselect.component.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-select.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-select.spec.ts"
+    ]
+  },
+  {
+    "id": "SPM-398",
+    "title": "Multiple accounts in one browser",
+    "category": "Authentication, identity, and authorization",
+    "surface": "AuthenticationNhCommonModuleConfig.multipleAccounts, BaseNhAuthService.accounts, accountsChanged, renewSession, switchAccount, forgetAccount, logoutAccount and logoutAllAccounts, NhBrowserAccount",
+    "outcome": "With the explicit opt-in the browser stays signed in to several accounts, each with a refresh-token session of its own, and a second sign-in no longer replaces the first; without it nothing changes and `localStorage['at']` keeps one authorization. Switching rotates only the chosen account and makes it active in every tab, signing out another account revokes exactly its refresh token with `keepAuthenticationCookies`, so the active account keeps its cookies (an older server that expires them makes the library renew the active session), removing an account from the browser revokes nothing, and a session the server rejects drops every account. `renewSession` rotates once for every tab under one lock, Web Locks or a `localStorage` lease, and continues with the stored session when another tab already rotated the token. The session coordinator treats a second account whose profile is still loading as a sign-in, not a sign-out. An optional hint cookie holds only the number of accounts.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth.service.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth-session.service.ts",
+      "src/Front-end/projects/management/src/app/app.config.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.html",
+      "src/Front-end/projects/management/public/i18n/en.json",
+      "src/Front-end/scripts/verify-frontend-integrity.mjs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-browser-account-directory.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhLogoutAuthenticationHandler.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/LogoutEndpointProviderTests.cs"
     ]
   }
 ] as const;

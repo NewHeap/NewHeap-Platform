@@ -19,6 +19,7 @@ import {
   NhCommonModuleConfig,
   NhFormDropDownNhCommonModuleConfig,
   NhHttpNhCommonModuleConfig,
+  MultipleAccountsAuthenticationNhCommonModuleConfig,
   NH_COMMON_ICONS,
   NH_ERROR_HANDLERS,
   NhTranslationNhCommonModuleConfig,
@@ -40,7 +41,16 @@ import { SampleFrontendErrorHandler } from './sample-frontend-error-handler';
 registerLocaleData(localeNl, 'nl');
 registerLocaleData(localeEn, 'en');
 
-export function provideSampleProjectManagement(routes: Routes = []) {
+export interface SampleProjectManagementOptions {
+  /**
+   * Name of the cookie in which NewHeap keeps the number of signed-in accounts for a server-side
+   * authorize endpoint. Cookies ignore ports, so each application on a host needs its own name;
+   * without a name the cookie is not written.
+   */
+  accountHintCookieName?: string;
+}
+
+export function provideSampleProjectManagement(routes: Routes = [], options: SampleProjectManagementOptions = {}) {
   const newHeapConfig = new NhCommonModuleConfig({
     appDisplayName: 'Sample Project Management',
     baseUrl: window.location.origin,
@@ -54,7 +64,14 @@ export function provideSampleProjectManagement(routes: Routes = []) {
     culture: 'en-US',
     defaultCulture: 'en-US',
     authentication: new AuthenticationNhCommonModuleConfig({
-      loginPath: '/auth/login'
+      loginPath: '/auth/login',
+      // SPM-398: an explicit opt-in. The browser may stay signed in to several accounts, each with
+      // its own refresh-token session; the library default keeps one authorization only.
+      multipleAccounts: new MultipleAccountsAuthenticationNhCommonModuleConfig({
+        enabled: true,
+        maximum: 8,
+        hintCookieName: options.accountHintCookieName
+      })
     }),
     environment: 'sample',
     defaultItemsPerPage: 50,

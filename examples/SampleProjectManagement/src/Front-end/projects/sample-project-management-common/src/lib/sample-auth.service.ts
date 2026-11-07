@@ -5,6 +5,9 @@ import {
   NhAuthorization
 } from '@newheap/platform-common';
 
+/** The account-count hint cookie of the management portal (SPM-398). */
+export const SAMPLE_MANAGEMENT_ACCOUNT_HINT_COOKIE = 'sample_management_account_count';
+
 export enum SampleClaimTypes {
   ProjectRole = 'sample.project.role',
   ProjectPermission = 'sample.project.permission'

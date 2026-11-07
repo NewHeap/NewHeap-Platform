@@ -383,7 +383,8 @@
     "SPM-394",
     "SPM-395",
     "SPM-396",
-    "SPM-397"
+    "SPM-397",
+    "SPM-398"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -806,7 +807,8 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
       "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionSamplesTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhRefreshTokenKeyTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhRefreshTokenKeyTests.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts"
     ],
     "SPM-065": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -829,7 +831,9 @@
       "src/Front-end/scripts/verify-frontend-integrity.mjs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationEndpointRouteTests.cs",
       "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
-      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts"
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhLogoutAuthenticationHandler.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/LogoutEndpointProviderTests.cs"
     ],
     "SPM-067": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/AccountSampleService.cs",
@@ -4517,6 +4521,23 @@
       "../../src/Front-end/projects/nh-common/select/src/lib/nh-multiselect.component.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-select.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-select.spec.ts"
+    ],
+    "SPM-398": [
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth.service.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-auth-session.service.ts",
+      "src/Front-end/projects/management/src/app/app.config.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.ts",
+      "src/Front-end/projects/management/src/app/auth-playground/auth-playground.component.html",
+      "src/Front-end/projects/management/public/i18n/en.json",
+      "src/Front-end/scripts/verify-frontend-integrity.mjs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AuthenticationSessionSamplesTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/AuthenticationSessionProviderTests.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-browser-account-directory.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhLogoutAuthenticationHandler.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/LogoutEndpointProviderTests.cs"
     ]
   }
 }

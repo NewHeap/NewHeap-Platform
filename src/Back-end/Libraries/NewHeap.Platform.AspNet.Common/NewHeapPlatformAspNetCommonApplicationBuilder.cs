@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.Builders;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Middlewares;
@@ -242,7 +243,10 @@ public class NewHeapPlatformAspNetCommonApplicationBuilder
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials()
-                .WithExposedHeaders("Content-Disposition", TraceIdentifierMiddleware.CorrelationIdHeaderName)
+                .WithExposedHeaders(
+                    "Content-Disposition",
+                    TraceIdentifierMiddleware.CorrelationIdHeaderName,
+                    NhLogoutAuthenticationHandler.AuthenticationCookiesHeaderName)
                 .SetPreflightMaxAge(TimeSpan.FromMinutes(10))
                 .WithOrigins(_aspNetCommonSettings.AllowedOrigins);
 

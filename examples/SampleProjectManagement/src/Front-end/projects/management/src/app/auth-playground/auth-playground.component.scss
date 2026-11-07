@@ -57,3 +57,14 @@
 .authenticator-setup figcaption { display: grid; gap: 4px; min-width: 0; font-size: 12px; }
 .authenticator-setup code { overflow-wrap: anywhere; }
 .two-factor .check { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.browser-accounts-empty { margin: 0; color: var(--muted); font-size: 12px; }
+.browser-account-list { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.browser-account-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; padding: 9px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface-subtle); }
+.browser-account-list li.active { border-color: var(--brand-strong); }
+.browser-account-name { display: grid; gap: 2px; min-width: 0; }
+.browser-account-name strong { overflow-wrap: anywhere; font-size: 12px; }
+.browser-account-name small { color: var(--muted); font-size: 10px; }
+.browser-account-hint { display: grid; margin: 0; }
+.browser-account-hint div { min-width: 0; padding: 9px; border-radius: var(--radius-control); background: var(--surface-subtle); }
+.browser-account-hint dt { color: var(--muted); font-size: 10px; font-weight: 750; }
+.browser-account-hint dd { margin: 5px 0 0; font-size: 12px; }

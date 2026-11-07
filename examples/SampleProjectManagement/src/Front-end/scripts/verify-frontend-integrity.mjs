@@ -75,6 +75,23 @@ assert.doesNotMatch(authService, /override\s+(async\s+)?(clearAuthorization|logo
   'The sample auth service must keep the NewHeap logout and clearAuthorization, which always end the browser session and also remove an expired authorization.');
 assert.match(authSession, /this\.authService\.clearAuthorization\(\)/,
   'The session coordinator must remove the expired browser token state.');
+
+// SPM-398: several accounts per browser are an explicit opt-in, and the playground shows the
+// preferred account API instead of presenting the same refresh token from two tabs.
+const authPlayground = read('projects/management/src/app/auth-playground/auth-playground.component.ts');
+const managementConfig = read('projects/management/src/app/app.config.ts');
+assert.match(providers, /multipleAccounts:\s*new MultipleAccountsAuthenticationNhCommonModuleConfig\(\{\s*enabled:\s*true/,
+  'The sample must opt in to multiple accounts explicitly; the library default keeps one authorization.');
+assert.match(managementConfig, /accountHintCookieName:\s*SAMPLE_MANAGEMENT_ACCOUNT_HINT_COOKIE/,
+  'Only the management portal names the account hint cookie; cookies ignore ports, so both apps may not share one.');
+for (const call of ['renewSession(', 'switchAccount(', 'logoutAccount(', 'forgetAccount(', 'logoutAllAccounts(', 'accountsChanged']) {
+  assert.ok(authPlayground.includes(`this.authService.${call}`),
+    `The auth playground must demonstrate BaseNhAuthService.${call.replace('(', '')}.`);
+}
+assert.doesNotMatch(authPlayground, /authenticateRefreshToken\(/,
+  'The auth playground must renew through renewSession, which rotates once for every tab.');
+assert.match(authSession, /isSignInInProgress\(\)/,
+  'The session coordinator must not clear a second account whose sign-in still loads its profile.');
 assert.match(login, /queryParamMap\.get\('reason'\) === 'session-expired'/,
   'The login page must explain an expiration redirect.');
 assert.match(login, /!\/\[<>\]\/\.test\(item\)/,

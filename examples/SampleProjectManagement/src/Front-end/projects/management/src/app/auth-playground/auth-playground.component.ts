@@ -11,6 +11,7 @@ import {
   IsAuthenticatedPipe,
   NhAuthorization,
   NhAuthService,
+  NhBrowserAccount,
   NhCommonModule,
   NhAuthenticatorSetup,
   NhDivision,
@@ -19,7 +20,6 @@ import {
   NhTwoFactorReauthentication,
   NhTwoFactorVerifyModel,
   NhUser,
-  RefreshTokenLoginAccountMutateModel,
   RevertImpersonateAuthenticateModel
 } from '@newheap/platform-common';
 import { RouterLink } from '@angular/router';
@@ -33,6 +33,7 @@ import {
   IsOneProjectPermissionGrantedPipe,
   IsOneProjectRoleGrantedPipe,
   SAMPLE_AUTHORIZATION_IDS,
+  SAMPLE_MANAGEMENT_ACCOUNT_HINT_COOKIE,
   SampleAuthService,
   SampleClaimTypes,
   TWO_FACTOR_DEMO_ACCOUNT
@@ -78,6 +79,14 @@ export class AuthPlaygroundComponent {
   private readonly authenticatedPipe = new IsAuthenticatedPipe(this.libraryAuthService);
 
   readonly authorization = signal(this.authService.getAuthorization());
+  /** SPM-398: the accounts this browser is signed in to; updates when another tab changes them. */
+  readonly accounts = toSignal(this.authService.accountsChanged, { initialValue: this.authService.accounts });
+  readonly accountHintCookieName = SAMPLE_MANAGEMENT_ACCOUNT_HINT_COOKIE;
+  readonly accountHintCookie = computed(() => {
+    this.accounts();
+    return this.readCookie(SAMPLE_MANAGEMENT_ACCOUNT_HINT_COOKIE);
+  });
+  readonly accountActionRunning = signal(false);
   readonly sessionInformation = toSignal(
     this.authService.sessionExpirationInformationChanged,
     { initialValue: this.authService.getSessionExpirationInformation() }
@@ -121,13 +130,13 @@ export class AuthPlaygroundComponent {
       userSelectAllowed: true,
       timeZoneId: 'Europe/Amsterdam'
     });
+    // A local session the server never issued has no refresh token: it cannot be renewed, so it is
+    // never listed as one of the browser's accounts (SPM-398).
     const authorization = new NhAuthorization({
       realm: 'sample-project-management',
       provider: 'playground',
       token: 'local-demo-token',
       validTo: new Date(Date.now() + validForMilliseconds).toISOString(),
-      refreshToken: 'local-demo-refresh-token',
-      refreshTokenExpires: new Date(Date.now() + 24 * 60 * 60_000).toISOString(),
       user: new NhUser({
         id: crypto.randomUUID(),
         email: this.username(),
@@ -194,16 +203,91 @@ export class AuthPlaygroundComponent {
     this.result.set(JSON.stringify({ isSuccess: response.isSuccess, items: response.items }, null, 2));
   }
 
+  /**
+   * Preferred renewal: `renewSession` rotates the refresh token once for every tab, so two tabs that
+   * renew together never present the same token twice. `force` rotates also while the access token
+   * is still valid; without it a valid session is kept as it is.
+   */
   async refresh(): Promise<void> {
-    const current = this.authService.getAuthorization();
-    const response = await this.authService.authenticateRefreshToken(
-      new RefreshTokenLoginAccountMutateModel({
-        token: current?.token ?? '',
-        refreshToken: current?.refreshToken ?? ''
-      })
-    );
+    const response = await this.authService.renewSession(undefined, { force: true });
     this.authorization.set(this.authService.getAuthorization());
     this.result.set(JSON.stringify({ isSuccess: response.isSuccess, items: response.items }, null, 2));
+  }
+
+  /**
+   * SPM-398: signs in to another account with the username and password above. The account that
+   * was active stays signed in, and a failed sign-in leaves it active.
+   */
+  async addAccount(): Promise<void> {
+    await this.runAccountAction(async () => {
+      const response = await this.authService.authenticateInteractive(new AuthenticateModel({
+        realm: 'sample-project-management',
+        username: this.username(),
+        password: this.password()
+      }));
+
+      if (response.isSuccess && response.data?.status === 'authenticated') {
+        await this.authService.reloadAuthorizationProfile();
+      }
+
+      this.pendingChallenge.set(this.authService.getPendingTwoFactorChallenge());
+      return { isSuccess: response.isSuccess, status: response.data?.status, items: response.items };
+    });
+  }
+
+  /** Renews the other account's session, which also makes the server check it again, and activates it. */
+  async switchAccount(account: NhBrowserAccount): Promise<void> {
+    await this.runAccountAction(async () => {
+      const response = await this.authService.switchAccount(account.userId);
+      if (response.isSuccess) {
+        await this.authService.reloadAuthorizationProfile();
+      }
+
+      return { isSuccess: response.isSuccess, items: response.items };
+    });
+  }
+
+  /** Revokes exactly this account's refresh token; another active account stays signed in. */
+  async logoutAccount(account: NhBrowserAccount): Promise<void> {
+    await this.runAccountAction(async () => {
+      const response = await this.authService.logoutAccount(account.userId);
+      return { isSuccess: response.isSuccess, items: response.items };
+    });
+  }
+
+  /** Removes another account from this browser only; its session on the server is not revoked. */
+  async forgetAccount(account: NhBrowserAccount): Promise<void> {
+    await this.runAccountAction(async () => ({ forgotten: await this.authService.forgetAccount(account.userId) }));
+  }
+
+  async logoutAllAccounts(): Promise<void> {
+    await this.runAccountAction(async () => {
+      const response = await this.authService.logoutAllAccounts();
+      return { isSuccess: response.isSuccess, items: response.items };
+    });
+  }
+
+  private async runAccountAction(action: () => Promise<object>): Promise<void> {
+    if (this.accountActionRunning()) {
+      return;
+    }
+
+    this.accountActionRunning.set(true);
+
+    try {
+      this.result.set(JSON.stringify(await action(), null, 2));
+    } finally {
+      this.authorization.set(this.authService.getAuthorization(false));
+      this.accountActionRunning.set(false);
+    }
+  }
+
+  private readCookie(name: string): string | undefined {
+    return document.cookie
+      .split(';')
+      .map(cookie => cookie.trim())
+      .find(cookie => cookie.startsWith(`${name}=`))
+      ?.substring(name.length + 1);
   }
 
   async impersonate(): Promise<void> {

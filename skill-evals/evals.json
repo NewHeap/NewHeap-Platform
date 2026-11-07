@@ -107,6 +107,13 @@
       "expectedOutcome": "Token-specific logout and atomic per-login refresh rotation, with legacy access tokens accepted until the user's first password mutation and all sessions invalidated afterward."
     },
     {
+      "id": "consumer-auth-multiple-accounts",
+      "skill": "newheap-authentication",
+      "prompt": "Let people stay signed in to their work and their private account in the same browser and switch between them, and stop two open tabs from signing each other out when they renew the session.",
+      "expectedRules": ["nh-auth-multiple-accounts", "nh-auth-session-lifecycle"],
+      "expectedOutcome": "An explicit authentication.multipleAccounts opt-in, renewals through renewSession instead of authenticateRefreshToken, switchAccount and logoutAccount for one account, logout() for the active one, no identity decision from the hint cookie, and the default single-account behavior left unchanged for applications that do not opt in."
+    },
+    {
       "id": "consumer-auth-microsoft-oauth",
       "skill": "newheap-authentication",
       "prompt": "Add Microsoft sign-in for our tenant to an application whose Angular front end calls the API through an /api proxy, keep existing accounts working, and cover it with tests.",

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.119",
   "backEnd": {
-    "hash": "ef982f92930c3fcc3b6d6ea9e599978ec4d02873b1cf3de715adc1ce041f13a3",
-    "declarationCount": 13757,
+    "hash": "e620cdb4417087e269ee9a72c82d293e1a0cb7c23f95e3b23f562003befd03b0",
+    "declarationCount": 13760,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -38615,6 +38615,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhLogoutAuthenticationHandler.cs",
+        "declaration": "public const string AuthenticationCookiesHeaderName = \"X-NH-Authentication-Cookies\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhLogoutAuthenticationHandler.cs",
+        "declaration": "public const string AuthenticationCookiesKept = \"kept\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhLogoutAuthenticationHandler.cs",
         "declaration": "public NhLogoutAuthenticationHandler( AuthenticationConfiguration configuration, IHttpContextAccessor httpContextAccessor ) : base(httpContextAccessor, \"authentication/logout\", configuration) {"
       },
       {
@@ -43844,6 +43852,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/AuthenticationModels.cs",
         "declaration": "public string? RefreshToken { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/AuthenticationModels.cs",
+        "declaration": "public bool KeepAuthenticationCookies { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Models/AuthenticationModels.cs",
@@ -55036,8 +55048,8 @@
     ]
   },
   "frontEnd": {
-    "hash": "1676b57133cc6d22f7f54601c33b5f1db5fba21ce3dcbb868f770dc115730bf5",
-    "declarationCount": 920,
+    "hash": "dd64a1bfdda8dca87652235b75f626947023ad00518acdf43ce7bea192fa5c38",
+    "declarationCount": 948,
     "declarations": [
       {
         "path": "src/Front-end/projects/nh-common/sanitize/src/lib/nh-html-sanitizer-options.ts",
@@ -56105,6 +56117,26 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
+        "declaration": "export class NhBrowserAccount {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
+        "declaration": "public constructor(init?: Partial<NhBrowserAccount>) {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
+        "declaration": "export interface NhBrowserAccountIdentity {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
+        "declaration": "export interface NhSessionRenewalOptions {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
+        "declaration": "export enum NhBrowserAccountFailureCodes { /** The browser holds no account with this user id, for example after another tab forgot it. */ UnknownAccount = 'browser-account-unknown', /** The session cannot be renewed: it holds no refresh token, or it expired. */ NotRenewable = 'browser-account-not-renewable', /** Another account became active, for example in another tab, before the renewal started. */ NotActive = 'browser-account-not-active' }"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/auth.models.ts",
         "declaration": "export class RefreshTokenLoginAccountMutateModel {"
       },
       {
@@ -56390,6 +56422,14 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/config.models.ts",
         "declaration": "public constructor(init?: Partial<EndpointsAuthenticationNhCommonModuleConfig>) {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/config.models.ts",
+        "declaration": "export class MultipleAccountsAuthenticationNhCommonModuleConfig {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/models/config.models.ts",
+        "declaration": "public constructor(init?: Partial<MultipleAccountsAuthenticationNhCommonModuleConfig>) {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/models/config.models.ts",
@@ -57085,6 +57125,22 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected static readonly sessionRenewalMarginMilliseconds = 60_000;"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected static readonly sessionLockName = 'nh-authentication-session';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected static readonly sessionLockRequestTimeoutMilliseconds = 30_000;"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected static readonly authenticationCookiesHeaderName = 'X-NH-Authentication-Cookies';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
         "declaration": "protected authorization: TAuthorization | undefined = undefined;"
       },
       {
@@ -57118,6 +57174,10 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
         "declaration": "protected intervalHandle: any;"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "public readonly accountsChanged: Observable<NhBrowserAccount[]> = this.browserAccountsSubject.asObservable();"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
@@ -57317,6 +57377,38 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "public get accounts(): NhBrowserAccount[] {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "public renewSession(userId?: string, options?: NhSessionRenewalOptions): Promise<TaskResult<TAuthorization>> {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "public switchAccount(userId: string): Promise<TaskResult<TAuthorization>> {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "public forgetAccount(userId: string): Promise<boolean> {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "public logoutAccount(userId: string): Promise<TaskResult<void>> {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "public logoutAllAccounts(): Promise<TaskResult<void>> {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected describeBrowserAccount(authorization: TAuthorization): NhBrowserAccountIdentity | undefined {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "protected sessionLockManager(): LockManager | undefined {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
         "declaration": "@Injectable()"
       },
       {
@@ -57410,6 +57502,38 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-base-api.service.ts",
         "declaration": "public delete(id: string, requestOptions?: HttpRequestOptions): Observable<any> {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-browser-account-directory.ts",
+        "declaration": "export const nhBrowserAccountDirectoryStorageKey = 'nh-accounts';"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-browser-account-directory.ts",
+        "declaration": "export interface NhStoredBrowserAccount<TAuthorization extends INhAuthorization> {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-browser-account-directory.ts",
+        "declaration": "export function nhReadBrowserAccountDirectory<TAuthorization extends INhAuthorization>("
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-browser-account-directory.ts",
+        "declaration": "export function nhWriteBrowserAccountDirectory<TAuthorization extends INhAuthorization>("
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-browser-account-directory.ts",
+        "declaration": "export function nhRefreshTokenExpiry(authorization: INhAuthorization | undefined): string | undefined {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-browser-account-directory.ts",
+        "declaration": "export function nhHasExpired(value: string | undefined, now: number): boolean {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-browser-account-directory.ts",
+        "declaration": "export function nhAccessTokenUserId(token: unknown): string | undefined {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-browser-account-directory.ts",
+        "declaration": "export async function nhRunWithStorageLease<T>(name: string, task: () => Promise<T>): Promise<T> {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-config.service.ts",
@@ -60123,6 +60247,17 @@
       "NhReturnUrls",
       "NhMicrosoftOAuthLogins",
       "NhMicrosoftOAuthTestPlatform"
+    ],
+    "nh-auth-multiple-accounts": [
+      "MultipleAccountsAuthenticationNhCommonModuleConfig",
+      "AuthenticationNhCommonModuleConfig",
+      "BaseNhAuthService",
+      "NhBrowserAccount",
+      "NhBrowserAccountIdentity",
+      "NhBrowserAccountFailureCodes",
+      "NhSessionRenewalOptions",
+      "LogoutRequest",
+      "NhLogoutAuthenticationHandler"
     ],
     "nh-auth-override-hydration": [
       "NhAuthenticationService",
