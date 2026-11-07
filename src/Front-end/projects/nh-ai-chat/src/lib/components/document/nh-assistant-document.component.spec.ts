@@ -49,6 +49,8 @@ async function settle(fixture: ComponentFixture<unknown>, rounds = 4): Promise<H
     fixture.detectChanges();
     await flush();
   }
+  // The Markdown renderer loads on the first document; the fixture is stable once it has arrived.
+  await fixture.whenStable();
   fixture.detectChanges();
   return fixture.nativeElement as HTMLElement;
 }

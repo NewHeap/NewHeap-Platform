@@ -200,7 +200,10 @@ administration, boards and inboxes with `loadComponent`, and never import one of
 application's own barrels lazily: a dynamic import keeps all exports of the module, so a barrel
 the shell imports statically brings every page it exports into the initial bundle. The root entry
 point, with the launcher, panel, store and its bundled texts, loads with the application; it is one
-module, so whatever a lazy page imports from it loads with the application as well. The
+module, so whatever a lazy page imports from it loads with the application as well. `marked` and
+`dompurify` are not part of it: the assistant loads them on the first Markdown it renders and shows
+that text escaped until they arrive. Measure what loads up front with the sample's
+`npm run report:bundle`. The
 administration's `nh-assistant.admin.` texts ship with `@newheap/platform-ai-chat/admin`
 (`NH_ASSISTANT_ADMIN_TRANSLATIONS`), and each of its components merges them when it is created.
 
@@ -1065,6 +1068,8 @@ own table (SPM-371).
 - Rendering model text or previews with `bypassSecurityTrustHtml` or custom
   `innerHTML`; use the thread component, which renders Markdown through a strict
   DOMPurify allow-list and shows inline HTML as text.
+- Asserting rendered Markdown in a test right after the first `detectChanges`; the renderer loads on
+  first use, so await `fixture.whenStable()` and detect changes again first.
 - Rendering an untrusted document yourself, or inserting a diagram library's SVG into the page; use
   `nh-assistant-document` with an `NhAssistantDiagramRenderer`, and load the drawing library inside
   `render` rather than in the application's initial bundle.

@@ -1,8 +1,9 @@
 import { DOCUMENT } from '@angular/common';
 import { Injectable, inject } from '@angular/core';
-import createDOMPurify, { DOMPurify } from 'dompurify';
-import { Marked, Renderer, Token, Tokens, TokensList } from 'marked';
+import type { DOMPurify } from 'dompurify';
+import type { Marked, Renderer, Token, Tokens, TokensList } from 'marked';
 import { NhAssistantDocumentHeading } from '../models/assistant-document.models';
+import { NhAssistantMarkdownLibraries, NhAssistantMarkdownLibrarySet } from './nh-assistant-markdown-libraries';
 import {
   nhAssistantEscapeHtml,
   nhAssistantMarkdownAttributes,
@@ -213,10 +214,13 @@ export function nhAssistantDiagramReason(error: unknown): string {
  * HTML shows as text, images as their alt text, links only to fragments, `https:`, `http:`,
  * `mailto:` and sibling documents, and DOMPurify sanitizes the result. Top-level fenced code
  * blocks of a diagram language become diagram segments. Internal to `nh-assistant-document`.
+ * Until `marked` and DOMPurify have loaded, and on the server, the document shows escaped in one
+ * paragraph; `render` reads a signal, so a `computed` over it renders again once they are there.
  */
 @Injectable({ providedIn: 'root' })
 export class NhAssistantDocumentMarkdownRenderer {
   private readonly document = inject(DOCUMENT);
+  private readonly libraries = inject(NhAssistantMarkdownLibraries);
   private documentPurifier: DOMPurify | null = null;
   private diagramPurifier: DOMPurify | null = null;
   /** The rendering being sanitized; the purifier's hooks read it. */
@@ -224,12 +228,13 @@ export class NhAssistantDocumentMarkdownRenderer {
 
   render(markdown: string, options: NhAssistantDocumentRenderOptions): NhAssistantRenderedDocument {
     const rendering = new DocumentRendering(options);
-    const purifier = this.getDocumentPurifier();
-    if (!purifier) {
+    const libraries = this.libraries.get();
+    const purifier = libraries ? this.getDocumentPurifier(libraries) : null;
+    if (!libraries || !purifier) {
       return { segments: [{ kind: 'html', html: `<p>${nhAssistantEscapeHtml(markdown)}</p>` }], headings: [] };
     }
 
-    const marked = this.createMarked(rendering);
+    const marked = this.createMarked(libraries, rendering);
     const tokens = marked.lexer(markdown);
     const diagramLanguages = new Set(options.diagramLanguages.map(language => language.toLowerCase()));
     const segments: NhAssistantDocumentSegment[] = [];
@@ -263,10 +268,12 @@ export class NhAssistantDocumentMarkdownRenderer {
   /**
    * Sanitizes a renderer's SVG: SVG and its filters only, without scripts, event handlers,
    * links, images, `use`, foreign content, external references or CSS that could load or run
-   * anything. `null` when the result is not one SVG element.
+   * anything. `null` when the result is not one SVG element. Waits for DOMPurify when it has not
+   * loaded yet.
    */
-  sanitizeDiagram(svg: string): SVGSVGElement | null {
-    const purifier = this.getDiagramPurifier();
+  async sanitizeDiagram(svg: string): Promise<SVGSVGElement | null> {
+    const libraries = await this.libraries.load();
+    const purifier = this.getDiagramPurifier(libraries);
     if (!purifier) {
       return null;
     }
@@ -287,8 +294,8 @@ export class NhAssistantDocumentMarkdownRenderer {
     return root as SVGSVGElement;
   }
 
-  private createMarked(rendering: DocumentRendering): Marked {
-    return new Marked({
+  private createMarked(libraries: NhAssistantMarkdownLibrarySet, rendering: DocumentRendering): Marked {
+    return new libraries.Marked({
       gfm: true,
       breaks: false,
       async: false,
@@ -334,22 +341,22 @@ export class NhAssistantDocumentMarkdownRenderer {
     }
   }
 
-  private createPurifier(): DOMPurify | null {
+  private createPurifier(libraries: NhAssistantMarkdownLibrarySet): DOMPurify | null {
     const view = this.document.defaultView;
     if (!view) {
       return null;
     }
 
-    const purifier = createDOMPurify(view);
+    const purifier = libraries.createDOMPurify(view);
     return purifier.isSupported ? purifier : null;
   }
 
-  private getDocumentPurifier(): DOMPurify | null {
+  private getDocumentPurifier(libraries: NhAssistantMarkdownLibrarySet): DOMPurify | null {
     if (this.documentPurifier) {
       return this.documentPurifier;
     }
 
-    const purifier = this.createPurifier();
+    const purifier = this.createPurifier(libraries);
     if (!purifier) {
       return null;
     }
@@ -375,12 +382,12 @@ export class NhAssistantDocumentMarkdownRenderer {
     return purifier;
   }
 
-  private getDiagramPurifier(): DOMPurify | null {
+  private getDiagramPurifier(libraries: NhAssistantMarkdownLibrarySet): DOMPurify | null {
     if (this.diagramPurifier) {
       return this.diagramPurifier;
     }
 
-    const purifier = this.createPurifier();
+    const purifier = this.createPurifier(libraries);
     if (!purifier) {
       return null;
     }

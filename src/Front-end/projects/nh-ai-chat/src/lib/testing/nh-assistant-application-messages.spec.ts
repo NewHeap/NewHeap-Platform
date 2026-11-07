@@ -76,7 +76,7 @@ describe('Application messages', () => {
     await firstValueFrom(TestBed.inject(TranslateService).use('en'));
   });
 
-  it('reads as the application\'s, with its sender, title, Markdown text and a link within the application', () => {
+  it('reads as the application\'s, with its sender, title, Markdown text and a link within the application', async () => {
     const fixture = TestBed.createComponent(NhAssistantThreadComponent);
     fixture.componentRef.setInput('messages', [
       application('m-1', 'The export of **12 projects** finished.', {
@@ -86,6 +86,9 @@ describe('Application messages', () => {
       }),
       application('m-2', 'Maintenance tonight.')
     ]);
+    fixture.detectChanges();
+    // The Markdown renderer loads on the first message; the fixture is stable once it has arrived.
+    await fixture.whenStable();
     fixture.detectChanges();
     const element = fixture.nativeElement as HTMLElement;
     const [first, second] = Array.from(element.querySelectorAll<HTMLElement>('article.message'));

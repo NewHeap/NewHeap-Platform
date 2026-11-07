@@ -117,7 +117,11 @@ export class NhAssistantDocumentDiagramComponent {
       return;
     }
 
-    const drawing = typeof svg === 'string' ? this.markdown.sanitizeDiagram(svg) : null;
+    const drawing = typeof svg === 'string' ? await this.markdown.sanitizeDiagram(svg) : null;
+    if (generation !== this.generation) {
+      return;
+    }
+
     if (!drawing) {
       this.state.set({ kind: 'failed', reason: '', reasonKey: 'nh-assistant.document.diagram-not-svg' });
       return;

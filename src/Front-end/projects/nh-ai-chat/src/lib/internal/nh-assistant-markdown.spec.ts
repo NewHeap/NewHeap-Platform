@@ -1,16 +1,61 @@
+import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { NhAssistantMarkdownRenderer } from './nh-assistant-markdown';
+import { NhAssistantMarkdownLibraries } from './nh-assistant-markdown-libraries';
+import { NhAssistantMarkdownPipe } from './nh-assistant-markdown.pipe';
+
+function toElement(html: string): HTMLElement {
+  const element = document.createElement('div');
+  element.innerHTML = html;
+  return element;
+}
+
+describe('NhAssistantMarkdownRenderer before marked and DOMPurify have loaded', () => {
+  @Component({
+    selector: 'nh-markdown-host',
+    imports: [NhAssistantMarkdownPipe],
+    template: '<div [innerHTML]="text() | nhAssistantMarkdown"></div>'
+  })
+  class MarkdownHostComponent {
+    readonly text = signal('**Bold** <script>window.__nhAssistantPwned = true</script>');
+  }
+
+  it('shows the text escaped, then renders Markdown once the libraries have loaded', async () => {
+    const renderer = TestBed.inject(NhAssistantMarkdownRenderer);
+
+    const fallback = toElement(renderer.render('**Bold** <b>tag</b>'));
+    expect(fallback.querySelector('strong')).toBeNull();
+    expect(fallback.querySelector('b')).toBeNull();
+    expect(fallback.textContent).toBe('**Bold** <b>tag</b>');
+    expect(renderer.isReady()).toBeFalse();
+
+    await TestBed.inject(NhAssistantMarkdownLibraries).load();
+
+    expect(renderer.isReady()).toBeTrue();
+    expect(toElement(renderer.render('**Bold**')).querySelector('strong')?.textContent).toBe('Bold');
+  });
+
+  it('renders text in a template again once the libraries have loaded', async () => {
+    const fixture = TestBed.createComponent(MarkdownHostComponent);
+    fixture.detectChanges();
+
+    const host: HTMLElement = fixture.nativeElement;
+    expect(host.querySelector('strong')).toBeNull();
+    expect(host.querySelector('script')).toBeNull();
+
+    await TestBed.inject(NhAssistantMarkdownLibraries).load();
+    fixture.detectChanges();
+
+    expect(host.querySelector('strong')?.textContent).toBe('Bold');
+    expect(host.querySelector('script')).toBeNull();
+  });
+});
 
 describe('NhAssistantMarkdownRenderer', () => {
   let renderer: NhAssistantMarkdownRenderer;
 
-  function toElement(html: string): HTMLElement {
-    const element = document.createElement('div');
-    element.innerHTML = html;
-    return element;
-  }
-
-  beforeEach(() => {
+  beforeEach(async () => {
+    await TestBed.inject(NhAssistantMarkdownLibraries).load();
     renderer = TestBed.inject(NhAssistantMarkdownRenderer);
   });
 

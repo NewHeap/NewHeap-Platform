@@ -19,6 +19,7 @@ import { NhAssistantPanelComponent } from './panel/nh-assistant-panel.component'
 import { NhAssistantApprovalChoice, NhAssistantThreadComponent } from './thread/nh-assistant-thread.component';
 import { NhAssistantToolCallCardComponent } from './tool-call-card/nh-assistant-tool-call-card.component';
 import { NhAssistantToolCallGroupComponent } from './tool-call-group/nh-assistant-tool-call-group.component';
+import { NhAssistantMarkdownLibraries } from '../internal/nh-assistant-markdown-libraries';
 
 const status: AssistantStatus = {
   enabled: true,
@@ -834,7 +835,7 @@ describe('NhAssistantThreadComponent', () => {
     discardPeriodicTasks();
   }));
 
-  it('is a polite live log and never renders a script tag from model text', () => {
+  it('is a polite live log and never renders a script tag from model text', async () => {
     const fixture = TestBed.createComponent(NhAssistantThreadComponent);
     const messages: Message[] = [
       { id: 'u1', role: 'user', createdAt: '', parts: [{ type: 'text', text: '<b>user</b>' }] },
@@ -844,6 +845,13 @@ describe('NhAssistantThreadComponent', () => {
     fixture.detectChanges();
 
     const element = fixture.nativeElement as HTMLElement;
+    // Before the Markdown renderer has loaded, the model text shows escaped.
+    expect(element.querySelector('script')).toBeNull();
+    expect(element.querySelector('.markdown')?.textContent).toContain('<script>');
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
     const log = element.querySelector('[role="log"]');
     expect(log?.getAttribute('aria-live')).toBe('polite');
     expect(element.querySelector('script')).toBeNull();
@@ -1088,6 +1096,10 @@ describe('NhAssistantPanelComponent', () => {
     await flush();
     stream.next({ type: 'turn.started', data: { turnId: 't1', userMessageId: 'u1', assistantMessageId: 'a1' } });
     stream.next({ type: 'message.delta', data: { messageId: 'a1', text: 'Hi **there**' } });
+    fixture.detectChanges();
+    // The first Markdown loads its renderer. The stream is still open, so the fixture is not stable
+    // yet; wait for the libraries themselves.
+    await TestBed.inject(NhAssistantMarkdownLibraries).load();
     fixture.detectChanges();
     expect(overlay.querySelector('.markdown strong')?.textContent).toBe('there');
 

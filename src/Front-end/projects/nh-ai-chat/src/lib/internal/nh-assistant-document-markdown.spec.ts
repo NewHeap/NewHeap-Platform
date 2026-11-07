@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { NhAssistantDocumentMarkdownRenderer, NhAssistantDocumentRenderOptions } from './nh-assistant-document-markdown';
+import { NhAssistantMarkdownLibraries } from './nh-assistant-markdown-libraries';
 
 describe('NhAssistantDocumentMarkdownRenderer', () => {
   const options: NhAssistantDocumentRenderOptions = {
@@ -20,7 +21,8 @@ describe('NhAssistantDocumentMarkdownRenderer', () => {
     return element;
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await TestBed.inject(NhAssistantMarkdownLibraries).load();
     renderer = TestBed.inject(NhAssistantDocumentMarkdownRenderer);
   });
 
