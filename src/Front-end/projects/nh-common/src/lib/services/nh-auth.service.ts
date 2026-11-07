@@ -133,13 +133,14 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     });
 
     if (!isPlatformServer(this.platformId)) {
+      // Before the timer starts, so an invalid account configuration leaves nothing running.
+      this.startBrowserAccountDirectory();
+
       this.intervalHandle = setInterval(() => {
         this.zone.run(() => {
           this.dispatchSessionExpirationInformationChanged();
         });
       }, 1000);
-
-      this.startBrowserAccountDirectory();
     }
   }
 
