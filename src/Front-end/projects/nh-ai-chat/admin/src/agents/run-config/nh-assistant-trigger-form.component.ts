@@ -12,7 +12,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
-import { NhComboboxComponent, NhSelectOption } from '@newheap/platform-select';
+import { NhComboboxComponent, NhSelectOption } from '@newheap/platform-common/select';
 import { NhAssistantPackageLockComponent } from '../agent-packages/nh-assistant-package-lock.component';
 import { NhAssistantPackageLockedMarkComponent } from '../agent-packages/nh-assistant-package-locked-mark.component';
 import { PackageLockView } from '../agent-packages/package-parts';

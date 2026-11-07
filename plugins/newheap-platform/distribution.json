@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "pluginVersion": "1.13.117",
   "guidanceVersion": "1.13.117",
-  "skillContentHash": "4b3f552c859272120cf25b7366dc52418e0c548362b715ff378896a7ec5b698c",
+  "skillContentHash": "914a58696cc2864ee7105fa99d0e6d535615f5098c03edb09bae09d98d84016f",
   "skills": [
     "newheap-platform-development"
   ],
@@ -32,7 +32,6 @@
     "@newheap/nh-toastr": "0.1.0",
     "@newheap/platform-ai-chat": "0.32.0",
     "@newheap/platform-common": "6.0.1",
-    "@newheap/platform-select": "0.1.0",
     "NewHeap.Platform.AI.AgentFramework": "36.0.0",
     "NewHeap.Platform.AI.AspNet.Common": "36.0.0",
     "NewHeap.Platform.AI.AspNet.Mvc": "36.0.0",
@@ -78,7 +77,7 @@
       "@angular/core": "^20.3.28",
       "@angular/router": "^20.3.28",
       "@microsoft/signalr": "^10.0.11",
-      "@newheap/platform-select": ">=0.0.0 <0.2.0",
+      "@newheap/platform-common": "^6.1.0",
       "@ngx-translate/core": "^17.0.0",
       "dompurify": "^3.4.0",
       "marked": "^18.0.0",
@@ -100,12 +99,6 @@
       "luxon": "^3.5.0",
       "ngx-bootstrap-multiselect": "^4.0.0",
       "ngx-cookie-service": "^20.1.1 || ^21.0.0 || ^22.0.0",
-      "rxjs": "~7.8.0"
-    },
-    "@newheap/platform-select": {
-      "@angular/common": "^20.3.28 || ^21.0.0 || ^22.0.0",
-      "@angular/core": "^20.3.28 || ^21.0.0 || ^22.0.0",
-      "@angular/forms": "^20.3.28 || ^21.0.0 || ^22.0.0",
       "rxjs": "~7.8.0"
     }
   },

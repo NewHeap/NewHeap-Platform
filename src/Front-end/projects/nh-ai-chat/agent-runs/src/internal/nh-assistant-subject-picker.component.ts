@@ -22,7 +22,7 @@ import {
   ɵtoNhAssistantError as toNhAssistantError,
   ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
-import { NhComboboxComponent, NhSelectOption } from '@newheap/platform-select';
+import { NhComboboxComponent, NhSelectOption } from '@newheap/platform-common/select';
 
 /** Lookups that cannot succeed by asking again: the person changes the id instead. */
 const finalLookupCodes = new Set(['assistant-subject-not-found', 'assistant-subject-invalid', 'assistant-subject-type-unknown']);

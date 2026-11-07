@@ -21,6 +21,12 @@ npm install @newheap/platform-common @newheap/nh-toastr
 
 View available versions on [npmjs.org](https://www.npmjs.com/package/@newheap/platform-common). For NuGet, npm and AI-plugin installation, see [Consume public packages](../../../../docs/how-to/consume-public-packages.md).
 
+## Select controls
+
+Import `NhComboboxComponent`, `NhMultiselectComponent` and `provideNhSelect` from
+`@newheap/platform-common/select`. See the [select guide](../../../../docs/consumer-guide/frontend-select.md)
+for form bindings, remote search and accessibility examples.
+
 ## Usage
 
 Import the core module once in the root of the application, for example in `AppModule`:

@@ -133,8 +133,8 @@ export function testableFrontEndLibraries(projects, specFiles) {
 
 /**
  * The Angular libraries that depend on each library, from the peer and regular dependencies in
- * their package.json: `@newheap/platform-ai-chat` peers on `@newheap/platform-select`, so a change to
- * nh-select reaches nh-ai-chat as well. `packages` maps an Angular project name to its parsed
+ * their package.json: `@newheap/platform-ai-chat` peers on `@newheap/platform-common`, so a change to
+ * nh-common reaches nh-ai-chat as well. `packages` maps an Angular project name to its parsed
  * package.json; projects without one are left out.
  */
 export function frontEndLibraryDependents(packages) {

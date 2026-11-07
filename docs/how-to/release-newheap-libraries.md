@@ -20,7 +20,6 @@ The release pipeline publishes NuGet packages to nuget.org, scoped npm packages 
 | `nuget-media` | Core, SQL Server, PostgreSQL, HTTP, file system, S3, and the bundle | `nuget-media-v<version>` |
 | `npm-platform-common` | `@newheap/platform-common` | `npm-platform-common-v<version>` |
 | `npm-nh-toastr` | `@newheap/nh-toastr` | `npm-nh-toastr-v<version>` |
-| `npm-platform-select` | `@newheap/platform-select` | `npm-platform-select-v<version>` |
 | `npm-ai-chat` | `@newheap/platform-ai-chat` | `npm-ai-chat-v<version>` |
 | `newheap-platform-plugin` | Installable NewHeap Platform plugin and consumer skill suite | `newheap-platform-plugin-v<version>` |
 
@@ -37,12 +36,8 @@ unit version; their Common dependency retains the independently published
 `nuget-common` version. Local development uses the Common project, while release
 packaging restores the central public Common package version.
 
-The new `npm-platform-select` unit also starts at the unpublished `0.0.0`
-baseline. Its package name has never been published, so follow
-[Add a new package name](#add-a-new-package-name) before its first release.
-Release it before or together with the `npm-ai-chat` release that peers on it:
-`@newheap/platform-ai-chat` accepts `@newheap/platform-select` `>=0.0.0 <0.2.0`,
-so widen that range deliberately when platform-select reaches 0.2.0.
+Select is shipped through the `@newheap/platform-common/select` entry point.
+Release Common before AI Chat when AI Chat needs a newly added Common API.
 
 The public repository, `@newheap` npm scope, NuGet.org `NewHeap` owner, branch protection, immutable GitHub Releases, and trusted-publisher identities are already established. They are release infrastructure, not steps to repeat before an ordinary release.
 

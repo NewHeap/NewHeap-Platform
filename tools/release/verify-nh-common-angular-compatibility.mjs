@@ -121,23 +121,41 @@ try {
       }, null, 2)),
       writeFile(resolve(fixture, 'src/index.html'), '<app-root></app-root>\n'),
       writeFile(resolve(fixture, 'src/main.ts'), `
-import { Component, importProvidersFrom } from '@angular/core';
+import { Component, importProvidersFrom, signal } from '@angular/core';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { of } from 'rxjs';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { provideTranslateService } from '@ngx-translate/core';
 import { NhAuthService, NhCommonModule, NhCommonModuleConfig } from '@newheap/platform-common';
+import { NhComboboxComponent, NhMultiselectComponent, NhSelectOption, provideNhSelect } from '@newheap/platform-common/select';
 import { NhPasskeyLoginButtonComponent } from '@newheap/platform-common/two-factor';
 import { NhToastrContainerComponent, provideNhToastr } from '@newheap/nh-toastr';
 
 @Component({
   selector: 'app-root',
-  imports: [NhCommonModule, NhPasskeyLoginButtonComponent, NhToastrContainerComponent],
-  template: '<nh-loader /><nh-passkey-login-button /><nh-toastr-container />'
+  imports: [ReactiveFormsModule, NhCommonModule, NhPasskeyLoginButtonComponent, NhToastrContainerComponent, NhComboboxComponent, NhMultiselectComponent],
+  template: \`
+    <nh-loader /><nh-passkey-login-button /><nh-toastr-container />
+    <label for="status">Status</label>
+    <nh-combobox inputId="status" [formControl]="status" [options]="statuses" noneLabel="None" />
+    <label for="tags">Tags</label>
+    <nh-multiselect inputId="tags" [formControl]="tags" [search]="search" [create]="create" />
+    <nh-combobox ariaLabel="Owner" size="compact" [value]="owner()" [options]="statuses" (valueChange)="owner.set($event)" />
+  \`
 })
-class AppComponent {}
+class AppComponent {
+  readonly statuses: NhSelectOption<number>[] = [{ value: 0, label: 'Draft' }, { value: 1, label: 'Active' }];
+  readonly status = new FormControl<number | null>(0);
+  readonly tags = new FormControl<string[]>([], { nonNullable: true });
+  readonly owner = signal<number | null>(null);
+  readonly search = (query: string) => of([{ value: query, label: query }]);
+  readonly create = (text: string) => Promise.resolve({ value: text, label: text });
+}
 
 bootstrapApplication(AppComponent, {
   providers: [
     provideTranslateService(),
+    provideNhSelect({}),
     provideNhToastr({}),
     NhAuthService,
     importProvidersFrom(NhCommonModule.forRoot(new NhCommonModuleConfig({

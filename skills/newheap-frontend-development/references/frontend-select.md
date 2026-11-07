@@ -10,12 +10,12 @@ Use only the rules that apply to the current consumer task.
 
 ## Accessible combobox and multiselect
 
-Choose values with nh-combobox and nh-multiselect of @newheap/platform-select as form controls, with server search, create and translated texts registered once at the root.
+Choose values with nh-combobox and nh-multiselect of @newheap/platform-common/select as form controls, with server search, create and translated texts registered once at the root.
 
 ## Preferred approach
 
-Install `@newheap/platform-select` (Angular 20.3.28 through 22; its only peers
-are Angular and rxjs) and import the standalone `NhComboboxComponent` for one
+Install `@newheap/platform-common` (Angular 20.3.28 through 22). Import from
+`@newheap/platform-common/select` and use the standalone `NhComboboxComponent` for one
 value or `NhMultiselectComponent` for several. Bind them as form controls
 (`formControl`, `formControlName` or `ngModel`), or with `[value]` and
 `(valueChange)` outside a form. Pass options as `NhSelectOption<T>`: `value`,
@@ -89,14 +89,14 @@ events and the lazy-load settings differ.
 ## Verification
 
 The focused specs `nh-combobox.component.spec.ts` and
-`nh-multiselect.component.spec.ts` of `nh-select` cover the keyboard, the
+`nh-multiselect.component.spec.ts` in the Common select entry point cover the keyboard, the
 form-control contract without echo, `0` and `false`, server search with its
 loading, empty and error states and retry, create, chips, `OnPush` hosts and
 the disabled state. In the sample's platform lab, search a project by two
 characters, switch on the unavailable search and try again, create a label,
 remove a chip with Backspace and check that Set from code keeps the form
 pristine. Compile packaged consumers on Angular 20, 21 and 22 with
-`npm --prefix src/Front-end run nh-select:test:compatibility`.
+`npm --prefix src/Front-end run nh-common:test:compatibility`.
 
 ## Optional source evidence
 

@@ -4509,12 +4509,12 @@
       "src/Front-end/projects/management/src/styles.scss",
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/PublicProjectCatalogController.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/PublicProjectCatalogSamplesTests.cs",
-      "../../src/Front-end/projects/nh-select/src/lib/nh-combobox.component.ts",
-      "../../src/Front-end/projects/nh-select/src/lib/nh-multiselect.component.ts",
-      "../../src/Front-end/projects/nh-select/src/lib/nh-select-base.ts",
-      "../../src/Front-end/projects/nh-select/src/lib/nh-select.models.ts",
-      "../../src/Front-end/projects/nh-select/src/lib/nh-combobox.component.spec.ts",
-      "../../src/Front-end/projects/nh-select/src/lib/nh-multiselect.component.spec.ts",
+      "../../src/Front-end/projects/nh-common/select/src/lib/nh-combobox.component.ts",
+      "../../src/Front-end/projects/nh-common/select/src/lib/nh-multiselect.component.ts",
+      "../../src/Front-end/projects/nh-common/select/src/lib/nh-select-base.ts",
+      "../../src/Front-end/projects/nh-common/select/src/lib/nh-select.models.ts",
+      "../../src/Front-end/projects/nh-common/select/src/lib/nh-combobox.component.spec.ts",
+      "../../src/Front-end/projects/nh-common/select/src/lib/nh-multiselect.component.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-select.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-select.spec.ts"
     ]

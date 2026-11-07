@@ -481,7 +481,7 @@
     "assistant-alerts-description": "De attenties van de deadlinewacht en de meldingskeuzes op de mock-API, zonder de back-end van de assistent.",
     "assistant-alerts-open": "Attenties openen",
     "select-sample-title": "Combobox en multiselect",
-    "select-sample-description": "@newheap/platform-select: nh-combobox zoekt in de openbare projectcatalogus op de server en biedt aan een project aan te maken, nh-multiselect toont labels als chips. Beide zijn formulierbesturingen die ongewijzigd blijven tot je kiest.",
+    "select-sample-description": "@newheap/platform-common/select: nh-combobox zoekt in de openbare projectcatalogus op de server en biedt aan een project aan te maken, nh-multiselect toont labels als chips. Beide zijn formulierbesturingen die ongewijzigd blijven tot je kiest.",
     "select-project": "Project",
     "select-project-placeholder": "Zoek projecten op naam of sleutel",
     "select-project-hint": "Typ twee tekens om in de openbare catalogus te zoeken. \"Aanmaken\" stelt een nieuw project voor dat bij opslaan wordt aangemaakt.",

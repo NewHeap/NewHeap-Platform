@@ -1,5 +1,5 @@
 /*
- * Public API Surface of @newheap/platform-select
+ * Public API Surface of @newheap/platform-common/select
  */
 export {
   NH_SELECT_CONFIG,

@@ -16,10 +16,9 @@ Install the required package normally:
 ```text
 npm install @newheap/platform-common
 npm install @newheap/nh-toastr
-npm install @newheap/platform-select
 ```
 
-`@newheap/platform-ai-chat` needs `@newheap/platform-select` as a peer dependency; install both.
+AI Chat 0.33 and later require Common 6.1 or later within major 6 for the `@newheap/platform-common/select` entry point.
 
 Verify resolved package URLs in `package-lock.json` point to `registry.npmjs.org`. A `401` or `403` for a NewHeap package indicates stale private-registry configuration in the repository, user-level npm configuration, or CI environment; remove that override rather than adding a token.
 

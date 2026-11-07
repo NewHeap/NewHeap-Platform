@@ -1,4 +1,4 @@
-# @newheap/platform-select
+# @newheap/platform-common/select
 
 Accessible Angular combobox and multiselect for NewHeap applications:
 `nh-combobox` chooses one value, `nh-multiselect` several, shown as removable
@@ -18,23 +18,21 @@ registry=https://registry.npmjs.org/
 Install the package:
 
 ```bash
-npm install @newheap/platform-select
+npm install @newheap/platform-common
 ```
 
-View available versions on [npmjs.org](https://www.npmjs.com/package/@newheap/platform-select). For NuGet, npm and AI-plugin installation, see [Consume public packages](../../../../docs/how-to/consume-public-packages.md).
+View available versions on [npmjs.org](https://www.npmjs.com/package/@newheap/platform-common). For NuGet, npm and AI-plugin installation, see [Consume public packages](../../../../../docs/how-to/consume-public-packages.md).
 
 ## Compatibility
 
-The package supports Angular 20.3.28 through Angular 22. Its only peer
-dependencies are `@angular/common`, `@angular/core`, `@angular/forms` and
-`rxjs`; it has no translation library dependency. It is built on the oldest
+The package supports Angular 20.3.28 through Angular 22. The select controls use Angular Forms and RxJS. Installation follows the peer dependencies of Common. It is built on the oldest
 supported Angular baseline so the published partial-Ivy output remains
 consumable across that range.
 
 ## Choose one value
 
 ```typescript
-import { NhComboboxComponent, NhSelectOption } from '@newheap/platform-select';
+import { NhComboboxComponent, NhSelectOption } from '@newheap/platform-common/select';
 
 @Component({
   imports: [ReactiveFormsModule, NhComboboxComponent],

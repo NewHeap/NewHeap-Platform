@@ -10,7 +10,7 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
-import { NhComboboxComponent } from '@newheap/platform-select';
+import { NhComboboxComponent } from '@newheap/platform-common/select';
 import { agentRightsRunSettingsFields, mayChangeAgentRights } from '../agent-rights';
 import { NhAssistantAgentRightsHintComponent } from '../nh-assistant-agent-rights-hint.component';
 import { NhAssistantAccountPickerComponent } from './nh-assistant-account-picker.component';

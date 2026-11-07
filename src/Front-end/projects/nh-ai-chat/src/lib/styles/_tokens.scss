@@ -32,7 +32,7 @@
   @include select-tokens;
 }
 
-// The comboboxes of @newheap/platform-select inside a component look like the assistant's own
+// The comboboxes of @newheap/platform-common/select inside a component look like the assistant's own
 // fields. The references resolve on the host, so they follow the dark defaults below as well.
 @mixin select-tokens {
   --nh-select-font: var(--nha-font);

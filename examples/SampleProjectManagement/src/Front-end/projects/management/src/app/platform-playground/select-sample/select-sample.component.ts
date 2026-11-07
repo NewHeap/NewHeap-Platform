@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { CollectionHttpRequestOptions, HttpRequestOptions, NhApiService } from '@newheap/platform-common';
-import { NhComboboxComponent, NhMultiselectComponent, NhSelectOption } from '@newheap/platform-select';
+import { NhComboboxComponent, NhMultiselectComponent, NhSelectOption } from '@newheap/platform-common/select';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Observable, delay, map, of, startWith } from 'rxjs';
 
@@ -18,7 +18,7 @@ interface PublicProject {
 const newProjectPrefix = 'new:';
 
 /**
- * SPM-397: `nh-combobox` and `nh-multiselect` of `@newheap/platform-select` in one reactive form.
+ * SPM-397: `nh-combobox` and `nh-multiselect` of `@newheap/platform-common/select` in one reactive form.
  * The project combobox searches the public project catalog on the server after two characters,
  * says why a failed search failed and searches again, and offers to create a project for a name
  * the catalog does not know. The label multiselect shows chips, removes the last one with Backspace

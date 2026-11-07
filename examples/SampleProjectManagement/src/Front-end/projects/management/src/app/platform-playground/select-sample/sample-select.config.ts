@@ -1,5 +1,5 @@
 import { DestroyRef, Provider, inject, signal } from '@angular/core';
-import { NhSelectConfig, provideNhSelect } from '@newheap/platform-select';
+import { NhSelectConfig, provideNhSelect } from '@newheap/platform-common/select';
 import { TranslateService } from '@ngx-translate/core';
 import { merge } from 'rxjs';
 
