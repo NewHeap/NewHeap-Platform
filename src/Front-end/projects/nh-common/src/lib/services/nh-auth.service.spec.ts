@@ -18,7 +18,8 @@ import {
   NhTwoFactorFailureCodes,
   NhTwoFactorMethods,
   NhTwoFactorReauthentication,
-  NhTwoFactorVerifyModel
+  NhTwoFactorVerifyModel,
+  RefreshTokenLoginAccountMutateModel
 } from '../models/auth.models';
 import {
   AuthenticationNhCommonModuleConfig,
@@ -133,6 +134,24 @@ describe('BaseNhAuthService logout', () => {
     expect(localStorage.getItem('at')).toBeNull();
     expect(authService.getAuthorization(false)?.refreshToken).toBeUndefined();
     expect(emitted).toEqual([jasmine.any(NhAuthorization), undefined]);
+  });
+
+  it('sends the user name that the refresh endpoint requires with the refresh token', async () => {
+    const resultPromise = authService.authenticateRefreshToken(new RefreshTokenLoginAccountMutateModel({
+      userName: 'user@example.test',
+      refreshToken: 'device-refresh-token'
+    }));
+    const request = httpTesting.expectOne('/auth-api/authentication/refresh?language=en');
+
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(jasmine.objectContaining({
+      userName: 'user@example.test',
+      refreshToken: 'device-refresh-token'
+    }));
+    request.flush({token: 'access-token', validTo: '2099-01-01T00:00:00Z', refreshToken: 'next-refresh-token'});
+
+    expect((await resultPromise).isSuccess).toBeTrue();
+    expect(authService.getAuthorization()?.refreshToken).toBe('next-refresh-token');
   });
 
   it('changes nothing and emits nothing when there is no authorization to clear', () => {

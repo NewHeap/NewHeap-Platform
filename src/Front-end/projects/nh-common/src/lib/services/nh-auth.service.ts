@@ -2212,6 +2212,11 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
     return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
   }
 
+  /**
+   * Rotates a refresh token and stores the response as the authorization. Set `userName` in the
+   * model: the refresh endpoint finds the account by it. Prefer `renewSession()`, which rotates once
+   * for every tab and keeps the user, claims and divisions; this lower-level call does neither.
+   */
   async authenticateRefreshToken(model: RefreshTokenLoginAccountMutateModel): Promise<TaskResult<TAuthorization>> {
     const result = new TaskResult<TAuthorization>();
 

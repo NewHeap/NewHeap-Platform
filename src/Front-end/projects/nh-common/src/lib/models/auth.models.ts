@@ -206,6 +206,9 @@ export enum NhBrowserAccountFailureCodes {
 }
 
 export class RefreshTokenLoginAccountMutateModel {
+  /** The name the account signs in with. The refresh endpoint finds the account by it and requires it. */
+  userName: string = '';
+  /** Not read by the refresh endpoint; kept for existing callers. */
   token: string = '';
   refreshToken: string = '';
 
