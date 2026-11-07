@@ -1042,7 +1042,7 @@ describe('BaseNhAuthService multiple accounts', () => {
       }));
       expect(authService.isAuthenticated()).toBeTrue();
 
-      const failed = authService.authenticateInteractive(new AuthenticateModel({username: bob.userName, password: 'wrong'}));
+      const failed = authService.authenticateInteractive(new AuthenticateModel({username: bob.userName, password: 'test-wrong'}));
       httpTesting.expectOne(loginUrl).flush({'Invalid credentials': ['Invalid credentials']}, {status: 400, statusText: 'Bad Request'});
 
       expect((await failed).isSuccess).toBeFalse();
@@ -1314,7 +1314,7 @@ describe('BaseNhAuthService multiple accounts', () => {
         claims: [new Claim({type: 'test', value: 'authenticated'})]
       }));
 
-      const failed = authService.authenticateInteractive(new AuthenticateModel({username: bob.userName, password: 'wrong'}));
+      const failed = authService.authenticateInteractive(new AuthenticateModel({username: bob.userName, password: 'test-wrong'}));
       httpTesting.expectOne(loginUrl).flush({'Invalid credentials': ['Invalid credentials']}, {status: 400, statusText: 'Bad Request'});
       await failed;
 

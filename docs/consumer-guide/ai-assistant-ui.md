@@ -204,7 +204,7 @@ the shell imports statically brings every page it exports into the initial bundl
 point, with the launcher, panel, store and its bundled texts, loads with the application; it is one
 module, so whatever a lazy page imports from it loads with the application as well. `marked` and
 `dompurify` are not part of it: the assistant loads them on the first Markdown it renders and shows
-that text escaped until they arrive. Measure what loads up front with the sample's
+that text escaped until they arrive. AI Chat supports Common 6.1 and 7 as peers. Measure what loads up front with the sample's
 `npm run report:bundle`. The
 administration's `nh-assistant.admin.` texts ship with `@newheap/platform-ai-chat/admin`
 (`NH_ASSISTANT_ADMIN_TRANSLATIONS`), and each of its components merges them when it is created.
