@@ -134,7 +134,7 @@ internal sealed class LogoutEndpointTestHost : IAsyncDisposable
 {
     public const string AccessCookieName = "logout_tests_auth";
     public const string RefreshCookieName = "logout_tests_refresh";
-    private const string Password = "Logout-Tests-2026!";
+    private const string Password = "TestOnly1!";
 
     private readonly WebApplication _application;
 
