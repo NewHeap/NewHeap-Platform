@@ -55048,8 +55048,8 @@
     ]
   },
   "frontEnd": {
-    "hash": "dd64a1bfdda8dca87652235b75f626947023ad00518acdf43ce7bea192fa5c38",
-    "declarationCount": 948,
+    "hash": "fa930b4dc06c805634ddf6f65b9742b28b27a36a3ab8194b7bfd418a1e96f85f",
+    "declarationCount": 949,
     "declarations": [
       {
         "path": "src/Front-end/projects/nh-common/sanitize/src/lib/nh-html-sanitizer-options.ts",
@@ -55930,6 +55930,10 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/guards/nh-auth.guards.ts",
         "declaration": "export const IsOneActiveDivisionRoleGrantedGuard = () => {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/guards/nh-cancel-navigation.guard.ts",
+        "declaration": "@Injectable({providedIn: 'root'})"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/guards/nh-cancel-navigation.guard.ts",
@@ -57613,7 +57617,7 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-cookie.service.ts",
-        "declaration": "@Injectable()"
+        "declaration": "@Injectable({providedIn: 'root'})"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-cookie.service.ts",
@@ -57677,7 +57681,7 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-internet-connection.service.ts",
-        "declaration": "@Injectable()"
+        "declaration": "@Injectable({providedIn: 'root'})"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-internet-connection.service.ts",
@@ -57977,7 +57981,7 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-server-side-form-validator.service.ts",
-        "declaration": "@Injectable()"
+        "declaration": "@Injectable({providedIn: 'root'})"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-server-side-form-validator.service.ts",
@@ -58065,7 +58069,7 @@
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-task-result-form.validator.ts",
-        "declaration": "@Injectable()"
+        "declaration": "@Injectable({providedIn: 'root'})"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-task-result-form.validator.ts",

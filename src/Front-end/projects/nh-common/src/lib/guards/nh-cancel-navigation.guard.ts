@@ -2,9 +2,11 @@ import {
   ActivatedRouteSnapshot, CanActivateFn, CanDeactivate, GuardResult, MaybeAsync,
   RouterStateSnapshot
 } from "@angular/router";
+import {Injectable} from "@angular/core";
 import {Observable, tap} from "rxjs";
 
 
+@Injectable({providedIn: 'root'})
 export class NhCanCancelNavigationGuard implements CanDeactivate<ICancelNavigationComponent> {
   canDeactivate(component: ICancelNavigationComponent, currentRoute: ActivatedRouteSnapshot, currentState: RouterStateSnapshot, nextState: RouterStateSnapshot): MaybeAsync<GuardResult> {
     if (!component.canDeactivateComponent) {

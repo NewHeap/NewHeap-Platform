@@ -32,17 +32,13 @@ import {NhButtonDebounceDirective, NhDebounceDirective} from "./directives/nh-de
 import {NhModalComponent} from "./components/nh-modal/component";
 import {NhModalContentDirective} from "./directives/nh-modal.directives";
 import {NhLoaderComponent} from "./components/nh-loader/component";
-import {NhTaskResultFormValidationService} from "./services/nh-task-result-form.validator";
 import {NhJsonLdComponent} from "./components/nh-json-ld/nh-json-ld.component";
 import {NhModalLoadingComponent} from "./components/nh-loading-modal/component";
 import {NhModalConfirmComponent} from "./components/nh-confirm-modal/component";
 import {TranslateDirective, TranslatePipe} from "@ngx-translate/core";
 import {SafeHtmlPipe, SafeResourceUrlPipe, SafeUrlPipe} from "./pipes/safe-html.pipes";
-import {NhCookieService} from "./services/nh-cookie.service";
 import {NhRouterLinkDirective} from "./directives/nh-router-link.directive";
 import {NhServerHttpInterceptor} from "./interceptors/nh-server-http.interceptor";
-import {NhCanCancelNavigationGuard} from "./guards/nh-cancel-navigation.guard";
-import {NhInternetConnectionService} from "./services/nh-internet-connection.service";
 import {NhConfigCommonService} from "./services/nh-config.service";
 import {Observable} from "rxjs";
 import {NhActiveDivisionInterceptor} from "./interceptors/nh-active-division.interceptor";
@@ -50,7 +46,6 @@ import {NhDeduplicateGetRequestsInterceptor} from "./interceptors/nh-deduplicate
 import {NhFormDropDownComponent} from "./components/nh-form-dropdown/form-dropdown.component";
 import {NgxBootstrapMultiselectModule} from "ngx-bootstrap-multiselect";
 import {FormsModule} from "@angular/forms";
-import {NhServerSideFormValidationService} from "./services/nh-server-side-form-validator.service";
 import {NhFormErrorMessageComponent} from "./components/nh-form-error-message/form-error-message.component";
 import {NhApiAuthInterceptor} from "./interceptors/nh-api.auth.interceptor";
 import {NhSessionRejectionInterceptor} from "./interceptors/nh-session-rejection.interceptor";
@@ -150,7 +145,41 @@ import {NhSearchInputComponent} from "./components/nh-search-input/search-input.
     NhButtonDebounceDirective,
     NhModalContentDirective,
     NhRouterLinkDirective
-  ],
+  ]
+})
+export class NhCommonModule {
+  constructor(@Optional() @SkipSelf() parentModule: NhCommonModule) {
+    // Import guard
+    if (parentModule) {
+    }
+  }
+
+  /**
+   * Registers NewHeap's application-wide providers: `HttpClient` with the NewHeap interceptors, the
+   * `ErrorHandler` mapping and the configuration initializer. Call it once, at the application root.
+   * Features and standalone components import plain `NhCommonModule`, which registers no providers,
+   * so they share the root `HttpClient`, its interceptors and the NewHeap services.
+   */
+  static forRoot<TAuthorization extends INhAuthorization, TAuthService extends BaseNhAuthService<TAuthorization>>(config: NhCommonModuleConfig, authService: Type<TAuthService>): ModuleWithProviders<NhCommonModule> {
+    return {
+      ngModule: NhCommonRootModule,
+      providers: [
+        {provide: NhCommonModuleConfig, useValue: config},
+        {provide: NhAuthService, useExisting: authService},
+      ]
+    };
+  }
+}
+
+/**
+ * Carries the providers that belong to the application root. Because `forRoot` returns this module, an
+ * injector registers its providers once, at the position of the root registration, even when `forRoot`
+ * is imported twice. A feature or standalone component that imports plain `NhCommonModule` never
+ * registers them, so it cannot get a second `HttpClient` without the application's own interceptors.
+ */
+@NgModule({
+  imports: [NhCommonModule],
+  exports: [NhCommonModule],
   providers: [
     provideAppInitializer(() => {
       const configService = inject(NhConfigCommonService);
@@ -208,31 +237,9 @@ import {NhSearchInputComponent} from "./components/nh-search-input/search-input.
       useClass: ErrorHandler,
       multi: true,
     },
-    provideHttpClient(withInterceptorsFromDi(), withFetch()),
-    // Guards
-    NhCanCancelNavigationGuard,
-    // Services
-    NhTaskResultFormValidationService,
-    NhCookieService,
-    NhInternetConnectionService,
-    NhServerSideFormValidationService
+    provideHttpClient(withInterceptorsFromDi(), withFetch())
   ]
 })
-export class NhCommonModule {
-  constructor(@Optional() @SkipSelf() parentModule: NhCommonModule) {
-    // Import guard
-    if (parentModule) {
-    }
-  }
-
-  static forRoot<TAuthorization extends INhAuthorization, TAuthService extends BaseNhAuthService<TAuthorization>>(config: NhCommonModuleConfig, authService: Type<TAuthService>): ModuleWithProviders<NhCommonModule> {
-    return {
-      ngModule: NhCommonModule,
-      providers: [
-        {provide: NhCommonModuleConfig, useValue: config},
-        {provide: NhAuthService, useExisting: authService},
-      ]
-    };
-  }
+class NhCommonRootModule {
 }
 

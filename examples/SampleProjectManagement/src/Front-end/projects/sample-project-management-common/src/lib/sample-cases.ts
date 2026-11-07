@@ -1668,15 +1668,16 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-112",
     "title": "GET deduplication",
     "category": "Frontend HTTP, forms, and modals",
-    "surface": "deduplication interceptor and explicit sample configuration; Angular 20, 21 and 22 package compatibility",
-    "outcome": "Two concurrent identical GET requests share one network request; a later call starts a new request after completion. The packaged module builds in consumers on Angular 20, 21 and 22.",
+    "surface": "deduplication interceptor and explicit sample configuration; root-only providers of NhCommonModule.forRoot(...) with a provider-free plain NhCommonModule; Angular 20, 21 and 22 package compatibility",
+    "outcome": "Two concurrent identical GET requests share one network request; a later call starts a new request after completion. A page that imports plain NhCommonModule and injects HttpClient itself shares the root HttpClient, its interceptors and the deduplication, the application's own connection interceptor included. The packaged module builds in consumers on Angular 20, 21 and 22.",
     "implementation": "implemented",
     "evidence": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Controllers/LibrarySamplesController.cs",
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html",
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
-      "src/Front-end/package.json"
+      "src/Front-end/package.json",
+      "../../src/Front-end/projects/nh-common/src/lib/nh-common.module.spec.ts"
     ]
   },
   {

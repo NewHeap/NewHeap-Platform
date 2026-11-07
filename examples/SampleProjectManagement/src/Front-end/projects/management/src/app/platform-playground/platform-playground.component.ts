@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Component, ErrorHandler, inject, signal, TransferState } from '@angular/core';
+import { HTTP_INTERCEPTORS, HttpClient, HttpParams } from '@angular/common/http';
+import { ApplicationRef, Component, ErrorHandler, inject, signal, TransferState } from '@angular/core';
 import { FormControl, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRouteSnapshot, Router } from '@angular/router';
 import {
@@ -41,7 +41,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { forkJoin, map, of, switchMap } from 'rxjs';
 import { ProjectCodeInputComponent } from '../project-code-input/project-code-input.component';
 import { SelectSampleComponent } from './select-sample/select-sample.component';
-import { SampleFrontendErrorState } from 'sample-project-management-common';
+import { SampleApiConnectionInterceptor, SampleFrontendErrorState } from 'sample-project-management-common';
 
 @Component({
   selector: 'app-platform-playground',
@@ -120,6 +120,17 @@ export class PlatformPlaygroundComponent {
   readonly duplicateSubscribers = signal(0);
   readonly networkExecutions = signal(0);
   readonly inFlightDeduplicationEnabled = this.moduleConfig.http.deduplicateGetRequests;
+  /**
+   * SPM-112: this page imports plain `NhCommonModule` and injects `HttpClient` itself. Only
+   * `NhCommonModule.forRoot(...)` at the root registers the NewHeap providers, so the page shares the
+   * root `HttpClient` and its interceptors, the application's own `SampleApiConnectionInterceptor`
+   * and the GET deduplication included.
+   */
+  readonly providerScope = {
+    sharesRootHttpClient: this.http === inject(ApplicationRef).injector.get(HttpClient),
+    runsApplicationInterceptor: inject(HTTP_INTERCEPTORS)
+      .some(interceptor => interceptor instanceof SampleApiConnectionInterceptor)
+  };
   readonly navigationPreview = signal('{}');
   readonly pageStatePreview = signal('{}');
   readonly frontendErrorPreview = signal('{}');

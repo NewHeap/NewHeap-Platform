@@ -4,7 +4,7 @@ import {UntypedFormGroup, UntypedFormControl, AbstractControl} from "@angular/fo
 export interface IServerSideFormValidationService {
 }
 
-@Injectable()
+@Injectable({providedIn: 'root'})
 export class NhServerSideFormValidationService implements IServerSideFormValidationService {
 
   public validate<T extends IServerSideFormValidator>(formValidatorType: {

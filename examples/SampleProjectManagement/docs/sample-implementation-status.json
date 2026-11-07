@@ -1157,7 +1157,8 @@
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.ts",
       "src/Front-end/projects/management/src/app/platform-playground/platform-playground.component.html",
       "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
-      "src/Front-end/package.json"
+      "src/Front-end/package.json",
+      "../../src/Front-end/projects/nh-common/src/lib/nh-common.module.spec.ts"
     ],
     "SPM-114": [
       "src/Front-end/projects/management/src/app/project-edit-modal/project-edit-modal.component.ts",

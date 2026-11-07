@@ -19,6 +19,8 @@
       <h3>{{ 'project.http-deduplication-title' | translate }}</h3>
       <p>{{ 'project.http-deduplication-description' | translate }}</p>
       <small><code>deduplicateGetRequests = {{ inFlightDeduplicationEnabled }}</code></small>
+      <p>{{ 'project.http-provider-scope' | translate }}</p>
+      <small data-provider-scope><code>sharesRootHttpClient = {{ providerScope.sharesRootHttpClient }} | runsApplicationInterceptor = {{ providerScope.runsApplicationInterceptor }}</code></small>
       <div class="actions">
         <button type="button" (click)="loadText()">Text</button>
         <button type="button" (click)="loadBinary()">ArrayBuffer</button>

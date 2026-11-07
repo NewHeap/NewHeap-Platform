@@ -1,7 +1,7 @@
 import {HostListener, Injectable, NgZone} from "@angular/core";
 import {BehaviorSubject} from "rxjs";
 
-@Injectable()
+@Injectable({providedIn: 'root'})
 export class NhInternetConnectionService {
   private connectionSubject = new BehaviorSubject<boolean>(navigator.onLine);
   public internetIsConnected = this.connectionSubject.asObservable();

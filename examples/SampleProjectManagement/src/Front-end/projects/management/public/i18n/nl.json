@@ -238,6 +238,7 @@
     "platform-playground-description": "Voer libraryservices direct uit en bekijk het resultaat zonder extra applicatieabstracties.",
     "http-deduplication-title": "HTTP-responsevormen en in-flight GET-deduplicatie",
     "http-deduplication-description": "De voorkeursconfiguratie staat aan. Twee gelijktijdige identieke GET-calls delen één netwerkrequest; na afronding mag dezelfde URL opnieuw worden uitgevoerd.",
+    "http-provider-scope": "Deze pagina importeert NhCommonModule en injecteert HttpClient zelf, maar gebruikt toch de HttpClient van de root: alleen forRoot in de root registreert de NewHeap-providers, dus ook de ArrayBuffer-call gaat door de eigen verbindingsinterceptor van de applicatie.",
     "context-menu-title": "Toegankelijk contextmenu",
     "context-menu-description": "NhContextMenuService opent een met het toetsenbord bedienbaar menu dat vast in het venster staat. Titels zijn tekst, iconen komen uit iconClass en een mislukte actie sluit het menu toch.",
     "context-menu-actions": "Projectacties",

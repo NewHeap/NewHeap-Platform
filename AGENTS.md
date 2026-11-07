@@ -319,9 +319,11 @@ For Angular samples:
 - Support the shared light and dark color schemes, visible keyboard focus and reduced-motion preferences. Do not add runtime dependencies on external font services; prefer the shared system font stack or self-hosted assets.
 - After visual changes, build both apps and inspect the login, shell, navigation and changed surfaces in a browser at desktop and narrow mobile widths. Check console errors and horizontal overflow in addition to screenshots.
 - Register `NhCommonModule.forRoot(...)` once in the application root, as the
-  existing consumers do. Feature modules and standalone components may import
-  plain `NhCommonModule`. Do not move its legacy module providers or change
-  interceptor registration semantics as incidental sample work.
+  existing consumers do. Only `forRoot` registers the NewHeap root providers;
+  plain `NhCommonModule` registers none, so feature modules and standalone
+  components may import it and still share the root `HttpClient` and
+  interceptors. Do not change interceptor order or provider scope as incidental
+  sample work.
 - For new implementations, explicitly enable
   `NhHttpNhCommonModuleConfig.deduplicateGetRequests` and
   `NhFormDropDownNhCommonModuleConfig.deferLazyLoadUntilOpened` in the root

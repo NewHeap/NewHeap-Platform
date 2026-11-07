@@ -2,7 +2,7 @@ import { Injectable } from "@angular/core";
 import { UntypedFormControl, UntypedFormGroup } from "@angular/forms";
 import {TaskResultItem} from "../models/misc.models";
 
-@Injectable()
+@Injectable({providedIn: 'root'})
 export class NhTaskResultFormValidationService {
   public validate(formGroup: UntypedFormGroup, errors: TaskResultItem[]) {
     if (errors.length === 0) {

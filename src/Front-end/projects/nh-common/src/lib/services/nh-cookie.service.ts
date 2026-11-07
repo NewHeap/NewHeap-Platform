@@ -5,7 +5,7 @@ import {CookieOptions, CookieService, SameSite} from "ngx-cookie-service";
 
 import {Cookie} from "../util/though-cookie-custom/cookie";
 
-@Injectable()
+@Injectable({providedIn: 'root'})
 export class NhCookieService {
   public static readonly HTTP_COOKIE_PREFIX: string = '';
   public static readonly COOKIE_SPLIT_REGEX = /,(?=\s*\S+=)/;

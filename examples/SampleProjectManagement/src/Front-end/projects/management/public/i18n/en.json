@@ -238,6 +238,7 @@
     "platform-playground-description": "Run library services directly and inspect the result without extra application abstractions.",
     "http-deduplication-title": "HTTP response shapes and in-flight GET deduplication",
     "http-deduplication-description": "The preferred configuration is enabled. Two concurrent identical GET calls share one network request; the same URL may execute again after completion.",
+    "http-provider-scope": "This page imports NhCommonModule and injects HttpClient itself, yet it uses the root HttpClient: only forRoot at the root registers the NewHeap providers, so the ArrayBuffer call also passes the application's own connection interceptor.",
     "context-menu-title": "Accessible context menu",
     "context-menu-description": "NhContextMenuService opens a keyboard-operable menu fixed to the viewport. Titles are text, icons come from iconClass, and a failing action still closes the menu.",
     "context-menu-actions": "Project actions",

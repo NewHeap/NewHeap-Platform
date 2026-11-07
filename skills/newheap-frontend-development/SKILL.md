@@ -11,7 +11,7 @@ Use NewHeap fluent collection helpers and the `appOn...` extension points owned 
 
 Mutating modal content extends `NhModalMutateBaseComponent`; other dynamic modal content may extend `NhModalComponentImpl`. Use `modalClasses: 'large'` for a large modal.
 
-Register `NhCommonModule.forRoot(...)` once at the application root. GET deduplication and deferred dropdown loading are explicit consumer opt-ins and remain disabled as library defaults.
+Register `NhCommonModule.forRoot(...)` once at the application root; plain `NhCommonModule` in features registers no providers, so features share the root `HttpClient` and interceptors. GET deduplication and deferred dropdown loading are explicit consumer opt-ins and remain disabled as library defaults.
 
 Keep translations inside the module object with lowercase dash-case keys. Verify the changed surface in both supported color schemes at desktop and narrow mobile widths, including focus, loading, empty, error and overflow states.
 
