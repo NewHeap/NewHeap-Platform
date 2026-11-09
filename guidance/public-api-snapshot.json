@@ -2,12 +2,16 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.122",
   "backEnd": {
-    "hash": "e620cdb4417087e269ee9a72c82d293e1a0cb7c23f95e3b23f562003befd03b0",
-    "declarationCount": 13760,
+    "hash": "e05ff3382d9105d3995af957ce529e75325a0d1f1c1038feede38bebcc4ef4d1",
+    "declarationCount": 13788,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
         "declaration": "public sealed record NhAiAgentCreateRequest( NhAiAgentDescriptor Descriptor, NhAiInvocationContext Context, string Instructions, string ExecutionRegion = \"local\")"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
+        "declaration": "public const int MaxInstructionCharacters = 128 * 1024;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -3700,6 +3704,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public bool SkillsInChat { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool ChatRoutesFirst { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -14263,6 +14271,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public bool ChatRoutesFirst { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public bool AllowQuestions { get; internal set; }"
       },
       {
@@ -14375,7 +14387,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
-        "declaration": "public NhAssistantAgentRunBuilder SkillsInChat(bool enabled = true)"
+        "declaration": "public NhAssistantAgentRunBuilder SkillsInChat(bool enabled = true, bool routesFirst = false)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
@@ -15223,6 +15235,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantClassificationChecks.cs",
+        "declaration": "public const string InstructionsOverBudget = \"instructions-over-budget\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantClassificationChecks.cs",
         "declaration": "public static bool Permits( INhAiModelProfileRegistry profiles, NhAiModelProfile profile, NhAiDataClassification classification) {"
       },
       {
@@ -15594,6 +15610,34 @@
         "declaration": "public static bool IsHash(string? value) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantInstructionBudgets.cs",
+        "declaration": "public sealed record NhAssistantInstructionBudget( string AgentId, string? SkillId, int InstructionCharacters, int RetrievalCharacters, int MaxCharacters) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantInstructionBudgets.cs",
+        "declaration": "public int RemainingCharacters => MaxCharacters - InstructionCharacters - RetrievalCharacters;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantInstructionBudgets.cs",
+        "declaration": "public bool Fits => RemainingCharacters >= 0;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantInstructionBudgets.cs",
+        "declaration": "public interface INhAssistantInstructionBudgets {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantInstructionBudgets.cs",
+        "declaration": "public async Task<TaskResult<IReadOnlyList<NhAssistantInstructionBudget>>> GetAsync( string agentId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantInstructionBudgets.cs",
+        "declaration": "public async Task<IReadOnlyList<string>> WarningsOfAsync(NhAssistantAgent agent, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantInstructionBudgets.cs",
+        "declaration": "public async Task LogOverBudgetAsync(AssistantApplicationContext saved, CancellationToken cancellationToken) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantPackageFields.cs",
         "declaration": "public static IReadOnlyDictionary<string, string> Of(AssistantAgent row) {"
       },
@@ -15676,6 +15720,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRetrievalChecks.cs",
         "declaration": "public static void LogCodeWarnings(NhAssistantRegistrationState registration, ILogger logger) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRetrievalChecks.cs",
+        "declaration": "public static int WithSkill(int instructions, NhAssistantSkillOptions skill) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantRunBuildingBlocks.cs",
@@ -25379,7 +25427,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public const int DefaultMaxInstructionCharacters = 32_768;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public const int HardMaxInstructionCharacters = NhAiAgentCreateRequest.MaxInstructionCharacters;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
         "declaration": "public int MaxToolCallsPerTurn { get; set; } = 8;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public int MaxInstructionCharacters { get; set; } = DefaultMaxInstructionCharacters;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
@@ -28775,6 +28835,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantTurnToolCall>> GetTurnToolCallsAsync( Guid conversationId, Guid turnId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantTurnToolResult>> GetTurnToolResultsAsync( Guid conversationId, Guid turnId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
         "declaration": "public async Task SetMessageAuthorAsync( Guid messageId, string authorActorId, CancellationToken cancellationToken) {"
       },
       {
@@ -28924,10 +28992,6 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
         "declaration": "public string ModelInstructions => string.Join( \"\\n\\n\", new[] { Instructions, ApplicationMap, TurnData, RetrievedContext }.Where(part => part.Length > 0));"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
-        "declaration": "public const int MaxInstructionsLength = 32_768;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Personalization/NhAssistantPrompt.cs",
@@ -31099,6 +31163,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
+        "declaration": "public void ContinueCounts(int toolCalls, int consultations) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
         "declaration": "public int Consultations => Volatile.Read(ref _consultations);"
       },
       {
@@ -31479,6 +31547,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public bool RoutesFirst { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public bool OnlyRoutes => RoutesFirst && Skill is null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public bool ToolCallLimitReached { get; set; }"
       },
       {
@@ -31487,7 +31563,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
-        "declaration": "public long TokensBefore { get; init; }"
+        "declaration": "public long TokensBefore { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
@@ -32300,6 +32376,42 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.cs",
         "declaration": "public object? GetService(Type serviceType) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnToolResults.cs",
+        "declaration": "public interface INhAssistantTurnToolResults {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnToolResults.cs",
+        "declaration": "public sealed record NhAssistantToolResultSearch( IReadOnlyList<NhAssistantToolResultMatch> Matches, int SearchedCalls, int CutShortCalls) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnToolResults.cs",
+        "declaration": "public bool Found => Matches.Count > 0;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnToolResults.cs",
+        "declaration": "public bool Complete => CutShortCalls == 0;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnToolResults.cs",
+        "declaration": "public sealed record NhAssistantToolResultMatch( Guid InvocationId, string ToolId, bool InArguments);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnToolResults.cs",
+        "declaration": "public static class NhAssistantToolResultCodes {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnToolResults.cs",
+        "declaration": "public const string NoTurn = \"assistant-tool-results-no-turn\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnToolResults.cs",
+        "declaration": "public const string NotRecorded = \"assistant-tool-results-not-recorded\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnToolResults.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantToolResultSearch>> FindAsync( string value, bool ignoreCase = false, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnWatchers.cs",
@@ -59422,7 +59534,11 @@
       "MaxBulkDecisionProposals",
       "BulkDecisionLifetime",
       "RequireIndividualDecision",
-      "NhAssistantAuditEvent.BatchId"
+      "NhAssistantAuditEvent.BatchId",
+      "INhAssistantTurnToolResults",
+      "NhAssistantToolResultSearch",
+      "NhAssistantToolResultMatch",
+      "NhAssistantToolResultCodes"
     ],
     "nh-ai-alerts": [
       "AddAlertKind",
@@ -59960,7 +60076,10 @@
       "NhAssistantRetrievedContextBuilder",
       "NhAssistantRetrievedContextOptions",
       "MaxRetrievedCharacters",
-      "RetrievalTimeout"
+      "RetrievalTimeout",
+      "INhAssistantInstructionBudgets",
+      "NhAssistantInstructionBudget",
+      "MaxInstructionCharacters"
     ],
     "nh-ai-durable-runs": [
       "INhAiBackgroundOperationRunAdapter",

@@ -52,9 +52,10 @@ public sealed class AssistantChatSkillQuestionSamplesTests(AssistantAgentRunSamp
         Assert.Contains(events, evt => evt.Name == "tool.started" && evt.Data.GetProperty("toolId").GetString() == "assistant.use-skill");
         // The switch is recorded as a successful call, not as a failed tool call.
         Assert.Equal("succeeded", events.Single(evt => evt.Name == "tool.completed").Data.GetProperty("status").GetString());
-        // No triage: the planner's model answers twice, the second time in the skill.
+        // No triage: the planner's model answers twice, the second time in the skill. Before the
+        // choice it is offered nothing else (routesFirst).
         Assert.Equal(2, model.Requests.Count);
-        Assert.Contains("use_skill", ToolNames(model.Requests[0]));
+        Assert.Equal(["use_skill"], ToolNames(model.Requests[0]));
         var inSkill = model.Requests[1];
         Assert.Contains("## Skill: " + SampleProjectPlannerComposition.TaskFollowUpSkill, inSkill.Options!.Instructions);
         // The follow-up skill selects only the status tool; use_skill still offers the deadline risk skill.
@@ -64,6 +65,59 @@ public sealed class AssistantChatSkillQuestionSamplesTests(AssistantAgentRunSamp
         var answer = conversation.GetProperty("messages").EnumerateArray().Last();
         Assert.Equal("assistant", answer.GetProperty("role").GetString());
         Assert.Equal(SampleProjectPlannerComposition.TaskFollowUpSkill, answer.GetProperty("skillId").GetString());
+    }
+
+    [Fact]
+    public async Task SPM_333_a_decision_continues_the_chat_in_the_skill_that_proposed_the_change()
+    {
+        var project = await host.CreateProjectAsync("SKILLDECIDE", ownerId: host.OwnerId);
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(
+                "use_skill",
+                new { skill = SampleChatHelperComposition.MeetingNotesSkill, reason = "The person tells about a meeting." },
+                "call-notes")
+            .RespondWithFunctionCall("projects_get_v1", new { input = new { projectId = project } }, "call-read")
+            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId = project, status = "OnHold" } }, "call-hold")
+            .RespondWithText("Decided: the project is on hold.");
+        host.Model.Use(model);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        var conversationId = await CreateConversationAsync(owner, SampleChatHelperComposition.AgentId);
+
+        var waiting = await host.SendAsync(owner, conversationId, "We met and put the project on hold.");
+        var decided = await host.DecideAsync(owner, conversationId, waiting.Single(evt => evt.Name == "approval.required").Data, "approve");
+
+        // The model reads the outcome in the skill: its instructions and only its tools, not the helper's others.
+        Assert.Equal("completed", decided[^1].Data.GetProperty("status").GetString());
+        var afterDecision = model.Requests[3];
+        Assert.Contains("## Skill: " + SampleChatHelperComposition.MeetingNotesSkill, afterDecision.Options!.Instructions);
+        Assert.Equal(["ask_question", "projects_change_status_v1", "projects_get_v1"], ToolNames(afterDecision).Order(StringComparer.Ordinal).ToArray());
+        var conversation = await host.GetJsonAsync(owner, $"/api/assistant/conversations/{conversationId}");
+        Assert.Equal(SampleChatHelperComposition.MeetingNotesSkill, conversation.GetProperty("messages").EnumerateArray().Last().GetProperty("skillId").GetString());
+    }
+
+    [Fact]
+    public async Task SPM_349_the_chat_helper_proposes_no_change_to_a_project_it_did_not_read_in_the_turn()
+    {
+        var project = await host.CreateProjectAsync("UNREAD", ownerId: host.OwnerId);
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(
+                "use_skill",
+                new { skill = SampleChatHelperComposition.MeetingNotesSkill, reason = "The person tells about a meeting." },
+                "call-notes")
+            .RespondWithFunctionCall("projects_change_status_v1", new { input = new { projectId = project, status = "OnHold" } }, "call-hold")
+            .RespondWithText("I need to look the project up first.");
+        host.Model.Use(model);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        var conversationId = await CreateConversationAsync(owner, SampleChatHelperComposition.AgentId);
+
+        var events = await host.SendAsync(owner, conversationId, "We met and put the project on hold.");
+
+        // No result of this turn holds the id, so nothing is proposed and the model reads why.
+        Assert.Equal("completed", events[^1].Data.GetProperty("status").GetString());
+        Assert.DoesNotContain(events, evt => evt.Name == "approval.required");
+        var result = JsonSerializer.Serialize(model.FunctionResults.Last().Result);
+        Assert.Contains(NhAssistantErrorCodes.ProposalNotNeeded, result, StringComparison.Ordinal);
+        Assert.Contains(ProjectReadBeforeChangeProposalGuard.NotReadCode, result, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -115,6 +169,47 @@ public sealed class AssistantChatSkillQuestionSamplesTests(AssistantAgentRunSamp
         var audit = host.Services.GetRequiredService<SampleAssistantAuditLog>().Events;
         Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.QuestionAsked && evt.ObjectId == host.OwnerId.ToString());
         Assert.Contains(audit, evt => evt.Kind == NhAssistantAuditEventKind.QuestionAnswered && evt.ActorId == host.OwnerId.ToString());
+    }
+
+    [Fact]
+    public async Task SPM_334_an_answer_brings_the_status_advisor_no_new_tool_calls()
+    {
+        // The sample allows four tool calls per turn; a question is one, and answering gives none back.
+        var model = new NhAiScriptedChatClient();
+        foreach (var question in Enumerable.Range(1, 5))
+        {
+            model.RespondWithFunctionCall("ask_question", new { question = Question, choices = new[] { "Active", "Closed" } }, "call-" + question);
+        }
+
+        model.RespondWithText("I asked enough; tell me which status you want.");
+        host.Model.Use(model);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        var conversationId = await CreateConversationAsync(owner, SampleStatusAdvisorComposition.AgentId);
+
+        var events = await host.SendAsync(owner, conversationId, "Change the status of the launch project.");
+        foreach (var _ in Enumerable.Range(1, 4))
+        {
+            var questionId = events.Single(evt => evt.Name == "question.asked").Data.GetProperty("questionId").GetGuid();
+            events = (await host.AnswerQuestionAsync(owner, conversationId, questionId, 0)).Events;
+        }
+
+        // The fifth question was refused at the limit, so the advisor closed with an answer instead.
+        Assert.DoesNotContain(events, evt => evt.Name == "question.asked");
+        Assert.Equal(NhAssistantErrorCodes.ToolCallLimitReached, events[^1].Data.GetProperty("errorCode").GetString());
+    }
+
+    [Fact]
+    public async Task SPM_291_the_project_assistant_fits_its_budget_with_the_application_context_stored_here()
+    {
+        using var scope = host.Services.CreateScope();
+
+        var budgets = await scope.ServiceProvider.GetRequiredService<INhAssistantInstructionBudgets>()
+            .GetAsync(SampleAssistantComposition.AgentId, TestContext.Current.CancellationToken);
+
+        Assert.True(budgets.Success);
+        var budget = budgets.Data![0];
+        Assert.Equal(4_000, budget.RetrievalCharacters);
+        Assert.True(budget.Fits, $"{budget.RemainingCharacters} characters remain.");
     }
 
     [Fact]

@@ -117,6 +117,37 @@ public sealed class AssistantChatSkillTests(AssistantDatabaseFixture database) :
         Assert.Equal(Tight, (await host.ReadViewAsync(conversation.Id)).Messages.Last().SkillId);
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer, true)]
+    [InlineData(AssistantTestProvider.PostgreSql, true)]
+    [InlineData(AssistantTestProvider.SqlServer, false)]
+    [InlineData(AssistantTestProvider.PostgreSql, false)]
+    public async Task A_decision_on_an_inline_approval_continues_in_the_skill(AssistantTestProvider provider, bool approve)
+    {
+        var models = new SkillModels();
+        models.Default.RespondWithFunctionCall("use_skill", new { skill = Risk, reason = "The deadline is at risk." }, "call-risk");
+        models.Skill
+            .RespondWithFunctionCall(ChangeStatusFunction, new { input = new { projectId = Guid.NewGuid(), status = "Active" } }, "call-status")
+            .RespondWithText("That is settled.");
+        await using var host = await CreateHostAsync(provider, models);
+        var conversation = await host.CreateConversationAsync(agentId: AgentId);
+
+        var paused = await host.SendAsync(conversation.Id, "Will we make the deadline?");
+        var approval = paused.Single<Runtime.NhAssistantApprovalRequiredEvent>().Approval;
+        var resumed = await host.DecideAsync(conversation.Id, approval, approve);
+
+        Assert.Equal(NhAssistantTurnStatuses.Completed, resumed.Single<Runtime.NhAssistantTurnCompletedEvent>().Status);
+
+        // The skill's own model reads the outcome with the skill's instructions and tools, and the agent's
+        // model and its other tools stay out of it.
+        Assert.Single(models.Default.Requests);
+        var afterDecision = models.Skill.Requests[1];
+        Assert.Contains(RiskInstructions, afterDecision.Options!.Instructions);
+        Assert.Contains(ChangeStatusFunction, ToolNames(afterDecision));
+        Assert.DoesNotContain(SearchFunction, ToolNames(afterDecision));
+        Assert.Equal(Risk, (await host.ReadViewAsync(conversation.Id)).Messages.Last().SkillId);
+    }
+
     private async Task<AssistantTestHost> CreateHostAsync(AssistantTestProvider provider, SkillModels models)
     {
         return await AssistantTestHost.CreateAsync(

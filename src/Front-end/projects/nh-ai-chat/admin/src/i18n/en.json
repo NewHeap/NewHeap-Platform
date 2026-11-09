@@ -237,7 +237,8 @@
         "groups": "Groups: {{groups}}",
         "catalog-failed": "The building blocks of agent runs could not be read. Until they are, agents cannot be run now here and what an agent works on and its groups stay as they are.",
         "warnings": {
-          "classification-not-permitted": "Neither the agent's model profile nor the profile's fallbacks permit its data classification. The agent is saved, but its model calls are refused until a profile permits the classification."
+          "classification-not-permitted": "Neither the agent's model profile nor the profile's fallbacks permit its data classification. The agent is saved, but its model calls are refused until a profile permits the classification.",
+          "instructions-over-budget": "With the application context as it is stored now, the instructions of this agent or one of its skills leave no room for what it retrieves. Its answers may miss retrieved passages, or its turns fail. Shorten the application context or the instructions."
         },
         "status": {
           "live": "Live",

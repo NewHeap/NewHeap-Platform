@@ -1993,6 +1993,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             var expectedRunSettings = new NhAssistantCodeRunSettingsDto(NhAssistantAccountabilities.SubjectResponsible, false, SampleIntakeReviewerComposition.ApprovalPolicyId, false)
             {
                 SkillsInChat = true,
+                ChatRoutesFirst = true,
                 TriageProfile = SampleProjectPlannerComposition.TriageProfileName,
                 RetryCount = 3,
                 MaxConcurrentRuns = 2,
@@ -7229,6 +7230,7 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
         services.AddSampleChatHelper();
         // SPM-363: the project chat works in people's chats about one project, as in Program.cs.
         services.AddSampleProjectChat();
+        services.AddSampleProjectOverview();
         // SPM-294: the closer answers to the technical account in configuration.
         services.AddSampleProjectCloser(TechnicalAccountId.ToString("D"));
         services.AddSampleProjectPlanner();

@@ -145,6 +145,18 @@ internal sealed class NhAssistantTurnState
     /// </summary>
     public NhAssistantAgentRunOptions? ChatOptions { get; set; }
 
+    /// <summary>
+    /// Whether this is a person's chat that starts by choosing a skill
+    /// (<c>SkillsInChat(routesFirst: true)</c>).
+    /// </summary>
+    public bool RoutesFirst { get; init; }
+
+    /// <summary>
+    /// Whether the turn still has to choose its skill: until it did, its model is offered
+    /// <c>use_skill</c> and <c>ask_question</c> only, whichever way the turn got here.
+    /// </summary>
+    public bool OnlyRoutes => RoutesFirst && Skill is null;
+
     public bool ToolCallLimitReached { get; set; }
 
     /// <summary>
@@ -154,9 +166,10 @@ internal sealed class NhAssistantTurnState
     public long? TokenCeiling { get; set; }
 
     /// <summary>
-    /// The tokens earlier turns of the same execution of the run used.
+    /// The tokens earlier turns of the same execution of the run used, or the part of a chat turn
+    /// before the question it now continues after.
     /// </summary>
-    public long TokensBefore { get; init; }
+    public long TokensBefore { get; set; }
 
     /// <summary>
     /// The skill the turn works in; <see langword="null"/> for the agent's own tools.

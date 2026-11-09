@@ -1168,6 +1168,12 @@ public sealed record NhAssistantCodeRunSettingsDto(
     public bool SkillsInChat { get; init; }
 
     /// <summary>
+    /// A chat turn starts by choosing a skill, with none of the agent's own tools until one is loaded
+    /// (<c>SkillsInChat(routesFirst: true)</c>).
+    /// </summary>
+    public bool ChatRoutesFirst { get; init; }
+
+    /// <summary>
     /// The agent may ask the person in a chat a question with choices (<c>AllowQuestions()</c>).
     /// </summary>
     public bool AllowQuestions { get; init; }
@@ -2165,6 +2171,7 @@ internal sealed class NhAssistantAgentConfiguration(
             AcceptsFiles = code.AcceptsFiles,
             ChatOnly = code.ChatOnly,
             SkillsInChat = code.SkillsInChat,
+            ChatRoutesFirst = code.ChatRoutesFirst,
             AllowQuestions = code.AllowQuestions,
             UsesMemory = code.MemoryType is not null,
             TriageProfile = code.TriageProfileName,

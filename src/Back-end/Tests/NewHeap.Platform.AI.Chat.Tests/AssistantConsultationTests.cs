@@ -505,6 +505,37 @@ public sealed class AssistantConsultationTests(AssistantDatabaseFixture database
     }
 
     /// <summary>
+    /// A question does not start a new turn: the consultations before it stay counted.
+    /// </summary>
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_answer_gives_the_turn_no_new_consultations(AssistantTestProvider provider)
+    {
+        var target = new NhAiScriptedChatClient()
+            .RespondWithText("All checks are done.");
+        var asker = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(ConsultTool, new { input = new { subjectId = ProjectId, question = "Done?" } }, "call-1")
+            .RespondWithFunctionCall("ask_question", new { question = "Ask once more?", choices = new[] { "Yes", "No" } }, "call-ask")
+            .RespondWithFunctionCall(ConsultTool, new { input = new { subjectId = ProjectId, question = "Really done?" } }, "call-2")
+            .RespondWithText("The second question was not asked.");
+        await using var host = await CreateHostAsync(
+            provider,
+            target,
+            asker,
+            limits: limits => limits.MaxConsultationsPerTurn = 1,
+            configureAssistant: assistant => assistant.ConfigureAgent(AskingAgentId, agent => agent.AllowQuestions()));
+        var conversation = await host.CreateConversationAsync(Member, AskingAgentId);
+
+        var asking = await host.SendAsync(conversation.Id, "Is the project done?", Member);
+        await host.AnswerAsync(conversation.Id, asking.Single<NhAssistantQuestionAskedEvent>().Question.QuestionId, 0, Member);
+
+        Assert.Single(target.Requests);
+        Assert.Contains(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentConsulted
+            && evt.ResultCode == NhAssistantErrorCodes.ConsultTurnLimit);
+    }
+
+    /// <summary>
     /// LS22: without a limit a turn consults as often as its tool calls allow, and an agent's own limit
     /// replaces the application's for its turns, higher or lower.
     /// </summary>

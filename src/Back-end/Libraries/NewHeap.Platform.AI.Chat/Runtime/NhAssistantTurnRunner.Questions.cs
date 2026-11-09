@@ -246,6 +246,9 @@ internal sealed partial class NhAssistantTurnRunner
             },
             CancellationToken.None);
 
+        // The answer continues the turn on what is left of its allowances; asking buys it no room.
+        await ContinueAllowancesAsync(state, history, CancellationToken.None);
+
         // The turn offers its skills and questions again and continues in the skill it asked from.
         await PrepareSkillsAsync(state, cancellationToken);
         if (SkillAskedFrom(state, waitingParts, part) is { } skill)
@@ -283,9 +286,18 @@ internal sealed partial class NhAssistantTurnRunner
         IReadOnlyList<NhAssistantStoredPart> waitingParts,
         NhAssistantStoredPart question)
     {
-        var recorded = waitingParts
-            .TakeWhile(part => !ReferenceEquals(part, question))
-            .LastOrDefault(part => part is { Type: NhAssistantStoredPart.SkillType, SkillId: not null });
+        return SkillWorkedIn(state, waitingParts.TakeWhile(part => !ReferenceEquals(part, question)));
+    }
+
+    /// <summary>
+    /// The last skill <paramref name="parts"/> recorded, while that skill is still active and live;
+    /// <see langword="null"/> for the agent itself.
+    /// </summary>
+    private static (NhAssistantSkillOptions Skill, string ChosenBy)? SkillWorkedIn(
+        NhAssistantTurnState state,
+        IEnumerable<NhAssistantStoredPart> parts)
+    {
+        var recorded = parts.LastOrDefault(part => part is { Type: NhAssistantStoredPart.SkillType, SkillId: not null });
         if (recorded is null)
         {
             return null;

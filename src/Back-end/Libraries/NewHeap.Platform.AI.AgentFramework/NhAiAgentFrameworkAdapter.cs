@@ -14,6 +14,12 @@ public sealed record NhAiAgentCreateRequest(
     string Instructions,
     string ExecutionRegion = "local")
 {
+    /// <summary>
+    /// The most characters of <see cref="Instructions"/> the adapter accepts. It guards against
+    /// runaway text; the assistant's own limit is <c>NhAssistantLimits.MaxInstructionCharacters</c>.
+    /// </summary>
+    public const int MaxInstructionCharacters = 128 * 1024;
+
     public NhAiDataClassification DataClassification { get; init; } =
         NhAiDataClassification.Internal;
 
@@ -433,7 +439,7 @@ internal sealed class NhAiAgentFrameworkAdapter(
             || string.IsNullOrWhiteSpace(request.Descriptor.Description)
             || request.Descriptor.Description.Length > 512
             || string.IsNullOrWhiteSpace(request.Instructions)
-            || request.Instructions.Length > 32_768)
+            || request.Instructions.Length > NhAiAgentCreateRequest.MaxInstructionCharacters)
         {
             throw new ArgumentOutOfRangeException(nameof(request));
         }

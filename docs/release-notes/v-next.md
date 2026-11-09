@@ -1,1 +1,9 @@
 # v-next
+
+## NewHeap.Platform.AI.Chat, NewHeap.Platform.AI.Chat.AspNet: chat turns
+
+| Breaking change | Required action |
+|---|---|
+| A chat turn that continues after an `ask_question` answer keeps what its earlier part used of `MaxToolCallsPerTurn`, the skill's `MaxTokensPerRun`, `MaxConsultationsPerTurn` and its skill switches. | Raise `MaxToolCallsPerTurn` when agents used questions to get through more work than one allowance. |
+| `NhAssistantAgentRunBuilder.SkillsInChat` has a second optional parameter, `routesFirst`. | Recompile callers; source stays compatible. |
+| A chat with `SkillsInChat` continues in its skill after a decision on an inline approval, with the skill's instructions, tools and profile, and offers `use_skill` and `ask_question` again; it used to continue with the agent's own tools. | Give a skill the tools its follow-up after a decision needs. |

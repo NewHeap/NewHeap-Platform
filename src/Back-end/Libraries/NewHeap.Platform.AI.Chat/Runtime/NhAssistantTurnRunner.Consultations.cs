@@ -164,6 +164,8 @@ internal sealed partial class NhAssistantTurnRunner
             null,
             NhAssistantContent.ResultPreview(askingCall.ResultJson, askingCall.DataClassification)));
 
+        await ResumeChatInSkillAsync(state, history, askingCall.MessageId, request.CallerContext, cancellationToken);
+
         using var fileDeadline = BeginFileDeadline(state, cancellationToken);
         var messages = await WithinFileDeadlineAsync(
             state,

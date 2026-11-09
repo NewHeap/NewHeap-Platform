@@ -1396,9 +1396,20 @@ skill's instructions, `Tools`, profile, classification, file limits and its own 
 apply as in a run, always within the rights of the person whose turn it is; the skill's daily
 `Budget` counts runs only. The agent's message of the turn records the skill
 (`NhAssistantMessageDto.SkillId`, the skill it worked in at its end), so the application can tell
-which skill answered; the next turn starts without a skill again. Turn it on for a role agent that
+which skill answered; the next turn starts without a skill again. A turn that waits for a question
+or an inline approval continues in the skill it worked in. Turn it on for a role agent that
 people also chat with, such as a planner whose skills each fit a kind of question; leave it off for
 an agent whose skills only make sense on events.
+
+An agent with many tools and a few narrow skills should start with the choice:
+`SkillsInChat(routesFirst: true)` (SPM-333). The first model round then offers `use_skill` and
+`ask_question` and none of the agent's own or MCP tools, so the choice that decides the turn is made
+with a short list in front of the model. A question or decision before the choice leaves the turn
+choosing; a skill without `Tools` brings all of the agent's. That first choice is no
+switch, so two switches remain to correct it. The agent's selectors stay the union of its skills and
+the ceiling of every skill, and `MaxToolsPerAgent` bounds what one turn offers, so it no longer has to
+fit that union. With no active skill that works live the turn has no tools and a warning names the
+agent: switching skills off never hands the model the tools they narrowed.
 
 Give an agent that only works in people's chats its chat settings with `ConfigureAgent` and
 `ChatOnly()` (SPM-343), not with a `WorksOn` that hides it or with run settings it never uses. It
@@ -2087,6 +2098,18 @@ for a proposal an asker leaves for the subject's approvers, so register such a g
 `NhAiProposalGuardStages.Proposal` alone and never authorize or refuse at the later stages on them.
 They take no part in the proposal hash or the approval evidence, and the guard still runs without a
 signed-in person: the tool's policies keep authorizing the call.
+
+Ground a value the model proposes in what a tool returned. At the proposal stage, or inside a tool,
+`INhAssistantTurnToolResults.FindAsync(value)` searches the results of the turn's successful calls,
+also those before a question the turn waited for, and returns which calls hold the value. It compares
+and gives the guard no result text, so results with mail or customer data stay where they are. The
+assistant's own functions and scripts are no source, because a model wrote what they return, and a
+failed call is none either. Each `NhAssistantToolResultMatch` names its `ToolId` and `InArguments`: a
+lookup that returns what it was asked confirms a value exists, a search that repeats its query proves
+nothing, so decide per tool. Treat `Complete` being false as "not seen", not as "not there", and let
+the proposal through when the search fails or cannot tell: a check that refuses the good cases is worse
+than none (SPM-349). Outside a turn it fails with `assistant-tool-results-no-turn`, and a consultation,
+which records no calls, with `assistant-tool-results-not-recorded`.
 
 Know the policy a proposal waits under. At revalidation, decision and execution the context names the
 approval policy as the proposal recorded it: `PolicyId`, also one an approval policy selector chose, and
@@ -3316,9 +3339,9 @@ SPM-316 and SPM-317 are the executable references.
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantOperationsSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantOperationsSamplesTests.cs)
 - SPM-333 — A person chats with the planner, whose model loads one of its skills with that skill's instructions and tools
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleChatHelperComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleChatHelperComposition.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs)
-  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Skills.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Skills.cs)
 - SPM-339 — The intake reviewer in shadow replaces its open order of the same item, as it would live
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleEquipmentOrderComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleEquipmentOrderComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalGuards.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProposalGuards.cs)

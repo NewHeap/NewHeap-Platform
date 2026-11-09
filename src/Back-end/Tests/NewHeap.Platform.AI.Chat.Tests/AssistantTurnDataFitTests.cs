@@ -38,7 +38,7 @@ public sealed class AssistantTurnDataFitTests(AssistantDatabaseFixture database)
 
         Assert.Null(turn.StartCode);
         var instructions = model.Requests[0].Options!.Instructions!;
-        Assert.True(instructions.Length <= NhAssistantPromptComposer.MaxInstructionsLength);
+        Assert.True(instructions.Length <= NhAssistantLimits.DefaultMaxInstructionCharacters);
         Assert.Contains("# Situation", instructions);
         var kept = Enumerable.Range(1, 6).Count(rank => instructions.Contains(PassageId(rank), StringComparison.Ordinal));
         Assert.InRange(kept, 1, 5);
@@ -124,7 +124,7 @@ public sealed class AssistantTurnDataFitTests(AssistantDatabaseFixture database)
         await host.SendAsync(conversation.Id, Question);
 
         var instructions = model.Requests[0].Options!.Instructions!;
-        Assert.True(instructions.Length <= NhAssistantPromptComposer.MaxInstructionsLength);
+        Assert.True(instructions.Length <= NhAssistantLimits.DefaultMaxInstructionCharacters);
         Assert.EndsWith(
             "When the question needs them, say that the person can connect the service with the card in the chat and ask again.",
             instructions,
@@ -150,7 +150,7 @@ public sealed class AssistantTurnDataFitTests(AssistantDatabaseFixture database)
         await host.SendAsync(conversation.Id, Question);
 
         var instructions = model.Requests[0].Options!.Instructions!;
-        Assert.True(instructions.Length <= NhAssistantPromptComposer.MaxInstructionsLength);
+        Assert.True(instructions.Length <= NhAssistantLimits.DefaultMaxInstructionCharacters);
         Assert.DoesNotContain("Not connected for this person", instructions);
         Assert.Contains(host.Logs.Messages, message => message.Contains("which connections are missing", StringComparison.Ordinal));
     }

@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using NewHeap.Platform.AI;
+using NewHeap.Platform.AI.Chat;
 using SampleProjectManagement.Core.Models.AI;
 using SampleProjectManagement.Core.Services;
 using SampleProjectManagement.DAL;
@@ -163,6 +164,49 @@ public sealed class ProjectArchiveChannelProposalGuard(
         return ValueTask.FromResult(NhAiPreconditionResult.NotApplicable(
             ArchiveInPortalCode,
             _ => localizer["StaleArchiveInPortal"].Value));
+    }
+}
+
+/// <summary>
+/// SPM-349: keeps the chat helper from proposing a change to a project it did not read in this turn, so
+/// an id the model made up never reaches an approval card. The guard compares the proposed id with what
+/// <c>projects.get</c> returned earlier in the turn through <see cref="INhAssistantTurnToolResults"/>,
+/// which discloses nothing. A failed lookup is no source, so an id that exists nowhere stays refused.
+/// When the results cannot tell, the guard lets the proposal through: a check that refuses the good
+/// cases is worse than none. It runs at the proposal stage alone, the only stage with a running turn.
+/// </summary>
+public sealed class ProjectReadBeforeChangeProposalGuard(
+    INhAssistantTurnToolResults toolResults,
+    IStringLocalizer<SampleAssistantToolPresenter> localizer) : INhAiProposalGuard
+{
+    public const string NotReadCode = "project-not-read";
+
+    public ValueTask<IReadOnlyList<NhAiProposalKey>> GetKeysAsync(
+        NhAiProposalGuardContext context,
+        CancellationToken cancellationToken = default)
+    {
+        return ValueTask.FromResult<IReadOnlyList<NhAiProposalKey>>([]);
+    }
+
+    public async ValueTask<NhAiPreconditionResult> CheckAsync(
+        NhAiProposalGuardContext context,
+        CancellationToken cancellationToken = default)
+    {
+        if (context.Invocation?.ActorId != "assistant-agent:" + SampleChatHelperComposition.AgentId
+            || context.Arguments.Deserialize<ProjectAiStatusChangeInput>(JsonSerializerOptions.Web) is not { } input)
+        {
+            return NhAiPreconditionResult.Satisfied;
+        }
+
+        var search = await toolResults.FindAsync(input.ProjectId.ToString("D"), cancellationToken: cancellationToken);
+        if (!search.Success || (!search.Data!.Found && !search.Data.Complete))
+        {
+            return NhAiPreconditionResult.Satisfied;
+        }
+
+        return search.Data.Matches.Any(match => match.ToolId == ProjectOverviewAiTools.GetToolId)
+            ? NhAiPreconditionResult.Satisfied
+            : NhAiPreconditionResult.NotApplicable(NotReadCode, _ => localizer["StaleProjectNotRead"].Value);
     }
 }
 

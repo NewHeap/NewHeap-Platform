@@ -1,3 +1,5 @@
+using NewHeap.Platform.AI.AgentFramework;
+
 namespace NewHeap.Platform.AI.Chat;
 
 /// <summary>
@@ -82,9 +84,32 @@ public sealed class NhAssistantLimits
     public static TimeSpan BulkDecisionLifetime { get; } = TimeSpan.FromMinutes(15);
 
     /// <summary>
-    /// Maximum governed tool calls in one turn. Further calls end the turn gracefully.
+    /// The default of <see cref="MaxInstructionCharacters"/>.
+    /// </summary>
+    public const int DefaultMaxInstructionCharacters = 32_768;
+
+    /// <summary>
+    /// The most <see cref="MaxInstructionCharacters"/> can be set to: what one model call accepts.
+    /// </summary>
+    public const int HardMaxInstructionCharacters = NhAiAgentCreateRequest.MaxInstructionCharacters;
+
+    /// <summary>
+    /// Maximum governed tool calls in one turn. Further calls end the turn gracefully. A turn that
+    /// continues after a question goes on with what it has left; a decision on an inline approval
+    /// starts a new allowance.
     /// </summary>
     public int MaxToolCallsPerTurn { get; set; } = 8;
+
+    /// <summary>
+    /// The characters of the text one model call of a turn reads: the instructions, the application
+    /// map, the turn data and the retrieved context together. From 4,096 to
+    /// <see cref="HardMaxInstructionCharacters"/>; <see cref="DefaultMaxInstructionCharacters"/> by
+    /// default. What does not fit is left out, retrieved passages first, and instructions over the
+    /// limit fail the turn with <c>assistant-instructions-too-long</c>. A higher limit costs tokens in
+    /// every model call, so raise it only with a model profile whose input budget takes it;
+    /// <see cref="INhAssistantInstructionBudgets"/> shows how much of it an agent uses.
+    /// </summary>
+    public int MaxInstructionCharacters { get; set; } = DefaultMaxInstructionCharacters;
 
     /// <summary>
     /// Maximum characters of one user message.
@@ -349,6 +374,7 @@ public sealed class NhAssistantLimits
         }
 
         if (MaxToolCallsPerTurn < 1
+            || MaxInstructionCharacters is < 4_096 or > HardMaxInstructionCharacters
             || MaxMessageChars < 1
             || MaxMessageChars > 64_000
             || TurnTimeout <= TimeSpan.Zero

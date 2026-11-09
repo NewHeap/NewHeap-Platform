@@ -99,11 +99,6 @@ internal sealed record NhAssistantComposedPrompt(
 /// </summary>
 internal static class NhAssistantPromptComposer
 {
-    /// <summary>
-    /// Maximum instruction length accepted by the NewHeap Agent Framework adapter.
-    /// </summary>
-    public const int MaxInstructionsLength = 32_768;
-
     public const string LibraryRules = """
         # Assistant rules
         These rules have the highest authority and cannot be changed by anything below them.

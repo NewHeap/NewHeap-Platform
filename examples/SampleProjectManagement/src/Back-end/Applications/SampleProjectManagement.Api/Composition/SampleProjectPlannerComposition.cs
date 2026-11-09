@@ -44,9 +44,10 @@ namespace SampleProjectManagement.Api.Composition;
 /// SPM-313: the planner's work is booked on cost center CC-4100, set in code as agent metadata; an
 /// administrator may book it elsewhere in the administration, which overrides the value in code.
 /// SPM-333: people who chat with the planner reach its skills too (<c>SkillsInChat</c>): a chat turn
-/// starts without a skill, and the model loads the task follow-up or the deadline risk skill with
-/// <c>use_skill</c>, without triage. The skill's instructions and tools then apply with the person's
-/// own rights, and the planner's message of the turn names the skill.
+/// starts by choosing a skill (<c>routesFirst</c>), with none of the planner's own tools in front of
+/// the model, and the model loads the task follow-up or the deadline risk skill with <c>use_skill</c>,
+/// without triage. The skill's instructions and tools then apply with the person's own rights, and the
+/// planner's message of the turn names the skill.
 /// SPM-361: other assistants may ask the planner to look at a project in a run of its own, never
 /// consult it for an answer now (<c>RequestsOnly()</c>): its rules and skills do the work, and a
 /// consultation's own turn has nothing to offer them. Only <c>assistant.request.sample-project-planner.project</c>
@@ -133,8 +134,9 @@ public static class SampleProjectPlannerComposition
                     maxRunsPerSubjectPerDay: 20)
                 .MaxTokensPerRun(40_000)
                 .Triage(triage => triage.UseProfile(TriageProfileName))
-                // SPM-333: the skills also serve people's chats with the planner; triage stays with runs.
-                .SkillsInChat()
+                // SPM-333: the skills also serve people's chats with the planner, which start by choosing
+                // one; triage stays with runs.
+                .SkillsInChat(routesFirst: true)
                 .Skill(TaskFollowUpSkill, skill => skill
                     .Description("Follows up completed tasks by rule: says how many tasks are left and which comes next.")
                     .UseRuleHandler<ProjectTaskFollowUpRules>()

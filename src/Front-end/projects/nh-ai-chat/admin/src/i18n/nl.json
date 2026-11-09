@@ -237,7 +237,8 @@
         "groups": "Groepen: {{groups}}",
         "catalog-failed": "De bouwstenen van agentruns konden niet worden gelezen. Tot dat lukt, kunnen agents hier niet nu draaien en blijven waar een agent aan werkt en zijn groepen zoals ze zijn.",
         "warnings": {
-          "classification-not-permitted": "Het modelprofiel van de agent en de terugvalprofielen daarvan staan zijn dataclassificatie niet toe. De agent is opgeslagen, maar zijn modelaanroepen worden geweigerd tot een profiel de classificatie toestaat."
+          "classification-not-permitted": "Het modelprofiel van de agent en de terugvalprofielen daarvan staan zijn dataclassificatie niet toe. De agent is opgeslagen, maar zijn modelaanroepen worden geweigerd tot een profiel de classificatie toestaat.",
+          "instructions-over-budget": "Met de applicatiecontext zoals die nu is opgeslagen laten de instructies van deze agent of een van zijn vaardigheden geen ruimte voor wat hij ophaalt. Zijn antwoorden kunnen opgehaalde passages missen, of zijn beurten mislukken. Maak de applicatiecontext of de instructies korter."
         },
         "status": {
           "live": "Live",

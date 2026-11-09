@@ -960,7 +960,7 @@ public sealed class AssistantAgentBuilderTests(AssistantDatabaseFixture database
         // more than half its largest size.
         Assert.True(
             NhAssistantPromptComposer.LibraryRules.Length + NhAssistantAgentBuilderInstructions.Content.Length + NhAssistantAgentBuilderOptions.MaxGuidanceLength
-                <= NhAssistantPromptComposer.MaxInstructionsLength - NhAssistantApplicationContexts.MaxTextLength / 2 - 2_000,
+                <= NhAssistantLimits.DefaultMaxInstructionCharacters - NhAssistantApplicationContexts.MaxTextLength / 2 - 2_000,
             "The builder's instructions grew; keep them and the guidance within the prompt.");
     }
 

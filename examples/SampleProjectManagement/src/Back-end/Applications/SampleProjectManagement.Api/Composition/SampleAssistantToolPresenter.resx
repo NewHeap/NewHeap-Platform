@@ -23,6 +23,7 @@
   <data name="StaleTaskCompleted" xml:space="preserve"><value>Already completed on {0}.</value></data>
   <data name="StaleTaskDeleted" xml:space="preserve"><value>The task was deleted.</value></data>
   <data name="StaleProjectStatusSet" xml:space="preserve"><value>The project is already {0}.</value></data>
+  <data name="StaleProjectNotRead" xml:space="preserve"><value>This project was not read in this turn. Look it up first, then propose the change.</value></data>
   <data name="StaleArchiveInPortal" xml:space="preserve"><value>Archive the project in the portal, where you choose what to keep.</value></data>
   <data name="StaleIntakeSecondApprover" xml:space="preserve"><value>A second person may now approve this project, so the intake review needs four eyes again.</value></data>
   <data name="CloserNoTaskCompleted" xml:space="preserve"><value>No task was completed; nothing to check.</value></data>

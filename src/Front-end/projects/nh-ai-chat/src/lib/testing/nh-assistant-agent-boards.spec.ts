@@ -4,6 +4,7 @@ import { By } from '@angular/platform-browser';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { NhAssistantMockBackend, NhAssistantMockScenario, provideNhAssistantMockApi } from '@newheap/platform-ai-chat/testing';
 import { firstValueFrom } from 'rxjs';
+import { NhAssistantMarkdownLibraries } from '../internal/nh-assistant-markdown-libraries';
 import { AdminAgent, RunCatalog } from '../models/assistant-admin.models';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAdminApiService } from '../services/nh-assistant-admin-api.service';
@@ -94,6 +95,9 @@ async function configure(script = scenario(), administers = false): Promise<void
   translate.setTranslation('en', NH_ASSISTANT_TRANSLATIONS.en, true);
   await firstValueFrom(translate.use('en'));
   TestBed.inject(NhAssistantMockBackend).setCanAdminister(administers);
+  // Run results render as Markdown, whose libraries are a lazy chunk: the first spec of a run that
+  // needs them would otherwise race its download.
+  await TestBed.inject(NhAssistantMarkdownLibraries).load();
 }
 
 async function settle(fixture: ComponentFixture<unknown>): Promise<HTMLElement> {

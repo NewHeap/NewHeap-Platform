@@ -195,6 +195,23 @@ internal interface INhAssistantStore
         IReadOnlyCollection<Guid> invocationIds,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The tool and status of every recorded call of one turn, across the parts of a turn that
+    /// waited and continued.
+    /// </summary>
+    Task<IReadOnlyList<NhAssistantTurnToolCall>> GetTurnToolCallsAsync(
+        Guid conversationId,
+        Guid turnId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The arguments and results of the calls of one turn that ended successfully, oldest first.
+    /// </summary>
+    Task<IReadOnlyList<NhAssistantTurnToolResult>> GetTurnToolResultsAsync(
+        Guid conversationId,
+        Guid turnId,
+        CancellationToken cancellationToken);
+
     Task AddApprovalAsync(
         AssistantApproval approval,
         CancellationToken cancellationToken);
@@ -325,6 +342,16 @@ internal interface INhAssistantStore
         Guid conversationId,
         CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// One recorded tool call of a turn: its tool and how it ended.
+/// </summary>
+internal sealed record NhAssistantTurnToolCall(string ToolId, string Status);
+
+/// <summary>
+/// One successful tool call of a turn with what went in and came out, as stored.
+/// </summary>
+internal sealed record NhAssistantTurnToolResult(Guid Id, string ToolId, string? ArgumentsJson, string? ResultJson);
 
 /// <summary>
 /// The caller's access to one conversation.

@@ -591,6 +591,35 @@ internal sealed class NhAssistantStore(
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<NhAssistantTurnToolCall>> GetTurnToolCallsAsync(
+        Guid conversationId,
+        Guid turnId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.ToolInvocations
+            .AsNoTracking()
+            .Where(invocation => invocation.ConversationId == conversationId && invocation.TurnId == turnId)
+            .Select(invocation => new NhAssistantTurnToolCall(invocation.ToolId, invocation.Status))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<NhAssistantTurnToolResult>> GetTurnToolResultsAsync(
+        Guid conversationId,
+        Guid turnId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.ToolInvocations
+            .AsNoTracking()
+            .Where(invocation => invocation.ConversationId == conversationId
+                && invocation.TurnId == turnId
+                && invocation.Status == NhAssistantToolCallStatuses.Succeeded)
+            .OrderBy(invocation => invocation.StartedAt)
+            .Select(invocation => new NhAssistantTurnToolResult(invocation.Id, invocation.ToolId, invocation.ArgumentsJson, invocation.ResultJson))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task SetMessageAuthorAsync(
         Guid messageId,
         string authorActorId,

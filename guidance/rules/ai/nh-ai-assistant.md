@@ -721,6 +721,17 @@ it lives in its call and the message part. The audit records `QuestionAsked`, `Q
 `QuestionExpired` with the addressee, never the question or the answer. Runs, people's turns in agent
 threads and consultations never ask; use deferred proposals there.
 
+A question does not start a new turn. The answered turn goes on with what its earlier part left of
+`MaxToolCallsPerTurn`, its skill's `MaxTokensPerRun`, `MaxConsultationsPerTurn` and its skill
+switches, so a model cannot buy room by asking; only the turn's time limit starts again, because the
+time a person takes to answer is not the turn's work. A model profile's `WithBudget` is no allowance
+of the turn: it bounds each model call. An application's budget manager in turns
+(`UseApplicationBudgetInTurns`) gets a new `InvocationId` for the part after a question and no run id
+in a chat, so it cannot tell the parts of one turn apart. The question itself counts as a tool call, so
+size `MaxToolCallsPerTurn` for the work plus the questions it may need. A decision on an inline
+approval still starts a new allowance: a person who decides a proposal approves real work, and each
+proposal costs the model a call that needs that decision.
+
 ## Application messages
 
 The application posts its own messages into a conversation with

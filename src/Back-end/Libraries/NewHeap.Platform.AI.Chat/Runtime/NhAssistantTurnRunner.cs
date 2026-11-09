@@ -2268,6 +2268,8 @@ internal sealed partial class NhAssistantTurnRunner(
             };
         }
 
+        await ResumeChatInSkillAsync(state, history, invocation.MessageId, callerContext, cancellationToken);
+
         // The resumed call is replayed below with its real result; the summary leaves it out.
         var resumed = await ResumedCallsAsync(invocation, functionResult, CancellationToken.None);
         using var fileDeadline = BeginFileDeadline(state, cancellationToken);
@@ -2680,7 +2682,9 @@ internal sealed partial class NhAssistantTurnRunner(
 
     private static AgentRunOptions? McpRunOptions(NhAssistantTurnState state)
     {
-        var functions = (state.McpTools?.Functions ?? []).Concat(state.ExtraFunctions).ToArray();
+        // A turn that resumed may have loaded the MCP tools to execute a decision; it still has to choose.
+        var mcpFunctions = state.OnlyRoutes ? [] : state.McpTools?.Functions ?? [];
+        var functions = mcpFunctions.Concat(state.ExtraFunctions).ToArray();
         if (functions.Length == 0)
         {
             return null;
@@ -3205,23 +3209,29 @@ internal sealed partial class NhAssistantTurnRunner(
         // Agent Framework and Microsoft.Extensions.AI trace function arguments and results at trace
         // level. The assistant pipeline gets no logger factory so conversation content never reaches logs.
         var agentServices = new NhAssistantContentSafeServiceProvider(services);
-        var selectors = await SelectToolsAsync(state, agent, context, state.Scope.Consultation, cancellationToken);
+        // Until a chat that starts by routing has chosen, its model is offered none of the agent's tools.
+        var selectors = state.OnlyRoutes
+            ? [NoToolsSelector]
+            : await SelectToolsAsync(state, agent, context, state.Scope.Consultation, cancellationToken);
         var prompt = await WithApplicationMapAsync(state, state.Scope.Prompt!, context, selectors, cancellationToken);
-        if (prompt.Instructions.Length > NhAssistantPromptComposer.MaxInstructionsLength)
+        var maxCharacters = state.Scope.Limits.MaxInstructionCharacters;
+        if (prompt.Instructions.Length > maxCharacters)
         {
             // No model call follows, so the turn records no data as sent.
             state.Scope.Prompt = NhAssistantPromptFit.InstructionsOnly(prompt);
             state.InstructionsTooLong = true;
             return null;
         }
-        state.McpTools ??= await LoadMcpToolsAsync(state, cancellationToken);
-        state.Scope.McpConnectionOwners = state.McpTools.ConnectionOwners;
+        var mcpTools = state.OnlyRoutes
+            ? NhAssistantMcpToolSet.Empty
+            : state.McpTools ??= await LoadMcpToolsAsync(state, cancellationToken);
+        state.Scope.McpConnectionOwners = mcpTools.ConnectionOwners;
         var connectionsNote = string.Empty;
-        if (state.McpTools.ConnectionsNeeded.Count > 0)
+        if (mcpTools.ConnectionsNeeded.Count > 0)
         {
             // The person sees once per turn which servers need their connection.
-            await interceptor.AnnounceConnectionsAsync(state.McpTools.ConnectionsNeeded, cancellationToken);
-            connectionsNote = ConnectionsNeededNote(state.McpTools.ConnectionsNeeded);
+            await interceptor.AnnounceConnectionsAsync(mcpTools.ConnectionsNeeded, cancellationToken);
+            connectionsNote = ConnectionsNeededNote(mcpTools.ConnectionsNeeded);
         }
         // The turn data blocks are bounded but can still exceed the adapter's limit together. The fit
         // keeps what fits, with room for the note about connections, and the prompt then records what
@@ -3229,11 +3239,11 @@ internal sealed partial class NhAssistantTurnRunner(
         var fit = NhAssistantPromptFit.Of(
             prompt,
             state.RetrievedContext,
-            NhAssistantPromptComposer.MaxInstructionsLength - connectionsNote.Length);
+            maxCharacters - connectionsNote.Length);
         state.Scope.Prompt = fit.Prompt;
         var modelInstructions = fit.Prompt.ModelInstructions;
         LogLeftOutData(state, fit, modelInstructions.Length);
-        if (modelInstructions.Length + connectionsNote.Length <= NhAssistantPromptComposer.MaxInstructionsLength)
+        if (modelInstructions.Length + connectionsNote.Length <= maxCharacters)
         {
             modelInstructions += connectionsNote;
         }
@@ -3245,7 +3255,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 state.Scope.TurnId,
                 modelInstructions.Length,
                 connectionsNote.Length,
-                NhAssistantPromptComposer.MaxInstructionsLength);
+                maxCharacters);
         }
         var descriptor = NhAssistantAgentRegistry.CreateDescriptor(agent, profile, selectors) with
         {
@@ -3272,7 +3282,7 @@ internal sealed partial class NhAssistantTurnRunner(
             return null;
         }
 
-        interceptor.UseOfferedTools(created.Data.Tools.Concat(state.McpTools.Descriptors));
+        interceptor.UseOfferedTools(created.Data.Tools.Concat(mcpTools.Descriptors));
         return created.Data.Agent
             .AsBuilder()
             .Use(interceptor.InvokeAsync)
@@ -3299,7 +3309,7 @@ internal sealed partial class NhAssistantTurnRunner(
             fit.ApplicationMapDropped,
             fit.TurnDataDropped,
             sentCharacters,
-            NhAssistantPromptComposer.MaxInstructionsLength,
+            state.Scope.Limits.MaxInstructionCharacters,
             fit.Prompt.Instructions.Length);
     }
 
@@ -3759,6 +3769,7 @@ internal sealed partial class NhAssistantTurnRunner(
             EffectiveAgent = effectiveAgent,
             AgentTurn = agentTurn,
             ChatSubject = agentTurn is null ? chatSubject : null,
+            RoutesFirst = StartsByRouting(conversation, effectiveAgent, agentTurn),
             Language = language,
             ClientContext = clientContext,
             Speakers = speakers,

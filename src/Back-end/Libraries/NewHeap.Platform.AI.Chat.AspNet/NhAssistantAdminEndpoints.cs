@@ -393,7 +393,15 @@ internal static class NhAssistantAdminEndpoints
             return MissingField("expectedVersion");
         }
         var saved = await personalization.UpdateApplicationContextAsync(body.Text, expectedVersion, actor, httpContext.RequestAborted);
-        return saved.Success ? Json(ToDto(saved.Data!), Context.NhAssistantApplicationContextDto) : Failure(saved);
+        if (!saved.Success)
+        {
+            return Failure(saved);
+        }
+
+        // The text is data: this environment is the first place that can tell who it leaves without room.
+        await httpContext.RequestServices.GetRequiredService<NhAssistantInstructionBudgets>()
+            .LogOverBudgetAsync(saved.Data!, httpContext.RequestAborted);
+        return Json(ToDto(saved.Data!), Context.NhAssistantApplicationContextDto);
     }
 
     private static async Task<IResult> GetContextVersionsAsync(HttpContext httpContext, NhAssistantPersonalization personalization)
@@ -1284,11 +1292,17 @@ internal static class NhAssistantAdminEndpoints
             KnownSubjectTypes = known.GetValueOrDefault(agent.Id) ?? [],
             Groups = membership?.Groups ?? [],
             CodeGroups = membership?.CodeGroups ?? [],
-            // A save succeeds also when no profile permits the agent's classification.
-            Warnings = NhAssistantClassificationChecks.WarningsOf(
-                httpContext.RequestServices.GetService<INhAiModelProfileRegistry>(),
-                agent.Definition.ProfileName,
-                agent.DataClassification)
+            // A save succeeds also when no profile permits the agent's classification, or when the
+            // stored application context leaves the agent too little room.
+            Warnings =
+            [
+                .. NhAssistantClassificationChecks.WarningsOf(
+                    httpContext.RequestServices.GetService<INhAiModelProfileRegistry>(),
+                    agent.Definition.ProfileName,
+                    agent.DataClassification),
+                .. await httpContext.RequestServices.GetRequiredService<NhAssistantInstructionBudgets>()
+                    .WarningsOfAsync(agent, httpContext.RequestAborted)
+            ]
         };
     }
 

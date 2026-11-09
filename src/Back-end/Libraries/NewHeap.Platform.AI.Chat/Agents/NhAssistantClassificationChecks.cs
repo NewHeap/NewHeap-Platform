@@ -14,6 +14,15 @@ public static class NhAssistantConfigurationWarnings
     /// until a profile of the chain permits it.
     /// </summary>
     public const string ClassificationNotPermitted = "classification-not-permitted";
+
+    /// <summary>
+    /// With the stored application context and the longest style wishes a person may save, the
+    /// instructions of the agent or one of its skills leave no room for what it retrieves, so its turns
+    /// leave passages out, or are longer than a model call takes, so they fail with
+    /// <c>assistant-instructions-too-long</c>. <see cref="INhAssistantInstructionBudgets"/> gives the
+    /// numbers.
+    /// </summary>
+    public const string InstructionsOverBudget = "instructions-over-budget";
 }
 
 /// <summary>

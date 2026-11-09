@@ -6,6 +6,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.AgentFramework;
+using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 
@@ -166,7 +167,91 @@ internal sealed partial class NhAssistantTurnRunner
             await LoadSkillsAsync(state, state.EffectiveAgent.Id, options, shadowThread: false, cancellationToken);
         }
 
+        if (state.OnlyRoutes && state.ActiveSkills.All(skill => state.ShadowSkills.Contains(skill.Id)))
+        {
+            // Switching a skill off must not hand the model the tools the skills were meant to narrow.
+            logger.LogWarning(
+                "Agent {AgentId} starts its chats by choosing a skill, but none is active and live: turn {TurnId} has no tools.",
+                state.EffectiveAgent.Id,
+                state.Scope.TurnId);
+        }
+
         RefreshFunctions(state);
+    }
+
+    /// <summary>
+    /// Whether a person's chat with the agent starts by choosing a skill
+    /// (<c>SkillsInChat(routesFirst: true)</c>).
+    /// </summary>
+    private bool StartsByRouting(
+        AssistantConversation conversation,
+        NhAssistantAgent agent,
+        NhAssistantAgentTurnContext? agentTurn)
+    {
+        return agentTurn is null
+            && string.Equals(conversation.Kind, NhAssistantConversationKinds.Chat, StringComparison.Ordinal)
+            && registration.AgentRuns.TryGetValue(agent.Id, out var options)
+            && options.ChatRoutesFirst;
+    }
+
+    /// <summary>
+    /// Continues a person's chat that offers its agent's skills in the skill it worked in when it began
+    /// to wait for a decision, as an answer to a question does: the decision does not take away the
+    /// skill's instructions, tools and profile, and it neither sends a chat that starts by choosing back
+    /// to choosing nor widens it to the agent's own tools. Any other turn continues as it did.
+    /// </summary>
+    private async Task ResumeChatInSkillAsync(
+        NhAssistantTurnState state,
+        IReadOnlyList<AssistantMessage> history,
+        Guid waitingMessageId,
+        NhAiInvocationContext callerContext,
+        CancellationToken cancellationToken)
+    {
+        if (state.AgentTurn is not null
+            || !registration.AgentRuns.TryGetValue(state.EffectiveAgent.Id, out var options)
+            || !options.SkillsInChat)
+        {
+            return;
+        }
+
+        await PrepareSkillsAsync(state, cancellationToken);
+        var waiting = history.FirstOrDefault(message => message.Id == waitingMessageId);
+        if (waiting is null)
+        {
+            return;
+        }
+
+        if (SkillWorkedIn(state, NhAssistantContent.DeserializeParts(waiting.PartsJson)) is { } skill)
+        {
+            await EnterSkillAsync(state, skill.Skill, skill.ChosenBy, callerContext, record: true, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// A question does not start a new turn: the tool calls, tokens, consultations and skill switches
+    /// its earlier part used stay used, so asking buys the turn no room. The time limit does start
+    /// again, because the time a person takes to answer is not the turn's work.
+    /// </summary>
+    private async Task ContinueAllowancesAsync(
+        NhAssistantTurnState state,
+        IReadOnlyList<AssistantMessage> history,
+        CancellationToken cancellationToken)
+    {
+        var earlier = history
+            .Where(message => message.TurnId == state.Scope.TurnId
+                && string.Equals(message.Role, NhAssistantMessageRoles.Assistant, StringComparison.Ordinal))
+            .ToArray();
+        var calls = await store.GetTurnToolCallsAsync(state.Conversation.Id, state.Scope.TurnId, cancellationToken);
+        var loadedSkills = calls.Count(call =>
+            string.Equals(call.ToolId, NhAssistantMemoryFunction.UseSkillDescriptor.Id, StringComparison.Ordinal)
+            && string.Equals(call.Status, NhAssistantToolCallStatuses.Succeeded, StringComparison.Ordinal));
+
+        // The first choice of a chat that starts by routing is its route, not a switch.
+        state.SkillSwitches = state.RoutesFirst ? Math.Max(0, loadedSkills - 1) : loadedSkills;
+        state.TokensBefore = earlier.Sum(message => (long)message.InputTokens + message.OutputTokens);
+        state.Scope.ContinueCounts(
+            earlier.Sum(message => message.ToolCalls),
+            calls.Count(call => NhAssistantConsultationTools.IsConsultationTool(call.ToolId)));
     }
 
     /// <summary>
@@ -229,7 +314,9 @@ internal sealed partial class NhAssistantTurnRunner
 
     private NhAssistantMemoryFunction CreateUseSkillFunction(NhAssistantTurnState state, IReadOnlyList<NhAssistantSkillOptions> others)
     {
-        var catalog = new StringBuilder("Continues this work in another skill of the agent, with that skill's tools and instructions. Skills:");
+        var catalog = new StringBuilder(state.OnlyRoutes
+            ? "Starts this work in one of the agent's skills, with that skill's tools and instructions. No other tool is available before a skill is chosen; answer directly only when the request needs no tool. Skills:"
+            : "Continues this work in another skill of the agent, with that skill's tools and instructions. Skills:");
         foreach (var skill in others)
         {
             catalog.Append("\n- ").Append(skill.Id).Append(": ").Append(skill.Description);
@@ -277,7 +364,12 @@ internal sealed partial class NhAssistantTurnRunner
                             : "That skill may not receive the retrieved context of this turn; continue with the current tools.");
                 }
 
-                state.SkillSwitches++;
+                // The first choice of a chat that starts by routing is its route, not a switch.
+                if (!state.OnlyRoutes)
+                {
+                    state.SkillSwitches++;
+                }
+
                 state.RequestedSkill = target;
                 state.RequestedSkillReason = Text(arguments, "reason");
                 return SkillResult(true, null, "Switching to skill " + target.Id + ".");

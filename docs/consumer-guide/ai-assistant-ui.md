@@ -1519,9 +1519,9 @@ shows its source with the reason (SPM-336).
   - [src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts](../../examples/SampleProjectManagement/src/Front-end/projects/management/src/app/assistant-playground/assistant-playground.scenario.ts)
 - SPM-333 — A person chats with the planner, whose model loads one of its skills with that skill's instructions and tools
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectPlannerComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleChatHelperComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleChatHelperComposition.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs)
-  - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Skills.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.Skills.cs)
 - SPM-334 — The status advisor asks which status a project gets, and only the person it asks answers
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleStatusAdvisorComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleStatusAdvisorComposition.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantChatSkillQuestionSamplesTests.cs)

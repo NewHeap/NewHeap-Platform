@@ -77,7 +77,7 @@ export class NhAssistantMockFiles {
     private readonly scan?: (upload: NhAssistantMockUpload) => 'refused' | 'failed' | null
   ) {}
 
-  /** The uploads the mock stored, oldest first. */
+  /** The uploads the mock stored, in the order they finished: uploads that run side by side may swap. */
   get uploads(): readonly (NhAssistantMockUpload & { reference: FileReference })[] {
     return [...this.stored.values()];
   }

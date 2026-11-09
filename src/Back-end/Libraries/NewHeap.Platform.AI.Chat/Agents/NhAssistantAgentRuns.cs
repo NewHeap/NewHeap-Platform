@@ -267,6 +267,13 @@ public sealed class NhAssistantAgentRunOptions
     public bool SkillsInChat { get; internal set; }
 
     /// <summary>
+    /// A chat turn of the agent starts by choosing a skill: until one is loaded the model is offered
+    /// <c>use_skill</c> and <c>ask_question</c> and none of the agent's own or MCP tools. Off by default;
+    /// see <see cref="NhAssistantAgentRunBuilder.SkillsInChat"/>.
+    /// </summary>
+    public bool ChatRoutesFirst { get; internal set; }
+
+    /// <summary>
     /// People's chats with the agent offer <c>ask_question</c>: the agent posts a question with two to
     /// six choices to a person of the conversation, and the turn waits for that person's answer as for
     /// an approval. Off by default; see <see cref="NhAssistantAgentRunBuilder.AllowQuestions"/>.
@@ -833,11 +840,21 @@ public sealed class NhAssistantAgentRunBuilder
     /// The skill's instructions, tools, model profile, classification, file limits and its own token
     /// ceiling (<see cref="NhAssistantSkillBuilder.MaxTokensPerRun"/>) apply as in a run, within the
     /// rights of the person whose turn it is; its daily budget counts runs only. The agent's message of
-    /// the turn names the skill it worked in. Without it, chats work with the agent's own tools only.
+    /// the turn names the skill it worked in. A turn that waits for a question or an inline approval
+    /// continues in the skill it worked in. Without it, chats work with the agent's own tools only.
     /// </summary>
-    public NhAssistantAgentRunBuilder SkillsInChat(bool enabled = true)
+    /// <param name="enabled">Whether people's chats offer the skills.</param>
+    /// <param name="routesFirst">Starts every chat turn by choosing a skill: until the model loads one
+    /// it is offered <c>use_skill</c> and <c>ask_question</c> and nothing else, so the choice is made
+    /// without the agent's complete tool set in front of it. The agent's own and MCP tools are reachable
+    /// only inside a skill, a skill without <see cref="NhAssistantSkillBuilder.Tools"/> brings all of
+    /// the agent's, and that first choice does not count as one of the turn's switches. The agent's
+    /// selectors stay the ceiling of every skill. With no active skill that works live the turn has no
+    /// tools and a warning is logged.</param>
+    public NhAssistantAgentRunBuilder SkillsInChat(bool enabled = true, bool routesFirst = false)
     {
         _options.SkillsInChat = enabled;
+        _options.ChatRoutesFirst = enabled && routesFirst;
         return this;
     }
 

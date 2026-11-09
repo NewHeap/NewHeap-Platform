@@ -87,6 +87,9 @@ internal static class NhAssistantServiceRegistration
         services.TryAddSingleton<NhAssistantTenancy>();
         services.TryAddScoped<NhAssistantAgentKnownSubjectTypes>();
         services.TryAddScoped<NhAssistantPersonalization>();
+        services.TryAddScoped<NhAssistantInstructionBudgets>();
+        services.TryAddScoped<INhAssistantInstructionBudgets>(provider => provider.GetRequiredService<NhAssistantInstructionBudgets>());
+        services.TryAddScoped<INhAssistantTurnToolResults, NhAssistantTurnToolResults>();
         services.TryAddScoped<NhAssistantTurnContextCollector>();
         services.TryAddScoped<NhAssistantToolPresentationResolver>();
         services.TryAddScoped<INhAssistantMcpToolSource, NhAssistantNoMcpToolSource>();

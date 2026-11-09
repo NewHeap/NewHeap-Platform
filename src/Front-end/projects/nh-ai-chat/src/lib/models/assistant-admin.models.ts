@@ -1995,6 +1995,8 @@ export interface CodeRunSettings {
   chatOnly?: boolean;
   /** The agent offers its skills in people's chats (`SkillsInChat()`); missing on older servers. */
   skillsInChat?: boolean;
+  /** A chat turn starts by choosing a skill, without the agent's own tools (`SkillsInChat(routesFirst: true)`); missing on older servers. */
+  chatRoutesFirst?: boolean;
   /** The agent may ask the person in a chat a question with choices (`AllowQuestions()`); missing on older servers. */
   allowQuestions?: boolean;
   /** The agent keeps a working memory per subject (`Memory<TMemory>()`); missing on older servers. */
@@ -2035,10 +2037,14 @@ export type AssistantDataClassification = 'public' | 'internal' | 'confidential'
 /**
  * Why an agent or a skill that is saved and in effect may still not work as configured
  * (`NhAssistantConfigurationWarnings`). `classification-not-permitted`: neither its model profile nor
- * the profile's fallbacks permit its data classification, so its model calls are refused. A newer
- * server may report other codes.
+ * the profile's fallbacks permit its data classification, so its model calls are refused.
+ * `instructions-over-budget`: with the stored application context its instructions leave no room for
+ * what it retrieves or are too long for a model call. A newer server may report other codes.
  */
-export type AssistantConfigurationWarning = 'classification-not-permitted' | (string & {});
+export type AssistantConfigurationWarning =
+  | 'classification-not-permitted'
+  | 'instructions-over-budget'
+  | (string & {});
 
 /** One version of a skill defined as data. */
 export interface DataSkill extends LowerFileLimits {

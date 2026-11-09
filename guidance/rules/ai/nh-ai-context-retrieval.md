@@ -5,7 +5,7 @@ area: backend
 reference: ai-context-retrieval
 summary: "Authorize context sources before retrieval, enforce execution scope and classification, preserve provenance and trust, resolve conflicts deterministically, and apply hard content budgets."
 sample-cases: ["SPM-226", "SPM-291"]
-public-symbols: ["INhAiContextAuthorizationPolicy", "INhAiContextFormatter", "INhAiContextRanker", "INhAiContextResolver", "INhAiContextSource", "NhAiContextItem", "NhAiContextRankedItem", "NhAiContextRequest", "NhAiContextResolution", "NhAiContextSourceDescriptor", "NhAiContextTraceEntry", "NhAiContextTrust", "NhAiTestContextAuthorizationPolicy", "NhAiTestContextSource", "INhAiContextTraceSink", "NhAiContextResolutionTrace", "UseRetrievedContext", "NhAssistantRetrievedContextBuilder", "NhAssistantRetrievedContextOptions", "MaxRetrievedCharacters", "RetrievalTimeout"]
+public-symbols: ["INhAiContextAuthorizationPolicy", "INhAiContextFormatter", "INhAiContextRanker", "INhAiContextResolver", "INhAiContextSource", "NhAiContextItem", "NhAiContextRankedItem", "NhAiContextRequest", "NhAiContextResolution", "NhAiContextSourceDescriptor", "NhAiContextTraceEntry", "NhAiContextTrust", "NhAiTestContextAuthorizationPolicy", "NhAiTestContextSource", "INhAiContextTraceSink", "NhAiContextResolutionTrace", "UseRetrievedContext", "NhAssistantRetrievedContextBuilder", "NhAssistantRetrievedContextOptions", "MaxRetrievedCharacters", "RetrievalTimeout", "INhAssistantInstructionBudgets", "NhAssistantInstructionBudget", "MaxInstructionCharacters"]
 skills: ["newheap-backend-development"]
 providers: ["provider-neutral"]
 risk: high
@@ -86,8 +86,10 @@ is not part of the prompt hash or the approval binding, and tool audit events ca
 an `INhAiContextTraceSink` that logs each resolution's content-free trace with the invocation id:
 sources with their outcome codes and counts, selected items, characters and the context hash.
 
-The model instructions of a turn are at most 32,768 characters, and the instructions, the application
-map, the turn data and the block must fit in them together. One fit step before the model call keeps
+The model instructions of a turn are at most `NhAssistantLimits.MaxInstructionCharacters` characters
+(32,768 by default, at most `HardMaxInstructionCharacters`), and the instructions, the application
+map, the turn data and the block must fit in them together. A higher limit costs tokens in every
+model call, so raise it only with a model profile whose input budget takes it. One fit step before the model call keeps
 what fits, in a fixed order. The lowest-ranked items go first, one at a time. The application map
 goes only when the text does not fit without any item, and the items that fit in its room then come
 back. The situation, the user's screen and the shared conversation stay as long as they fit; when
@@ -104,8 +106,18 @@ kept, also when the fit of the turn drops the highest one.
 A warning names the agent, the turn, the items kept and dropped and the characters whenever a turn
 leaves data out, never content, the query or item ids. At startup a warning names each agent or skill
 in code with `UseRetrievedContext` whose instructions plus budget exceed the limit, counting the
-seed of the application context. Instructions that change as data, such as an edited application
-context or an agent created in the administration, show up in the warning of the turn.
+seed of the application context, because the database may not be ready at startup.
+
+The text an administrator stores reaches no startup check, so the budget has its own reading.
+`INhAssistantInstructionBudgets.GetAsync(agentId)` returns an `NhAssistantInstructionBudget` for the
+agent and for each skill with instructions: the composed instructions with the application context
+stored now and the longest style wishes a person may save, the retrieval budget, the limit,
+`RemainingCharacters` and `Fits`. Assert it in a test of the application, or in a health check of an
+environment whose context differs (SPM-291). Saving the application context logs a warning for every
+agent and skill that no longer fits, and the agent's `warnings` in the administration then carry
+`instructions-over-budget`, also for instructions that are too long for a model call. The
+instructions are never cut to make room: they carry the assistant's rules and the agent's own limits,
+and a passage left out is announced to the model while a rule left out is not.
 
 A source that serves agent turns receives the whole question as its query. Match its words rather
 than the full text, and stamp every item with the execution scopes it was read for.
@@ -121,6 +133,8 @@ than the full text, and stamp every item with the execution scopes it was read f
 - Budgeting `MaxCharacters` for the content alone; it counts the formatted block.
 - Reading a turn that answers from fewer items as proof that the sources are silent; look for the
   turn's warning and shorten the instructions or raise the budget.
+- Budgeting an agent from its code alone; assert `INhAssistantInstructionBudgets` with the
+  application context of the environment.
 - Placing the default formatter's output between delimiters of your own without neutralizing its
   markup.
 - Logging documents, prompts, embeddings, credentials or provider payloads.

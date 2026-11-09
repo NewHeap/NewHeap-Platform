@@ -187,12 +187,13 @@ describe('Chat attachments', () => {
       ['Notes.csv', 'text/plain', 'failed', 'assistant-file-type-not-accepted'],
       ['Notes.txt', 'application/octet-stream', 'failed', 'assistant-file-type-not-accepted']
     ]);
-    // The upload declares the type the check accepted, so the server stores text/csv.
-    expect(backend.uploads.map(item => [item.name, item.mediaType])).toEqual([
+    // The upload declares the type the check accepted, so the server stores text/csv. Uploads run
+    // side by side, so the order they finish in is not part of this.
+    expect(backend.uploads.map(item => [item.name, item.mediaType])).toEqual(jasmine.arrayWithExactContents([
       ['Projects.csv', 'text/csv'],
       ['Status.csv', 'text/csv'],
       ['Export.csv', 'text/csv']
-    ]);
+    ]));
 
     // The mock, like the server, applies the rule to an upload that arrives without a type, and
     // still checks the content of the type the extension named.
@@ -237,12 +238,12 @@ describe('Chat attachments', () => {
     // The mock derives with the mappings for an upload that arrives without a type.
     const conversationId = store.activeConversation()!.id;
     expect(await upload(conversationId, new Blob(['AC1032']), 'Direct.dwg')).toEqual({ status: 200, code: null });
-    expect(backend.uploads.map(item => [item.name, item.mediaType])).toEqual([
+    expect(backend.uploads.map(item => [item.name, item.mediaType])).toEqual(jasmine.arrayWithExactContents([
       ['Floor plan.dwg', 'application/acad'],
       ['Section.DWG', 'application/acad'],
       ['Plan.xml', 'application/xml'],
       ['Direct.dwg', 'application/acad']
-    ]);
+    ]));
   });
 
   it('refuses text whose content starts as a binary format and accepts UTF-16 text, as the server does', async () => {

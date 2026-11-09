@@ -161,6 +161,16 @@ internal sealed class NhAssistantTurnScope
     }
 
     /// <summary>
+    /// Starts the counts of a turn that continues after a question at what its earlier part used, so
+    /// the question does not hand the turn a new allowance.
+    /// </summary>
+    public void ContinueCounts(int toolCalls, int consultations)
+    {
+        Volatile.Write(ref _toolCalls, toolCalls);
+        Volatile.Write(ref _consultations, consultations);
+    }
+
+    /// <summary>
     /// The consultations this turn started, counted against its consultation limit (LS22).
     /// </summary>
     public int Consultations => Volatile.Read(ref _consultations);

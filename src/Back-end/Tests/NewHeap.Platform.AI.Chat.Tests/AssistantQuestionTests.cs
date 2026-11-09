@@ -209,15 +209,71 @@ public sealed class AssistantQuestionTests(AssistantDatabaseFixture database) : 
         Assert.Equal(NhAssistantConversationStatuses.Idle, (await host.ReloadAsync(opted.Id)).Status);
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_answer_continues_the_turn_on_the_tool_calls_it_has_left(AssistantTestProvider provider)
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "launch", limit = 5 } }, "call-1")
+            .RespondWithFunctionCall("ask_question", new { question = Question, choices = Choices }, "call-ask")
+            .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "launch", limit = 5 } }, "call-2")
+            .RespondWithText("I found one project before the limit.");
+        await using var host = await CreateHostAsync(provider, model, limits: limits => limits.MaxToolCallsPerTurn = 2);
+        var conversation = await host.CreateConversationAsync(agentId: AgentId);
+        var asked = (await host.SendAsync(conversation.Id, "Search and ask.")).Single<NhAssistantQuestionAskedEvent>().Question;
+
+        var answered = await host.AnswerAsync(conversation.Id, asked.QuestionId, 0);
+
+        // The search and the question used both calls: the answer brought no new ones.
+        Assert.Equal(NhAssistantErrorCodes.ToolCallLimitReached, answered.Single<NhAssistantTurnCompletedEvent>().ErrorCode);
+        Assert.Single(host.Tools.Contexts);
+        Assert.Contains("before the limit", answered.Text, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_answer_continues_the_turn_on_the_tokens_of_its_skill(AssistantTestProvider provider)
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("use_skill", new { skill = "long", reason = "It needs the long skill." }, "call-skill")
+            .RespondWithFunctionCall("ask_question", new { question = Question, choices = Choices }, "call-ask")
+            .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "launch", limit = 5 } }, "call-search");
+        await using var host = await AssistantTestHost.CreateAsync(
+            database,
+            provider,
+            model,
+            assistantBuilder: assistant => assistant.ConfigureAgent(AgentId, agent => agent
+                .AllowQuestions()
+                .SkillsInChat()
+                // Each round in the skill reads about 2,300 tokens: one part of the turn stays under the
+                // ceiling and the two together go over it.
+                .Skill("long", skill => skill
+                    .Description("Works with long instructions.")
+                    .Instructions(new string('i', 8_000))
+                    .Tools("projects.search")
+                    .MaxTokensPerRun(4_000))));
+        var conversation = await host.CreateConversationAsync(agentId: AgentId);
+        var asked = (await host.SendAsync(conversation.Id, "Search and ask.")).Single<NhAssistantQuestionAskedEvent>().Question;
+
+        var answered = await host.AnswerAsync(conversation.Id, asked.QuestionId, 0);
+
+        Assert.Equal(NhAssistantErrorCodes.RunTokenLimit, answered.Single<NhAssistantTurnCompletedEvent>().ErrorCode);
+        Assert.Empty(host.Tools.Contexts);
+    }
+
     private async Task<AssistantTestHost> CreateHostAsync(
         AssistantTestProvider provider,
         NhAiScriptedChatClient model,
-        TimeProvider? clock = null)
+        TimeProvider? clock = null,
+        Action<NhAssistantLimits>? limits = null)
     {
         return await AssistantTestHost.CreateAsync(
             database,
             provider,
             model,
+            limits,
             configure: services =>
             {
                 if (clock is not null)
