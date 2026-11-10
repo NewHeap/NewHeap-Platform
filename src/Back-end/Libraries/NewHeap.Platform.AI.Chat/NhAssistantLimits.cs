@@ -366,11 +366,32 @@ public sealed class NhAssistantLimits
     /// </summary>
     public TimeSpan AlertFreshContextWait { get; set; } = TimeSpan.FromHours(24);
 
+    /// <summary>
+    /// How often the run maintenance looks for the open proposals of agent runs and consultations whose
+    /// object no longer exists, such as a record removed without the application's own deletion, and
+    /// closes them as not applicable with <see cref="NhAssistantErrorCodes.ProposalSubjectGone"/>. Once an
+    /// hour by default, at most once a day; <see cref="TimeSpan.Zero"/> looks at every pass. A look reads
+    /// at most <see cref="MaxGoneSubjectChecksPerPass"/> proposals per pass and continues at the next
+    /// pass until it read them all. A decision of such a proposal closes it at once.
+    /// </summary>
+    public TimeSpan GoneSubjectCheckInterval { get; set; } = TimeSpan.FromHours(1);
+
+    /// <summary>
+    /// The most open proposals one maintenance pass reads in its look for objects that no longer exist
+    /// (<see cref="GoneSubjectCheckInterval"/>); it describes each of their subjects once.
+    /// </summary>
+    public const int MaxGoneSubjectChecksPerPass = 1_000;
+
     internal void Validate()
     {
         if (MaintenanceInterval < TimeSpan.FromSeconds(1) || MaintenanceInterval > TimeSpan.FromHours(1))
         {
             throw new ArgumentOutOfRangeException(nameof(MaintenanceInterval), "The maintenance interval is between one second and one hour.");
+        }
+
+        if (GoneSubjectCheckInterval < TimeSpan.Zero || GoneSubjectCheckInterval > TimeSpan.FromDays(1))
+        {
+            throw new ArgumentOutOfRangeException(nameof(GoneSubjectCheckInterval), "The check for objects that no longer exist runs between every pass and once a day.");
         }
 
         if (MaxToolCallsPerTurn < 1

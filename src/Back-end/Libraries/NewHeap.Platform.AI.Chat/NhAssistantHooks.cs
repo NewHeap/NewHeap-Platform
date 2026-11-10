@@ -623,7 +623,15 @@ public enum NhAssistantAuditEventKind
     /// <see cref="AdminRuleScriptSaved"/>; <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>completed</c>
     /// when it completed on every subject and <c>stopped</c> otherwise. Never the subjects or what it did.
     /// </summary>
-    AdminRuleScriptDryRun = 137
+    AdminRuleScriptDryRun = 137,
+
+    /// <summary>
+    /// An administrator of the assistant withdrew a proposal that waited for a decision, as a last
+    /// resort when nobody can decide it. <c>ActorId</c> is the administrator, <c>ApprovalId</c> the
+    /// proposal and <c>ResultCode</c> <c>assistant-proposal-withdrawn-by-administrator</c>; the reason is
+    /// stored with the proposal and never recorded here.
+    /// </summary>
+    AdminProposalWithdrawn = 138
 }
 
 /// <summary>

@@ -2673,7 +2673,12 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/agent-runs-components.spec.ts",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalReads.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantProposalReadTests.cs",
-      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-agent-run-api.service.ts"
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-agent-run-api.service.ts",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleProjectImport.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOpenProposals.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantRunMaintenance.cs"
     ],
     "SPM-283": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectCloserComposition.cs",

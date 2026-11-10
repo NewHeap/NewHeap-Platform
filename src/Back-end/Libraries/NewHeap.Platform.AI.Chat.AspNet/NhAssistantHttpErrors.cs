@@ -109,6 +109,8 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.ProposalAlreadyOpen,
             NhAssistantErrorCodes.ProposalRecentlyRejected,
             NhAssistantErrorCodes.ProposalSuperseded,
+            NhAssistantErrorCodes.ProposalSubjectGone,
+            NhAssistantErrorCodes.ProposalWithdrawnByAdministrator,
             NhAssistantErrorCodes.ProposalRefused,
             NhAssistantErrorCodes.ProposalPlaced,
             NhAssistantErrorCodes.ProposalNotPlaced,

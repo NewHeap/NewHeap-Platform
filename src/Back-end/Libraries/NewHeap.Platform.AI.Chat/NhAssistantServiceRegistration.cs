@@ -183,7 +183,10 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<NhAssistantProposalInvalidation>();
         services.TryAddScoped<NhAssistantProposalDuplicates>();
         services.TryAddScoped<NhAssistantProposalPlacement>();
-        services.TryAddScoped<INhAssistantProposalRevalidation, NhAssistantProposalRevalidation>();
+        // The run maintenance uses the implementation itself for its check of objects that no longer exist.
+        services.TryAddScoped<NhAssistantProposalRevalidation>();
+        services.TryAddScoped<INhAssistantProposalRevalidation>(provider => provider.GetRequiredService<NhAssistantProposalRevalidation>());
+        services.TryAddScoped<INhAssistantOpenProposals, NhAssistantOpenProposals>();
         // Alerts (FB87): kinds in code, raised by rules and by the application's code, deduplicated per
         // kind, subject and key, with one recipient check for delivery and reading. The delivery replaces
         // the scheduler, whose default makes every delivery due at once.

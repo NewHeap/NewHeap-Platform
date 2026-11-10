@@ -153,6 +153,8 @@ public static class NhAssistantServiceCollectionExtensions
             services.TryAddScoped<NhAssistantBulkDecisions>();
             // The same decision for the application's own channels, such as a messaging reply.
             services.TryAddScoped<INhAssistantProposalDecisionService, NhAssistantProposalDecisionService>();
+            // An administrator's last resort for a proposal nobody can decide.
+            services.TryAddScoped<INhAssistantProposalWithdrawal, NhAssistantProposalWithdrawal>();
             // Who may approve under a policy or a proposal's policy copy, for the application's code (FB20).
             services.TryAddScoped<INhAssistantApproverDirectory, NhAssistantApproverDirectory>();
             // A deferred proposal the application records for a person without a run (FB21).

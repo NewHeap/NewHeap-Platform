@@ -849,6 +849,42 @@ internal sealed class NhAssistantAgentEvents(
             cancellationToken);
     }
 
+    /// <summary>
+    /// Records that an administrator withdrew a pending proposal, without the reason.
+    /// </summary>
+    public Task WithdrawnByAdministratorAsync(
+        AssistantApproval approval,
+        AssistantThread thread,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        return RecordAsync(
+            new NhAssistantAuditEvent(
+                NhAssistantAuditEventKind.AdminProposalWithdrawn,
+                approval.ConversationId,
+                approval.TurnId,
+                actorId,
+                thread.AgentId,
+                0,
+                DateTimeOffset.UtcNow)
+            {
+                ToolId = approval.ToolId,
+                InvocationId = approval.ToolInvocationId,
+                ResultCode = NhAssistantErrorCodes.ProposalWithdrawnByAdministrator,
+                ApprovalId = approval.Id,
+                ProposalId = approval.ProposalId,
+                RunId = approval.RunId,
+                SubjectType = thread.SubjectType,
+                SubjectId = thread.SubjectId,
+                InitiatorActorId = approval.InitiatorActorId,
+                GrantSource = approval.GrantSource,
+                ApprovalPolicyId = approval.PolicyId,
+                ConsultationId = approval.ConsultationId,
+                ConsultationRoute = NhAssistantConsultationRoutes.Of(approval.ConsultationId, approval.Mode, approval.GrantSource)
+            },
+            cancellationToken);
+    }
+
     public Task ConsultationAsync(NhAssistantConsultationEvent consultation, CancellationToken cancellationToken)
     {
         return RecordAsync(

@@ -177,6 +177,7 @@ internal static class NhAssistantAdminEndpoints
         AgentRuns.NhAssistantHandOffsAsDataEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantAgentPackageEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantRunHistoryEndpoints.MapAdmin(admin);
+        AgentRuns.NhAssistantAgentRunEndpoints.MapAdmin(admin);
         AgentRuns.NhAssistantBoardEndpoints.MapAdmin(admin);
         NhAssistantAdminAlertKindEndpoints.MapAdmin(admin);
         NhAssistantAlertModelSwitchEndpoints.MapAdmin(admin);

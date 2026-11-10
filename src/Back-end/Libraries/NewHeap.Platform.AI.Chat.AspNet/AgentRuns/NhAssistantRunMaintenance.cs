@@ -77,7 +77,9 @@ internal sealed class NhAssistantBackgroundOperationAccess(
 /// cancels runs whose trigger transaction rolled back, ends runs whose
 /// background operation ended without them, such as a run that waited inline for a decision when an
 /// operator cancelled its operation, and withdraws approved inline proposals that a run never
-/// executed because it ended first, such as after a person's cancel. Once an hour it removes board
+/// executed because it ended first, such as after a person's cancel. Once per
+/// <see cref="NhAssistantLimits.GoneSubjectCheckInterval"/> it closes the open proposals whose object no
+/// longer exists. Once an hour it removes board
 /// visits older than <see cref="NhAssistantLimits.BoardVisitRetention"/> and those of groups that
 /// are no longer registered, and the sets of bulk decisions a day after their lifetime. In a host with
 /// alert kinds it closes the alerts whose expiry passed and purges closed alerts after
@@ -119,6 +121,17 @@ internal sealed class NhAssistantRunMaintenance(
     /// oldest run.
     /// </summary>
     private (DateTimeOffset CreatedAt, Guid Id)? _operationCheckAfter;
+
+    /// <summary>
+    /// When the last look for proposals whose object no longer exists started, on the system clock.
+    /// </summary>
+    private DateTimeOffset _goneSubjectsCheckedAt = DateTimeOffset.MinValue;
+
+    /// <summary>
+    /// Where a look for proposals whose object no longer exists continues: the creation time and id of
+    /// the last proposal it read, or <see langword="null"/> when no look is under way.
+    /// </summary>
+    private (DateTimeOffset CreatedAt, Guid Id)? _goneSubjectCheckAfter;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -246,6 +259,49 @@ internal sealed class NhAssistantRunMaintenance(
             await RemoveExpiredDecisionSetsAsync(services.GetRequiredService<NhAssistantDecisionBatchStore>(), proposalTime, cancellationToken);
             _boardVisitsCleanedAt = now;
         }
+
+        await CloseProposalsOfGoneSubjectsAsync(services.GetRequiredService<NhAssistantProposalRevalidation>(), now, cancellationToken);
+    }
+
+    /// <summary>
+    /// Closes the open proposals of agent runs and consultations whose object no longer exists, such as
+    /// a record an import removed without the application's own deletion, as not applicable
+    /// (<see cref="NhAssistantErrorCodes.ProposalSubjectGone"/>). A look starts once per
+    /// <see cref="NhAssistantLimits.GoneSubjectCheckInterval"/> on the system clock, a cadence like the
+    /// cleanup of board visits; it reads at most <see cref="NhAssistantLimits.MaxGoneSubjectChecksPerPass"/>
+    /// proposals per pass, in the order they were made, and the next pass continues where it stopped.
+    /// </summary>
+    internal async Task<int> CloseProposalsOfGoneSubjectsAsync(
+        NhAssistantProposalRevalidation revalidation,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        if (_goneSubjectCheckAfter is null)
+        {
+            if (now - _goneSubjectsCheckedAt < registration.Limits.GoneSubjectCheckInterval)
+            {
+                return 0;
+            }
+
+            _goneSubjectsCheckedAt = now;
+        }
+
+        var read = 0;
+        var closed = 0;
+        do
+        {
+            var page = await revalidation.CloseProposalsOfGoneSubjectsAsync(_goneSubjectCheckAfter, BatchSize, cancellationToken);
+            read += page.Read;
+            closed += page.Closed;
+            _goneSubjectCheckAfter = page.Next;
+        }
+        while (_goneSubjectCheckAfter is not null && read < NhAssistantLimits.MaxGoneSubjectChecksPerPass);
+
+        if (closed > 0)
+        {
+            logger.LogInformation("Assistant run maintenance closed {Count} proposals whose object no longer exists.", closed);
+        }
+        return closed;
     }
 
     /// <summary>

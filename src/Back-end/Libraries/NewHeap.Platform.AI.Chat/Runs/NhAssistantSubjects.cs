@@ -156,6 +156,23 @@ internal sealed class NhAssistantSubjectAccessService(
     }
 
     /// <summary>
+    /// Whether the subject no longer exists: its type has an access resolver of the application and
+    /// that resolver describes it as unknown. A subject of a type without a resolver, which a missing
+    /// registration may cause, and the platform's own subjects are never gone. A resolver that fails
+    /// throws, and nothing is decided about the subject.
+    /// </summary>
+    public async ValueTask<bool> IsGoneAsync(NhAiSubjectRef subject, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+        if (!_resolvers.TryGetValue(subject.Type, out var resolver) || resolver is INhAssistantPlatformSubjectResolver)
+        {
+            return false;
+        }
+
+        return await DescribeAsync(subject, cancellationToken) is null;
+    }
+
+    /// <summary>
     /// The subject as its resolver describes it, for a caller bound to <paramref name="tenantId"/>:
     /// <see langword="null"/> when it is unknown or the caller's tenant does not reach it
     /// (<see cref="NhAssistantTenancy"/>), so a subject of another tenant, and the whole application for

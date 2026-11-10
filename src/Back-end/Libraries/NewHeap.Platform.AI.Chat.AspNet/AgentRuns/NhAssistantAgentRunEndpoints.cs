@@ -923,6 +923,53 @@ internal static class NhAssistantAgentRunEndpoints
         return await ProposalResultAsync(decided, caller.Data.ActorId, runs, subjects, httpContext.RequestAborted);
     }
 
+    /// <summary>
+    /// Maps an administrator's withdrawal of a proposal into the administration group, which already
+    /// requires the admin policy.
+    /// </summary>
+    public static void MapAdmin(RouteGroupBuilder admin)
+    {
+        admin.MapPost("approvals/{approvalId:guid}/withdrawal", WithdrawAsync)
+            .WithName("NhAssistantAdminWithdrawProposal")
+            .WithSummary("Withdraw an agent proposal as an administrator")
+            .WithDescription("A last resort for a pending proposal of an agent run or consultation that nobody can decide, such as when no person matches its approval policy. reason: 1 to 500 characters, stored with the proposal and left out of the audit. No subject role or approval policy is asked; the administrator's tenant bounds the proposals they reach. The proposal becomes withdrawn with assistant-proposal-withdrawn-by-administrator, its thread's people hear of it, a run that waits for it inline continues without it, and the audit records AdminProposalWithdrawn. A proposal whose object no longer exists needs no administrator: any decision of it closes it as not applicable. 400 assistant-approval-decision-invalid for a missing or long reason or a proposal decided in a person's own chat, 404 for an unknown proposal or one of another tenant, 409 assistant-approval-not-pending or assistant-consult-asker-decides.")
+            .Produces<NhAssistantProposalDto>()
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+    }
+
+    private static async Task<IResult> WithdrawAsync(
+        Guid approvalId,
+        HttpContext httpContext,
+        NhAssistantProposalDecisions decisions,
+        NhAssistantRunStore runs,
+        NhAssistantSubjectAccessService subjects)
+    {
+        var caller = await NhAssistantEndpointRouteBuilderExtensions.ResolveCallerAsync(httpContext);
+        if (!caller.Success)
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.ContextUnavailable();
+        }
+        var request = await NhAssistantEndpointRouteBuilderExtensions.ReadBodyAsync(
+            httpContext,
+            NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantProposalWithdrawalRequest);
+        if (request is null)
+        {
+            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.ApprovalDecisionInvalid);
+        }
+
+        var withdrawn = await decisions.WithdrawAsync(
+            approvalId,
+            caller.Data!.ActorId,
+            httpContext.User,
+            request.Reason,
+            httpContext.RequestAborted,
+            caller.Data.TenantId);
+        return await ProposalResultAsync(withdrawn, caller.Data.ActorId, runs, subjects, httpContext.RequestAborted);
+    }
+
     private static async Task<IResult> DecideManyAsync(
         HttpContext httpContext,
         NhAssistantProposalDecisions decisions)

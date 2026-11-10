@@ -1099,6 +1099,13 @@ public sealed record NhAssistantProposalDecisionRequest(
     string? ExpectedProposalHash,
     string? Reason);
 
+/// <summary>
+/// An administrator's withdrawal of a proposal (<c>POST admin/approvals/{approvalId}/withdrawal</c>).
+/// </summary>
+/// <param name="Reason">Why the proposal is withdrawn, 1 to 500 characters; stored with the proposal and
+/// left out of the audit.</param>
+public sealed record NhAssistantProposalWithdrawalRequest(string? Reason);
+
 public sealed record NhAssistantBulkDecisionRequest(
     IReadOnlyList<Guid>? ApprovalIds,
     string? Decision,
@@ -1300,6 +1307,7 @@ public sealed record NhAssistantResolveExecutionRequest(
 [JsonSerializable(typeof(NhAssistantInboxVisitDto))]
 [JsonSerializable(typeof(NhAssistantInboxSummaryDto))]
 [JsonSerializable(typeof(NhAssistantProposalDecisionRequest))]
+[JsonSerializable(typeof(NhAssistantProposalWithdrawalRequest))]
 [JsonSerializable(typeof(NhAssistantBulkDecisionRequest))]
 [JsonSerializable(typeof(NhAssistantBulkDecisionDto))]
 [JsonSerializable(typeof(NhAssistantBulkDecisionOverviewRequest))]

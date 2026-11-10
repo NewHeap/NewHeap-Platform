@@ -2147,6 +2147,36 @@ carry `staleByActorId` and `staleByDisplayName`, and every proposal carries the 
 guards named as `objects` (`NhAssistantProposalObjectDto`), so clients group proposals by object
 without parsing `targets`. A guard that only names keys and returns `Satisfied` is enough.
 
+Let a proposal whose object is gone close on its own. When the subject's access resolver describes
+the subject as unknown (`DescribeAsync` returns `null`), nobody has a role on it and nobody could
+decide its proposals. The platform then closes them as `stale` with `not-applicable` and
+`assistant-proposal-subject-gone`: on any decision, which answers `409 assistant-proposal-stale`
+for whoever may see the proposal, on `RevalidateSubjectAsync` and `RevalidateKeysAsync` whatever
+the guards say, and in the run maintenance, which looks once per
+`NhAssistantLimits.GoneSubjectCheckInterval` (an hour by default, `TimeSpan.Zero` at every pass)
+and reads at most `MaxGoneSubjectChecksPerPass` proposals per pass. So return `null` from
+`DescribeAsync` only for a subject that does not exist, whoever asks, and throw when you cannot
+tell: a resolver that throws keeps the proposals open and is logged without content. Subjects of
+a type without a resolver and the platform's own subjects are never treated as gone. The
+application's own deletion should still forget the subject (`INhAiSubjectRetention`); code
+that removes records without it, such as an import, calls `RevalidateSubjectAsync` for each removed
+subject to close its proposals at once instead of within the hour. Do not write a job that reads the
+assistant's tables to find such proposals: `INhAssistantOpenProposals.ListAsync` lists the open
+proposals of agent runs and consultations without their content, filtered by subject type, subject
+and scope key, in pages of at most 200 in the order they were made, with an opaque continuation
+token; it checks no person, so the application decides who may learn about them (SPM-282).
+
+Withdraw as an administrator only as a last resort. When nobody can decide a proposal, such as when
+its project's only approver left, an administrator of the assistant (its admin policy) withdraws it
+with `POST admin/approvals/{approvalId}/withdrawal` and a reason of 1 to 500 characters, or from the
+application's code with `INhAssistantProposalWithdrawal.WithdrawAsync`. No subject role or approval
+policy is asked, the administrator's tenant bounds what they reach, and only a pending proposal of
+an agent run or consultation is withdrawn, once. It becomes `withdrawn` with
+`assistant-proposal-withdrawn-by-administrator`, the administrator and the reason; a run that waits
+for it inline continues without it, the asker of a consultation is told, and the audit records
+`AdminProposalWithdrawn` without the reason. Prefer a decision or revalidation whenever one works:
+a proposal whose object is gone needs no administrator.
+
 Keep agents from repeating themselves. Before a proposal of an agent run or a consultation is
 recorded, the platform compares it with the same agent's proposals under the thread's scope key.
 An identical proposal (the same tool and canonical arguments) that still waits or executes is

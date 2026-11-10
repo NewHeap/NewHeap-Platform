@@ -353,6 +353,13 @@ internal sealed class NhAssistantProposalDecisions(
             return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ApprovalExpired, "The proposal expired.");
         }
 
+        // An object that no longer exists gives nobody a role, so nobody could approve or reject the
+        // proposal: it closes as not applicable instead of waiting for its expiry.
+        if (await CloseIfSubjectGoneAsync(approval, thread, actorId, cancellationToken) is { } gone)
+        {
+            return gone;
+        }
+
         var check = await approvers.CheckAsync(approval, thread, actorId, user, cancellationToken);
         if (!check.Success)
         {
@@ -424,6 +431,120 @@ internal sealed class NhAssistantProposalDecisions(
             approval.RunId,
             cancellationToken);
         return TaskResult<AssistantApproval>.Succeeded(approval);
+    }
+
+    /// <summary>
+    /// The most characters of an administrator's reason for withdrawing a proposal, as of a decision's.
+    /// </summary>
+    public const int MaxWithdrawalReasonLength = 500;
+
+    /// <summary>
+    /// Withdraws a pending proposal of an agent run or consultation for an administrator of the
+    /// assistant, as a last resort when nobody can decide it, such as when no person matches its approval
+    /// policy. The person must pass the assistant's admin policy; their tenant bounds the proposals they
+    /// reach, as for a decision, but no subject role or approval policy is asked. A proposal that a person
+    /// decides in a conversation is refused as there. Everything that follows a rejection follows: the
+    /// people of the thread hear of it, a run that waits for it inline continues without it, and the asker
+    /// of a consultation is told; the audit records <see cref="NhAssistantAuditEventKind.AdminProposalWithdrawn"/>
+    /// without the reason, which is stored with the proposal.
+    /// </summary>
+    public async Task<TaskResult<AssistantApproval>> WithdrawAsync(
+        Guid approvalId,
+        string actorId,
+        ClaimsPrincipal user,
+        string? reason,
+        CancellationToken cancellationToken,
+        string? tenantId = null)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+        if (!await IsAdministratorAsync(user))
+        {
+            return TaskResult<AssistantApproval>.Failed(
+                NhAssistantErrorCodes.ApprovalPolicyDenied,
+                "Only an administrator of the assistant withdraws a proposal.");
+        }
+
+        var trimmed = reason?.Trim();
+        if (string.IsNullOrEmpty(trimmed) || trimmed.Length > MaxWithdrawalReasonLength)
+        {
+            return TaskResult<AssistantApproval>.Failed(
+                NhAssistantErrorCodes.ApprovalDecisionInvalid,
+                $"Say why the proposal is withdrawn, in at most {MaxWithdrawalReasonLength} characters.");
+        }
+
+        var approval = await store.FindApprovalAsync(approvalId, cancellationToken);
+        var thread = approval is null ? null : await runs.FindThreadByConversationAsync(approval.ConversationId, cancellationToken);
+        if (approval is null || thread is null || !tenancy.Reaches(thread, tenantId))
+        {
+            return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ApprovalNotFound, "The proposal was not found.");
+        }
+        if (approval.Status != NhAssistantApprovalStatuses.Pending)
+        {
+            return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ApprovalNotPending, "The proposal is no longer pending.");
+        }
+        if (approval.Mode == NhAssistantApprovalModes.Inline && approval.RunId is null)
+        {
+            return TaskResult<AssistantApproval>.Failed(
+                approval.ConsultationId is null ? NhAssistantErrorCodes.ApprovalDecisionInvalid : NhAssistantErrorCodes.ConsultAskerDecides,
+                "Decide this proposal in the conversation.");
+        }
+
+        var withdrawn = await invalidation.WithdrawByAdministratorAsync(approval, thread, actorId, trimmed, CancellationToken.None);
+        if (withdrawn is null)
+        {
+            return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ApprovalNotPending, "The proposal is no longer pending.");
+        }
+        if (withdrawn.Mode == NhAssistantApprovalModes.Deferred)
+        {
+            await services.GetRequiredService<NhAssistantAgentNotifier>().ConsultationProposalEndedAsync(thread, withdrawn, CancellationToken.None);
+        }
+
+        return TaskResult<AssistantApproval>.Succeeded(withdrawn);
+    }
+
+    private async Task<bool> IsAdministratorAsync(ClaimsPrincipal user)
+    {
+        var policy = NhAssistantEndpointOptions.ResolveAdminPolicy(
+            registration,
+            services.GetRequiredService<IOptionsMonitor<NhAssistantOptions>>().CurrentValue);
+        var authorization = services.GetRequiredService<IAuthorizationService>();
+        return (await authorization.AuthorizeAsync(user, policy)).Succeeded;
+    }
+
+    /// <summary>
+    /// Closes the proposal as not applicable when its object no longer exists, for the person who may
+    /// see it, whether they approve or reject: the proposal is refused with
+    /// <see cref="NhAssistantErrorCodes.ProposalStale"/> and records
+    /// <see cref="NhAssistantErrorCodes.ProposalSubjectGone"/>, as a revalidation would close it.
+    /// </summary>
+    private async Task<TaskResult<AssistantApproval>?> CloseIfSubjectGoneAsync(
+        AssistantApproval approval,
+        AssistantThread thread,
+        string actorId,
+        CancellationToken cancellationToken)
+    {
+        if (!await IsSubjectGoneAsync(thread, cancellationToken))
+        {
+            return null;
+        }
+
+        await invalidation.CloseAsync(
+            approval,
+            thread,
+            thread.AgentId,
+            NhAssistantProposalInvalidation.SubjectGone,
+            NhAssistantInvalidationStages.Decision,
+            [NhAssistantApprovalStatuses.Pending],
+            actorId,
+            CancellationToken.None);
+        return TaskResult<AssistantApproval>.Failed(NhAssistantErrorCodes.ProposalStale, "The object of the proposal no longer exists.");
+    }
+
+    private ValueTask<bool> IsSubjectGoneAsync(AssistantThread thread, CancellationToken cancellationToken)
+    {
+        return services.GetRequiredService<NhAssistantSubjectAccessService>().IsGoneAsync(
+            new NhAiSubjectRef(thread.SubjectType, thread.SubjectId),
+            cancellationToken);
     }
 
     /// <summary>
@@ -605,6 +726,11 @@ internal sealed class NhAssistantProposalDecisions(
         if (approval.ExpiresAt <= now)
         {
             return NhAssistantErrorCodes.ApprovalExpired;
+        }
+        // A decision would close a proposal whose object no longer exists and refuse it as stale.
+        if (await IsSubjectGoneAsync(thread, cancellationToken))
+        {
+            return NhAssistantErrorCodes.ProposalStale;
         }
 
         var check = await approvers.CheckAsync(approval, thread, actorId, user, cancellationToken);

@@ -5,6 +5,11 @@ namespace NewHeap.Platform.AI.Chat;
 /// hand. It runs the proposal guards registered with <c>AddProposalGuard</c> for the open proposals
 /// of agent runs and consultations; a guard that reports stale closes its proposal live, with its
 /// explanation. Call it after the application's change committed. Repeating a call changes nothing.
+/// A proposal whose object no longer exists, because the subject's access resolver describes it as
+/// unknown, closes as not applicable with <c>assistant-proposal-subject-gone</c> whether or not a guard
+/// checks its tool; call <see cref="RevalidateSubjectAsync"/> after removing a record whose agent work
+/// should not be forgotten. The run maintenance does the same once per
+/// <see cref="NhAssistantLimits.GoneSubjectCheckInterval"/> for records removed without the application.
 /// </summary>
 public interface INhAssistantProposalRevalidation
 {

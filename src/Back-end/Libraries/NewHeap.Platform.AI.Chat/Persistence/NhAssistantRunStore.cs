@@ -2762,6 +2762,61 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
     }
 
     /// <summary>
+    /// One page of the pending proposals of agent runs and consultations with their thread, in the
+    /// order of <c>(CreatedAt, Id)</c>, after the proposal <paramref name="after"/>, optionally only
+    /// those whose thread is about a subject of <paramref name="subjectType"/>, about the subject
+    /// <paramref name="subjectId"/> of that type, or in <paramref name="scopeKey"/>. Shadow proposals
+    /// and those of a person's own turn are left out. The
+    /// order is by time and id, never by subject id, so paging behaves the same on every provider,
+    /// whatever the collation compares in the subject's id. The condition keeps a range on
+    /// <c>CreatedAt</c>, and the id only decides between proposals made at the cursor's time.
+    /// </summary>
+    public async Task<IReadOnlyList<NhAssistantOpenProposalRow>> GetOpenProposalPageAsync(
+        string? subjectType,
+        string? subjectId,
+        string? scopeKey,
+        (DateTimeOffset CreatedAt, Guid Id)? after,
+        int maximum,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var approvals = OpenAgentProposals(context);
+        if (after is { } cursor)
+        {
+            var createdAt = cursor.CreatedAt;
+            var id = cursor.Id;
+            approvals = approvals.Where(approval => approval.CreatedAt >= createdAt
+                && (approval.CreatedAt > createdAt || approval.Id > id));
+        }
+
+        var threads = context.Threads.AsNoTracking();
+        if (subjectType is not null)
+        {
+            threads = threads.Where(thread => thread.SubjectType == subjectType);
+        }
+        if (subjectId is not null)
+        {
+            threads = threads.Where(thread => thread.SubjectId == subjectId);
+        }
+        if (scopeKey is not null)
+        {
+            threads = threads.Where(thread => thread.ScopeKey == scopeKey);
+        }
+
+        var rows = await approvals
+            .Join(
+                threads,
+                approval => approval.ConversationId,
+                thread => thread.ConversationId,
+                (approval, thread) => new { Approval = approval, Thread = thread })
+            .OrderBy(row => row.Approval.CreatedAt)
+            .ThenBy(row => row.Approval.Id)
+            .Take(maximum)
+            .ToListAsync(cancellationToken);
+        return rows.Select(row => new NhAssistantOpenProposalRow(row.Approval, row.Thread)).ToArray();
+    }
+
+    /// <summary>
     /// Whether an agent run or consultation has an open proposal about the subject, so a
     /// revalidation for it is worth queuing.
     /// </summary>

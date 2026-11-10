@@ -868,6 +868,116 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task Proposals_on_projects_removed_without_the_application_close_when_decided_or_imported()
+    {
+        // SPM-282: a project that no longer exists gives nobody a role, so its proposals close instead of
+        // waiting for their expiry.
+        var decided = await host.CreateProjectAsync("GONE-DECIDED", ownerId: host.OwnerId);
+        var imported = await host.CreateProjectAsync("GONE-IMPORTED", ownerId: host.OwnerId);
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        var proposals = new List<NhAssistantProposalDto>();
+        foreach (var project in new[] { decided, imported })
+        {
+            await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+            var receipt = Assert.Single(await host.PublishProjectCreatedAsync(project, createdBy: host.OwnerId));
+            proposals.Add(await WaitForProposalAsync(colleague, receipt.ConversationId!.Value, NhAssistantApprovalStatuses.Pending, ProjectAiTools.ChangeStatusToolId));
+        }
+
+        // Something removes the first project straight in the database, without the application's
+        // deletion that forgets its agent threads. The colleague rejects its proposal: the platform
+        // closes it as not applicable instead of refusing the colleague, who no longer has a role.
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<SampleProjectManagementDbContext>().Projects
+                .Where(project => project.Id == decided)
+                .ExecuteDeleteAsync();
+        }
+        var rejected = await DecideAsync(colleague, proposals[0], "reject");
+        Assert.Equal(HttpStatusCode.Conflict, rejected.StatusCode);
+        Assert.Contains(NhAssistantErrorCodes.ProposalStale, await rejected.Content.ReadAsStringAsync());
+        var closedAtDecision = Assert.Single(
+            host.Services.GetRequiredService<SampleAssistantAuditLog>().Events,
+            evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalInvalidated && evt.ApprovalId == proposals[0].ApprovalId);
+        Assert.Equal(NhAssistantInvalidationStages.Decision, closedAtDecision.ObjectId);
+        Assert.Equal($"{NhAssistantStaleKinds.NotApplicable}:{NhAssistantErrorCodes.ProposalSubjectGone}", closedAtDecision.ResultCode);
+        Assert.DoesNotContain(await ListOpenProposalsAsync(decided), item => item.ApprovalId == proposals[0].ApprovalId);
+
+        // The import removes the second project and closes what waited on it at once, through the
+        // platform's list of open proposals and its revalidation, without reading the assistant's tables.
+        int closedByImport;
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            closedByImport = await scope.ServiceProvider.GetRequiredService<SampleProjectImport>()
+                .RemoveAsync([imported], CancellationToken.None);
+        }
+        Assert.True(closedByImport >= 1);
+        var closedAtImport = Assert.Single(
+            host.Services.GetRequiredService<SampleAssistantAuditLog>().Events,
+            evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalInvalidated && evt.ApprovalId == proposals[1].ApprovalId);
+        Assert.Equal(NhAssistantInvalidationStages.Revalidation, closedAtImport.ObjectId);
+        Assert.Equal($"{NhAssistantStaleKinds.NotApplicable}:{NhAssistantErrorCodes.ProposalSubjectGone}", closedAtImport.ResultCode);
+        Assert.Empty(await ListOpenProposalsAsync(imported));
+        Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == decided || change.ProjectId == imported);
+    }
+
+    [Fact]
+    public async Task An_administrator_withdraws_a_proposal_that_nobody_can_decide()
+    {
+        // SPM-282: the last resort when no person may decide a proposal, here after its only approver
+        // left the project.
+        var project = await host.CreateProjectAsync("NO-APPROVER", ownerId: host.OwnerId);
+        var membership = await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        var receipt = Assert.Single(await host.PublishProjectCreatedAsync(project, createdBy: host.OwnerId));
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        var proposal = await WaitForProposalAsync(colleague, receipt.ConversationId!.Value, NhAssistantApprovalStatuses.Pending, ProjectAiTools.ChangeStatusToolId);
+        await host.RemoveMemberAsync(membership);
+
+        // Only an administrator of the assistant withdraws, with a reason.
+        var request = new NhAssistantProposalWithdrawalRequest("The project has no approver until the team is complete.");
+        using (var owner = host.CreateClient(host.OwnerId.ToString()))
+        {
+            var refused = await owner.PostAsJsonAsync($"/api/assistant/admin/approvals/{proposal.ApprovalId}/withdrawal", request, Json);
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+        }
+        using var administrator = host.CreateClient("spm-282-admin", admin: true);
+        var withoutReason = await administrator.PostAsJsonAsync(
+            $"/api/assistant/admin/approvals/{proposal.ApprovalId}/withdrawal",
+            new NhAssistantProposalWithdrawalRequest(null),
+            Json);
+        Assert.Equal(HttpStatusCode.BadRequest, withoutReason.StatusCode);
+
+        var withdrawn = await administrator.PostAsJsonAsync($"/api/assistant/admin/approvals/{proposal.ApprovalId}/withdrawal", request, Json);
+
+        Assert.Equal(HttpStatusCode.OK, withdrawn.StatusCode);
+        var dto = (await withdrawn.Content.ReadFromJsonAsync<NhAssistantProposalDto>(Json))!;
+        Assert.Equal(NhAssistantApprovalStatuses.Withdrawn, dto.Status);
+        Assert.Equal(NhAssistantErrorCodes.ProposalWithdrawnByAdministrator, dto.ExecutionResultCode);
+        Assert.Equal("spm-282-admin", dto.DecidedByActorId);
+        Assert.DoesNotContain(await ListOpenProposalsAsync(project), item => item.ApprovalId == proposal.ApprovalId);
+        var audit = Assert.Single(
+            host.Services.GetRequiredService<SampleAssistantAuditLog>().Events,
+            evt => evt.Kind == NhAssistantAuditEventKind.AdminProposalWithdrawn && evt.ApprovalId == proposal.ApprovalId);
+        Assert.Equal("spm-282-admin", audit.ActorId);
+        Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == project);
+
+        // A withdrawn proposal is not withdrawn again.
+        var again = await administrator.PostAsJsonAsync($"/api/assistant/admin/approvals/{proposal.ApprovalId}/withdrawal", request, Json);
+        Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
+    }
+
+    /// <summary>
+    /// The proposals that still wait on a project, as the application's code reads them without their
+    /// content through <see cref="INhAssistantOpenProposals"/>.
+    /// </summary>
+    private async Task<IReadOnlyList<NhAssistantOpenProposal>> ListOpenProposalsAsync(Guid projectId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var page = await scope.ServiceProvider.GetRequiredService<INhAssistantOpenProposals>().ListAsync(
+            new NhAssistantOpenProposalQuery { Subject = ProjectSubjects.For(projectId), Limit = NhAssistantOpenProposalQuery.MaxLimit });
+        return page.Items;
+    }
+
+    [Fact]
     public async Task SPM_391_the_intake_reviewer_tries_completing_tasks_in_shadow_and_runs_them_without_approval_once_live()
     {
         // SPM-391: completing a task allows running without approval in code; an administrator switches it
@@ -7169,6 +7279,8 @@ public class AssistantAgentRunSampleHost(SamplePostgreSqlServer postgreSql) : As
         services.AddScoped<SampleAgentMaintenanceService>();
         // SPM-326: the maintenance page finds the intake review an event started.
         services.AddScoped<SampleIntakeReviewLookup>();
+        // SPM-282: the import that removes projects without the application's deletion, as in Program.cs.
+        services.AddScoped<SampleProjectImport>();
         services.AddScoped<SampleAgentConfigurationService>();
         // SPM-268: approvers answer proposals with a messaging reply, delivered to POST approval-replies.
         services.AddScoped<SampleApprovalReplyChannel>();

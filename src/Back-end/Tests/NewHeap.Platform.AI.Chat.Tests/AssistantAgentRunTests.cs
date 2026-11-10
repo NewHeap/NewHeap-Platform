@@ -612,6 +612,17 @@ public sealed class TestSubjects
     /// The subject every test project belongs to, when a test names one.
     /// </summary>
     public NhAiSubjectParent? Parent { get; set; }
+
+    /// <summary>
+    /// The ids of projects that no longer exist: the resolver describes them as unknown and gives
+    /// nobody a role on them.
+    /// </summary>
+    public ConcurrentDictionary<string, bool> Gone { get; } = new();
+
+    /// <summary>
+    /// The ids of projects whose description fails, as a database that is down would.
+    /// </summary>
+    public ConcurrentDictionary<string, bool> Failing { get; } = new();
 }
 
 public sealed class TestSubjectResolver(TestSubjects subjects) : INhAiSubjectAccessResolver
@@ -620,6 +631,15 @@ public sealed class TestSubjectResolver(TestSubjects subjects) : INhAiSubjectAcc
 
     public ValueTask<NhAiSubjectInfo?> DescribeAsync(NhAiSubjectRef subject, CancellationToken cancellationToken = default)
     {
+        if (subjects.Failing.ContainsKey(subject.Id))
+        {
+            throw new InvalidOperationException("The project could not be read.");
+        }
+        if (subjects.Gone.ContainsKey(subject.Id))
+        {
+            return ValueTask.FromResult<NhAiSubjectInfo?>(null);
+        }
+
         return ValueTask.FromResult<NhAiSubjectInfo?>(new NhAiSubjectInfo(subject, NhAiSubjectInfo.CreateScopeKey(null, null))
         {
             Version = subjects.Version,
@@ -630,6 +650,11 @@ public sealed class TestSubjectResolver(TestSubjects subjects) : INhAiSubjectAcc
 
     public ValueTask<NhAiSubjectAccess> ResolveAsync(NhAiSubjectRef subject, string actorId, CancellationToken cancellationToken = default)
     {
+        if (subjects.Gone.ContainsKey(subject.Id))
+        {
+            return ValueTask.FromResult(NhAiSubjectAccess.None);
+        }
+
         return ValueTask.FromResult(subjects.Roles.TryGetValue(actorId, out var role)
             ? new NhAiSubjectAccess(role)
             : NhAiSubjectAccess.None);

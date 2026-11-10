@@ -437,6 +437,8 @@ builder.Services.AddScoped<OperationsSampleService>();
 builder.Services.AddScoped<SampleAgentMaintenanceService>();
 // SPM-326: the intake review a project's creation started, for the maintenance page.
 builder.Services.AddScoped<SampleIntakeReviewLookup>();
+// SPM-282: an import that removes projects without the application's deletion closes their proposals.
+builder.Services.AddScoped<SampleProjectImport>();
 builder.Services.AddScoped<SampleAgentConfigurationService>();
 builder.Services.AddScoped<SampleInstructionAssetService>();
 // SPM-329 and SPM-330: agents read as in effect, changed from code and a shadow variant promoted.

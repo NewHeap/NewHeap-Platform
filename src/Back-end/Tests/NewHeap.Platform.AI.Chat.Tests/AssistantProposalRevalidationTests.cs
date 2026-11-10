@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Entities;
@@ -545,17 +546,207 @@ public sealed class AssistantProposalRevalidationTests(AssistantDatabaseFixture 
         Assert.Equal(NhAssistantApprovalStatuses.Executed, (await FindAsync(host, approval.Id)).Status);
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task A_proposal_whose_object_no_longer_exists_closes_on_any_decision_and_at_revalidation(AssistantTestProvider provider)
+    {
+        var rejectedProject = Guid.NewGuid();
+        var revalidatedProject = Guid.NewGuid();
+        var model = ProposeStatus(rejectedProject, "Active")
+            .RespondWithFunctionCall(ChangeStatusFunction, new { input = new { projectId = revalidatedProject, status = "Active" } }, "call-2")
+            .RespondWithText("I proposed a status.");
+        await using var host = await CreateHostAsync(provider, model);
+        var first = await StartRunAsync(host, rejectedProject);
+        await RunTurnAsync(host, first, "Project PRJ-1 was created.");
+        var rejected = Assert.Single(await RunStore(host).GetRunApprovalsAsync(first.Run.Id, CancellationToken.None));
+        var second = await StartRunAsync(host, revalidatedProject);
+        await RunTurnAsync(host, second, "Project PRJ-2 was created.");
+        var revalidated = Assert.Single(await RunStore(host).GetRunApprovalsAsync(second.Run.Id, CancellationToken.None));
+
+        // The project is removed without the application's own deletion, so nobody has a role on it.
+        // Before, even a rejection was refused, and the proposal waited for its expiry.
+        Subjects(host).Gone[rejectedProject.ToString()] = true;
+        var refused = await DecideAsync(host, rejected.Id, approve: false);
+
+        Assert.Equal(NhAssistantErrorCodes.ProposalStale, Code(refused));
+        var closed = await FindAsync(host, rejected.Id);
+        Assert.Equal(NhAssistantApprovalStatuses.Stale, closed.Status);
+        Assert.Equal(NhAssistantStaleKinds.NotApplicable, closed.StaleKind);
+        Assert.Equal(NhAssistantErrorCodes.ProposalSubjectGone, closed.ExecutionResultCode);
+        Assert.Null(closed.DecidedByActorId);
+        Assert.Equal("The object of this proposal no longer exists.", NhAssistantStaleExplanations.Pick(closed.StaleExplanationsJson, CultureInfo.GetCultureInfo("en-GB")));
+        Assert.Equal("Het object van dit voorstel bestaat niet meer.", NhAssistantStaleExplanations.Pick(closed.StaleExplanationsJson, CultureInfo.GetCultureInfo("nl-NL")));
+        var audit = Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalInvalidated);
+        Assert.Equal(NhAssistantInvalidationStages.Decision, audit.ObjectId);
+        Assert.Equal(Approver, audit.ActorId);
+        Assert.Equal($"{NhAssistantStaleKinds.NotApplicable}:{NhAssistantErrorCodes.ProposalSubjectGone}", audit.ResultCode);
+        Assert.DoesNotContain(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.ApprovalRejected);
+
+        // The application revalidates a removed project's proposals: they close whatever their guards
+        // would say, and a project whose resolver fails keeps its proposals.
+        Subjects(host).Failing[revalidatedProject.ToString()] = true;
+        var failing = await RevalidateSubjectAsync(host, revalidatedProject);
+        Assert.Empty(failing.Invalidated);
+        Assert.Equal(NhAssistantApprovalStatuses.Pending, (await FindAsync(host, revalidated.Id)).Status);
+        Subjects(host).Failing.Clear();
+        Subjects(host).Gone[revalidatedProject.ToString()] = true;
+        var gone = await RevalidateSubjectAsync(host, revalidatedProject);
+
+        var invalidated = Assert.Single(gone.Invalidated);
+        Assert.Equal(revalidated.Id, invalidated.ApprovalId);
+        Assert.Equal(NhAssistantStaleKinds.NotApplicable, invalidated.Kind);
+        Assert.Equal(NhAssistantErrorCodes.ProposalSubjectGone, invalidated.ReasonCode);
+        Assert.Equal(0, gone.Checked);
+        Assert.Empty(host.Tools.StatusChanges);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task The_maintenance_closes_proposals_whose_object_no_longer_exists_and_the_open_list_shows_the_rest(AssistantTestProvider provider)
+    {
+        var goneProject = Guid.NewGuid();
+        var keptProject = Guid.NewGuid();
+        var model = ProposeStatus(goneProject, "Active")
+            .RespondWithFunctionCall(ChangeStatusFunction, new { input = new { projectId = keptProject, status = "Active" } }, "call-2")
+            .RespondWithText("I proposed a status.");
+        await using var host = await CreateHostAsync(provider, model, limits: limits => limits.GoneSubjectCheckInterval = TimeSpan.Zero);
+        var first = await StartRunAsync(host, goneProject);
+        await RunTurnAsync(host, first, "Project PRJ-1 was created.");
+        var goneProposal = Assert.Single(await RunStore(host).GetRunApprovalsAsync(first.Run.Id, CancellationToken.None));
+        var second = await StartRunAsync(host, keptProject);
+        await RunTurnAsync(host, second, "Project PRJ-2 was created.");
+        var keptProposal = Assert.Single(await RunStore(host).GetRunApprovalsAsync(second.Run.Id, CancellationToken.None));
+
+        // The open proposals, without content, page by page in the order they were made.
+        var ours = new HashSet<Guid> { goneProposal.Id, keptProposal.Id };
+        var listed = new List<NhAssistantOpenProposal>();
+        string? token = null;
+        do
+        {
+            var page = await ListOpenAsync(host, new NhAssistantOpenProposalQuery { SubjectType = "project", Limit = 1, ContinuationToken = token });
+            Assert.True(page.Items.Count <= 1);
+            listed.AddRange(page.Items.Where(item => ours.Contains(item.ApprovalId)));
+            token = page.ContinuationToken;
+        }
+        while (token is not null);
+        Assert.Equal([goneProposal.Id, keptProposal.Id], listed.Select(item => item.ApprovalId));
+        Assert.Equal(new NhAiSubjectRef("project", goneProject.ToString()), listed[0].Subject);
+        Assert.Equal(AgentId, listed[0].AgentId);
+        Assert.Equal(goneProposal.ToolId, listed[0].ToolId);
+        Assert.Equal(first.Thread.ScopeKey, listed[0].ScopeKey);
+        var bySubject = await ListOpenAsync(host, new NhAssistantOpenProposalQuery { Subject = new NhAiSubjectRef("project", keptProject.ToString()) });
+        Assert.Equal(keptProposal.Id, Assert.Single(bySubject.Items).ApprovalId);
+        Assert.Null(bySubject.ContinuationToken);
+        Assert.Empty((await ListOpenAsync(host, new NhAssistantOpenProposalQuery { Subject = new NhAiSubjectRef("project", keptProject.ToString()), ScopeKey = NhAiSubjectInfo.CreateScopeKey(null, Guid.NewGuid()) })).Items);
+        await Assert.ThrowsAsync<ArgumentException>(() => ListOpenAsync(host, new NhAssistantOpenProposalQuery { ContinuationToken = "not-a-token" }));
+        await Assert.ThrowsAsync<ArgumentException>(() => ListOpenAsync(host, new NhAssistantOpenProposalQuery { Limit = NhAssistantOpenProposalQuery.MaxLimit + 1 }));
+
+        // The project is removed without the application; the next maintenance pass closes its proposal.
+        Subjects(host).Gone[goneProject.ToString()] = true;
+        var maintenance = host.Services.GetServices<IHostedService>().OfType<NhAssistantRunMaintenance>().Single();
+        await maintenance.RunOnceAsync();
+
+        var closed = await FindAsync(host, goneProposal.Id);
+        Assert.Equal(NhAssistantApprovalStatuses.Stale, closed.Status);
+        Assert.Equal(NhAssistantErrorCodes.ProposalSubjectGone, closed.ExecutionResultCode);
+        Assert.Equal(NhAssistantApprovalStatuses.Pending, (await FindAsync(host, keptProposal.Id)).Status);
+        var audit = Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalInvalidated);
+        Assert.Equal(goneProposal.Id, audit.ApprovalId);
+        Assert.Equal(NhAssistantInvalidationStages.Revalidation, audit.ObjectId);
+        Assert.Equal(NhAssistantProposalInvalidation.SystemActorId, audit.ActorId);
+        var remaining = await ListOpenAsync(host, new NhAssistantOpenProposalQuery { SubjectType = "project" });
+        Assert.DoesNotContain(remaining.Items, item => item.ApprovalId == goneProposal.Id);
+        Assert.Contains(remaining.Items, item => item.ApprovalId == keptProposal.Id);
+
+        // Another pass finds nothing more to close.
+        await maintenance.RunOnceAsync();
+        Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AgentProposalInvalidated);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task An_administrator_withdraws_a_proposal_nobody_can_decide_and_its_waiting_run_is_woken(AssistantTestProvider provider)
+    {
+        var projectId = Guid.NewGuid();
+        await using var host = await CreateHostAsync(provider, ProposeStatus(projectId, "Active"), NhAiApprovalMode.Inline);
+        var run = await StartRunAsync(host, projectId);
+        var waiting = await RunTurnAsync(host, run, "Project PRJ-1 was created.");
+        var approvalId = waiting.PendingApprovalId!.Value;
+        // Nobody has the approver role any longer, so nobody can decide the proposal.
+        Subjects(host).Roles.TryRemove(Approver, out _);
+        Assert.Equal(NhAssistantErrorCodes.ApprovalPolicyDenied, Code(await DecideAsync(host, approvalId, approve: false)));
+
+        var outsider = new NhAssistantDecidingPerson(new ClaimsPrincipal(new ClaimsIdentity()), "outsider-1", null);
+        Assert.Equal(NhAssistantErrorCodes.ApprovalPolicyDenied, Code(await WithdrawAsync(host, outsider, approvalId, "Nobody can decide it.")));
+        var administrator = new NhAssistantDecidingPerson(
+            new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "admin-1")], "test")),
+            "admin-1",
+            null);
+        Assert.Equal(NhAssistantErrorCodes.ApprovalDecisionInvalid, Code(await WithdrawAsync(host, administrator, approvalId, " ")));
+        Assert.Equal(NhAssistantErrorCodes.ApprovalNotFound, Code(await WithdrawAsync(host, administrator, Guid.NewGuid(), "Nobody can decide it.")));
+        Assert.Equal(NhAssistantApprovalStatuses.Pending, (await FindAsync(host, approvalId)).Status);
+
+        var withdrawn = await WithdrawAsync(host, administrator, approvalId, "  Nobody can decide it.  ");
+
+        Assert.True(withdrawn.Success);
+        Assert.Equal(NhAssistantApprovalStatuses.Withdrawn, withdrawn.Data!.Status);
+        Assert.NotNull(withdrawn.Data.WithdrawnAt);
+        var stored = await FindAsync(host, approvalId);
+        Assert.Equal(NhAssistantApprovalStatuses.Withdrawn, stored.Status);
+        Assert.Equal("admin-1", stored.DecidedByActorId);
+        Assert.Equal("Nobody can decide it.", stored.Reason);
+        Assert.Equal(NhAssistantErrorCodes.ProposalWithdrawnByAdministrator, stored.ExecutionResultCode);
+        Assert.Equal(approvalId, Assert.Single(host.Services.GetRequiredService<RecordingWaker>().Woken));
+        var audit = Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AdminProposalWithdrawn);
+        Assert.Equal(approvalId, audit.ApprovalId);
+        Assert.Equal("admin-1", audit.ActorId);
+        Assert.Equal(NhAssistantErrorCodes.ProposalWithdrawnByAdministrator, audit.ResultCode);
+        Assert.DoesNotContain("Nobody can decide", JsonSerializer.Serialize(audit));
+        Assert.Empty(host.Tools.StatusChanges);
+
+        // Only a waiting proposal is withdrawn, once.
+        Assert.Equal(NhAssistantErrorCodes.ApprovalNotPending, Code(await WithdrawAsync(host, administrator, approvalId, "Again.")));
+        Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.AdminProposalWithdrawn);
+    }
+
+    private static async Task<NhAssistantOpenProposalPage> ListOpenAsync(AssistantTestHost host, NhAssistantOpenProposalQuery query)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<INhAssistantOpenProposals>().ListAsync(query);
+    }
+
+    private static async Task<TaskResult<NhAssistantProposalWithdrawalResult>> WithdrawAsync(
+        AssistantTestHost host,
+        NhAssistantDecidingPerson person,
+        Guid approvalId,
+        string reason)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<INhAssistantProposalWithdrawal>()
+            .WithdrawAsync(person, approvalId, reason);
+    }
+
+    private static TestSubjects Subjects(AssistantTestHost host)
+    {
+        return host.Services.GetRequiredService<TestSubjects>();
+    }
+
     private async Task<AssistantTestHost> CreateHostAsync(
         AssistantTestProvider provider,
         NhAiScriptedChatClient model,
         NhAiApprovalMode mode = NhAiApprovalMode.Deferred,
         NhAiProposalGuardStages stages = NhAiProposalGuardStages.All,
-        bool recordPolicies = false)
+        bool recordPolicies = false,
+        Action<NhAssistantLimits>? limits = null)
     {
         return await AssistantTestHost.CreateAsync(
             database,
             provider,
             model,
+            limits: limits,
             configure: services =>
             {
                 services.AddSingleton(new TestSubjects());

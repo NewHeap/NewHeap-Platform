@@ -1330,6 +1330,20 @@ public static class NhAssistantErrorCodes
     public const string ProposalSuperseded = "assistant-proposal-superseded";
 
     /// <summary>
+    /// The result code of a proposal the platform closed as not applicable because the object it waits
+    /// at no longer exists: the subject's access resolver describes it as unknown. A decision, a
+    /// revalidation and the run maintenance close such a proposal; a decision of it is refused with
+    /// <see cref="ProposalStale"/>.
+    /// </summary>
+    public const string ProposalSubjectGone = "assistant-proposal-subject-gone";
+
+    /// <summary>
+    /// The result code of a proposal an administrator of the assistant withdrew as a last resort, with
+    /// their reason; its status is <see cref="NhAssistantApprovalStatuses.Withdrawn"/>.
+    /// </summary>
+    public const string ProposalWithdrawnByAdministrator = "assistant-proposal-withdrawn-by-administrator";
+
+    /// <summary>
     /// A rule asked to propose with a tool the agent may not use, that does not need approval or
     /// with arguments the tool does not accept.
     /// </summary>

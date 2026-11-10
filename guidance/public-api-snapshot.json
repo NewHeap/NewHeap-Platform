@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.124",
   "backEnd": {
-    "hash": "e05ff3382d9105d3995af957ce529e75325a0d1f1c1038feede38bebcc4ef4d1",
-    "declarationCount": 13788,
+    "hash": "8032fd1a88103f63c09bf68f238a32e6bb4aaceb0bd483403802e2ec6e0e05ae",
+    "declarationCount": 13817,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -5699,6 +5699,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public sealed record NhAssistantProposalWithdrawalRequest(string? Reason);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
         "declaration": "public sealed record NhAssistantBulkDecisionRequest( IReadOnlyList<Guid>? ApprovalIds, string? Decision, string? Reason) {"
       },
       {
@@ -5763,7 +5767,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
-        "declaration": "[JsonSerializable(typeof(NhAssistantThreadLookupDto))] [JsonSerializable(typeof(NhAssistantKillSwitchRequest))] [JsonSerializable(typeof(NhAssistantThreadMemoryDto))] [JsonSerializable(typeof(NhAssistantArtifactDto[]))] [JsonSerializable(typeof(NhAssistantKillSwitchDto))] [JsonSerializable(typeof(NhAssistantAgentState))] [JsonSerializable(typeof(NhAssistantAgentStateRequest))] [JsonSerializable(typeof(NhAssistantSkillState))] [JsonSerializable(typeof(NhAssistantShadowRequest))] [JsonSerializable(typeof(NhAssistantWithoutApprovalRequest))] [JsonSerializable(typeof(NhAssistantWithoutApprovalSwitchDto))] [JsonSerializable(typeof(NhAssistantWithoutApprovalListDto))] [JsonSerializable(typeof(NhAssistantWithoutApprovalVersionDto[]))] [JsonSerializable(typeof(NhAssistantRunCatalogDto))] [JsonSerializable(typeof(NhAssistantAccountDto[]))] [JsonSerializable(typeof(NhAssistantAgentConfigurationDto))] [JsonSerializable(typeof(NhAssistantDataSkillDto))] [JsonSerializable(typeof(NhAssistantDataSkillVersionDto[]))] [JsonSerializable(typeof(NhAssistantDataTriggerDto))] [JsonSerializable(typeof(NhAssistantDataSkillRequest))] [JsonSerializable(typeof(NhAssistantInstructionAssetListDto))] [JsonSerializable(typeof(NhAssistantInstructionAssetTextDto))] [JsonSerializable(typeof(NhAssistantDataTriggerRequest))] [JsonSerializable(typeof(NhAssistantDataConsultationDto))] [JsonSerializable(typeof(NhAssistantDataConsultationRequest))] [JsonSerializable(typeof(NhAssistantAgentMetadataDto))] [JsonSerializable(typeof(NhAssistantAgentMetadataDto[]))] [JsonSerializable(typeof(NhAssistantAgentMetadataRequest))] [JsonSerializable(typeof(NhAssistantAgentRunSettingsDto))] [JsonSerializable(typeof(NhAssistantAgentRunSettingsRequest))] [JsonSerializable(typeof(NhAssistantSkillCandidateRequest))] [JsonSerializable(typeof(NhAssistantSkillComparisonDto))] [JsonSerializable(typeof(NhAssistantDataTriggerVersionDto[]))] [JsonSerializable(typeof(NhAssistantTriggerComparisonDto))] [JsonSerializable(typeof(NhAssistantConsultationStateRequest))] [JsonSerializable(typeof(NhAssistantServiceAccountRequest))] [JsonSerializable(typeof(NhAssistantConsultationRoutesRequest))] [JsonSerializable(typeof(NhAssistantStartAgentRequest))] [JsonSerializable(typeof(NhAssistantTriggerReceiptDto))] [JsonSerializable(typeof(NhAssistantRunDto))] [JsonSerializable(typeof(NhAssistantRunListDto))] [JsonSerializable(typeof(NhAssistantRetryRunRequest))] [JsonSerializable(typeof(NhAssistantProposalDto))] [JsonSerializable(typeof(NhAssistantProposalDto[]))] [JsonSerializable(typeof(NhAssistantInboxDto))] [JsonSerializable(typeof(NhAssistantInboxVisitDto))] [JsonSerializable(typeof(NhAssistantInboxSummaryDto))] [JsonSerializable(typeof(NhAssistantProposalDecisionRequest))] [JsonSerializable(typeof(NhAssistantBulkDecisionRequest))] [JsonSerializable(typeof(NhAssistantBulkDecisionDto))] [JsonSerializable(typeof(NhAssistantBulkDecisionOverviewRequest))] [JsonSerializable(typeof(NhAssistantBulkDecisionOverviewDto))] [JsonSerializable(typeof(NhAssistantBulkDecisionSetRequest))] [JsonSerializable(typeof(NhAssistantBulkDecisionResultDto))] [JsonSerializable(typeof(NhAssistantBulkDecisionItemDto[]))] [JsonSerializable(typeof(NhAssistantResolveExecutionRequest))] [JsonSerializable(typeof(NhAssistantConsultationListDto))] [JsonSerializable(typeof(NhAssistantProposalFeedbackRequest))] [JsonSerializable(typeof(NhAssistantBulkProposalFeedbackRequest))] [JsonSerializable(typeof(NhAssistantProposalFeedbackDto))] [JsonSerializable(typeof(NhAssistantBulkProposalFeedbackDto))] [JsonSerializable(typeof(NhAssistantFeedbackSummaryDto))] [JsonSerializable(typeof(NhAssistantProposalKindsDto))] [JsonSerializable(typeof(NhAssistantFeedbackListDto))] [JsonSerializable(typeof(NhAssistantFeedbackExportRecord))] [JsonSerializable(typeof(NhAssistantEvaluationDto))] [JsonSerializable(typeof(NhAssistantEvaluationExportRecord))] [JsonSerializable(typeof(NhAssistantReplayRequest))] [JsonSerializable(typeof(NhAssistantReplayDto))] [JsonSerializable(typeof(NhAssistantReplayListDto))] [JsonSerializable(typeof(NhAssistantSubjectWorkDto))] [JsonSerializable(typeof(NhAssistantObjectAgentsDto))] [JsonSerializable(typeof(NhAssistantRunHistoryListDto))] [JsonSerializable(typeof(NhAssistantRunResultDto))] [JsonSerializable(typeof(NhAssistantSubjectProposalDto))] [JsonSerializable(typeof(NhAssistantProposalLookupRequest))] [JsonSerializable(typeof(NhAssistantProposalLookupDto))] [JsonSerializable(typeof(NhAssistantSubjectSummaryRequest))] [JsonSerializable(typeof(NhAssistantSubjectSummaryListDto))] [JsonSerializable(typeof(NhAssistantOpenThreadRequest))] [JsonSerializable(typeof(NhAssistantSubjectSearchDto))] [JsonSerializable(typeof(string[]))] public sealed partial class NhAssistantAgentRunJsonSerializerContext : JsonSerializerContext;"
+        "declaration": "[JsonSerializable(typeof(NhAssistantThreadLookupDto))] [JsonSerializable(typeof(NhAssistantKillSwitchRequest))] [JsonSerializable(typeof(NhAssistantThreadMemoryDto))] [JsonSerializable(typeof(NhAssistantArtifactDto[]))] [JsonSerializable(typeof(NhAssistantKillSwitchDto))] [JsonSerializable(typeof(NhAssistantAgentState))] [JsonSerializable(typeof(NhAssistantAgentStateRequest))] [JsonSerializable(typeof(NhAssistantSkillState))] [JsonSerializable(typeof(NhAssistantShadowRequest))] [JsonSerializable(typeof(NhAssistantWithoutApprovalRequest))] [JsonSerializable(typeof(NhAssistantWithoutApprovalSwitchDto))] [JsonSerializable(typeof(NhAssistantWithoutApprovalListDto))] [JsonSerializable(typeof(NhAssistantWithoutApprovalVersionDto[]))] [JsonSerializable(typeof(NhAssistantRunCatalogDto))] [JsonSerializable(typeof(NhAssistantAccountDto[]))] [JsonSerializable(typeof(NhAssistantAgentConfigurationDto))] [JsonSerializable(typeof(NhAssistantDataSkillDto))] [JsonSerializable(typeof(NhAssistantDataSkillVersionDto[]))] [JsonSerializable(typeof(NhAssistantDataTriggerDto))] [JsonSerializable(typeof(NhAssistantDataSkillRequest))] [JsonSerializable(typeof(NhAssistantInstructionAssetListDto))] [JsonSerializable(typeof(NhAssistantInstructionAssetTextDto))] [JsonSerializable(typeof(NhAssistantDataTriggerRequest))] [JsonSerializable(typeof(NhAssistantDataConsultationDto))] [JsonSerializable(typeof(NhAssistantDataConsultationRequest))] [JsonSerializable(typeof(NhAssistantAgentMetadataDto))] [JsonSerializable(typeof(NhAssistantAgentMetadataDto[]))] [JsonSerializable(typeof(NhAssistantAgentMetadataRequest))] [JsonSerializable(typeof(NhAssistantAgentRunSettingsDto))] [JsonSerializable(typeof(NhAssistantAgentRunSettingsRequest))] [JsonSerializable(typeof(NhAssistantSkillCandidateRequest))] [JsonSerializable(typeof(NhAssistantSkillComparisonDto))] [JsonSerializable(typeof(NhAssistantDataTriggerVersionDto[]))] [JsonSerializable(typeof(NhAssistantTriggerComparisonDto))] [JsonSerializable(typeof(NhAssistantConsultationStateRequest))] [JsonSerializable(typeof(NhAssistantServiceAccountRequest))] [JsonSerializable(typeof(NhAssistantConsultationRoutesRequest))] [JsonSerializable(typeof(NhAssistantStartAgentRequest))] [JsonSerializable(typeof(NhAssistantTriggerReceiptDto))] [JsonSerializable(typeof(NhAssistantRunDto))] [JsonSerializable(typeof(NhAssistantRunListDto))] [JsonSerializable(typeof(NhAssistantRetryRunRequest))] [JsonSerializable(typeof(NhAssistantProposalDto))] [JsonSerializable(typeof(NhAssistantProposalDto[]))] [JsonSerializable(typeof(NhAssistantInboxDto))] [JsonSerializable(typeof(NhAssistantInboxVisitDto))] [JsonSerializable(typeof(NhAssistantInboxSummaryDto))] [JsonSerializable(typeof(NhAssistantProposalDecisionRequest))] [JsonSerializable(typeof(NhAssistantProposalWithdrawalRequest))] [JsonSerializable(typeof(NhAssistantBulkDecisionRequest))] [JsonSerializable(typeof(NhAssistantBulkDecisionDto))] [JsonSerializable(typeof(NhAssistantBulkDecisionOverviewRequest))] [JsonSerializable(typeof(NhAssistantBulkDecisionOverviewDto))] [JsonSerializable(typeof(NhAssistantBulkDecisionSetRequest))] [JsonSerializable(typeof(NhAssistantBulkDecisionResultDto))] [JsonSerializable(typeof(NhAssistantBulkDecisionItemDto[]))] [JsonSerializable(typeof(NhAssistantResolveExecutionRequest))] [JsonSerializable(typeof(NhAssistantConsultationListDto))] [JsonSerializable(typeof(NhAssistantProposalFeedbackRequest))] [JsonSerializable(typeof(NhAssistantBulkProposalFeedbackRequest))] [JsonSerializable(typeof(NhAssistantProposalFeedbackDto))] [JsonSerializable(typeof(NhAssistantBulkProposalFeedbackDto))] [JsonSerializable(typeof(NhAssistantFeedbackSummaryDto))] [JsonSerializable(typeof(NhAssistantProposalKindsDto))] [JsonSerializable(typeof(NhAssistantFeedbackListDto))] [JsonSerializable(typeof(NhAssistantFeedbackExportRecord))] [JsonSerializable(typeof(NhAssistantEvaluationDto))] [JsonSerializable(typeof(NhAssistantEvaluationExportRecord))] [JsonSerializable(typeof(NhAssistantReplayRequest))] [JsonSerializable(typeof(NhAssistantReplayDto))] [JsonSerializable(typeof(NhAssistantReplayListDto))] [JsonSerializable(typeof(NhAssistantSubjectWorkDto))] [JsonSerializable(typeof(NhAssistantObjectAgentsDto))] [JsonSerializable(typeof(NhAssistantRunHistoryListDto))] [JsonSerializable(typeof(NhAssistantRunResultDto))] [JsonSerializable(typeof(NhAssistantSubjectProposalDto))] [JsonSerializable(typeof(NhAssistantProposalLookupRequest))] [JsonSerializable(typeof(NhAssistantProposalLookupDto))] [JsonSerializable(typeof(NhAssistantSubjectSummaryRequest))] [JsonSerializable(typeof(NhAssistantSubjectSummaryListDto))] [JsonSerializable(typeof(NhAssistantOpenThreadRequest))] [JsonSerializable(typeof(NhAssistantSubjectSearchDto))] [JsonSerializable(typeof(string[]))] public sealed partial class NhAssistantAgentRunJsonSerializerContext : JsonSerializerContext;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
@@ -5808,6 +5812,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunEndpoints.cs",
         "declaration": "public static void Map(RouteGroupBuilder group) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunEndpoints.cs",
+        "declaration": "public static void MapAdmin(RouteGroupBuilder admin) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunLookup.cs",
@@ -6699,6 +6707,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public interface INhAssistantProposalWithdrawal {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public const int MaxReasonLength = NhAssistantProposalDecisions.MaxWithdrawalReasonLength;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public sealed record NhAssistantProposalWithdrawalResult( Guid ApprovalId, string Status, DateTimeOffset? WithdrawnAt);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
+        "declaration": "public async Task<TaskResult<NhAssistantProposalWithdrawalResult>> WithdrawAsync( NhAssistantDecidingPerson administrator, Guid approvalId, string reason, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisionService.cs",
         "declaration": "public sealed record NhAssistantDecidingPerson(ClaimsPrincipal User, string ActorId, string? TenantId) {"
       },
       {
@@ -6788,6 +6812,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
         "declaration": "public async Task<TaskResult<AssistantApproval>> DecideAsync( Guid approvalId, string actorId, ClaimsPrincipal user, bool approve, string? expectedProposalHash, string? reason, NhAssistantDecisionOrigin origin, CancellationToken cancellationToken, string? tenantId = null)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+        "declaration": "public const int MaxWithdrawalReasonLength = 500;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
+        "declaration": "public async Task<TaskResult<AssistantApproval>> WithdrawAsync( Guid approvalId, string actorId, ClaimsPrincipal user, string? reason, CancellationToken cancellationToken, string? tenantId = null)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposalDecisions.cs",
@@ -24011,6 +24043,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string ProposalSubjectGone = \"assistant-proposal-subject-gone\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string ProposalWithdrawnByAdministrator = \"assistant-proposal-withdrawn-by-administrator\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string ProposalRefused = \"assistant-proposal-refused\";"
       },
       {
@@ -25023,7 +25063,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
-        "declaration": "public enum NhAssistantAuditEventKind { ToolInvoked = 0, ApprovalRequested = 1, ApprovalApproved = 2, ApprovalRejected = 3, ApprovalExpired = 4, AdminContextUpdated = 10, AdminAgentCreated = 11, AdminAgentUpdated = 12, AdminAgentDeleted = 13, AdminAgentReset = 14, AdminMcpServerCreated = 15, AdminMcpServerUpdated = 16, AdminMcpServerDeleted = 17, AdminMcpServerSynced = 18, AdminMcpToolUpdated = 19, ConversationShareLinkCreated = 20, ConversationShareLinkRevoked = 21, ConversationParticipantJoined = 22, ConversationParticipantInvited = 23, ConversationParticipantRemoved = 24, ConversationParticipantLeft = 25, AgentTriggerAccepted = 30, AgentTriggerRejected = 31, AgentRunEnded = 32, AgentProposalExecuted = 33, AgentProposalResolved = 34, AdminAgentRunsStopped = 35, AdminAgentRunsResumed = 36, AgentConsulted = 37, AgentRequested = 38, AgentProposalFeedbackGiven = 39, AdminAgentFeedbackExported = 40, AgentProposalInvalidated = 41, AgentProposalDeduplicated = 42, AgentProposalSuperseded = 43, AdminAgentPaused = 44, AgentHandedOff = 45, AdminAgentEvaluationExported = 46, AdminAgentReplayStarted = 47, AdminAgentShadowChanged = 48, AdminAgentServiceAccountChanged = 49, AdminAgentSkillDefinitionChanged = 50, AdminAgentTriggerDefinitionChanged = 51, AdminAgentRunSettingsChanged = 52, McpDelegatedTokenIssued = 53, McpBackgroundUseChanged = 54, McpConnectionConnected = 55, McpConnectionDisconnected = 56, McpConnectionReauthorizationRequired = 57, AdminMcpConnectionsRevoked = 58, AdminMcpServerAuthorizationConfirmed = 59, AgentProposalPlaced = 60, AgentProposalNotPlaced = 61, AdminAgentSwitchedOff = 62, FileRead = 63, FileRefused = 64, AdminAgentConsultationRoutesChanged = 65, AdminAgentConsultationDefinitionChanged = 66, ApplicationMessagePosted = 70, AdminAgentMetadataChanged = 71, AgentProposalHandedToApplication = 72, AdminAgentHandOffDefinitionChanged = 80, AdminAgentPackageExported = 81, AdminAgentPackageImported = 82, AdminAgentPackageUnlinked = 83, AdminMcpServerAssignmentChanged = 90, AdminAgentShadowVariantPromoted = 91, QuestionAsked = 100, QuestionAnswered = 101, QuestionExpired = 102, AdminMcpToolReviewedBeforeSync = 113, AdminMcpToolSeenAfterReview = 114, AgentProposalRecordedForPerson = 120, ChatFollowUpStarted = 121, ChatFollowUpSkipped = 122, AdminAgentToolWithoutApprovalChanged = 124, AgentProposalWouldRunWithoutApproval = 125, AgentToolRanWithoutApproval = 126, AgentAlertRaised = 127, AgentAlertResolved = 128, AgentAlertDismissed = 129, AgentAlertRecipientDropped = 130, AdminAlertKindChanged = 131, AdminAlertModelSwitchChanged = 132, AdminRuleScriptSaved = 133, AdminRuleScriptLive = 134, AdminRuleScriptShadowChanged = 135, AdminRuleScriptDiscarded = 136, AdminRuleScriptDryRun = 137 }"
+        "declaration": "public enum NhAssistantAuditEventKind { ToolInvoked = 0, ApprovalRequested = 1, ApprovalApproved = 2, ApprovalRejected = 3, ApprovalExpired = 4, AdminContextUpdated = 10, AdminAgentCreated = 11, AdminAgentUpdated = 12, AdminAgentDeleted = 13, AdminAgentReset = 14, AdminMcpServerCreated = 15, AdminMcpServerUpdated = 16, AdminMcpServerDeleted = 17, AdminMcpServerSynced = 18, AdminMcpToolUpdated = 19, ConversationShareLinkCreated = 20, ConversationShareLinkRevoked = 21, ConversationParticipantJoined = 22, ConversationParticipantInvited = 23, ConversationParticipantRemoved = 24, ConversationParticipantLeft = 25, AgentTriggerAccepted = 30, AgentTriggerRejected = 31, AgentRunEnded = 32, AgentProposalExecuted = 33, AgentProposalResolved = 34, AdminAgentRunsStopped = 35, AdminAgentRunsResumed = 36, AgentConsulted = 37, AgentRequested = 38, AgentProposalFeedbackGiven = 39, AdminAgentFeedbackExported = 40, AgentProposalInvalidated = 41, AgentProposalDeduplicated = 42, AgentProposalSuperseded = 43, AdminAgentPaused = 44, AgentHandedOff = 45, AdminAgentEvaluationExported = 46, AdminAgentReplayStarted = 47, AdminAgentShadowChanged = 48, AdminAgentServiceAccountChanged = 49, AdminAgentSkillDefinitionChanged = 50, AdminAgentTriggerDefinitionChanged = 51, AdminAgentRunSettingsChanged = 52, McpDelegatedTokenIssued = 53, McpBackgroundUseChanged = 54, McpConnectionConnected = 55, McpConnectionDisconnected = 56, McpConnectionReauthorizationRequired = 57, AdminMcpConnectionsRevoked = 58, AdminMcpServerAuthorizationConfirmed = 59, AgentProposalPlaced = 60, AgentProposalNotPlaced = 61, AdminAgentSwitchedOff = 62, FileRead = 63, FileRefused = 64, AdminAgentConsultationRoutesChanged = 65, AdminAgentConsultationDefinitionChanged = 66, ApplicationMessagePosted = 70, AdminAgentMetadataChanged = 71, AgentProposalHandedToApplication = 72, AdminAgentHandOffDefinitionChanged = 80, AdminAgentPackageExported = 81, AdminAgentPackageImported = 82, AdminAgentPackageUnlinked = 83, AdminMcpServerAssignmentChanged = 90, AdminAgentShadowVariantPromoted = 91, QuestionAsked = 100, QuestionAnswered = 101, QuestionExpired = 102, AdminMcpToolReviewedBeforeSync = 113, AdminMcpToolSeenAfterReview = 114, AgentProposalRecordedForPerson = 120, ChatFollowUpStarted = 121, ChatFollowUpSkipped = 122, AdminAgentToolWithoutApprovalChanged = 124, AgentProposalWouldRunWithoutApproval = 125, AgentToolRanWithoutApproval = 126, AgentAlertRaised = 127, AgentAlertResolved = 128, AgentAlertDismissed = 129, AgentAlertRecipientDropped = 130, AdminAlertKindChanged = 131, AdminAlertModelSwitchChanged = 132, AdminRuleScriptSaved = 133, AdminRuleScriptLive = 134, AdminRuleScriptShadowChanged = 135, AdminRuleScriptDiscarded = 136, AdminRuleScriptDryRun = 137, AdminProposalWithdrawn = 138 }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantHooks.cs",
@@ -25603,6 +25643,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public TimeSpan GoneSubjectCheckInterval { get; set; } = TimeSpan.FromHours(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
+        "declaration": "public const int MaxGoneSubjectChecksPerPass = 1_000;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantLimits.cs",
         "declaration": "public sealed class NhAssistantDbContextOptions {"
       },
       {
@@ -25660,6 +25708,50 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantNames.cs",
         "declaration": "public static void ValidateSegment(string value, string parameterName) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOpenProposals.cs",
+        "declaration": "public interface INhAssistantOpenProposals {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOpenProposals.cs",
+        "declaration": "public sealed record NhAssistantOpenProposalQuery {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOpenProposals.cs",
+        "declaration": "public const int MaxLimit = 200;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOpenProposals.cs",
+        "declaration": "public string? SubjectType { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOpenProposals.cs",
+        "declaration": "public NhAiSubjectRef? Subject { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOpenProposals.cs",
+        "declaration": "public string? ScopeKey { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOpenProposals.cs",
+        "declaration": "public int Limit { get; init; } = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOpenProposals.cs",
+        "declaration": "public string? ContinuationToken { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOpenProposals.cs",
+        "declaration": "public sealed record NhAssistantOpenProposalPage( IReadOnlyList<NhAssistantOpenProposal> Items, string? ContinuationToken);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOpenProposals.cs",
+        "declaration": "public sealed record NhAssistantOpenProposal( Guid ApprovalId, NhAiSubjectRef Subject, string ScopeKey, string AgentId, string ToolId, DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOpenProposals.cs",
+        "declaration": "public async Task<NhAssistantOpenProposalPage> ListAsync( NhAssistantOpenProposalQuery query, CancellationToken cancellationToken = default)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
@@ -28479,6 +28571,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
+        "declaration": "public async Task<IReadOnlyList<NhAssistantOpenProposalRow>> GetOpenProposalPageAsync( string? subjectType, string? subjectId, string? scopeKey, (DateTimeOffset CreatedAt, Guid Id)? after, int maximum, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantRunStore.cs",
         "declaration": "public async Task<bool> HasOpenProposalsForSubjectAsync(NhAiSubjectRef subject, CancellationToken cancellationToken) {"
       },
       {
@@ -29811,6 +29907,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
+        "declaration": "public Task WithdrawnByAdministratorAsync( AssistantApproval approval, AssistantThread thread, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantAgentEvents.cs",
         "declaration": "public Task ConsultationAsync(NhAssistantConsultationEvent consultation, CancellationToken cancellationToken) {"
       },
       {
@@ -30359,11 +30459,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalInvalidation.cs",
+        "declaration": "public static NhAiPreconditionResult SubjectGone { get; } = NhAiPreconditionResult.NotApplicable( NhAssistantErrorCodes.ProposalSubjectGone, culture => string.Equals(culture.TwoLetterISOLanguageName, \"nl\", StringComparison.OrdinalIgnoreCase) ? \"Het object van dit voorstel bestaat niet meer.\" : \"The object of this proposal no longer exists.\");"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalInvalidation.cs",
         "declaration": "public async Task<AssistantApproval?> CloseAsync( AssistantApproval approval, AssistantThread? thread, string agentId, NhAiPreconditionResult result, string stage, IReadOnlyCollection<string> expectedStatuses, string actorId, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalInvalidation.cs",
         "declaration": "public async Task<AssistantApproval?> SupersedeAsync( AssistantApproval approval, AssistantThread thread, Guid supersededBy, string actorId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalInvalidation.cs",
+        "declaration": "public async Task<AssistantApproval?> WithdrawByAdministratorAsync( AssistantApproval approval, AssistantThread thread, string actorId, string reason, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalInvalidation.cs",
@@ -30376,6 +30484,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalInvalidation.cs",
         "declaration": "public async Task<NhAssistantRevalidationResult> RevalidateKeysAsync( IReadOnlyCollection<NhAiProposalKey> keys, string? scopeKey = null, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalInvalidation.cs",
+        "declaration": "public async Task<NhAssistantGoneSubjectCheck> CloseProposalsOfGoneSubjectsAsync( (DateTimeOffset CreatedAt, Guid Id)? after, int maximum, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantProposalPlacement.cs",
@@ -30564,6 +30676,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs",
         "declaration": "public async ValueTask<NhAiSubjectInfo?> DescribeAsync( NhAiSubjectRef subject, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs",
+        "declaration": "public async ValueTask<bool> IsGoneAsync(NhAiSubjectRef subject, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjects.cs",

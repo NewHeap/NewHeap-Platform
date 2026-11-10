@@ -47,9 +47,10 @@ public interface INhAssistantProposalDecisionService
     /// Fails with the endpoint's codes: <c>assistant-approval-not-found</c>,
     /// <c>assistant-proposal-hash-mismatch</c>, <c>assistant-approval-not-pending</c>,
     /// <c>assistant-approval-expired</c>, <c>assistant-four-eyes-required</c>,
-    /// <c>assistant-approval-policy-denied</c>, <c>assistant-proposal-stale</c> (a proposal guard, or
-    /// an approval of a changed object when the policy requires an unchanged subject, which closes the
-    /// proposal as the execution would), <c>assistant-proposal-check-failed</c>,
+    /// <c>assistant-approval-policy-denied</c>, <c>assistant-proposal-stale</c> (a proposal guard, an
+    /// approval of a changed object when the policy requires an unchanged subject, which closes the
+    /// proposal as the execution would, or any decision of a proposal whose object no longer exists,
+    /// which closes it with <c>assistant-proposal-subject-gone</c>), <c>assistant-proposal-check-failed</c>,
     /// <c>assistant-consult-asker-decides</c>, and
     /// <c>assistant-approval-decision-invalid</c> for a proposal decided in a conversation, an agent
     /// as the person or an idempotency key that is not usable.
@@ -76,6 +77,85 @@ public interface INhAssistantProposalDecisionService
         string channel,
         string? idempotencyKey = null,
         CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Withdraws a proposal of an agent run or consultation for an administrator of the assistant, as a
+/// last resort when nobody can decide it, such as when no person matches its approval policy. It is the
+/// server API of <c>POST admin/approvals/{approvalId}/withdrawal</c>, through one implementation: the
+/// administrator passes the assistant's admin policy, their tenant bounds the proposals they reach, and
+/// no subject role or approval policy is asked. The proposal becomes <c>withdrawn</c> with
+/// <c>assistant-proposal-withdrawn-by-administrator</c>, the administrator and the reason; the people
+/// of its thread hear of it, a run that waits for it inline continues without it, the asker of a
+/// consultation is told, and the audit records <see cref="NhAssistantAuditEventKind.AdminProposalWithdrawn"/>
+/// without the reason. A proposal whose object no longer exists needs no administrator: any decision of
+/// it, a revalidation or the run maintenance closes it as not applicable.
+/// </summary>
+public interface INhAssistantProposalWithdrawal
+{
+    /// <summary>
+    /// Withdraws the pending proposal as <paramref name="administrator"/>, with their reason. Fails with
+    /// <c>assistant-approval-policy-denied</c> for a person who does not pass the admin policy,
+    /// <c>assistant-approval-decision-invalid</c> for a missing or longer reason than
+    /// <see cref="MaxReasonLength"/> characters or a proposal a person decides in their own chat,
+    /// <c>assistant-consult-asker-decides</c> for one the asker of a consultation decides,
+    /// <c>assistant-approval-not-found</c> for an unknown proposal or one of another tenant, and
+    /// <c>assistant-approval-not-pending</c> for one that no longer waits for a decision.
+    /// </summary>
+    Task<TaskResult<NhAssistantProposalWithdrawalResult>> WithdrawAsync(
+        NhAssistantDecidingPerson administrator,
+        Guid approvalId,
+        string reason,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The most characters of a reason.
+    /// </summary>
+    public const int MaxReasonLength = NhAssistantProposalDecisions.MaxWithdrawalReasonLength;
+}
+
+/// <summary>
+/// The proposal <see cref="INhAssistantProposalWithdrawal.WithdrawAsync"/> withdrew.
+/// </summary>
+/// <param name="ApprovalId">The proposal.</param>
+/// <param name="Status">Its status, <see cref="NhAssistantApprovalStatuses.Withdrawn"/>.</param>
+/// <param name="WithdrawnAt">When the administrator withdrew it, on the application's clock.</param>
+public sealed record NhAssistantProposalWithdrawalResult(
+    Guid ApprovalId,
+    string Status,
+    DateTimeOffset? WithdrawnAt);
+
+/// <summary>
+/// The withdrawal over the decisions the endpoints use (<see cref="NhAssistantProposalDecisions"/>).
+/// </summary>
+internal sealed class NhAssistantProposalWithdrawal(NhAssistantProposalDecisions decisions) : INhAssistantProposalWithdrawal
+{
+    public async Task<TaskResult<NhAssistantProposalWithdrawalResult>> WithdrawAsync(
+        NhAssistantDecidingPerson administrator,
+        Guid approvalId,
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(administrator);
+        ArgumentNullException.ThrowIfNull(administrator.User, nameof(administrator));
+        ArgumentException.ThrowIfNullOrWhiteSpace(administrator.ActorId, nameof(administrator));
+
+        var withdrawn = await decisions.WithdrawAsync(
+            approvalId,
+            administrator.ActorId,
+            administrator.User,
+            reason,
+            cancellationToken,
+            administrator.TenantId);
+        if (!withdrawn.Success)
+        {
+            return TaskResult<NhAssistantProposalWithdrawalResult>.Failed(withdrawn);
+        }
+
+        var approval = withdrawn.Data!;
+        return TaskResult<NhAssistantProposalWithdrawalResult>.Succeeded(
+            new NhAssistantProposalWithdrawalResult(approval.Id, approval.Status, approval.DecidedAt));
+    }
 }
 
 /// <summary>

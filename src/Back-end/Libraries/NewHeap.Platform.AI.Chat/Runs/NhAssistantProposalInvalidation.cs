@@ -36,6 +36,17 @@ internal sealed class NhAssistantProposalInvalidation(
     public const string SystemActorId = "assistant-system";
 
     /// <summary>
+    /// What closes a proposal whose object no longer exists: not applicable, with
+    /// <see cref="NhAssistantErrorCodes.ProposalSubjectGone"/> and an explanation in the languages the
+    /// platform ships.
+    /// </summary>
+    public static NhAiPreconditionResult SubjectGone { get; } = NhAiPreconditionResult.NotApplicable(
+        NhAssistantErrorCodes.ProposalSubjectGone,
+        culture => string.Equals(culture.TwoLetterISOLanguageName, "nl", StringComparison.OrdinalIgnoreCase)
+            ? "Het object van dit voorstel bestaat niet meer."
+            : "The object of this proposal no longer exists.");
+
+    /// <summary>
     /// The application's clock, on which a proposal's decisions are recorded, closing it included;
     /// the time of an execution keeps the system clock.
     /// </summary>
@@ -146,6 +157,54 @@ internal sealed class NhAssistantProposalInvalidation(
     }
 
     /// <summary>
+    /// Withdraws a pending proposal for an administrator, as a last resort when nobody can decide it:
+    /// it becomes <see cref="NhAssistantApprovalStatuses.Withdrawn"/> with
+    /// <see cref="NhAssistantErrorCodes.ProposalWithdrawnByAdministrator"/>, the administrator and their
+    /// reason, the people of the thread hear of it, the audit records it without the reason, and a run
+    /// that waits for it inline is woken. Returns the withdrawn proposal, or <see langword="null"/> when
+    /// someone decided it first.
+    /// </summary>
+    public async Task<AssistantApproval?> WithdrawByAdministratorAsync(
+        AssistantApproval approval,
+        AssistantThread thread,
+        string actorId,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        var withdrawn = await runs.TryTransitionApprovalAsync(
+            approval.Id,
+            [NhAssistantApprovalStatuses.Pending],
+            NhAssistantApprovalStatuses.Withdrawn,
+            new NhAssistantApprovalTransition
+            {
+                DecidedByActorId = actorId,
+                DecidedAt = _applicationClock.GetUtcNow(),
+                Reason = reason,
+                ExecutionResultCode = NhAssistantErrorCodes.ProposalWithdrawnByAdministrator
+            },
+            cancellationToken);
+        if (!withdrawn)
+        {
+            return null;
+        }
+
+        var current = await store.FindApprovalAsync(approval.Id, CancellationToken.None) ?? approval;
+        await workUpdates.PublishAsync(
+            current.ConversationId,
+            NhAssistantAgentWorkReasons.Proposal,
+            current.Id,
+            current.RunId,
+            CancellationToken.None);
+        await events.WithdrawnByAdministratorAsync(current, thread, actorId, CancellationToken.None);
+        if (current.Mode == NhAssistantApprovalModes.Inline && current.RunId is not null)
+        {
+            await WakeAsync(current);
+        }
+
+        return current;
+    }
+
+    /// <summary>
     /// Closes a shadow proposal that the newer shadow proposal <paramref name="supersededBy"/> for the
     /// same objects replaced within its lifetime (FB3): it becomes
     /// <see cref="NhAssistantApprovalStatuses.ShadowSuperseded"/> and names its successor, as a
@@ -214,24 +273,22 @@ internal sealed class NhAssistantProposalInvalidation(
 
 /// <summary>
 /// Revalidates the open proposals of agent runs and consultations by subject or by application
-/// object; see <see cref="INhAssistantProposalRevalidation"/>.
+/// object; see <see cref="INhAssistantProposalRevalidation"/>. A proposal whose object no longer exists
+/// closes as not applicable whether or not a guard checks its tool.
 /// </summary>
 internal sealed class NhAssistantProposalRevalidation(
     NhAssistantRunStore runs,
     NhAssistantRegistrationState registration,
     NhAssistantProposalGuards guards,
-    NhAssistantProposalInvalidation invalidation) : INhAssistantProposalRevalidation
+    NhAssistantProposalInvalidation invalidation,
+    NhAssistantSubjectAccessService subjects,
+    ILogger<NhAssistantProposalRevalidation> logger) : INhAssistantProposalRevalidation
 {
     public async Task<NhAssistantRevalidationResult> RevalidateSubjectAsync(
         NhAiSubjectRef subject,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(subject);
-        if (!HasRevalidatingGuards())
-        {
-            return NhAssistantRevalidationResult.Empty;
-        }
-
         var rows = await runs.GetOpenProposalsForSubjectAsync(
             subject,
             NhAssistantLimits.MaxRevalidatedProposals,
@@ -273,6 +330,40 @@ internal sealed class NhAssistantProposalRevalidation(
         return registration.ProposalGuards.Any(guard => guard.Stages.HasFlag(NhAiProposalGuardStages.Revalidation));
     }
 
+    /// <summary>
+    /// One page of the run maintenance's check for proposals whose object no longer exists: the
+    /// pending proposals of agent runs and consultations after <paramref name="after"/>, in the order of
+    /// their creation, whose subjects are each described once. Returns the cursor after the page, or
+    /// <see langword="null"/> when the page was the last.
+    /// </summary>
+    public async Task<NhAssistantGoneSubjectCheck> CloseProposalsOfGoneSubjectsAsync(
+        (DateTimeOffset CreatedAt, Guid Id)? after,
+        int maximum,
+        CancellationToken cancellationToken)
+    {
+        var rows = await runs.GetOpenProposalPageAsync(null, null, null, after, maximum, cancellationToken);
+        var gone = new Dictionary<NhAiSubjectRef, bool>();
+        var closed = 0;
+        foreach (var (approval, thread) in rows)
+        {
+            if (!await IsGoneAsync(thread, gone, cancellationToken))
+            {
+                continue;
+            }
+
+            if (await CloseGoneAsync(approval, thread, cancellationToken) is not null)
+            {
+                closed++;
+            }
+        }
+
+        var last = rows.Count < maximum ? null : rows[^1].Approval;
+        return new NhAssistantGoneSubjectCheck(
+            rows.Count,
+            closed,
+            last is null ? null : (last.CreatedAt, last.Id));
+    }
+
     private async Task<NhAssistantRevalidationResult> RevalidateAsync(
         IReadOnlyList<NhAssistantOpenProposalRow> rows,
         CancellationToken cancellationToken)
@@ -280,8 +371,19 @@ internal sealed class NhAssistantProposalRevalidation(
         var invalidated = new List<NhAssistantInvalidatedProposal>();
         var checkedCount = 0;
         var failed = 0;
+        var gone = new Dictionary<NhAiSubjectRef, bool>();
         foreach (var (approval, thread) in rows)
         {
+            // An object that no longer exists closes its proposals, whatever their guards would say.
+            if (await IsGoneAsync(thread, gone, cancellationToken))
+            {
+                if (await CloseGoneAsync(approval, thread, cancellationToken) is { } closedGone)
+                {
+                    invalidated.Add(InvalidatedOf(closedGone));
+                }
+
+                continue;
+            }
             if (!guards.HasGuards(approval.ToolId, NhAiProposalGuardStages.Revalidation))
             {
                 continue;
@@ -312,15 +414,80 @@ internal sealed class NhAssistantProposalRevalidation(
                 cancellationToken);
             if (closed is not null)
             {
-                invalidated.Add(new NhAssistantInvalidatedProposal(
-                    closed.Id,
-                    closed.ConversationId,
-                    closed.ToolId,
-                    closed.StaleKind ?? NhAssistantStaleKinds.Changed,
-                    closed.ExecutionResultCode ?? NhAssistantErrorCodes.ProposalStale));
+                invalidated.Add(InvalidatedOf(closed));
             }
         }
 
         return new NhAssistantRevalidationResult(invalidated, checkedCount, failed);
     }
+
+    /// <summary>
+    /// Whether the thread's subject no longer exists, asked once per subject of a revalidation. A
+    /// resolver that fails is logged without content and the subject counts as existing, so its
+    /// proposals stay open and their guards still run.
+    /// </summary>
+    private async Task<bool> IsGoneAsync(
+        AssistantThread thread,
+        Dictionary<NhAiSubjectRef, bool> known,
+        CancellationToken cancellationToken)
+    {
+        var subject = new NhAiSubjectRef(thread.SubjectType, thread.SubjectId);
+        if (known.TryGetValue(subject, out var gone))
+        {
+            return gone;
+        }
+
+        try
+        {
+            gone = await subjects.IsGoneAsync(subject, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException)
+        {
+            logger.LogWarning(
+                "Whether a subject of type {SubjectType} still exists could not be checked ({ExceptionType}); its proposals stay open.",
+                subject.Type,
+                exception.GetType().Name);
+            gone = false;
+        }
+
+        known[subject] = gone;
+        return gone;
+    }
+
+    private Task<AssistantApproval?> CloseGoneAsync(
+        AssistantApproval approval,
+        AssistantThread thread,
+        CancellationToken cancellationToken)
+    {
+        return invalidation.CloseAsync(
+            approval,
+            thread,
+            thread.AgentId,
+            NhAssistantProposalInvalidation.SubjectGone,
+            NhAssistantInvalidationStages.Revalidation,
+            [NhAssistantApprovalStatuses.Pending],
+            NhAssistantProposalInvalidation.SystemActorId,
+            cancellationToken);
+    }
+
+    private static NhAssistantInvalidatedProposal InvalidatedOf(AssistantApproval closed)
+    {
+        return new NhAssistantInvalidatedProposal(
+            closed.Id,
+            closed.ConversationId,
+            closed.ToolId,
+            closed.StaleKind ?? NhAssistantStaleKinds.Changed,
+            closed.ExecutionResultCode ?? NhAssistantErrorCodes.ProposalStale);
+    }
 }
+
+/// <summary>
+/// What one page of the run maintenance's check for proposals whose object no longer exists did.
+/// </summary>
+/// <param name="Read">The pending proposals the page read.</param>
+/// <param name="Closed">The proposals it closed as not applicable.</param>
+/// <param name="Next">Where the check continues, or <see langword="null"/> when the page was the last.</param>
+internal sealed record NhAssistantGoneSubjectCheck(
+    int Read,
+    int Closed,
+    (DateTimeOffset CreatedAt, Guid Id)? Next);
