@@ -45,7 +45,10 @@ internal sealed class NhAssistantTurnElicitor(
             return NhAssistantElicitationOutcome.Cancelled(NhAssistantElicitationReasons.Expired);
         }
 
+        // The wait time follows the application's clock, as other business deadlines do, and starts
+        // with the request, so it ends exactly when the request shows it ends.
         var now = applicationClock.GetUtcNow();
+        using var expiry = new CancellationTokenSource(within, applicationClock);
         var part = new NhAssistantStoredPart(
             NhAssistantStoredPart.ElicitationType,
             Text: request.Message,
@@ -75,8 +78,6 @@ internal sealed class NhAssistantTurnElicitor(
 
         NhAssistantElicitationOutcome outcome;
         string status;
-        // The wait time follows the application's clock, as other business deadlines do.
-        using (var expiry = new CancellationTokenSource(within, applicationClock))
         using (var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, expiry.Token))
         {
             try
