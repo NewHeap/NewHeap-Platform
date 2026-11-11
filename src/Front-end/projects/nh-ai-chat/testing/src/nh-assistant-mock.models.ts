@@ -34,10 +34,12 @@ import {
   NotificationSubjectMute,
   AssistantAccount,
   ApprovalPresentation,
+  ApprovalPresentationField,
   NhAssistantConsultationLeaveRoute,
   NhAssistantConsultationRoute,
   RunCatalog,
-  ToolCatalogEntry
+  ToolCatalogEntry,
+  ToolResultPresentation
 } from '@newheap/platform-ai-chat';
 import type { NhAssistantMockUpload } from './nh-assistant-mock-files';
 
@@ -58,6 +60,8 @@ export interface NhAssistantMockToolStep {
     /** Default `succeeded`. */
     status?: 'succeeded' | 'failed';
     resultCode?: string | null;
+    /** The application's card of what a succeeded call returned, sent on `tool.completed`. Default none. */
+    resultPresentation?: ToolResultPresentation | null;
   };
 }
 
@@ -78,7 +82,8 @@ export interface NhAssistantMockApprovalStep {
     presentation?: {
       toolDisplayName: string;
       summary: string;
-      fields: { label: string; value: string }[];
+      /** A field of a change states its `currentValue`, and the card shows what changes. */
+      fields: ApprovalPresentationField[];
       notice: string | null;
     } | null;
     argumentsPreview: string;
@@ -87,6 +92,8 @@ export interface NhAssistantMockApprovalStep {
     expiresInSeconds?: number;
     /** Result preview of the tool after approval. */
     resultPreview?: string | null;
+    /** The application's card of what the tool returned after approval. Default none. */
+    resultPresentation?: ToolResultPresentation | null;
     approved: NhAssistantMockStep[];
     rejected: NhAssistantMockStep[];
     /** The consultation that proposed it; without it the approval is the conversation's own. */

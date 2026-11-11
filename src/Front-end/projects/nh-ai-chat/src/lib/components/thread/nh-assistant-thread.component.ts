@@ -26,6 +26,7 @@ import { NhAssistantApprovalCardComponent } from '../approval-card/nh-assistant-
 import { NhAssistantConnectionRequiredComponent } from '../connection-required/nh-assistant-connection-required.component';
 import { NhAssistantQuestionCardComponent } from '../question-card/nh-assistant-question-card.component';
 import { NhAssistantToolCallGroupComponent } from '../tool-call-group/nh-assistant-tool-call-group.component';
+import { NhAssistantToolResultComponent } from '../tool-result/nh-assistant-tool-result.component';
 import type { NhAssistantApprovalRight } from '../../services/nh-assistant.store';
 
 /** A decision about one approval of the thread. */
@@ -78,7 +79,8 @@ const stickToBottomDistance = 120;
     NhAssistantToolCallGroupComponent,
     NhAssistantApprovalCardComponent,
     NhAssistantConnectionRequiredComponent,
-    NhAssistantQuestionCardComponent
+    NhAssistantQuestionCardComponent,
+    NhAssistantToolResultComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-thread.component.html',

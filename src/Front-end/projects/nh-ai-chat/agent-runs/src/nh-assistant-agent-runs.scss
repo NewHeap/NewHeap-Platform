@@ -214,28 +214,8 @@ pre {
 
 // The application's presentation of a proposal, as in the chat's approval card.
 .presentation-fields {
-  display: grid;
-  gap: 6px;
+  display: block;
   margin: 0;
-
-  div {
-    display: grid;
-    grid-template-columns: minmax(90px, .4fr) minmax(0, 1fr);
-    gap: 8px;
-  }
-
-  dt {
-    color: var(--nha-text-muted);
-    font-size: 12px;
-    font-weight: 700;
-    overflow-wrap: anywhere;
-  }
-
-  dd {
-    margin: 0;
-    font-size: 13px;
-    overflow-wrap: anywhere;
-  }
 }
 
 .technical-details {

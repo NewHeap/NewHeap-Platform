@@ -15,6 +15,7 @@ import { ApprovalDecision, ApprovalPart, ApprovalResolution } from '../../models
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
 import { NhAssistantStore, type NhAssistantApprovalWaitingFor } from '../../services/nh-assistant.store';
+import { NhAssistantPresentationFieldsComponent } from '../presentation-fields/nh-assistant-presentation-fields.component';
 import { NhAssistantProposalFeedbackComponent } from '../proposal-feedback/nh-assistant-proposal-feedback.component';
 
 let nextId = 0;
@@ -33,8 +34,9 @@ export function formatNhAssistantCountdown(milliseconds: number): string {
 }
 
 /**
- * Asks the user to approve or reject a proposed mutation. Shows the summary, targets,
- * proposed arguments and a countdown to expiry. A decision is emitted at most once until
+ * Asks the user to approve or reject a proposed mutation. Shows the summary, the application's
+ * fields (a field of a change with what it holds now and what it gets), targets, proposed arguments
+ * and a countdown to expiry. A decision is emitted at most once until
  * the host reports that it is no longer deciding. After the user rejected an agent's proposal
  * (`canGiveFeedback`), a low-key action asks what was wrong. A proposal that closed because it no
  * longer fits shows why, such as "Already done", with the application's explanation. A proposal of
@@ -48,7 +50,13 @@ export function formatNhAssistantCountdown(milliseconds: number): string {
 @Component({
   selector: 'nh-assistant-approval-card',
   standalone: true,
-  imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantProposalFeedbackComponent],
+  imports: [
+    TranslatePipe,
+    NhAssistantTranslatePipe,
+    NhAssistantIconComponent,
+    NhAssistantPresentationFieldsComponent,
+    NhAssistantProposalFeedbackComponent
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-approval-card.component.html',
   styleUrl: './nh-assistant-approval-card.component.scss',

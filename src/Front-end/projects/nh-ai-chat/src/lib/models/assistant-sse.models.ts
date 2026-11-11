@@ -1,5 +1,5 @@
 import { AgentTriggerReceipt } from './assistant-agent-run.models';
-import { ApprovalPart, ConnectionRequiredReason, QuestionPart } from './assistant-api.models';
+import { ApprovalPart, ConnectionRequiredReason, QuestionPart, ToolResultPresentation } from './assistant-api.models';
 
 /*
  * Server-sent events of an assistant turn.
@@ -32,6 +32,11 @@ export interface ToolCompletedEvent {
   status: 'succeeded' | 'failed';
   resultCode: string | null;
   resultPreview: string | null;
+  /**
+   * The application's trusted card of what the call returned, in the language of the turn. Only sent
+   * for a call the application presents and whose result is not shielded; missing on older servers.
+   */
+  resultPresentation?: ToolResultPresentation | null;
 }
 
 export type ApprovalRequiredEvent = ApprovalPart;

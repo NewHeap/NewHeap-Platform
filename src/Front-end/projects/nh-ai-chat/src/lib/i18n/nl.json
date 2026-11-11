@@ -173,6 +173,10 @@
       "show-calls": "Tool-aanroepen tonen",
       "hide-calls": "Tool-aanroepen verbergen"
     },
+    "tool-result": {
+      "label": "Resultaat van {{name}}",
+      "open-link": "Openen"
+    },
     "approval": {
       "title": "Goedkeuring nodig",
       "fallback-summary": "Controleer deze actie voordat ze wordt uitgevoerd.",
@@ -234,6 +238,25 @@
         },
         "moved-status": "Aan goedkeurders gelaten",
         "moved": "Het wacht nu op de goedkeurders van {{subject}}."
+      }
+    },
+    "presentation": {
+      "current": "Nu",
+      "proposed": "Voorgesteld",
+      "before": "Voor",
+      "after": "Na",
+      "empty": "Leeg",
+      "change": {
+        "unchanged": "Ongewijzigd",
+        "added": "Nieuwe waarde",
+        "changed": "Wijzigt",
+        "cleared": "Wordt leeggemaakt"
+      },
+      "change-result": {
+        "unchanged": "Ongewijzigd",
+        "added": "Toegevoegd",
+        "changed": "Gewijzigd",
+        "cleared": "Leeggemaakt"
       }
     },
     "question": {

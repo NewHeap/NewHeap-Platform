@@ -363,6 +363,34 @@ export interface ToolCallPart {
   grantSource?: 'delegated' | 'agent' | 'delegated-read' | 'accountable' | null;
   /** The result came from rights this viewer does not have and is shielded from them. */
   restricted?: boolean;
+  /**
+   * The application's trusted card of what the call returned, in the reader's language: a title, an
+   * optional summary, at most eight fields and an optional link within the application. Only sent for a
+   * call the application presents and whose result the reader may see; never the raw result. The chat
+   * shows it with the application's renderer for the tool (`provideNhAssistantToolResultRenderers`) or
+   * the default `nh-assistant-tool-result-card`.
+   */
+  resultPresentation?: ToolResultPresentation | null;
+}
+
+/**
+ * How a presented field changes: it keeps its value (`unchanged`), gets a value where it had none
+ * (`added`), gets another value (`changed`) or loses its value (`cleared`).
+ */
+export type PresentationFieldChange = 'unchanged' | 'added' | 'changed' | 'cleared';
+
+/** A link of a result card to a page of the application: a path within it and the text people read. */
+export interface PresentationLink {
+  url: string;
+  label: string;
+}
+
+/** The application's trusted, localized card of what a tool call returned. */
+export interface ToolResultPresentation {
+  title: string;
+  summary: string | null;
+  fields: ApprovalPresentationField[];
+  link: PresentationLink | null;
 }
 
 /**
@@ -388,9 +416,16 @@ export type ApprovalStatus =
   | 'shadow'
   | 'shadow-superseded';
 
+/**
+ * One named fact of an approval or result card. A field of a change also states what it holds now
+ * (`currentValue`, empty when it is empty now) and how it changes; `value` is then the proposed
+ * value, empty when the change clears it. Both are missing for a plain fact and on older servers.
+ */
 export interface ApprovalPresentationField {
   label: string;
   value: string;
+  currentValue?: string;
+  change?: PresentationFieldChange;
 }
 
 export interface ApprovalPresentation {
