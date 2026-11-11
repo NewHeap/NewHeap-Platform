@@ -34,7 +34,16 @@ public sealed record NhAssistantCollaborationDto(
     bool Directory,
     string? HubPath,
     bool Push,
-    int MaxParticipants);
+    int MaxParticipants)
+{
+    /// <summary>
+    /// Whether a connection to <see cref="HubPath"/> may refresh its authentication at
+    /// <c>{HubPath}/refresh</c> instead of reconnecting (<see cref="NhAssistantOptions.HubAuthenticationRefresh"/>
+    /// on ASP.NET Core 11): a client that renewed its access token refreshes the open connection with it.
+    /// <see langword="false"/> on ASP.NET Core 10 and while live updates are off.
+    /// </summary>
+    public bool HubAuthenticationRefresh { get; init; }
+}
 
 public sealed record NhAssistantAgentSummaryDto(
     string Id,

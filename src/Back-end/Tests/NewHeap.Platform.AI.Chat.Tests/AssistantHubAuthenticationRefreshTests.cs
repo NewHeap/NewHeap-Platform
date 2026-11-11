@@ -34,6 +34,31 @@ public sealed class AssistantHubAuthenticationRefreshTests(AssistantDatabaseFixt
     private const string TenantB = "tenant-b";
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
 
+    [Fact]
+    public async Task The_status_tells_clients_whether_the_hub_accepts_authentication_refresh()
+    {
+        var tokens = new HubTokens();
+        await using var app = await StartAsync(tokens, new StampSessions());
+        using var client = app.Server.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/assistant/status");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
+            "Bearer",
+            tokens.Issue("alice", TenantA, TimeSpan.FromMinutes(10)));
+
+        using var response = await client.SendAsync(request);
+        using var status = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var collaboration = status.RootElement.GetProperty("collaboration");
+        Assert.Equal("/hub/assistant", collaboration.GetProperty("hubPath").GetString());
+#if NET11_0_OR_GREATER
+        Assert.True(collaboration.GetProperty("hubAuthenticationRefresh").GetBoolean());
+#else
+        // ASP.NET Core 10 maps no refresh endpoint, whatever the option says.
+        Assert.False(collaboration.GetProperty("hubAuthenticationRefresh").GetBoolean());
+#endif
+    }
+
 #if NET11_0_OR_GREATER
     [Fact]
     public async Task A_refresh_for_the_same_caller_keeps_the_connection_past_its_first_token_and_it_still_receives()
