@@ -3,6 +3,8 @@ import {
   AgentCompositionFeature,
   CompositionCeiling,
   AdminAgentInput,
+  AgentPlan,
+  PlanStep,
   AdminAlertKind,
   AlertModelSwitch,
   AgentPackage,
@@ -137,6 +139,18 @@ export interface NhAssistantMockQuestionStep {
   };
 }
 
+/**
+ * Sets the agent's plan as `update_plan` does on the server (`run.KeepPlan()`): `plan.updated` with the
+ * whole plan, a snapshot that replaces the plan of the turn's message. It counts as a tool call of the
+ * turn and shows as the plan, never as a tool call.
+ */
+export interface NhAssistantMockPlanStep {
+  plan: {
+    /** One to ten steps; at most one `in-progress`. */
+    steps: PlanStep[];
+  };
+}
+
 /** Ends the stream with an `error` event. */
 export interface NhAssistantMockErrorStep {
   error: {
@@ -169,6 +183,7 @@ export type NhAssistantMockStep =
   | NhAssistantMockToolStep
   | NhAssistantMockApprovalStep
   | NhAssistantMockQuestionStep
+  | NhAssistantMockPlanStep
   | NhAssistantMockErrorStep
   | NhAssistantMockFailStep
   | NhAssistantMockConnectionStep;
@@ -785,6 +800,8 @@ export interface NhAssistantMockRun {
   shadow?: boolean;
   /** The personal MCP servers the run left out, as the server records them. Default none. */
   mcpConnectionSkips?: AgentRunMcpSkip[];
+  /** The last plan the run's agent kept (`run.KeepPlan()`), as `GET runs/{id}` returns it. Default none. */
+  plan?: AgentPlan;
 }
 
 /**

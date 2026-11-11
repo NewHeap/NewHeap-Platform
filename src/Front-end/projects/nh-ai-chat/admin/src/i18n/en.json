@@ -749,6 +749,10 @@
         "replay-progress": "{{replayed}} of at most {{max}} runs replayed, {{skipped}} skipped"
       },
       "run-config": {
+        "plan": {
+          "label": "Keeps a visible plan",
+          "agent-hint": "The agent shows a short checklist of its work in chats and runs, which people see as the agent's plan. Off until you switch it on."
+        },
         "files": {
           "label": "Accepts files",
           "agent-hint": "People's messages and the agent's tools may give it documents, such as PDFs, within the application's limits. A new agent accepts none until you switch this on.",

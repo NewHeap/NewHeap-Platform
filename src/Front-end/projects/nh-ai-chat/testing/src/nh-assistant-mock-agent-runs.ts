@@ -2,6 +2,7 @@ import {
   AdminAgent,
   AgentConsultationList,
   AgentLatestRun,
+  AgentPlan,
   AgentProposal,
   AgentObjectAgent,
   AgentObjectAgents,
@@ -102,6 +103,8 @@ export class NhAssistantMockAgentRuns {
   private readonly truncated = new Set<string>();
   /** The personal MCP servers each run left out, by run id. */
   private readonly mcpSkips = new Map<string, AgentRunMcpSkip[]>();
+  /** The last plan of each seeded run that kept one, by run id. */
+  private readonly plans = new Map<string, AgentPlan>();
   private sequence = 0;
 
   constructor(
@@ -160,7 +163,8 @@ export class NhAssistantMockAgentRuns {
       proposals: this.context.runProposals?.(found.run.id) ?? [],
       hiddenProposals: 0,
       artifacts: [],
-      canOpenConversation: this.mayView(found.thread, language)
+      canOpenConversation: this.mayView(found.thread, language),
+      plan: this.plans.get(found.run.id) ?? null
     };
     return { status: 200, body: result };
   }
@@ -767,6 +771,9 @@ export class NhAssistantMockAgentRuns {
     this.keep(run.id, seeded.result, seeded.results);
     if (seeded.mcpConnectionSkips?.length) {
       this.mcpSkips.set(run.id, seeded.mcpConnectionSkips.map(skip => ({ ...skip })));
+    }
+    if (seeded.plan) {
+      this.plans.set(run.id, { steps: seeded.plan.steps.map(step => ({ ...step })), updatedAt: seeded.plan.updatedAt });
     }
   }
 

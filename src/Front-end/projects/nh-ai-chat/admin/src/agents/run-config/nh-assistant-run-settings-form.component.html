@@ -82,6 +82,13 @@
           (touched)="touch($event)" />
       }
     </fieldset>
+    <label class="check" data-keeps-plan>
+      <input type="checkbox" [checked]="keepsPlan()" (change)="keepsPlan.set(checked($event))" />
+      <span>
+        {{ 'nh-assistant.admin.run-config.plan.label' | translate }}
+        <span class="muted block">{{ 'nh-assistant.admin.run-config.plan.agent-hint' | translate }}</span>
+      </span>
+    </label>
   </fieldset>
 
   <fieldset class="group" [attr.aria-describedby]="rightsLocked('approvalPolicy') ? id + '-approval-rights' : null">
