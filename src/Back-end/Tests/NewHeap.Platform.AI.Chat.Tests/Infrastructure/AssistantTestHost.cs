@@ -353,6 +353,41 @@ internal sealed class AssistantTestHost : IAsyncDisposable
     }
 
     /// <summary>
+    /// Sends a message and hands every request for input of an MCP server that the turn shows to
+    /// <paramref name="whileWaiting"/> while its tool waits, which may move the application's clock,
+    /// answer through <see cref="NhAssistantElicitationAnswerService"/> or let the request expire.
+    /// </summary>
+    internal async Task<TurnResult> SendWhileElicitationsWaitAsync(
+        Guid conversationId,
+        string text,
+        Func<NhAssistantElicitationView, Task> whileWaiting)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        var httpContext = EnterUser(scope.ServiceProvider, UserId);
+        var context = await ResolveAsync(scope.ServiceProvider, httpContext);
+        var runner = scope.ServiceProvider.GetRequiredService<INhAssistantTurnRunner>();
+        var started = await runner.StartMessageTurnAsync(
+            new NhAssistantMessageTurnRequest(conversationId, context, text, Guid.NewGuid().ToString("N"), CancellationToken.None),
+            CancellationToken.None);
+        if (!started.Success)
+        {
+            return new TurnResult(started, []);
+        }
+
+        var events = new List<NhAssistantTurnEvent>();
+        await foreach (var evt in started.Data.Events.ReadAllAsync())
+        {
+            events.Add(evt);
+            if (evt is NhAssistantElicitationRequestedEvent requested)
+            {
+                await whileWaiting(requested.Elicitation);
+            }
+        }
+        await started.Data.Completion;
+        return new TurnResult(started, events);
+    }
+
+    /// <summary>
     /// Sends a message and answers every request for input of an MCP server that the turn shows while
     /// its tool waits, as the person would through the answer endpoint; returns the turn with the
     /// failure code of each answer that was refused, in order.
