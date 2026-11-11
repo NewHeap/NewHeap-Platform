@@ -275,6 +275,62 @@ internal sealed class AssistantTestHost : IAsyncDisposable
             CancellationToken.None));
     }
 
+    /// <summary>
+    /// Sends a message from a browser that can run <paramref name="clientTools"/>.
+    /// </summary>
+    internal Task<TurnResult> SendWithClientToolsAsync(
+        Guid conversationId,
+        string text,
+        IReadOnlyCollection<string> clientTools,
+        string? userId = null)
+    {
+        return RunAsync(userId, (runner, context) => runner.StartMessageTurnAsync(
+            new NhAssistantMessageTurnRequest(
+                conversationId,
+                context,
+                text,
+                Guid.NewGuid().ToString("N"),
+                CancellationToken.None)
+            {
+                ClientTools = KnownClientTools(clientTools)
+            },
+            CancellationToken.None));
+    }
+
+    /// <summary>
+    /// Reports what the browser did with the client tool call <paramref name="invocationId"/>.
+    /// </summary>
+    internal Task<TurnResult> ReportClientToolAsync(
+        Guid conversationId,
+        Guid invocationId,
+        string? status,
+        string? outcome = null,
+        string? id = null,
+        System.Text.Json.JsonElement? data = null,
+        string? userId = null,
+        IReadOnlyCollection<string>? clientTools = null)
+    {
+        return RunAsync(userId, (runner, context) => runner.StartClientToolResultTurnAsync(
+            new NhAssistantClientToolResultTurnRequest(
+                conversationId,
+                context,
+                invocationId,
+                status,
+                outcome,
+                id,
+                data,
+                CancellationToken.None)
+            {
+                ClientTools = KnownClientTools(clientTools ?? [])
+            },
+            CancellationToken.None));
+    }
+
+    private IReadOnlySet<string> KnownClientTools(IReadOnlyCollection<string> clientTools)
+    {
+        return _provider.GetRequiredService<NhAssistantRegistrationState>().KnownClientTools(clientTools);
+    }
+
     public async Task<TurnResult> StartWithoutWaitingAsync(
         Guid conversationId,
         string text,
