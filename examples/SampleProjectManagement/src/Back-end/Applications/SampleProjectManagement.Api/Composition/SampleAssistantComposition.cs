@@ -186,7 +186,12 @@ public static class SampleAssistantComposition
                 // request as the server's, the answer goes straight back to the server and is never
                 // stored, and the audit records only the server, the call, the mode and the outcome.
                 // A run, a consultation or anything the chat cannot show safely is declined. The
-                // person answers within the tool's own timeout, so nothing needs configuring here.
+                // request waits the server's own wait time, five minutes unless an administrator or
+                // the application's code sets one to ten (the operations code gives the milestones
+                // server three, SampleAssistantOperationsService); the tool's own timeout stands still
+                // meanwhile. The turn's timeout below keeps running and ends the wait first, so a
+                // deployment that wants people to have the full wait raises TurnTimeout. The answer
+                // reaches only the API process that runs the turn.
                 mcp.ToolListCacheDuration = TimeSpan.FromMinutes(5);
                 // SPM-251: connecting to a server, and listing its tools, each end after ten seconds.
                 mcp.ConnectTimeout = TimeSpan.FromSeconds(10);

@@ -9,6 +9,14 @@ namespace NewHeap.Platform.AI.Chat.Runtime;
 /// never given to the model, and the answer is never stored or audited; the audit records the server,
 /// the call, the mode and the outcome. Without a person (<paramref name="personActorId"/> is
 /// <see langword="null"/>) it declines at once.
+/// <para>
+/// The request waits the server's wait time (<see cref="NhAssistantElicitationRequest.Within"/>, five
+/// minutes unless the server sets one to ten) on the application's clock, and never past the turn's
+/// deadline: the turn's own timeout keeps running while the person is asked, so the wait never makes a
+/// turn longer than <see cref="NhAssistantLimits.TurnTimeout"/>. The tool's own timeout stands still
+/// meanwhile (the MCP layer pauses it). When the wait ends first, the server reads a cancellation and
+/// the audit records <c>&lt;mode&gt;-expired</c>.
+/// </para>
 /// </summary>
 internal sealed class NhAssistantTurnElicitor(
     NhAssistantToolCallInterceptor interceptor,
@@ -29,10 +37,18 @@ internal sealed class NhAssistantTurnElicitor(
             return NhAssistantElicitationOutcome.Declined(NhAssistantElicitationReasons.Unanswerable);
         }
 
+        var within = WaitOf(request);
+        if (within <= TimeSpan.Zero)
+        {
+            // The turn's deadline has passed: nobody could answer in time.
+            await RecordDeclinedAsync(request, NhAssistantElicitationReasons.Expired);
+            return NhAssistantElicitationOutcome.Cancelled(NhAssistantElicitationReasons.Expired);
+        }
+
+        // The wait time follows the application's clock, as other business deadlines do, and starts
+        // with the request, so it ends exactly when the request shows it ends.
         var now = applicationClock.GetUtcNow();
-        var within = request.Within is { } remaining && remaining > TimeSpan.Zero && remaining < NhAssistantElicitationLimits.MaxWait
-            ? remaining
-            : NhAssistantElicitationLimits.MaxWait;
+        using var expiry = new CancellationTokenSource(within, applicationClock);
         var part = new NhAssistantStoredPart(
             NhAssistantStoredPart.ElicitationType,
             Text: request.Message,
@@ -62,9 +78,8 @@ internal sealed class NhAssistantTurnElicitor(
 
         NhAssistantElicitationOutcome outcome;
         string status;
-        using (var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+        using (var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, expiry.Token))
         {
-            deadline.CancelAfter(within);
             try
             {
                 outcome = await waiter.Answer.WaitAsync(deadline.Token);
@@ -97,6 +112,22 @@ internal sealed class NhAssistantTurnElicitor(
             Event(NhAssistantAuditEventKind.McpElicitationClosed, request) with { ResultCode = request.Mode + "-" + status },
             CancellationToken.None);
         return outcome;
+    }
+
+    /// <summary>
+    /// How long the request waits: the server's wait time within its bounds, and never past the turn's
+    /// deadline, which the system clock measures as the turn's own timeout does.
+    /// </summary>
+    private TimeSpan WaitOf(NhAssistantElicitationRequest request)
+    {
+        var wait = NhAssistantElicitationLimits.DefaultWait;
+        if (request.Within is { } asked && asked > TimeSpan.Zero)
+        {
+            wait = asked < NhAssistantElicitationLimits.MaxWait ? asked : NhAssistantElicitationLimits.MaxWait;
+        }
+
+        var turnLeft = state.Scope.Deadline - DateTimeOffset.UtcNow;
+        return turnLeft < wait ? turnLeft : wait;
     }
 
     /// <summary>

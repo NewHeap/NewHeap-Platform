@@ -19,6 +19,13 @@ namespace NewHeap.Platform.AI.Chat.AspNet.Mcp;
 /// a consultation, a rule turn, a call of an exported tool or a request that arrives outside the call.
 /// The server's text never reaches the model, and the answer is never stored.
 /// </para>
+/// <para>
+/// A request waits the server's wait time (<see cref="NhAssistantMcpConnectionPlan.ElicitationWait"/>,
+/// five minutes unless an administrator or the application's code sets one to ten), not the tool's own
+/// timeout: the clock of the tool's timeout stands still while the person is asked, in either form and
+/// for a call the server refuses until a page was finished, and runs on with the time that was left
+/// once they answered. The turn's own timeout keeps running and ends the wait at the turn's deadline.
+/// </para>
 /// </summary>
 internal static class NhAssistantMcpElicitation
 {
@@ -41,29 +48,49 @@ internal static class NhAssistantMcpElicitation
             },
             Handlers = new McpClientHandlers
             {
-                ElicitationHandler = CreateHandler(plan.ServerId, plan.DisplayName ?? plan.ServerId)
+                ElicitationHandler = CreateHandler(plan.ServerId, plan.DisplayName ?? plan.ServerId, plan.ElicitationWait)
             }
         };
     }
 
     /// <summary>
-    /// The handler of one server's requests for input; it answers only for a call of that server.
+    /// The handler of one server's requests for input with the default wait time; it answers only for
+    /// a call of that server.
     /// </summary>
     public static Func<ElicitRequestParams?, CancellationToken, ValueTask<ElicitResult>> CreateHandler(
         string serverId,
         string serverName)
     {
+        return CreateHandler(serverId, serverName, NhAssistantElicitationLimits.DefaultWait);
+    }
+
+    /// <summary>
+    /// The handler of one server's requests for input, which wait for the person at most
+    /// <paramref name="wait"/>; it answers only for a call of that server.
+    /// </summary>
+    public static Func<ElicitRequestParams?, CancellationToken, ValueTask<ElicitResult>> CreateHandler(
+        string serverId,
+        string serverName,
+        TimeSpan wait)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(serverId);
+        if (wait <= TimeSpan.Zero || wait > NhAssistantElicitationLimits.MaxWait)
+        {
+            throw new ArgumentOutOfRangeException(nameof(wait), wait, "A server's wait time is greater than zero and at most ten minutes.");
+        }
+
         var sender = string.IsNullOrWhiteSpace(serverName) ? serverId : serverName;
-        return (request, cancellationToken) => HandleAsync(serverId, sender, request, cancellationToken);
+        return (request, cancellationToken) => HandleAsync(serverId, sender, wait, request, cancellationToken);
     }
 
     /// <summary>
     /// Asks the person of the governed call of <paramref name="serverId"/> in progress, or declines.
+    /// The clock of the call's own timeout stands still while the person is asked.
     /// </summary>
     internal static async ValueTask<ElicitResult> HandleAsync(
         string serverId,
         string serverName,
+        TimeSpan wait,
         ElicitRequestParams? request,
         CancellationToken cancellationToken)
     {
@@ -86,7 +113,7 @@ internal static class NhAssistantMcpElicitation
             return Declined();
         }
 
-        var (asked, reason) = Read(serverId, serverName, request, call.Descriptor.Timeout);
+        var (asked, reason) = Read(serverId, serverName, request, wait);
         if (asked is null)
         {
             await elicitor.RecordDeclinedAsync(
@@ -95,7 +122,13 @@ internal static class NhAssistantMcpElicitation
             return Declined();
         }
 
-        var outcome = await elicitor.ElicitAsync(asked, cancellationToken);
+        NhAssistantElicitationOutcome outcome;
+        // The person's time does not count against the tool's own timeout; the turn's still does.
+        using (call.PauseTimeout())
+        {
+            outcome = await elicitor.ElicitAsync(asked, cancellationToken);
+        }
+
         if (outcome.Action != NhAssistantElicitationActions.Accept)
         {
             return new ElicitResult { Action = outcome.Action };

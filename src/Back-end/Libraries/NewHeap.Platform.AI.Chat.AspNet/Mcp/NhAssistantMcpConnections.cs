@@ -95,6 +95,12 @@ internal sealed record NhAssistantMcpConnectionPlan(
     /// input; the server id when a plan was built by hand.
     /// </summary>
     public string? DisplayName { get; init; }
+
+    /// <summary>
+    /// How long a request for input of the server waits for the person: the server's wait time, five
+    /// minutes when it sets none (<see cref="AssistantMcpServer.ElicitationWaitMinutes"/>).
+    /// </summary>
+    public TimeSpan ElicitationWait { get; init; } = NhAssistantElicitationLimits.DefaultWait;
 }
 
 /// <summary>
@@ -417,6 +423,7 @@ internal sealed class NhAssistantMcpConnectionPlanner(
         {
             Credentials = credentials,
             DisplayName = server.DisplayName,
+            ElicitationWait = NhAssistantElicitationLimits.WaitOf(server.ElicitationWaitMinutes),
             Transport = server.Transport,
             ClientCertificate = certificate,
             PersonalCacheKey = NhAssistantMcpToolSource.IsPersonalOAuth(server) && subject.PersonActorId is { } person
@@ -1295,7 +1302,10 @@ internal sealed partial class NhAssistantMcpToolSource(
             HostInvocationBinders = storedBinders,
             // A call the server refuses until a person finished a page of its own asks the person of the
             // call, as the server's other requests for input do.
-            UrlElicitationHandler = NhAssistantMcpElicitation.CreateHandler(server.Id, server.DisplayName),
+            UrlElicitationHandler = NhAssistantMcpElicitation.CreateHandler(
+                server.Id,
+                server.DisplayName,
+                NhAssistantElicitationLimits.WaitOf(server.ElicitationWaitMinutes)),
             // A server that offers MCP tasks runs a long tool as a task, polled within the tool's timeout.
             RemoteCall = NhAssistantMcpRemoteTasks.For(lease.Client)
         });

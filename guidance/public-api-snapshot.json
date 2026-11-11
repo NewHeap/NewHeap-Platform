@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.126",
   "backEnd": {
-    "hash": "563c59644aa73d7ad353fbbacd06076be90600f130de32d66eb8e1ce62ca9518",
-    "declarationCount": 14263,
+    "hash": "36a0e067a5aef2a9764bad650c3cf04b56c55e537289274f90b21eb501524309",
+    "declarationCount": 14299,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -7895,6 +7895,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs",
+        "declaration": "public int? ElicitationWaitMinutes { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpAdministration.cs",
         "declaration": "public const string AdministratorReason = \"administrator\";"
       },
       {
@@ -8108,6 +8112,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
         "declaration": "public string? DisplayName { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
+        "declaration": "public TimeSpan ElicitationWait { get; init; } = NhAssistantElicitationLimits.DefaultWait;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
@@ -8450,6 +8458,10 @@
         "declaration": "public static Func<ElicitRequestParams?, CancellationToken, ValueTask<ElicitResult>> CreateHandler( string serverId, string serverName) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpElicitation.cs",
+        "declaration": "public static Func<ElicitRequestParams?, CancellationToken, ValueTask<ElicitResult>> CreateHandler( string serverId, string serverName, TimeSpan wait) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpFileReader.cs",
         "declaration": "public const string ContentArgument = \"content\";"
       },
@@ -8667,6 +8679,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public int? ElicitationWaitMinutes { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
         "declaration": "public sealed record NhAssistantMcpOAuthRequest( string? ClientId, string? ClientSecret, string? ClientSecretReference, string? Scopes, string? OrganizationAccountLabel, bool ConfirmAuthorization = false);"
       },
       {
@@ -8688,6 +8704,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
         "declaration": "public const int MaxToolsAwaitingSync = 100;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public const int MinElicitationWaitMinutes = NhAssistantElicitationLimits.MinWaitMinutes;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public const int DefaultElicitationWaitMinutes = NhAssistantElicitationLimits.DefaultWaitMinutes;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public const int MaxElicitationWaitMinutes = NhAssistantElicitationLimits.MaxWaitMinutes;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
@@ -10215,6 +10243,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public int? ElicitationWaitMinutes { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public sealed record NhAssistantMcpReaderInputDto( IReadOnlyList<string>? MediaTypes, string? ToolName, string? MaxClassification, int? Priority = null);"
       },
       {
@@ -10276,6 +10308,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public string HeadlessUse { get; init; } = NhAssistantMcpHeadlessUses.Never;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public int ElicitationWaitMinutes { get; init; } = Mcp.NhAssistantMcpServerLimits.DefaultElicitationWaitMinutes;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -12438,6 +12474,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261111152645_McpServerElicitationWait.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261111152645_McpServerElicitationWait.cs",
+        "declaration": "public partial class McpServerElicitationWait : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261111152645_McpServerElicitationWait.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261111152645_McpServerElicitationWait.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -13543,6 +13595,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261111133733_AgentRunSettingsKeepsPlan.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261111152637_McpServerElicitationWait.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261111152637_McpServerElicitationWait.cs",
+        "declaration": "public partial class McpServerElicitationWait : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261111152637_McpServerElicitationWait.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261111152637_McpServerElicitationWait.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -19340,6 +19408,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
         "declaration": "public string HeadlessUse { get; set; } = NhAssistantMcpHeadlessUses.Never;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
+        "declaration": "public int? ElicitationWaitMinutes { get; set; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantAdminEntities.cs",
@@ -32627,7 +32699,31 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantElicitations.cs",
-        "declaration": "public static readonly TimeSpan MaxWait = TimeSpan.FromMinutes(10);"
+        "declaration": "public const int MinWaitMinutes = 1;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantElicitations.cs",
+        "declaration": "public const int DefaultWaitMinutes = 5;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantElicitations.cs",
+        "declaration": "public const int MaxWaitMinutes = 10;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantElicitations.cs",
+        "declaration": "public static readonly TimeSpan MaxWait = TimeSpan.FromMinutes(MaxWaitMinutes);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantElicitations.cs",
+        "declaration": "public static readonly TimeSpan DefaultWait = TimeSpan.FromMinutes(DefaultWaitMinutes);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantElicitations.cs",
+        "declaration": "public static bool IsValidWait(int minutes) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantElicitations.cs",
+        "declaration": "public static TimeSpan WaitOf(int? minutes) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantElicitations.cs",
@@ -37090,6 +37186,46 @@
         "declaration": "public void Dispose() {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
+        "declaration": "public NhAiToolCallTimeout(TimeSpan timeout, TimeProvider clock, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
+        "declaration": "public static NhAiToolCallTimeout? Current => CurrentTimeout.Value;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
+        "declaration": "public CancellationToken Token => _source.Token;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
+        "declaration": "public bool IsPaused {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
+        "declaration": "public TimeSpan Remaining {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
+        "declaration": "public static IDisposable Enter(NhAiToolCallTimeout timeout) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
+        "declaration": "public IDisposable Pause() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
+        "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
+        "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
+        "declaration": "public void Dispose() {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
         "declaration": "public enum NhAiToolEffect { ReadOnly = 0, IdempotentMutation = 1, Mutation = 2, ExternalSideEffect = 3, Destructive = 4 }"
       },
@@ -38360,6 +38496,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpCallContext.cs",
         "declaration": "public NhAiInvocationContext Invocation { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpCallContext.cs",
+        "declaration": "public static readonly NoPause Instance = new();"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpCallContext.cs",
+        "declaration": "public void Dispose() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpCallContext.cs",
@@ -61873,6 +62017,10 @@
       "NhAssistantMcpServerTestResultDto",
       "MaxToolsAwaitingSync",
       "AwaitingSync",
+      "ElicitationWaitMinutes",
+      "MinElicitationWaitMinutes",
+      "DefaultElicitationWaitMinutes",
+      "MaxElicitationWaitMinutes",
       "AdminMcpToolReviewedBeforeSync",
       "AdminMcpToolSeenAfterReview",
       "AllowLoopback",

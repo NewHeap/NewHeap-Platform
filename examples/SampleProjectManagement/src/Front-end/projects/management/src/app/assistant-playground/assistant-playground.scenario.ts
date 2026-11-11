@@ -942,6 +942,9 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         isEnabled: true,
         // SPM-251: background runs may use the server's own key; the editor shows the choice.
         headlessUse: 'organization',
+        // SPM-251: a request for input of the server waits three minutes for the person's answer
+        // instead of five; the tool's own timeout stands still meanwhile.
+        elicitationWaitMinutes: 3,
         remoteTools: PLAYGROUND_REMOTE_TOOLS,
         // SPM-305: its reading tool turns Word and Excel documents into text for models that do not
         // read them; the administration lists it under "Reading documents", asked first for its priority.

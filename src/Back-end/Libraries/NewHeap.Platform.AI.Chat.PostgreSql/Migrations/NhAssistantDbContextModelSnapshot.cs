@@ -2628,6 +2628,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<int?>("ElicitationWaitMinutes")
+                        .HasColumnType("integer");
+
                     b.Property<string>("HeaderName")
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");

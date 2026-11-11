@@ -1775,7 +1775,7 @@ An administrator-connected MCP server may ask for input while its tool runs (MCP
 as a multi round-trip `input_required` result, as an `elicitation/create` request on the call's stream
 of an older protocol revision, or by refusing the call with `URL_ELICITATION_REQUIRED` until a person
 finished a page of its own. The assistant's client declares both modes and asks the person of the
-governed call in a person's chat turn; nothing needs configuring. The chat shows the server's message
+governed call in a person's chat turn. The chat shows the server's message
 as the server's (`elicitation` part, `elicitation.requested` and `elicitation.closed` events,
 `NhAssistantElicitationPartDto`), never to the model, with a form of strings, numbers, integers,
 booleans and single choices (`NhAssistantElicitationFieldDto`) or an https link with its host that the
@@ -1783,7 +1783,19 @@ person opens themselves. Only that person answers, through
 `POST conversations/{id}/elicitations/{elicitationId}/answer` (`NhAssistantAnswerElicitationRequest`);
 the answer goes straight back to the waiting call, is checked against the fields and is never stored.
 A finished page lets a refused call run again within the same governed execution; a cancelled one fails
-it with `ai-mcp-url-elicitation-required`. The wait follows the tool's own timeout. Requests without a
+it with `ai-mcp-url-elicitation-required`. A request waits the server's own wait time, not the tool's
+timeout: five minutes unless an administrator sets one to ten (`elicitationWaitMinutes` of
+`admin/mcp-servers` and the server editor) or the application's code does
+(`NhAssistantMcpServerRequest.ElicitationWaitMinutes`, bounded by `NhAssistantMcpServerLimits`
+`MinElicitationWaitMinutes`, `DefaultElicitationWaitMinutes` and `MaxElicitationWaitMinutes`; another
+value fails with `elicitationWaitMinutes: invalid`). The clock of the tool's own timeout stands still
+while the person is asked, in both forms and for a refused call, and runs on with the time that was
+left. The wait follows the application's clock (`TimeProvider`); when nobody answers in time the server
+reads a cancellation and the audit records `<mode>-expired`. The turn's own timeout
+(`NhAssistantLimits.TurnTimeout`) keeps running and ends the wait at the turn's deadline, so a person's
+answer never lets a turn run longer; raise `TurnTimeout` where people should get the full wait. The call
+keeps its tool's concurrency slot while it waits. As for `POST cancel`, an answer reaches only the
+process that runs the turn. Requests without a
 person (a run, a consultation, a rule turn, a call of an exported tool), with nested or multiple-choice
 values, more than eight fields, a message over 1,000 characters or a link that is not https are declined
 without asking anyone. The audit records `McpElicitationRequested` and `McpElicitationClosed` with the
@@ -2021,6 +2033,8 @@ calls in a consultation store nothing and are not listed.
 - Treating an MCP server's request for input as the assistant's or the model's text, opening its link
   for the person, storing the answer, or treating an MCP client's accepted elicitation as an approval;
   a proposal is decided on the application's page with its hash.
+- Raising a tool's own timeout so a person has time to answer its server; set the server's
+  `elicitationWaitMinutes` instead, which stops the tool's clock while the person is asked.
 
 - Treating a chat about a subject as the agent's thread, or authorizing a tool on
   `ConversationSubject` alone: it names what the person asked about, and the tool still checks the

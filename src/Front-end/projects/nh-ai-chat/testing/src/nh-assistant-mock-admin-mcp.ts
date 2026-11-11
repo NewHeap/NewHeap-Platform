@@ -76,6 +76,10 @@ const connectionScopes: McpConnectionScope[] = ['organization', 'user'];
 const scopeTokens = /^[\x21\x23-\x5B\x5D-\x7E]+( [\x21\x23-\x5B\x5D-\x7E]+)*$/;
 const flowLifetimeMs = 10 * 60_000;
 const headlessUses: McpHeadlessUse[] = ['never', 'organization', 'personal'];
+/** The minutes a server's request for input waits for the person, as the server bounds them. */
+const minElicitationWaitMinutes = 1;
+const defaultElicitationWaitMinutes = 5;
+const maxElicitationWaitMinutes = 10;
 const transports = ['streamable-http', 'auto'];
 const secretReference = /^[a-z][a-z0-9-]{0,31}:[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/;
 const certificateName = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
@@ -1178,7 +1182,7 @@ function originOf(url: string): string | null {
 function toServerFields(
   input: McpServerInput,
   stored?: Omit<McpServer, 'hasSecret' | 'assignedAgentIds' | 'organizationConnection'>
-): Pick<McpServer, 'id' | 'displayName' | 'url' | 'authMode' | 'headerName' | 'requiredPolicy' | 'isEnabled' | 'userName' | 'secretReference' | 'clientCertificateReference'> {
+): Pick<McpServer, 'id' | 'displayName' | 'url' | 'authMode' | 'headerName' | 'requiredPolicy' | 'isEnabled' | 'userName' | 'secretReference' | 'clientCertificateReference' | 'elicitationWaitMinutes'> {
   const usesSecret = secretModes.includes(input.authMode);
   const reference = input.secretReference === undefined || input.secretReference === null
     ? (input.secret || !keepsSecret(stored, input) ? null : stored?.secretReference ?? null)
@@ -1196,7 +1200,9 @@ function toServerFields(
     isEnabled: input.isEnabled,
     userName: input.authMode === 'basic' ? (input.userName ?? stored?.userName ?? null)?.trim() ?? null : null,
     secretReference: usesSecret ? reference : null,
-    clientCertificateReference: certificate
+    clientCertificateReference: certificate,
+    // An omitted wait keeps the stored one; a new server waits five minutes, as on the server.
+    elicitationWaitMinutes: input.elicitationWaitMinutes ?? stored?.elicitationWaitMinutes ?? defaultElicitationWaitMinutes
   };
 }
 
@@ -1421,7 +1427,8 @@ function isServerInput(input: McpServerInput | undefined): input is McpServerInp
 /**
  * The field errors of a server's own fields, as the server reports them: `id` (invalid, too-long),
  * `displayName` (required, too-long), `url` (required, invalid, too-long), `authMode`, `headerName`,
- * `transport` and `headlessUse` (invalid) and `requiredPolicy` (invalid, not-found).
+ * `transport`, `headlessUse` and `elicitationWaitMinutes` (invalid) and `requiredPolicy` (invalid,
+ * not-found).
  */
 function checkServerFields(
   input: McpServerInput,
@@ -1459,6 +1466,11 @@ function checkServerFields(
   }
   if (input.transport !== undefined && input.transport !== null && !transports.includes(input.transport)) {
     add('transport', 'invalid');
+  }
+  const wait = input.elicitationWaitMinutes;
+  if (wait !== undefined && wait !== null &&
+    (!Number.isInteger(wait) || wait < minElicitationWaitMinutes || wait > maxElicitationWaitMinutes)) {
+    add('elicitationWaitMinutes', 'invalid');
   }
 
   // An omitted headless use or connection scope keeps the stored value, as on the server.

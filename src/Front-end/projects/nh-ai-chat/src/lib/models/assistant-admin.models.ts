@@ -892,6 +892,12 @@ export interface McpServerInput {
    * names the field of a reader with its index, such as `readers[0].toolName`.
    */
   readers?: McpReaderInput[] | null;
+  /**
+   * How long a request for input of the server waits for the person of a chat turn, in whole minutes
+   * from 1 to 10 (`elicitationWaitMinutes: invalid` otherwise). Omit to keep the stored value; a new
+   * server waits 5 minutes.
+   */
+  elicitationWaitMinutes?: number | null;
 }
 
 /**
@@ -952,6 +958,13 @@ export interface McpServer {
   organizationConnection: McpOrganizationConnection | null;
   /** The readers of the server, by priority, highest first; empty when it reads no files. */
   readers: McpReader[];
+  /**
+   * How long a request for input of the server waits for the person of a chat turn, in minutes: from
+   * 1 to 10, 5 unless an administrator or the application's code set another. The tool's own timeout
+   * stands still meanwhile; the turn's own time limit still ends the wait. Missing on older servers,
+   * whose requests wait within the tool's own timeout.
+   */
+  elicitationWaitMinutes?: number;
 }
 
 export interface McpServerTestResult {

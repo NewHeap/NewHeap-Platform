@@ -45,6 +45,9 @@ public sealed class AssistantOperationsSamplesTests(AssistantOperationsSampleHos
             Assert.True(connected.Success, string.Join("; ", connected.GetResultItems().Select(item => item.Name)));
             Assert.Equal([SampleStatusAdvisorComposition.AgentId], connected.Data!.AssignedAgentIds);
             Assert.True(connected.Data.HasSecret);
+            // SPM-251: the operations code gives the server's requests for input three minutes for the
+            // person's answer instead of the default five.
+            Assert.Equal(SampleAssistantOperationsService.MilestonesElicitationWaitMinutes, connected.Data.ElicitationWaitMinutes);
             Assert.All(milestones.ApiKeys, key => Assert.Equal(ApiKey, key));
 
             // The administration shows the same server, assigned to the advisor, without its key; the
@@ -52,6 +55,7 @@ public sealed class AssistantOperationsSamplesTests(AssistantOperationsSampleHos
             var listed = await host.GetJsonAsync(administrator, "/api/assistant/admin/mcp-servers");
             var server = listed.EnumerateArray().Single(item => item.GetProperty("id").GetString() == SampleAssistantOperationsService.MilestonesServerId);
             Assert.Equal(SampleStatusAdvisorComposition.AgentId, Assert.Single(server.GetProperty("assignedAgentIds").EnumerateArray()).GetString());
+            Assert.Equal(3, server.GetProperty("elicitationWaitMinutes").GetInt32());
             Assert.DoesNotContain(ApiKey, listed.GetRawText(), StringComparison.Ordinal);
             var tool = (await host.GetJsonAsync(administrator, "/api/assistant/admin/mcp-servers/milestones/tools")).EnumerateArray().Single();
             Assert.Equal((true, "read-only"), (tool.GetProperty("isEnabled").GetBoolean(), tool.GetProperty("effect").GetString()));

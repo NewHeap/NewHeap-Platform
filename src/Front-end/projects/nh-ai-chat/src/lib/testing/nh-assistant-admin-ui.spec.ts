@@ -1833,6 +1833,48 @@ describe('NhAssistantAdminMcpServersComponent', () => {
     expect(element.textContent).toContain('HTTP+SSE fallback');
   });
 
+  it('lets a server wait one to ten minutes for a person\'s answer and keeps the wait on a plain save', async () => {
+    await configure();
+    const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
+
+    button(element, 'Edit').click();
+    await settle(fixture);
+    const wait = element.querySelector('input[data-elicitation-wait]') as HTMLInputElement;
+    // A server that sets none waits five minutes.
+    expect(wait.value).toBe('5');
+    expect([wait.min, wait.max]).toEqual(['1', '10']);
+    expect(element.textContent).toContain('the chat waits this many minutes, from 1 to 10, for the answer');
+    expect(element.textContent).toContain("The tool's own timeout stands still meanwhile");
+
+    // More than ten minutes is out of the field's range, so the form is not sent.
+    type(element, 'input[data-elicitation-wait]', '11');
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(wait.validity.rangeOverflow).toBeTrue();
+    expect(requestBodies('PUT', 'admin/mcp-servers/files')).toEqual([]);
+
+    // An emptied wait is refused at the field without calling the server.
+    type(element, 'input[data-elicitation-wait]', '');
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(requestBodies('PUT', 'admin/mcp-servers/files')).toEqual([]);
+    expect(wait.getAttribute('aria-invalid')).toBe('true');
+    expect(wait.closest('.field')?.textContent).toContain('Enter a whole number of minutes from 1 to 10.');
+
+    type(element, 'input[data-elicitation-wait]', '8');
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    button(element, 'Edit').click();
+    await settle(fixture);
+    expect((element.querySelector('input[data-elicitation-wait]') as HTMLInputElement).value).toBe('8');
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    const bodies = requestBodies('PUT', 'admin/mcp-servers/files') as { elicitationWaitMinutes?: number }[];
+    expect(bodies.map(body => body.elicitationWaitMinutes)).toEqual([8, 8]);
+  });
+
   it('syncs tools disabled as changes, shows hints as hints and enables a tool as read-only', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
