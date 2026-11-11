@@ -512,6 +512,8 @@
         "secret-hint": "Stored encrypted and never shown again.",
         "secret-set": "A secret is set.",
         "secret-none": "No secret is set.",
+        "secret-again": "The changed address, authentication or header does not get the current secret. Enter it again.",
+        "secret-required": "Enter the secret.",
         "secret-replace": "Replace",
         "secret-clear": "Clear",
         "secret-will-clear": "The secret will be cleared when you save.",

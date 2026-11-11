@@ -1709,25 +1709,66 @@ describe('NhAssistantAdminMcpServersComponent', () => {
     expect(requestBodies('PUT', 'admin/mcp-servers/files')).toEqual([]);
 
     type(element, 'input[id$="-user"]', 'planner');
+    // The stored secret never follows the server to another authentication mode: the editor asks for
+    // the password before saving, as the server would.
+    expect(element.textContent).toContain('does not get the current secret');
+    expect(element.textContent).not.toContain('A secret is set.');
     button(element, 'Save').click();
     await settle(fixture);
-    // The stored secret never follows the server to another authentication mode: the server asks for
-    // the password, which the administrator enters.
-    const [refused] = requestBodies('PUT', 'admin/mcp-servers/files') as Record<string, unknown>[];
-    expect(Object.keys(refused)).not.toContain('secret');
-    button(element, 'Replace').click();
-    fixture.detectChanges();
+    expect(element.textContent).toContain('Enter the secret.');
+    expect(requestBodies('PUT', 'admin/mcp-servers/files')).toEqual([]);
+
     type(element, 'input[type="password"]', 'planner-password');
     button(element, 'Save').click();
     await settle(fixture);
 
     const bodies = requestBodies('PUT', 'admin/mcp-servers/files') as Record<string, unknown>[];
-    expect(bodies.length).toBe(2);
-    expect([bodies[1]['authMode'], bodies[1]['userName'], bodies[1]['secret']]).toEqual(['basic', 'planner', 'planner-password']);
+    expect(bodies.length).toBe(1);
+    expect([bodies[0]['authMode'], bodies[0]['userName'], bodies[0]['secret']]).toEqual(['basic', 'planner', 'planner-password']);
     expect(element.textContent).toContain('User name and password');
     expect(element.textContent).toContain('Secret set');
     expect(element.innerHTML).not.toContain('planner-password');
     expect(element.innerHTML).not.toContain(secretValue);
+  });
+
+  it('keeps the secret for another path on the same host and asks for it again for another host', async () => {
+    await configure();
+    const { fixture, element } = await render(NhAssistantAdminMcpServersComponent);
+
+    button(element, 'Edit').click();
+    await settle(fixture);
+    type(element, 'input[id$="-url"]', 'https://FILES.example.com/api/mcp');
+    fixture.detectChanges();
+    expect(element.textContent).toContain('A secret is set.');
+    expect(element.querySelector('input[type="password"]')).toBeNull();
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    button(element, 'Edit').click();
+    await settle(fixture);
+    type(element, 'input[id$="-url"]', 'https://files.example.org/api/mcp');
+    fixture.detectChanges();
+    expect(element.textContent).toContain('does not get the current secret');
+    expect(element.querySelector('input[type="password"]')).not.toBeNull();
+
+    // Back to the original host: the stored secret stays.
+    type(element, 'input[id$="-url"]', 'https://files.example.com/api/mcp');
+    fixture.detectChanges();
+    expect(element.textContent).toContain('A secret is set.');
+
+    type(element, 'input[id$="-url"]', 'https://files.example.org/api/mcp');
+    fixture.detectChanges();
+    type(element, 'input[type="password"]', 'files-token-again');
+    button(element, 'Save').click();
+    await settle(fixture);
+
+    const bodies = requestBodies('PUT', 'admin/mcp-servers/files') as Record<string, unknown>[];
+    expect(bodies.map(body => [body['url'], 'secret' in body ? body['secret'] : null])).toEqual([
+      ['https://FILES.example.com/api/mcp', null],
+      ['https://files.example.org/api/mcp', 'files-token-again']
+    ]);
+    expect(element.textContent).toContain('Secret set');
+    expect(element.innerHTML).not.toContain('files-token-again');
   });
 
   it('refers to a secret of the application instead of storing one', async () => {

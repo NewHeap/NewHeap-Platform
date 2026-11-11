@@ -212,7 +212,8 @@ assistant does not know answers `NhAssistantHttpStatuses.UnknownCodeStatus` (`40
   returned (`hasSecret`), logged or audited, and serve only the destination they were entered for:
   a change of the URL's origin (scheme, host or port), of the authentication mode or of the `api-key`
   header clears the stored secret and the `secretReference`, and the save needs one of them again
-  (`secret: required`); a new path on the same origin keeps them. `forward-user-token` uses `INhAiCallerCredentialAccessor` only for
+  (`secret: required`); a new path on the same origin keeps them. The administration's server
+  editor shows that before saving: it asks for the secret again as soon as the destination changes. `forward-user-token` uses `INhAiCallerCredentialAccessor` only for
   allow-listed hosts, and never gets a token marked as never passed on: the token of an MCP protected
   resource, or one an application's own scheme marked with `NhAiCallerCredentials.MarkNotForwardable`
   (`nh-ai-mcp-tools`). Synced tools start disabled as approval-required mutations;

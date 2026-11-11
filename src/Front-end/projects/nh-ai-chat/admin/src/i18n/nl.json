@@ -512,6 +512,8 @@
         "secret-hint": "Wordt versleuteld opgeslagen en nooit meer getoond.",
         "secret-set": "Er is een geheim ingesteld.",
         "secret-none": "Er is geen geheim ingesteld.",
+        "secret-again": "Het gewijzigde adres, de andere authenticatie of header krijgt het huidige geheim niet. Vul het opnieuw in.",
+        "secret-required": "Vul het geheim in.",
         "secret-replace": "Vervangen",
         "secret-clear": "Wissen",
         "secret-will-clear": "Het geheim wordt gewist als je opslaat.",

@@ -106,6 +106,8 @@ export type NhAssistantSecretSource = 'stored' | 'reference';
 
 /** `<prefix>:<name>` as the server accepts it; the name never climbs a path. */
 const secretReferencePattern = /^[a-z][a-z0-9-]{0,31}:[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/;
+/** The header an `api-key` server gets its secret in when none is named, as the server defaults it. */
+const defaultApiKeyHeader = 'x-api-key';
 const certificateNamePattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 /** Space-separated scope tokens: printable ASCII without quotes or backslashes (RFC 6749). */
 const scopesPattern = /^[\x21\x23-\x5B\x5D-\x7E]+( [\x21\x23-\x5B\x5D-\x7E]+)*$/;
@@ -142,6 +144,15 @@ interface ReaderProblems {
 
 let nextId = 0;
 let nextReaderKey = 0;
+
+/** Scheme, host and port of an address in lower case, or null when it is not an absolute URL. */
+function urlOrigin(url: string | null | undefined): string | null {
+  try {
+    return new URL((url ?? '').trim()).origin.toLowerCase();
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Creates or edits one MCP server: the authentication with a write-only secret or a reference to
@@ -242,6 +253,31 @@ export class NhAssistantAdminMcpServerEditorComponent {
   readonly usesSecret = computed(() => this.authMode() === 'bearer' || this.authMode() === 'api-key' || this.authMode() === 'basic');
   readonly usesReference = computed(() => this.usesSecret() && this.secretSource() === 'reference');
   /**
+   * The stored secret or reference would go somewhere else: to another origin (scheme, host and
+   * port), in another authentication mode or, for `api-key`, in another header. The server then
+   * drops it and asks for it again, so the editor asks before saving.
+   */
+  readonly secretDestinationChanged = computed(() => {
+    const server = this.server();
+    if (server === null) {
+      return false;
+    }
+    if (server.authMode !== this.authMode()) {
+      return true;
+    }
+    const before = urlOrigin(server.url);
+    if (before === null || before !== urlOrigin(this.url())) {
+      return true;
+    }
+    return this.authMode() === 'api-key' &&
+      (server.headerName?.trim() || defaultApiKeyHeader).toLowerCase() !== (this.headerName().trim() || defaultApiKeyHeader).toLowerCase();
+  });
+  /** A stored secret that a save keeps: it stays with the destination it was entered for. */
+  readonly keepsStoredSecret = computed(() => this.hasSecret() && !this.secretDestinationChanged());
+  /** The server had a secret or reference that the changed destination does not get. */
+  readonly secretNeededAgain = computed(() => this.usesSecret() && this.secretDestinationChanged() &&
+    (this.hasSecret() || (this.server()?.secretReference ?? null) !== null));
+  /**
    * The organization's credential may serve background runs; a forwarded user token only as the
    * short-lived token of the person a run acts for, after that person allowed it.
    */
@@ -293,7 +329,10 @@ export class NhAssistantAdminMcpServerEditorComponent {
     return found.clientIdMetadataDocumentSupported ? 'metadata-document' : found.dynamicRegistrationSupported ? 'dynamic' : 'manual';
   });
   readonly effectiveHeadlessUse = computed(() => this.headlessUses().includes(this.headlessUse()) ? this.headlessUse() : 'never');
-  readonly showSecretInput = computed(() => this.usesSecret() && !this.usesReference() && (!this.hasSecret() || this.secretAction() === 'replace'));
+  readonly showSecretInput = computed(() => this.usesSecret() && !this.usesReference() &&
+    (!this.keepsStoredSecret() || this.secretAction() === 'replace'));
+  /** A mode that sends a secret has none to keep and none was entered. */
+  readonly secretMissing = computed(() => this.showSecretInput() && this.secret().length === 0);
   readonly idInvalid = computed(() => this.isNew() && (this.serverId().length > 40 || !NH_ASSISTANT_DASH_CASE.test(this.serverId())));
   readonly nameMissing = computed(() => this.displayName().trim().length === 0);
   readonly urlInvalid = computed(() => !isAllowedUrl(this.url().trim()));
@@ -342,7 +381,7 @@ export class NhAssistantAdminMcpServerEditorComponent {
   readonly readerInvalid = computed(() => this.readerProblems().some(problems =>
     problems.types || problems.tool || problems.duplicate || problems.classification || problems.priority));
   readonly valid = computed(() => !this.idInvalid() && !this.nameMissing() && !this.urlInvalid() && !this.headerNameInvalid() &&
-    !this.userNameInvalid() && !this.secretReferenceInvalid() && !this.certificateInvalid() && !this.oauthInvalid() &&
+    !this.userNameInvalid() && !this.secretMissing() && !this.secretReferenceInvalid() && !this.certificateInvalid() && !this.oauthInvalid() &&
     !this.readerInvalid());
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
   /** The server's first error per field of the refused save, until the administrator changes the field. */
@@ -467,7 +506,7 @@ export class NhAssistantAdminMcpServerEditorComponent {
 
   onSecretInput(event: Event): void {
     this.secret.set(this.value(event));
-    if (!this.hasSecret()) {
+    if (!this.keepsStoredSecret()) {
       this.secretAction.set(this.secret().length > 0 ? 'replace' : 'keep');
     }
   }

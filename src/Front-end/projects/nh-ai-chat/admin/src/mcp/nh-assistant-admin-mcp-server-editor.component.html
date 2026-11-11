@@ -393,7 +393,7 @@
           @if (serverInvalid('secretReference')) {
             <p class="field-error" [id]="errorId('secretReference')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('secretReference') | nhAssistantTranslate }}</p>
           }
-        } @else if (hasSecret()) {
+        } @else if (keepsStoredSecret()) {
           <div class="meta secret-state">
             @switch (secretAction()) {
               @case ('clear') {
@@ -411,6 +411,8 @@
               }
             }
           </div>
+        } @else if (secretNeededAgain()) {
+          <p class="meta secret-state"><span class="badge warning">{{ 'nh-assistant.admin.server-editor.secret-again' | translate }}</span></p>
         } @else {
           <p class="muted">{{ 'nh-assistant.admin.server-editor.secret-none' | translate }}</p>
         }
@@ -425,12 +427,16 @@
             [maxLength]="limits.secret"
             [attr.placeholder]="'nh-assistant.admin.server-editor.secret-new' | translate"
             [attr.aria-describedby]="describedBy(id + '-secret-hint', 'secret')"
-            [attr.aria-invalid]="serverInvalid('secret') ? true : null"
+            [attr.aria-invalid]="(submitted() && secretMissing()) || serverInvalid('secret') ? true : null"
             [value]="secret()"
             (input)="onSecretInput($event); touch('secret')" />
         }
         @if (!usesReference()) {
-          <p class="hint" [id]="id + '-secret-hint'">{{ 'nh-assistant.admin.server-editor.secret-hint' | translate }}</p>
+          <p class="hint" [id]="id + '-secret-hint'">
+            <span [class.error-text]="submitted() && secretMissing()">
+              {{ (submitted() && secretMissing() ? 'nh-assistant.admin.server-editor.secret-required' : 'nh-assistant.admin.server-editor.secret-hint') | translate }}
+            </span>
+          </p>
         }
         @if (serverInvalid('secret')) {
           <p class="field-error" [id]="errorId('secret')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('secret') | nhAssistantTranslate }}</p>
