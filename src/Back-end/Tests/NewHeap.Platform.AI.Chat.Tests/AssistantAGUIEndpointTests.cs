@@ -406,8 +406,9 @@ public sealed class AssistantAGUIHostFixture : IAsyncLifetime
         App = await AssistantWebApplication.StartAsync(
             new AssistantDatabaseFixture(),
             Model,
-            // The agent's chat settings (questions, plan) run in chats; no background run is started here.
-            configure: services => services.Remove(services.Single(descriptor => descriptor.ImplementationType == typeof(NhAssistantStartupValidator))),
+            // The host keeps its startup check: the agent's chat settings (questions, plan) work in chats,
+            // and on a host without object types the agent works on nothing, so it needs no background
+            // operations.
             assistantBuilder: assistant => assistant
                 .AddToolResultPresenter<SearchResultPresenter>()
                 .AddClientTool<OpenProjectInput>(OpenToolId, tool => tool
