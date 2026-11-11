@@ -53,6 +53,9 @@ public sealed class NhAiMvcBridgeCatalogTests
             Assert.True(descriptor.RequiresAuthorization);
             Assert.Equal("test-api", descriptor.CatalogId);
             Assert.Equal(64, descriptor.ContractHash.Length);
+            // Every bridge tool calls the API with the caller's token, so none runs as an MCP task.
+            Assert.True(descriptor.ForwardsCallerToken);
+            Assert.Equal(NhAiToolTaskSupport.None, descriptor.TaskSupport);
         });
         Assert.Equal(catalog.AttestationHash, catalog.Manifest.SchemaHash);
     }

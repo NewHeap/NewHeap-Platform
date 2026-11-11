@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -24,7 +25,8 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// <c>UseTasks</c> of <c>WithNewHeapPlatformAITools</c> over real stateless Streamable HTTP on loopback:
 /// a client with the MCP Tasks extension gets a task for a tool that declares task support and polls its
 /// result, a client without it gets the tool's own answer, and a task exists only for the actor and
-/// division that created it, until it expires on the application's clock.
+/// division that created it, until it expires on the application's clock. A task never has the caller's
+/// token, and the exposure refuses to start for a tool that passes that token on and supports tasks.
 /// </summary>
 public sealed class NhAiMcpTaskTests(NhAiMcpTaskTests.Host host) : IClassFixture<NhAiMcpTaskTests.Host>
 {
@@ -34,6 +36,8 @@ public sealed class NhAiMcpTaskTests(NhAiMcpTaskTests.Host host) : IClassFixture
     private const string DivisionHeader = "X-NH-ActiveDivisionId";
     private const string AnalyzeTool = "projects_analyze_v1";
     private const string ExportTool = "projects_export_v1";
+    private const string CallerTokenTool = "projects_caller_token_v1";
+    private const string CallerToken = "caller-token";
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
 
     [Fact]
@@ -155,6 +159,39 @@ public sealed class NhAiMcpTaskTests(NhAiMcpTaskTests.Host host) : IClassFixture
             boundedResult.StructuredContent!.Value.GetProperty("code").GetString());
     }
 
+    [Fact]
+    public async Task A_task_never_has_the_callers_token_that_a_plain_call_of_the_same_tool_has()
+    {
+        var cancellationToken = CancellationToken.None;
+        await using var client = await host.ConnectAsync("actor-6", TasksProtocolVersion, bearerToken: CallerToken);
+
+        // The tool reads the caller's credential the way a token-forwarding dependency would.
+        var created = await client.CallToolAsTaskAsync(Call(CallerTokenTool, "read"), cancellationToken);
+        var completed = Assert.IsType<CompletedTaskResult>(await PollUntilEndedAsync(client, created.TaskCreated!.TaskId));
+        var plain = await client.CallToolAsync(CallerTokenTool, Arguments("read"), cancellationToken: cancellationToken);
+
+        Assert.Equal("as a task: no token", Text(completed));
+        Assert.Equal("directly: " + CallerToken, Data(plain));
+    }
+
+    [Fact]
+    public async Task The_exposure_refuses_to_start_when_a_tool_that_passes_the_callers_token_on_declares_task_support()
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseTestServer();
+        Host.Configure(builder, new LongRunningCatalog(host, forwardsCallerToken: true), host.Clock);
+        await using var app = builder.Build();
+        app.MapMcp("/mcp");
+
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() => app.StartAsync());
+
+        Assert.Contains(
+            "AI tool 'projects.caller-token' of catalog 'long-running' declares MCP task support (Optional) but passes the caller's token on (ForwardsCallerToken).",
+            refused.Message,
+            StringComparison.Ordinal);
+        Assert.Contains("Set TaskSupport to None", refused.Message, StringComparison.Ordinal);
+    }
+
     private static async Task<GetTaskResult> PollUntilEndedAsync(McpClient client, string taskId)
     {
         using var patience = new CancellationTokenSource(Patience);
@@ -247,25 +284,7 @@ public sealed class NhAiMcpTaskTests(NhAiMcpTaskTests.Host host) : IClassFixture
             {
                 var builder = WebApplication.CreateBuilder();
                 builder.WebHost.UseUrls($"http://localhost:{port}");
-                builder.Logging.ClearProviders();
-                var services = builder.Services;
-                services.AddAuthorization();
-                services.AddSingleton<TimeProvider>(Clock);
-                services.AddSingleton<INhAiToolCatalog>(new LongRunningCatalog(this));
-                services.AddScoped<INhAiToolDiscoveryPolicy>(_ => NhAiTestDiscoveryPolicy.Allowed());
-                services.AddScoped<INhAiBudgetManager>(_ => new NhAiTestBudgetManager());
-                services.AddNewHeapPlatformAIAspNet(ai => ai
-                    .UseToolInvocationPurpose("tool-invocation")
-                    .UseAuthenticatedInvocationContextResolver<HeaderResolver>());
-                services.AddMcpServer()
-                    .WithHttpTransport()
-                    .WithNewHeapPlatformAITools(exposure => exposure.UseTasks(tasks =>
-                    {
-                        tasks.UseInMemoryStore();
-                        tasks.TimeToLive = TimeToLive;
-                        tasks.AbandonAfter = AbandonAfter;
-                        tasks.MaxResultBytes = NhAiMcpTaskOptions.MinResultBytes;
-                    }));
+                Configure(builder, new LongRunningCatalog(this), Clock);
 
                 var server = builder.Build();
                 server.MapMcp("/mcp");
@@ -273,18 +292,55 @@ public sealed class NhAiMcpTaskTests(NhAiMcpTaskTests.Host host) : IClassFixture
             });
         }
 
-        public async Task<McpClient> ConnectAsync(string actor, string protocolVersion, Guid? divisionId = null)
+        /// <summary>
+        /// The services of the MCP server with tasks: <paramref name="catalog"/> exported over Streamable
+        /// HTTP on <paramref name="clock"/>, with the in-memory task store.
+        /// </summary>
+        public static void Configure(WebApplicationBuilder builder, LongRunningCatalog catalog, TimeProvider clock)
         {
+            builder.Logging.ClearProviders();
+            var services = builder.Services;
+            services.AddAuthorization();
+            services.AddSingleton(clock);
+            services.AddSingleton<INhAiToolCatalog>(catalog);
+            services.AddScoped<INhAiToolDiscoveryPolicy>(_ => NhAiTestDiscoveryPolicy.Allowed());
+            services.AddScoped<INhAiBudgetManager>(_ => new NhAiTestBudgetManager());
+            services.AddNewHeapPlatformAIAspNet(ai => ai
+                .UseToolInvocationPurpose("tool-invocation")
+                .UseAuthenticatedInvocationContextResolver<HeaderResolver>());
+            services.AddMcpServer()
+                .WithHttpTransport()
+                .WithNewHeapPlatformAITools(exposure => exposure.UseTasks(tasks =>
+                {
+                    tasks.UseInMemoryStore();
+                    tasks.TimeToLive = TimeToLive;
+                    tasks.AbandonAfter = AbandonAfter;
+                    tasks.MaxResultBytes = NhAiMcpTaskOptions.MinResultBytes;
+                }));
+        }
+
+        public async Task<McpClient> ConnectAsync(
+            string actor,
+            string protocolVersion,
+            Guid? divisionId = null,
+            string? bearerToken = null)
+        {
+            var headers = new Dictionary<string, string>
+            {
+                [ActorHeader] = actor,
+                [DivisionHeader] = (divisionId ?? DivisionId).ToString()
+            };
+            if (bearerToken is not null)
+            {
+                headers["Authorization"] = "Bearer " + bearerToken;
+            }
+
             return await McpClient.CreateAsync(
                 new HttpClientTransport(new HttpClientTransportOptions
                 {
                     Endpoint = new Uri(Endpoint),
                     TransportMode = HttpTransportMode.StreamableHttp,
-                    AdditionalHeaders = new Dictionary<string, string>
-                    {
-                        [ActorHeader] = actor,
-                        [DivisionHeader] = (divisionId ?? DivisionId).ToString()
-                    }
+                    AdditionalHeaders = headers
                 }),
                 new McpClientOptions { ProtocolVersion = protocolVersion });
         }
@@ -351,25 +407,32 @@ public sealed class NhAiMcpTaskTests(NhAiMcpTaskTests.Host host) : IClassFixture
     }
 
     /// <summary>
-    /// An attested catalog with two read tools exported to MCP through the shared invoker: an analysis
-    /// that supports tasks and an export that requires them.
+    /// An attested catalog with three read tools exported to MCP through the shared invoker: an analysis
+    /// that supports tasks, an export that requires them, and a tool that supports tasks and reports the
+    /// caller's credential it reads, which it declares passing on only where a test says so.
     /// </summary>
-    internal sealed class LongRunningCatalog : INhAiAttestedToolCatalog
+    public sealed class LongRunningCatalog : INhAiAttestedToolCatalog
     {
         private readonly Host _host;
         private readonly NhAiToolDescriptor _analyze;
         private readonly NhAiToolDescriptor _export;
+        private readonly NhAiToolDescriptor _callerToken;
 
-        public LongRunningCatalog(Host host)
+        public LongRunningCatalog(Host host, bool forwardsCallerToken = false)
         {
             _host = host;
             _analyze = Descriptor("projects.analyze", AnalyzeTool, NhAiToolTaskSupport.Optional);
             _export = Descriptor("projects.export", ExportTool, NhAiToolTaskSupport.Required);
+            _callerToken = Descriptor("projects.caller-token", CallerTokenTool, NhAiToolTaskSupport.Optional) with
+            {
+                ForwardsCallerToken = forwardsCallerToken
+            };
         }
 
         public NhAiToolCatalogGovernance Governance => NhAiToolCatalogGovernance.SharedInvoker;
 
-        public IReadOnlyList<NhAiToolDescriptor> Descriptors => [_analyze, _export];
+        // Ordered by id, as the attestation hash orders them.
+        public IReadOnlyList<NhAiToolDescriptor> Descriptors => [_analyze, _callerToken, _export];
 
         public string AttestationHash => Hash(string.Join(
             "\n",
@@ -396,6 +459,7 @@ public sealed class NhAiMcpTaskTests(NhAiMcpTaskTests.Host host) : IClassFixture
             var host = _host;
             var analyze = _analyze;
             var export = _export;
+            var callerToken = _callerToken;
             Func<string, CancellationToken, Task<TaskResult<string>>> analyzeHandler =
                 (input, cancellationToken) => invoker.InvokeAsync(
                     analyze,
@@ -409,12 +473,30 @@ public sealed class NhAiMcpTaskTests(NhAiMcpTaskTests.Host host) : IClassFixture
                     (_, _) => Task.FromResult(TaskResult<string>.Succeeded(
                         input == "large" ? new string('x', 4_000) : "exported " + input)),
                     cancellationToken);
+            Func<string, CancellationToken, Task<TaskResult<string>>> callerTokenHandler =
+                (input, cancellationToken) => invoker.InvokeAsync(
+                    callerToken,
+                    input,
+                    async (context, token) =>
+                    {
+                        var credential = await services
+                            .GetRequiredService<INhAiCallerCredentialAccessor>()
+                            .GetBearerTokenAsync(token);
+                        var how = context.McpTaskId is null ? "directly" : "as a task";
+                        return TaskResult<string>.Succeeded($"{how}: {credential ?? "no token"}");
+                    },
+                    cancellationToken);
             return
             [
                 NhAiGovernedAIFunction.Create(analyze, AIFunctionFactory.Create(analyzeHandler, new AIFunctionFactoryOptions
                 {
                     Name = analyze.ExportName,
                     Description = analyze.Description
+                })),
+                NhAiGovernedAIFunction.Create(callerToken, AIFunctionFactory.Create(callerTokenHandler, new AIFunctionFactoryOptions
+                {
+                    Name = callerToken.ExportName,
+                    Description = callerToken.Description
                 })),
                 NhAiGovernedAIFunction.Create(export, AIFunctionFactory.Create(exportHandler, new AIFunctionFactoryOptions
                 {

@@ -270,6 +270,11 @@ public sealed class NhAiMcpExposureBuilder
     /// <item>Tasks are kept in the assistant's store, shared by every instance of the host; register the
     /// assistant, or use <see cref="NhAiMcpTaskOptions.UseInMemoryStore"/> for tests and development.
     /// The application's log gets the task's id, tool and status, never its arguments or result.</item>
+    /// <item>A task runs after its request ended, without the caller's token:
+    /// <see cref="INhAiCallerCredentialAccessor"/> returns none inside it. A tool that passes the caller's
+    /// token on (<see cref="NhAiToolDescriptor.ForwardsCallerToken"/>, such as an API bridge tool) never
+    /// declares task support: the exposure refuses to start for one that does, and the generator refuses
+    /// task support for a tool set that takes the caller's token or request (<c>NHAI021</c>).</item>
     /// </list>
     /// Call it once per exposure.
     /// </summary>
