@@ -39,6 +39,18 @@ public sealed class AssistantManualClock(DateTimeOffset start) : TimeProvider
     }
 
     /// <summary>
+    /// Whether a timer is due within <paramref name="window"/> from now, such as the bound of a wait that
+    /// the test waits to begin before it moves the clock past it.
+    /// </summary>
+    public bool HasTimerDueWithin(TimeSpan window)
+    {
+        lock (_gate)
+        {
+            return _timers.Any(timer => timer.DueAt <= _now + window);
+        }
+    }
+
+    /// <summary>
     /// Moves the clock forward by <paramref name="duration"/> and fires the timers it passes on the
     /// calling thread. Call it on a pool thread (<c>Task.Run</c>) when a timer's callback continues work
     /// the test waits for, as a system timer would run it.

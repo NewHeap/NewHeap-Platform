@@ -20,8 +20,9 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// An MCP server's request for input waits the server's own wait time for the person of the turn,
 /// five minutes unless an administrator or the application's code sets one to ten, instead of the
 /// tool's own timeout: the clock of that timeout stands still while the person is asked and runs on
-/// once they answered. The wait follows the application's clock and never passes the turn's deadline;
-/// a request nobody answers in time is cancelled, and the audit records that it expired.
+/// once they answered. The wait follows the application's clock; a request nobody answers in time is
+/// cancelled, and the audit records that it expired. The turn stands still as well
+/// (<see cref="AssistantMcpElicitationTurnPauseTests"/>).
 /// </summary>
 public sealed class AssistantMcpElicitationWaitTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
@@ -152,42 +153,6 @@ public sealed class AssistantMcpElicitationWaitTests(AssistantDatabaseFixture da
         Assert.Equal(NhAssistantToolCallStatuses.Succeeded, turn.Single<NhAssistantToolCompletedEvent>().Status);
         var audited = Assert.Single(host.Business.Events, evt => evt.Kind == NhAssistantAuditEventKind.McpElicitationClosed);
         Assert.Equal((ServerId, "form-expired"), (audited.ObjectId, audited.ResultCode));
-    }
-
-    [Fact]
-    public async Task A_request_never_waits_past_the_turns_deadline()
-    {
-        var clock = new AssistantManualClock(Start);
-        var model = new NhAiScriptedChatClient()
-            .RespondWithFunctionCall(ConfirmFunction, new { order = "A-202" })
-            .RespondWithText("Order A-202 was not confirmed.");
-        var servers = new InMemoryMcpServers();
-        servers.Register(ServerUrl, () => [ConfirmWithReason(servers)]);
-        // The server waits the default five minutes; the turn has 90 seconds in all.
-        await using var host = await CreateHostAsync(model, servers, clock, TimeSpan.FromSeconds(90));
-        await ConnectAsync(host, waitMinutes: null);
-        var conversation = await host.CreateConversationAsync();
-        DateTimeOffset? expiresAt = null;
-
-        var turn = await host.SendWhileElicitationsWaitAsync(conversation.Id, "Confirm order A-202.", async elicitation =>
-        {
-            expiresAt = elicitation.ExpiresAt;
-            await using var answering = host.Services.CreateAsyncScope();
-            await answering.ServiceProvider.GetRequiredService<NhAssistantElicitationAnswerService>().AnswerAsync(
-                conversation.Id,
-                elicitation.ElicitationId,
-                AssistantTestHost.UserId,
-                null,
-                NhAssistantElicitationActions.Decline,
-                null,
-                CancellationToken.None);
-        });
-
-        // The turn's own timeout keeps running while the person is asked, so the request ends with it.
-        Assert.NotNull(expiresAt);
-        Assert.InRange(expiresAt!.Value, Start.AddSeconds(30), Start.AddSeconds(90));
-        Assert.Equal(["confirm:decline"], servers.Calls);
-        Assert.Equal(NhAssistantElicitationStatuses.Declined, turn.Single<NhAssistantElicitationClosedEvent>().Elicitation.Status);
     }
 
     [Fact]
