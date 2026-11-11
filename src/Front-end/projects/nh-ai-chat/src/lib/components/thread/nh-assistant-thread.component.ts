@@ -1,5 +1,5 @@
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
-import { NgTemplateOutlet } from '@angular/common';
+import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -17,6 +17,7 @@ import {
 } from '@angular/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { ApprovalDecision, ApprovalPart, ApprovalResolution, ConversationMember, ElicitationPart, FilePart, Message, QuestionPart } from '../../models/assistant-api.models';
+import { nhAssistantPrefetchCardViews } from '../../internal/nh-assistant-card-views';
 import { nhAssistantFileTypeLabel, nhAssistantFormatFileSize } from '../../internal/nh-assistant-files';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantMarkdownPipe } from '../../internal/nh-assistant-markdown.pipe';
@@ -235,6 +236,11 @@ export class NhAssistantThreadComponent {
   private readonly viewport = viewChild(CdkVirtualScrollViewport);
 
   constructor() {
+    // Plans, requests for input and result cards load on first use; once the thread shows, their views
+    // arrive while the browser is idle, so such a card shows at once instead of its placeholder.
+    const view = inject(DOCUMENT).defaultView;
+    afterNextRender(() => nhAssistantPrefetchCardViews(view));
+
     effect(onCleanup => {
       if (!this.streaming()) {
         this.turnStartedAt.set(null);

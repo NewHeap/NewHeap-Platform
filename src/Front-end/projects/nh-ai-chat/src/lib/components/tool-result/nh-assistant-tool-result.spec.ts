@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, DeferBlockBehavior, DeferBlockState, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
@@ -60,8 +60,9 @@ function toolCall(overrides: Partial<ToolCallPart> = {}): ToolCallPart {
   };
 }
 
-async function configure(extraProviders: unknown[] = []): Promise<void> {
+async function configure(extraProviders: unknown[] = [], deferBlockBehavior = DeferBlockBehavior.Playthrough): Promise<void> {
   TestBed.configureTestingModule({
+    deferBlockBehavior,
     providers: [
       provideRouter([]),
       provideTranslateService({ fallbackLang: 'en' }),
@@ -74,6 +75,19 @@ async function configure(extraProviders: unknown[] = []): Promise<void> {
 
 function rows(element: HTMLElement): HTMLElement[] {
   return Array.from(element.querySelectorAll<HTMLElement>('.field'));
+}
+
+/**
+ * Renders the fixture with the views that load on first use: the result card and the presentation
+ * fields are `@defer` blocks, which render once their chunk has loaded.
+ */
+async function render(fixture: ComponentFixture<unknown>): Promise<HTMLElement> {
+  fixture.detectChanges();
+  for (const block of await fixture.getDeferBlocks()) {
+    await block.render(DeferBlockState.Complete);
+  }
+  fixture.detectChanges();
+  return fixture.nativeElement as HTMLElement;
 }
 
 /** A renderer of the application: it reads only the injected result. */
@@ -105,7 +119,7 @@ describe('NhAssistantPresentationFieldsComponent', () => {
     await configure();
     fixture = TestBed.createComponent(NhAssistantPresentationFieldsComponent);
     fixture.componentRef.setInput('fields', changeFields);
-    fixture.detectChanges();
+    await render(fixture);
   });
 
   it('shows a plain fact as before and says in words how each field of a change changes', () => {
@@ -152,6 +166,42 @@ describe('NhAssistantPresentationFieldsComponent', () => {
   });
 });
 
+describe('cards that load on first use', () => {
+  it('hold the place of the fields with an empty box of about their height until the list has loaded', async () => {
+    await configure([], DeferBlockBehavior.Manual);
+    const fixture = TestBed.createComponent(NhAssistantPresentationFieldsComponent);
+    fixture.componentRef.setInput('fields', changeFields);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+
+    const placeholder = element.querySelector('nh-assistant-card-placeholder') as HTMLElement;
+    expect(placeholder.getAttribute('aria-hidden')).toBe('true');
+    // Two plain lines and three changes of three lines each, with the gaps between the five fields.
+    expect(placeholder.style.minHeight).toBe(`${2 * 20 + 3 * 66 + 4 * 6}px`);
+    expect(element.querySelector('dl')).toBeNull();
+
+    const [list] = await fixture.getDeferBlocks();
+    await list.render(DeferBlockState.Complete);
+    expect(element.querySelector('nh-assistant-card-placeholder')).toBeNull();
+    expect(rows(element).length).toBe(5);
+  });
+
+  it('hold the place of a result card with an outlined box until the card has loaded', async () => {
+    await configure([], DeferBlockBehavior.Manual);
+    const fixture = TestBed.createComponent(NhAssistantToolResultCardComponent);
+    fixture.componentRef.setInput('presentation', projectCard);
+    fixture.componentRef.setInput('displayName', 'Read project');
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+
+    const placeholder = element.querySelector('nh-assistant-card-placeholder') as HTMLElement;
+    expect(placeholder.classList).toContain('outlined');
+    // Frame and title, the tool's name, the summary, two plain fields and the link.
+    expect(placeholder.style.minHeight).toBe(`${46 + 22 + 22 + 10 + 2 * 20 + 6 + 30}px`);
+    expect(element.querySelector('article')).toBeNull();
+  });
+});
+
 describe('NhAssistantApprovalCardComponent with a change', () => {
   it('shows the current and proposed value of each changed field', async () => {
     await configure();
@@ -170,7 +220,7 @@ describe('NhAssistantApprovalCardComponent with a change', () => {
     };
     const fixture = TestBed.createComponent(NhAssistantApprovalCardComponent);
     fixture.componentRef.setInput('approval', approval);
-    fixture.detectChanges();
+    await render(fixture);
 
     const fields = fixture.nativeElement.querySelector('nh-assistant-presentation-fields') as HTMLElement;
     expect(fields).not.toBeNull();
@@ -201,8 +251,7 @@ describe('NhAssistantToolResultCardComponent', () => {
       fields: [...projectCard.fields, { label: 'Owner', value: 'Bob', currentValue: 'Ann', change: 'changed' }]
     });
     fixture.componentRef.setInput('displayName', 'Read project');
-    fixture.detectChanges();
-    const element = fixture.nativeElement as HTMLElement;
+    const element = await render(fixture);
 
     expect(element.querySelector('article')!.getAttribute('aria-label')).toBe('Result of Read project');
     expect(element.querySelector('.tool')!.textContent!.trim()).toBe('Read project');
@@ -221,12 +270,11 @@ describe('NhAssistantToolResultCardComponent', () => {
     await configure();
     const fixture = TestBed.createComponent(NhAssistantToolResultCardComponent);
     fixture.componentRef.setInput('presentation', { title: 'Alpha', summary: null, fields: [], link: null });
-    fixture.detectChanges();
-    const element = fixture.nativeElement as HTMLElement;
+    const element = await render(fixture);
 
     expect(element.querySelector('.tool')).toBeNull();
     expect(element.querySelector('.summary')).toBeNull();
-    expect(element.querySelector('nh-assistant-presentation-fields')).toBeNull();
+    expect(element.querySelector('nh-assistant-presentation-fields-view')).toBeNull();
     expect(element.querySelector('a')).toBeNull();
     expect(element.querySelector('article')!.getAttribute('aria-label')).toBe('Result of Alpha');
   });
@@ -264,8 +312,7 @@ describe('NhAssistantToolResultComponent', () => {
     await configure([provideNhAssistantToolResultRenderers({ toolId: 'projects.search', component: TestOtherResultComponent })]);
     const fixture = TestBed.createComponent(NhAssistantToolResultComponent);
     fixture.componentRef.setInput('part', toolCall());
-    fixture.detectChanges();
-    const element = fixture.nativeElement as HTMLElement;
+    const element = await render(fixture);
 
     expect(element.querySelector('nh-assistant-tool-result-card .title')!.textContent!.trim()).toBe('PRJ-1 Alpha');
     expect(element.querySelector('.other')).toBeNull();
@@ -326,8 +373,7 @@ describe('result cards in the conversation', () => {
         toolCall({ invocationId: 'call-3', toolId: 'projects.list', resultPresentation: undefined })
       ]
     }]);
-    fixture.detectChanges();
-    const element = fixture.nativeElement as HTMLElement;
+    const element = await render(fixture);
 
     expect(element.querySelectorAll('nh-assistant-tool-call-group').length).toBe(1);
     const results = Array.from(element.querySelectorAll<HTMLElement>('nh-assistant-tool-result'));

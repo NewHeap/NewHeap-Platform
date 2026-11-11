@@ -1,5 +1,5 @@
 import { Component, signal } from '@angular/core';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, DeferBlockBehavior, DeferBlockState, TestBed } from '@angular/core/testing';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { NhAssistantMockScenario, provideNhAssistantMockApi } from '@newheap/platform-ai-chat/testing';
 import { firstValueFrom, toArray } from 'rxjs';
@@ -53,8 +53,9 @@ function scenario(): NhAssistantMockScenario {
   };
 }
 
-async function configure(language: 'en' | 'nl' = 'en'): Promise<void> {
+async function configure(language: 'en' | 'nl' = 'en', deferBlockBehavior = DeferBlockBehavior.Playthrough): Promise<void> {
   TestBed.configureTestingModule({
+    deferBlockBehavior,
     providers: [
       provideTranslateService({ fallbackLang: 'en' }),
       provideNhAssistant({ apiBaseUrl: '/api/assistant', getAccessToken: () => 'token' }),
@@ -102,8 +103,29 @@ describe('NhAssistantPlanComponent', () => {
     const fixture = TestBed.createComponent(NhAssistantPlanComponent);
     fixture.componentRef.setInput('plan', value);
     fixture.detectChanges();
+    // The checklist loads on first use.
+    const [checklist] = await fixture.getDeferBlocks();
+    await checklist.render(DeferBlockState.Complete);
     return fixture.nativeElement as HTMLElement;
   }
+
+  it('holds the checklist\'s place with an empty box of about its height until it has loaded', async () => {
+    await configure('en', DeferBlockBehavior.Manual);
+    const fixture = TestBed.createComponent(NhAssistantPlanComponent);
+    fixture.componentRef.setInput('plan', plan);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+
+    const placeholder = element.querySelector('nh-assistant-card-placeholder') as HTMLElement;
+    expect(placeholder.getAttribute('aria-hidden')).toBe('true');
+    expect(placeholder.style.minHeight).toBe(`${46 + 3 * 30}px`);
+    expect(element.querySelector('li.step')).toBeNull();
+
+    const [checklist] = await fixture.getDeferBlocks();
+    await checklist.render(DeferBlockState.Complete);
+    expect(element.querySelector('nh-assistant-card-placeholder')).toBeNull();
+    expect(element.querySelectorAll('li.step').length).toBe(3);
+  });
 
   it('shows the agent\'s plan as an accessible checklist with the current step marked', async () => {
     const element = await create(plan);
