@@ -103,4 +103,26 @@ describe('nhAssistantModalTool', () => {
 
     expect(await result).toEqual({ status: 'completed', outcome: 'closed' });
   });
+
+  it('opens nothing for arguments the application does not accept and loads its form on first use', async () => {
+    const loaded = nhAssistantModalTool<{ projectId?: unknown }, SavedTask>({
+      toolId: 'projects.create-task',
+      loadComponent: () => Promise.resolve(TaskFormComponent as unknown as Type<NhAssistantModalToolContent<SavedTask>>),
+      accepts: args => args.projectId === 'p-1'
+    });
+    const run = (projectId: string) => Promise.resolve(runInInjectionContext(
+      TestBed.inject(EnvironmentInjector),
+      () => loaded.run({ invocationId: 'i1', toolId: 'projects.create-task', conversationId: 'c1', arguments: { projectId }, expiresAt: '2099-01-01T00:00:00Z' })));
+
+    expect(await run('elsewhere')).toEqual({ status: 'unavailable', outcome: 'arguments-not-allowed' });
+    expect(modals.opened).toEqual([]);
+
+    const result = run('p-1');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(modals.opened[0].component).toBe(TaskFormComponent);
+    modals.opened[0].modal.contentComponent.closeDialog();
+    expect(await result).toEqual({ status: 'completed', outcome: 'cancelled' });
+    expect(() => nhAssistantModalTool({ toolId: 'projects.create-task' })).toThrowError(/exactly one of component and loadComponent/);
+  });
 });

@@ -22,14 +22,25 @@ export interface NhAssistantModalToolOptions<TArguments, TResult> {
   toolId: string;
   /**
    * The modal's content: a component that extends `NhModalMutateBaseComponent`, which the person reviews
-   * and saves through the application's normal API and authorization.
+   * and saves through the application's normal API and authorization. Give this or `loadComponent`.
    */
-  component: Type<NhAssistantModalToolContent<TResult>>;
+  component?: Type<NhAssistantModalToolContent<TResult>>;
+  /**
+   * Loads the modal's content when the tool first runs, such as
+   * `() => import('./task-form.component').then(module => module.TaskFormComponent)`, so it stays out of
+   * the bundle that registers the tool. Give this or `component`.
+   */
+  loadComponent?: () => Promise<Type<NhAssistantModalToolContent<TResult>>>;
+  /**
+   * The application's check of the arguments: a call it refuses reports `unavailable` with outcome
+   * `arguments-not-allowed` and opens nothing. Without it every call opens the modal.
+   */
+  accepts?: (args: TArguments) => boolean;
   /** The modal's options, such as its title and `modalClasses: 'large'`. */
   options?: (args: TArguments) => Partial<NhModalOptions>;
   /**
    * The inputs that prefill the form, built from values the application checked; the content reads them
-   * in `onNewFormData`. Runs in the assistant's injection context.
+   * in `onNewFormData`.
    */
   inputs?: (args: TArguments) => Record<string, unknown>;
   /**
@@ -46,21 +57,31 @@ export interface NhAssistantModalToolOptions<TArguments, TResult> {
  * `created` or `updated` (with the id `resultId` returns, if any), `cancelled` when the person left the
  * form with its own close, such as Cancel, Escape or the browser's back button (`closeDialog`), and
  * `closed` when the modal closed any other way, such as its close button or the page that held it.
+ * `accepts`, `options` and `inputs` run in the assistant's injection context.
  */
 export function nhAssistantModalTool<TArguments = Record<string, unknown>, TResult = unknown>(
   options: NhAssistantModalToolOptions<TArguments, TResult>
 ): NhAssistantClientToolHandler {
+  if (!options.component === !options.loadComponent) {
+    throw new Error(`The modal tool '${options.toolId}' needs exactly one of component and loadComponent.`);
+  }
+
   return {
     toolId: options.toolId,
     run: (invocation: NhAssistantClientToolInvocation) => {
-      // Everything that injects runs in the assistant's injection context, before the modal waits.
+      // Everything that injects runs in the assistant's injection context, before the first await.
       const modalService = inject(NhModalService);
       const args = invocation.arguments as TArguments;
-      const modal = modalService.open(
-        options.component as Type<never>,
-        new NhModalOptions(options.options?.(args) ?? {}),
-        options.inputs?.(args) ?? {}) as NhModalComponentRef<NhAssistantModalToolContent<TResult>>;
-      return waitForModal(modal, options);
+      if (options.accepts && !options.accepts(args)) {
+        return { status: 'unavailable', outcome: 'arguments-not-allowed' };
+      }
+
+      const modalOptions = new NhModalOptions(options.options?.(args) ?? {});
+      const inputs = options.inputs?.(args) ?? {};
+      const open = (component: Type<NhAssistantModalToolContent<TResult>>) => waitForModal(
+        modalService.open(component as Type<never>, modalOptions, inputs) as NhModalComponentRef<NhAssistantModalToolContent<TResult>>,
+        options);
+      return options.component ? open(options.component) : options.loadComponent!().then(open);
     }
   };
 }

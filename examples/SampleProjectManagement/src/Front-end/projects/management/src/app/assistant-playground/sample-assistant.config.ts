@@ -5,12 +5,16 @@ import {
   ClientContext,
   NH_ASSISTANT_ICONS,
   NhAssistantAccessPolicy,
+  NhAssistantClientToolHandler,
   NhAssistantConfig,
   NhAssistantIconName,
   NhAssistantPushConfig,
-  provideNhAssistant
+  provideNhAssistant,
+  provideNhAssistantClientTools
 } from '@newheap/platform-ai-chat';
-import { SampleAuthService } from 'sample-project-management-common';
+import { nhAssistantModalTool, nhAssistantNavigateTool } from '@newheap/platform-ai-chat/client-tools';
+import { TranslateService } from '@ngx-translate/core';
+import { ProjectTaskViewModel, SampleAuthService } from 'sample-project-management-common';
 import { Observable, map } from 'rxjs';
 
 /** Application permission that grants the assistant, matching the API access policy. */
@@ -139,11 +143,46 @@ export const SAMPLE_ASSISTANT_PUSH: NhAssistantPushConfig = {
   alertsUrl: '/management/alerts'
 };
 
+/** An id as the API writes it; anything else never reaches a route or a form. */
+const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isId(value: unknown): value is string {
+  return typeof value === 'string' && idPattern.test(value);
+}
+
+/**
+ * SPM-400: the handlers of the client tools the API declares in `SampleClientToolsComposition`. They run
+ * in this browser when the person's own turn calls them. `sample-ui.open-project` opens the project on
+ * the portal's project page, which the portal allows for a project id only. `sample-ui.create-task`
+ * opens the create-task form prefilled, loaded on first use; the person saves it through
+ * `POST project-tasks`, and the assistant learns whether they saved, cancelled or closed it, with the
+ * new task's id.
+ */
+export const SAMPLE_CLIENT_TOOLS: NhAssistantClientToolHandler[] = [
+  nhAssistantNavigateTool<{ projectId?: unknown }>({
+    toolId: 'sample-ui.open-project',
+    route: args => isId(args.projectId)
+      ? inject(Router).createUrlTree(['/management/intake-reviews'], { queryParams: { project: args.projectId } })
+      : null
+  }),
+  nhAssistantModalTool<{ projectId?: unknown; title?: unknown }, ProjectTaskViewModel>({
+    toolId: 'sample-ui.create-task',
+    loadComponent: () => import('../project-task-create-modal/project-task-create-modal.component')
+      .then(module => module.ProjectTaskCreateModalComponent),
+    accepts: args => isId(args.projectId),
+    options: () => ({ title: inject(TranslateService).instant('project-task.modal-title'), modalClasses: 'large' }),
+    inputs: args => ({
+      prefill: { projectId: args.projectId, title: typeof args.title === 'string' ? args.title : '' }
+    }),
+    resultId: task => task.id
+  })
+];
+
 /**
  * Registers the assistant for the management portal: the `/api/assistant` endpoints, the
  * NewHeap session token and active division, the page context, the permission-based access
  * policy, live updates over WebSockets through the `/hub/assistant` hub the server reports, Web
- * Push and the sample icons.
+ * Push, the sample icons and the handlers of the API's client tools (SPM-400).
  */
 export function provideSampleAssistant(overrides: Partial<NhAssistantConfig> = {}): EnvironmentProviders {
   return makeEnvironmentProviders([
@@ -160,6 +199,7 @@ export function provideSampleAssistant(overrides: Partial<NhAssistantConfig> = {
       push: SAMPLE_ASSISTANT_PUSH,
       ...overrides
     }),
+    provideNhAssistantClientTools(...SAMPLE_CLIENT_TOOLS),
     { provide: NH_ASSISTANT_ICONS, useValue: SAMPLE_ASSISTANT_ICONS }
   ]);
 }
