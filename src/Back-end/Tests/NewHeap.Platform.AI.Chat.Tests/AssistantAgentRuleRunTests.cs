@@ -103,7 +103,10 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
         Assert.Equal("rule:" + AgentId, message.AuthorActorId);
         var text = NhAssistantContent.TextOf(NhAssistantContent.DeserializeParts(message.PartsJson));
         Assert.Contains("Proposed to activate the project.", text);
-        Assert.Contains("intake is complete", text, StringComparison.OrdinalIgnoreCase);
+        // The thread keeps the reason in the culture the turn ran in, which is the machine's here.
+        Assert.Contains(
+            CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "nl" ? "De intake is compleet." : "The intake is complete.",
+            text);
         var culture = CultureInfo.CurrentUICulture;
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
         try
