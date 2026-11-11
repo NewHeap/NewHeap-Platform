@@ -886,6 +886,17 @@ metadata address stays the one of `/mcp`. As an alternative for an identity prov
 `/mcp` the application validates with a scheme of its own, `:ServiceTokens` adds that scheme next to the
 NewHeap token; it marks each token with `NhAiCallerCredentials.MarkNotForwardable`, so the service works
 as its linked account while its token, like the tokens of both protected resources, is never passed on.
+A portfolio analysis takes longer than an MCP client should wait on one request, so `/mcp` offers it as
+an MCP task (SPM-222). `projects.analyze-portfolio` (`ProjectPortfolioAnalysisAiTools`) declares
+`TaskSupport = NhAiToolTaskSupport.Optional`, and the exposure enables tasks with `UseTasks()`. A client
+that negotiated the MCP Tasks extension gets a task at once and polls it; the tool sees `McpTaskId` and
+waits within its ten-minute timeout for the analysis, the background operation of SPM-083 that
+`SamplePortfolioAnalysisToolsComposition` starts for the person in the active division under the
+person's request id. A client without tasks gets the analysis it started right away and polls
+`projects.portfolio-analysis-status`, as such clients always did, and its retry with the same request id
+finds the same analysis. The tasks live in the assistant's store, so every instance of the API answers a
+poll; another person or division never finds the task, and it expires an hour after the tool's timeout.
+`McpTaskSamplesTests` runs both clients with the official MCP SDK.
 
 Whether the assistant uses compositions and the script tool is the portal's own setting (SPM-371). The
 assistant settings page stores it per environment and agent in the portal's table

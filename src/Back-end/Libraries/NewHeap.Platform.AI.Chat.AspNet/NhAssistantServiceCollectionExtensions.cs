@@ -52,6 +52,9 @@ public static class NhAssistantServiceCollectionExtensions
             // An exported call that left proposals may send the MCP client's person to the approval page
             // (Mcp:ApprovalLinkTemplate); without the template it changes nothing.
             services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAiMcpCallStep, NhAssistantMcpApprovalElicitation>());
+            // The MCP exposure's tasks (UseTasks) live in the assistant's store, which every instance shares;
+            // an explicit UseInMemoryStore() of the exposure wins.
+            services.TryAddSingleton<INhAiMcpTaskRecords, NhAssistantMcpTaskRecords>();
             services.TryAddSingleton<NhAssistantMcpSecretProtector>();
             services.TryAddSingleton<NhAssistantMcpHostGuard>();
             services.TryAddSingleton<NhAssistantMcpContextBindings>();

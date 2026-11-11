@@ -379,6 +379,8 @@ builder.Services.AddSampleQuickAnswers();
 builder.Services.AddSampleProjectChat();
 // SPM-372: the project overview chains three reads of the project assistant into one tool.
 builder.Services.AddSampleProjectOverview();
+// SPM-222: the long-running MCP tool over the portfolio analysis, a task for MCP clients with tasks.
+builder.Services.AddSamplePortfolioAnalysisTools();
 // SPM-362: the planning service's one reviewed MCP tool, offered as the API's own code-owned tool.
 builder.Services.AddSamplePlanningMilestones(builder.Configuration);
 // SPM-375: a project tool with a due date and a time of day, which a script passes as strings.
@@ -411,7 +413,9 @@ builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
     // SPM-371: MCP clients may use the script tool where the portal's setting of the exposure has it on.
     // SPM-372: compositions such as the project overview are part of the exposure as well; the switch decides.
-    .WithNewHeapPlatformAITools(exposure => exposure.WithSampleMcpSignIn(builder.Configuration).AllowScripts().AllowCompositions());
+    // SPM-222: MCP clients with the MCP Tasks extension call projects.analyze-portfolio as a task; the
+    // tasks live in the assistant's store, which every instance of the API shares.
+    .WithNewHeapPlatformAITools(exposure => exposure.WithSampleMcpSignIn(builder.Configuration).AllowScripts().AllowCompositions().UseTasks());
 builder.Services.AddScoped<IClaimsTransformation, SampleRuntimeClaimsTransformation>();
 builder.Services.AddSingleton<IAuthorizationHandler, ProjectAccessHandler>();
 // SPM-325: the stand-in for the other system that keeps every project's latest analysis.

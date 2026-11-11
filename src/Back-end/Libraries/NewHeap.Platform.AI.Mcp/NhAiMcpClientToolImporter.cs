@@ -79,7 +79,24 @@ public sealed record NhAiMcpImportOptions(
     /// then made again, within the same governed execution. Without one such a refusal fails the call.
     /// </summary>
     internal Func<ElicitRequestParams?, CancellationToken, ValueTask<ElicitResult>>? UrlElicitationHandler { get; init; }
+
+    /// <summary>
+    /// How the importing NewHeap host calls a remote tool after every invoker check, such as the
+    /// assistant's call as an MCP task where the server offers tasks; <see langword="null"/> calls
+    /// <see cref="McpClientTool.CallAsync"/>.
+    /// </summary>
+    internal NhAiMcpRemoteCall? RemoteCall { get; init; }
 }
+
+/// <summary>
+/// Calls one remote tool for a governed imported tool, within the invocation's cancellation, which
+/// carries the tool's timeout and the turn's budget.
+/// </summary>
+internal delegate ValueTask<CallToolResult> NhAiMcpRemoteCall(
+    McpClientTool remote,
+    IReadOnlyDictionary<string, object?> arguments,
+    RequestOptions? options,
+    CancellationToken cancellationToken);
 
 /// <summary>
 /// Stable result codes of imported MCP tools.
@@ -183,7 +200,8 @@ internal sealed partial class NhAiMcpClientToolImporter(
                 remote,
                 inputSchema,
                 outputSchema,
-                binder)
+                binder,
+                options.RemoteCall)
             {
                 UrlElicitationHandler = options.UrlElicitationHandler
             });
@@ -366,7 +384,8 @@ internal sealed record NhAiImportedMcpTool(
     McpClientTool Remote,
     string InputSchema,
     string OutputSchema,
-    NhAiMcpInvocationBinderRegistration? Binder = null)
+    NhAiMcpInvocationBinderRegistration? Binder = null,
+    NhAiMcpRemoteCall? RemoteCall = null)
 {
     /// <summary>
     /// The host's handler of the server's requests for input, for a call the server refuses until a
@@ -582,6 +601,12 @@ internal sealed class NhAiGovernedMcpClientFunction(
         {
             try
             {
+                // A server that offers MCP tasks runs the tool as a task (RemoteCall); others take a plain call.
+                if (imported.RemoteCall is { } remoteCall)
+                {
+                    return await remoteCall(imported.Remote, remoteArguments, requestOptions, cancellationToken);
+                }
+
                 return await imported.Remote.CallAsync(
                     remoteArguments,
                     progress: null,

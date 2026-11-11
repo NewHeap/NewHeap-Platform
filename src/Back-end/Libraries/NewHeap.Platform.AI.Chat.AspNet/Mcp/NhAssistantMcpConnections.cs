@@ -838,7 +838,7 @@ internal sealed partial class NhAssistantMcpToolSource(
             }
             leases.Add(lease.Data);
             owners[server.Id] = OwnerOf(server, request);
-            functions.AddRange(await ImportAsync(server, plan, enabled, lease.Data.Tools, skippedTools, cancellationToken));
+            functions.AddRange(await ImportAsync(server, plan, enabled, lease.Data, skippedTools, cancellationToken));
         }
 
         return new NhAssistantMcpToolSet(OfferedOnce(functions, skippedTools), async () =>
@@ -904,7 +904,7 @@ internal sealed partial class NhAssistantMcpToolSource(
                 await RecordHealthAsync(server, null);
             }
             leases.Add(lease.Data);
-            functions.AddRange(await ImportAsync(server, plan, tools, lease.Data.Tools, skippedTools, cancellationToken, clientConfirmed));
+            functions.AddRange(await ImportAsync(server, plan, tools, lease.Data, skippedTools, cancellationToken, clientConfirmed));
         }
 
         return new NhAssistantMcpToolSet(OfferedOnce(functions, skippedTools), async () =>
@@ -1162,11 +1162,12 @@ internal sealed partial class NhAssistantMcpToolSource(
         AssistantMcpServer server,
         NhAssistantMcpConnectionPlan plan,
         IReadOnlyList<AssistantMcpTool> enabled,
-        IList<McpClientTool> remoteTools,
+        NhAssistantMcpLease lease,
         Dictionary<string, string> skippedTools,
         CancellationToken cancellationToken,
         IReadOnlySet<string>? clientConfirmed = null)
     {
+        var remoteTools = lease.Tools;
         var candidates = new List<(AssistantMcpTool Tool, McpClientTool Remote, string LocalName)>();
         foreach (var tool in enabled)
         {
@@ -1294,7 +1295,9 @@ internal sealed partial class NhAssistantMcpToolSource(
             HostInvocationBinders = storedBinders,
             // A call the server refuses until a person finished a page of its own asks the person of the
             // call, as the server's other requests for input do.
-            UrlElicitationHandler = NhAssistantMcpElicitation.CreateHandler(server.Id, server.DisplayName)
+            UrlElicitationHandler = NhAssistantMcpElicitation.CreateHandler(server.Id, server.DisplayName),
+            // A server that offers MCP tasks runs a long tool as a task, polled within the tool's timeout.
+            RemoteCall = NhAssistantMcpRemoteTasks.For(lease.Client)
         });
         return catalog.CreateFunctions(services);
     }
