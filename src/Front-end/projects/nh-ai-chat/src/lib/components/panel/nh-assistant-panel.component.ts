@@ -49,6 +49,7 @@ import {
   NhAssistantThreadComponent
 } from '../thread/nh-assistant-thread.component';
 import { nhAssistantErrorKeys, toNhAssistantError } from '../../internal/nh-assistant-errors';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 let nextId = 0;
 
@@ -110,6 +111,7 @@ export type NhAssistantBeforeSubmit = (message: NhAssistantOutgoingMessage) => P
 @Component({
   selector: 'nh-assistant-panel',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   host: { '[class.nh-assistant-page]': 'page()' },
   imports: [
     NgTemplateOutlet,
@@ -123,7 +125,8 @@ export type NhAssistantBeforeSubmit = (message: NhAssistantOutgoingMessage) => P
     NhAssistantConversationListComponent,
     NhAssistantPreferencesComponent,
     NhAssistantShareComponent,
-    NhAssistantThreadComponent
+    NhAssistantThreadComponent,
+    NhAssistantTokensDirective
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-panel.component.html',

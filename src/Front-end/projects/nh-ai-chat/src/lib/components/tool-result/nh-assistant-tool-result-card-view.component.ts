@@ -4,6 +4,7 @@ import { ToolResultPresentation } from '../../models/assistant-api.models';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantMessageLinkComponent } from '../../internal/nh-assistant-message-link.component';
 import { NhAssistantPresentationFieldsViewComponent } from '../presentation-fields/nh-assistant-presentation-fields-view.component';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 /**
  * The card of `nh-assistant-tool-result-card` (internal), which loads it on first use: the title, the
@@ -13,6 +14,7 @@ import { NhAssistantPresentationFieldsViewComponent } from '../presentation-fiel
 @Component({
   selector: 'nh-assistant-tool-result-card-view',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantIconComponent, NhAssistantMessageLinkComponent, NhAssistantPresentationFieldsViewComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `

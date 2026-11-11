@@ -1,7 +1,5 @@
 @use '../../src/lib/styles/tokens';
 
-@include tokens.tokens;
-
 :host {
   display: block;
   min-width: 0;

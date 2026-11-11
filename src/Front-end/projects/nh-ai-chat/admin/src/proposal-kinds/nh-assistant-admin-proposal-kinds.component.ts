@@ -10,6 +10,7 @@ import {
   RoutineCandidate,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
@@ -48,6 +49,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-admin-proposal-kinds',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     NgTemplateOutlet,
     PercentPipe,

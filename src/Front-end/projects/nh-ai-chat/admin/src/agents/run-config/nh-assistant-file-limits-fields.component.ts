@@ -1,6 +1,10 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
-import { FileLimits, ɵNhAssistantIconComponent as NhAssistantIconComponent } from '@newheap/platform-ai-chat';
+import {
+  FileLimits,
+  ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective
+} from '@newheap/platform-ai-chat';
 import { FileLimitField, FileLimitsDraft, RunConfigErrors, fieldErrorKey, fileLimitFields, megabytesText } from './run-config-shared';
 
 /** How a form shows one file limit. */
@@ -29,6 +33,7 @@ const controls: Record<FileLimitField, FileLimitControl> = {
 @Component({
   selector: 'nh-assistant-file-limits-fields',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-file-limits-fields.component.html',

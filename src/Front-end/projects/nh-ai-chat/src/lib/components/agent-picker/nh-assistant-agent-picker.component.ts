@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output } from '@an
 import { TranslatePipe } from '@ngx-translate/core';
 import { AgentSummary } from '../../models/assistant-api.models';
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 let nextId = 0;
 
@@ -12,6 +13,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-agent-picker',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantTranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.compact]': 'compact()' },

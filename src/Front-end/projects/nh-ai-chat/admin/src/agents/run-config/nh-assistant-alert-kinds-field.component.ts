@@ -3,6 +3,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import {
   RunAlertKind,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
 import { NhAssistantPackageLockedMarkComponent } from '../agent-packages/nh-assistant-package-locked-mark.component';
@@ -17,6 +18,7 @@ import { PackageLockView } from '../agent-packages/package-parts';
 @Component({
   selector: 'nh-assistant-alert-kinds-field',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantPackageLockedMarkComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `

@@ -7,6 +7,7 @@ import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.compo
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
 import { NhAssistantMcpConnectService, NhAssistantMcpReturnOutcome } from '../../services/nh-assistant-mcp-connect.service';
 import { NhAssistantError } from '../../services/nh-assistant.store';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 let nextId = 0;
 
@@ -19,6 +20,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-connection-required',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-connection-required.component.html',

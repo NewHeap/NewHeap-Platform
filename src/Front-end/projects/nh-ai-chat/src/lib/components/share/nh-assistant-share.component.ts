@@ -5,6 +5,7 @@ import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.compo
 import { NH_ASSISTANT_CONFIG } from '../../nh-assistant.config';
 import { NhAssistantStore } from '../../services/nh-assistant.store';
 import { nhAssistantShareLink } from '../../services/nh-assistant-share-link';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 let nextId = 0;
 const searchDelayMs = 250;
@@ -17,6 +18,7 @@ const searchDelayMs = 250;
 @Component({
   selector: 'nh-assistant-share',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-share.component.html',

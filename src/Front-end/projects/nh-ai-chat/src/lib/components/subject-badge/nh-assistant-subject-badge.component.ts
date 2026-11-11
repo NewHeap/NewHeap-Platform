@@ -3,6 +3,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { AgentSubjectSummary } from '../../models/assistant-agent-run.models';
 import { NhAssistantSubjectSummaryService } from '../../services/nh-assistant-subject-summary.service';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 /**
  * A compact count of the agent work on one subject, for example on each row of a project list.
@@ -15,6 +16,7 @@ import { NhAssistantSubjectSummaryService } from '../../services/nh-assistant-su
 @Component({
   selector: 'nh-assistant-subject-badge',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `

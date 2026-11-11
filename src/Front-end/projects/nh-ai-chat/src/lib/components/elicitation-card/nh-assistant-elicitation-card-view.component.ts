@@ -8,6 +8,7 @@ import {
 import { NhAssistantIconComponent, NhAssistantIconName } from '../../internal/nh-assistant-icon.component';
 import { formatNhAssistantCountdown } from '../approval-card/nh-assistant-approval-card.component';
 import type { NhAssistantElicitationAnswer } from './nh-assistant-elicitation-card.component';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 let nextId = 0;
 
@@ -30,6 +31,7 @@ const statusIcons: Record<ElicitationStatus, NhAssistantIconName> = {
 @Component({
   selector: 'nh-assistant-elicitation-card-view',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-elicitation-card-view.component.html',

@@ -1,7 +1,3 @@
-@use '../styles/tokens';
-
-@include tokens.tokens;
-
 :host {
   display: inline-flex;
   flex-wrap: wrap;

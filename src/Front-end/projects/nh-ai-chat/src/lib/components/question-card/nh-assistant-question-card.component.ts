@@ -3,6 +3,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { QuestionPart, QuestionStatus } from '../../models/assistant-api.models';
 import { NhAssistantIconComponent, NhAssistantIconName } from '../../internal/nh-assistant-icon.component';
 import { formatNhAssistantCountdown } from '../approval-card/nh-assistant-approval-card.component';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 let nextId = 0;
 
@@ -23,6 +24,7 @@ const statusIcons: Record<QuestionStatus, NhAssistantIconName> = {
 @Component({
   selector: 'nh-assistant-question-card',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-question-card.component.html',

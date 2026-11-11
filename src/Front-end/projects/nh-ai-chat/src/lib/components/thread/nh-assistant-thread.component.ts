@@ -31,6 +31,7 @@ import { NhAssistantQuestionCardComponent } from '../question-card/nh-assistant-
 import { NhAssistantToolCallGroupComponent } from '../tool-call-group/nh-assistant-tool-call-group.component';
 import { NhAssistantToolResultComponent } from '../tool-result/nh-assistant-tool-result.component';
 import type { NhAssistantApprovalRight } from '../../services/nh-assistant.store';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 /** A decision about one approval of the thread. */
 export interface NhAssistantApprovalChoice {
@@ -76,6 +77,7 @@ const stickToBottomDistance = 120;
 @Component({
   selector: 'nh-assistant-thread',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     NgTemplateOutlet,
     ScrollingModule,

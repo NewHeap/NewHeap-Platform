@@ -7,6 +7,7 @@ import {
   HandOffCeiling,
   NhAssistantAdminApiService,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
 import { NhAssistantPackageLockComponent } from '../agent-packages/nh-assistant-package-lock.component';
@@ -39,6 +40,7 @@ export interface HandOffSourceOption {
 @Component({
   selector: 'nh-assistant-hand-off-form',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantPackageLockComponent, NhAssistantPackageLockedMarkComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-hand-off-form.component.html',

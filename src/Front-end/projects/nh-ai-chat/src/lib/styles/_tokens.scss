@@ -1,9 +1,12 @@
 // Theme tokens of the assistant components.
 //
 // Hosts theme the components by setting the public `--nh-assistant-*` custom properties,
-// usually on `:root`. Every component resolves them into private `--nha-*` properties with
-// light and dark defaults, so the components look complete without host styles. Nothing
-// here targets elements outside a component host.
+// usually on `:root`. Every component host resolves them into private `--nha-*` properties with
+// light and dark defaults, so the components look complete without host styles. The application
+// receives these declarations once, from nh-assistant-tokens.scss, which applies them to the
+// elements `NhAssistantTokensDirective` marks: every component host and the panel's drawer. A
+// component therefore uses `hostDirectives: [NhAssistantTokensDirective]` and never includes the
+// tokens in its own styles. Nothing here targets elements outside a component host.
 //
 // `--nh-assistant-link` is the color of links and other accent-colored text on the
 // assistant's surfaces. It defaults to the accent in the light scheme and to a light blue in
@@ -81,8 +84,9 @@
   --nha-shadow: var(--nh-assistant-shadow, 0 16px 36px rgb(0 0 0 / .32));
 }
 
-// Applies the tokens to the given selector, normally `:host`.
-@mixin tokens($selector: ':host') {
+// Applies the tokens to the given selector. Only nh-assistant-tokens.scss includes it: a copy in a
+// component's styles would ship the declarations once per component again.
+@mixin tokens($selector) {
   #{$selector} {
     @include light-defaults;
   }

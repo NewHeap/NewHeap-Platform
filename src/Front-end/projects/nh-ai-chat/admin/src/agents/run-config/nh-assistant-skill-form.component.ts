@@ -10,6 +10,7 @@ import {
   ToolCatalogEntry,
   SkillApplyMode,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
@@ -62,6 +63,7 @@ export interface SkillFormSaved {
 @Component({
   selector: 'nh-assistant-skill-form',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     TranslatePipe,
     NhAssistantTranslatePipe,

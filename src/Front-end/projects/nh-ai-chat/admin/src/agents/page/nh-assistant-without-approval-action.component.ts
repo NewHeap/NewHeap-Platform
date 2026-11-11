@@ -13,6 +13,7 @@ import { Subscription } from 'rxjs';
 import {
   AgentWithoutApproval,
   NhAssistantAdminApiService,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   RoutineCandidate,
   WithoutApprovalSwitch
 } from '@newheap/platform-ai-chat';
@@ -31,6 +32,7 @@ import { NhAssistantWithoutApprovalSwitchComponent } from './nh-assistant-withou
 @Component({
   selector: 'nh-assistant-without-approval-action',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantWithoutApprovalSwitchComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {

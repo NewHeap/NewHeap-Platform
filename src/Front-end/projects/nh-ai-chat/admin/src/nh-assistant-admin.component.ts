@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRend
 import { TranslatePipe } from '@ngx-translate/core';
 import {
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
-  NhAssistantStore
+  NhAssistantStore,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAdminAgentsComponent, NhAssistantAgentsLocation } from './agents/nh-assistant-admin-agents.component';
 import { NhAssistantAdminContextComponent } from './context/nh-assistant-admin-context.component';
@@ -30,6 +31,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-admin',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     TranslatePipe,
     NhAssistantIconComponent,

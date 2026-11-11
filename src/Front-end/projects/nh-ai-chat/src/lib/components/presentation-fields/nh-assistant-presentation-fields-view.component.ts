@@ -6,6 +6,7 @@ import {
   NhAssistantPresentedField,
   nhAssistantFieldChange
 } from './nh-assistant-presentation-field-change';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 /**
  * The description list of `nh-assistant-presentation-fields` (internal), which loads it on first use,
@@ -15,6 +16,7 @@ import {
 @Component({
   selector: 'nh-assistant-presentation-fields-view',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-presentation-fields-view.component.html',

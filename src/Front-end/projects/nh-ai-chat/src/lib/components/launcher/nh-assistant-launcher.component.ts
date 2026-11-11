@@ -3,6 +3,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantPanelService } from '../../services/nh-assistant-panel.service';
 import { NhAssistantStore } from '../../services/nh-assistant.store';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 /**
  * Header button that opens the assistant panel. It renders nothing while the assistant is
@@ -13,6 +14,7 @@ import { NhAssistantStore } from '../../services/nh-assistant.store';
 @Component({
   selector: 'nh-assistant-launcher',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `

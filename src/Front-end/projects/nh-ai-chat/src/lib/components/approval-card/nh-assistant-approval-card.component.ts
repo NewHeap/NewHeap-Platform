@@ -17,6 +17,7 @@ import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.
 import { NhAssistantStore, type NhAssistantApprovalWaitingFor } from '../../services/nh-assistant.store';
 import { NhAssistantPresentationFieldsComponent } from '../presentation-fields/nh-assistant-presentation-fields.component';
 import { NhAssistantProposalFeedbackComponent } from '../proposal-feedback/nh-assistant-proposal-feedback.component';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 let nextId = 0;
 
@@ -50,6 +51,7 @@ export function formatNhAssistantCountdown(milliseconds: number): string {
 @Component({
   selector: 'nh-assistant-approval-card',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     TranslatePipe,
     NhAssistantTranslatePipe,

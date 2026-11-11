@@ -9,6 +9,7 @@ import {
   SkillApplyMode,
   TriggerConflict,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
@@ -53,6 +54,7 @@ const conflicts: TriggerConflict[] = ['coalesce', 'queue', 'supersede', 'ignore'
 @Component({
   selector: 'nh-assistant-trigger-form',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     TranslatePipe,
     NhAssistantTranslatePipe,

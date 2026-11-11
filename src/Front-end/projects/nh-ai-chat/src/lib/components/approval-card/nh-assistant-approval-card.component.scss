@@ -1,7 +1,5 @@
 @use '../../styles/tokens';
 
-@include tokens.tokens;
-
 :host {
   display: block;
   --nha-status-color: var(--nha-warning);
