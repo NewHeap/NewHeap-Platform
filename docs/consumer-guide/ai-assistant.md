@@ -872,7 +872,20 @@ as its session: the hub closes it when the token it was opened with expires
 (`CloseOnAuthenticationExpiration`), and every minute it validates the connection's principal
 again with `INhAuthenticationSessionValidator` and closes it once a password change or reset
 changed the security stamp, the user was deleted or an impersonation's origin session ended;
-the client reconnects with its current session. The hub sends
+the client reconnects with its current session. On ASP.NET Core 11 opt in with
+`NhAssistantOptions.HubAuthenticationRefresh` (`NewHeap:AI:Assistant:HubAuthenticationRefresh`,
+false by default, read when the hub is mapped), as the sample does (SPM-263), to let a client
+refresh its connection's authentication instead of reconnecting: the hub then maps SignalR's
+`/refresh` endpoint below its path, which requires the access policy, so an expired token or a
+removed user is refused with 401, and a token of another person or of another impersonation
+origin with 403, after which the connection keeps its own principal until that expires. An
+accepted refresh keeps the connection, its groups and its watch only while the refreshed principal
+resolves to the same actor in the same tenant; the hub closes it otherwise, also when the refresh
+completed while the connection still joined its groups, and the session check validates the
+refreshed principal from then on. The .NET client refreshes with `WithAuthenticationRefresh` and
+`RefreshAuthenticationAsync`; the Angular client of `nh-ai-chat` uses `@microsoft/signalr` 10, which
+has no refresh, so a browser keeps reconnecting when its token expires and restarts the connection
+when the account changes. On ASP.NET Core 10 the option changes nothing. The hub sends
 `ConversationChanged`, `ConversationRead` (to the reader only), `ConversationRemoved`
 and `ConversationEvent` with the same turn events the starting request streams plus
 `message.created`. NewHeap hosts read the bearer token and active division from the
@@ -1964,6 +1977,8 @@ calls in a consultation store nothing and are not listed.
 - Sending a conversation's updates or notifications to its stored participant rows without
   its read rule, or keeping a hub connection, push subscription or participant row of a person
   whose session ended or whose account the platform deleted.
+- Refreshing an open hub connection with another person's or another tenant's token, for example
+  after an account switch; the refresh is refused or the connection closes, so open a new one.
 - Binding the assistant context to a server id without its reviewed URL, asking the model
   to repeat conversation text as tool arguments, or treating the metadata as
   authorization on the remote side.
@@ -2131,7 +2146,13 @@ rejects anonymous connections (SPM-263). Over the real hub, assert on both provi
 thread's events reach only people whose role holds, also with a stale participant row, a chat's
 only participants who pass the agent's policy and only on connections of the chat's tenant, and
 that a connection closes when its token expires and when the session validator refuses it
-(`AssistantLiveReadRuleTests`, `AssistantHubSessionTests`). For push, check the RFC 8291 test vector,
+(`AssistantLiveReadRuleTests`, `AssistantHubSessionTests`). On ASP.NET Core 11 with
+`HubAuthenticationRefresh`, refresh with the .NET client and assert that the same caller's
+connection outlives its first token, keeps receiving and is validated with the refreshed principal,
+that another person's token is refused with 403 while the connection keeps receiving its caller's
+updates, that a token of another tenant closes it, and that an expired token and a removed user are
+refused with 401 (`AssistantHubAuthenticationRefreshTests`); on ASP.NET Core 10 assert that no
+refresh endpoint is mapped. For push, check the RFC 8291 test vector,
 a verifiable VAPID token, the endpoint allow-list, the notification rules, an
 encrypted delivery without message content, the opt-out and the removal of a gone
 subscription (SPM-264), and on both providers that Web Push and in-app notifications skip a

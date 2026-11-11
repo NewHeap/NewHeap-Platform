@@ -991,7 +991,9 @@
       "../../src/Front-end/projects/nh-common/src/lib/components/nh-background-operations-badge/component.ts",
       "../../src/Front-end/projects/nh-common/src/lib/components/nh-background-operations-badge/component.spec.ts",
       "src/Front-end/projects/management/src/app/management-layout/management-layout.component.ts",
-      "src/Front-end/projects/management/src/app/management-layout/management-layout.component.html"
+      "src/Front-end/projects/management/src/app/management-layout/management-layout.component.html",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubAuthenticationRefresh.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationHubAuthenticationRefreshTests.cs"
     ],
     "SPM-084": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
@@ -2329,7 +2331,9 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantLiveReadRuleTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantHubSessionTests.cs",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubAuthenticationRefresh.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantHubAuthenticationRefreshTests.cs"
     ],
     "SPM-264": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCollaboration.cs",
