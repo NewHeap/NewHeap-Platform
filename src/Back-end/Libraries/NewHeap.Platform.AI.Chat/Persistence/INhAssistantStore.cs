@@ -80,6 +80,17 @@ internal interface INhAssistantStore
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Renews the claim of <paramref name="turnId"/> on its running conversation: moves the
+    /// conversation's last update to now, so <see cref="TryBeginTurnAsync"/> does not take it over as
+    /// abandoned while the turn stands still for its person. Its status and concurrency stamp stay as
+    /// they are. Returns false when the turn no longer owns the conversation.
+    /// </summary>
+    Task<bool> TryKeepTurnAsync(
+        Guid conversationId,
+        Guid turnId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Ends the turn that owns the conversation. Returns false when another turn took ownership.
     /// </summary>
     Task<bool> TryEndTurnAsync(

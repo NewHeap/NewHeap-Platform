@@ -961,8 +961,8 @@ export interface McpServer {
   /**
    * How long a request for input of the server waits for the person of a chat turn, in minutes: from
    * 1 to 10, 5 unless an administrator or the application's code set another. The tool's own timeout
-   * stands still meanwhile; the turn's own time limit still ends the wait. Missing on older servers,
-   * whose requests wait within the tool's own timeout.
+   * and the turn's time limit stand still meanwhile, up to ten minutes per chat turn in all. Missing on
+   * older servers, whose requests wait within the tool's own timeout.
    */
   elicitationWaitMinutes?: number;
 }

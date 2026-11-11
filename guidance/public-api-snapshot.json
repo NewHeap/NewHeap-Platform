@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.126",
   "backEnd": {
-    "hash": "30efb8189a10e2dfec29a6f8e823ff6c3be2549562c050928ab519735269962d",
-    "declarationCount": 14301,
+    "hash": "616aa986b545ed5c752f54af4385d059a0929ef815c9f03c510f783a96452133",
+    "declarationCount": 14336,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -8700,6 +8700,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
         "declaration": "public const int MaxElicitationWaitMinutes = NhAssistantElicitationLimits.MaxWaitMinutes;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
+        "declaration": "public const int MaxTurnPauseMinutes = NhAssistantElicitationLimits.MaxTurnPauseMinutes;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpServers.cs",
@@ -30179,6 +30183,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
+        "declaration": "public async Task<bool> TryKeepTurnAsync( Guid conversationId, Guid turnId, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantStore.cs",
         "declaration": "public async Task<bool> TryEndTurnAsync( Guid conversationId, Guid turnId, string status, CancellationToken cancellationToken) {"
       },
       {
@@ -32699,6 +32707,14 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantElicitations.cs",
+        "declaration": "public const int MaxTurnPauseMinutes = 10;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantElicitations.cs",
+        "declaration": "public static readonly TimeSpan MaxTurnPause = TimeSpan.FromMinutes(MaxTurnPauseMinutes);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantElicitations.cs",
         "declaration": "public static readonly TimeSpan DefaultWait = TimeSpan.FromMinutes(DefaultWaitMinutes);"
       },
       {
@@ -32884,6 +32900,22 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
         "declaration": "public required DateTimeOffset Deadline { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
+        "declaration": "public TimeProvider TimeoutClock { get; init; } = TimeProvider.System;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
+        "declaration": "public NhAiRunPause Pause => LazyInitializer.EnsureInitialized(ref _pause, () => new NhAiRunPause(Deadline, TimeoutClock));"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
+        "declaration": "public DateTimeOffset CurrentDeadline => Deadline + Pause.Paused;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
+        "declaration": "public TimeSpan PauseLeft => NhAssistantElicitationLimits.MaxTurnPause - Pause.Paused;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantExecutionScope.cs",
@@ -33967,11 +33999,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnElicitor.cs",
-        "declaration": "public async Task<NhAssistantElicitationOutcome> ElicitAsync( NhAssistantElicitationRequest request, CancellationToken cancellationToken) {"
+        "declaration": "public async Task<NhAssistantElicitationOutcome> ElicitAsync( NhAssistantElicitationRequest request, NhAiToolCallTimeout? call, CancellationToken cancellationToken) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnElicitor.cs",
         "declaration": "public async Task RecordDeclinedAsync(NhAssistantElicitationRequest request, string reason) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnElicitor.cs",
+        "declaration": "public static async Task<TurnWait> BeginAsync( NhAssistantTurnScope scope, INhAssistantStore store, NhAssistantTiming timing, ILogger? logger) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnElicitor.cs",
+        "declaration": "public async ValueTask DisposeAsync() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
@@ -34228,6 +34268,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnFiles.cs",
         "declaration": "public static string AttachmentNoteOf(NhAssistantFileOutcome outcome, string language) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnHeartbeat.cs",
+        "declaration": "public static async Task<NhAssistantTurnHeartbeat> StartAsync( INhAssistantStore store, NhAssistantTurnScope scope, NhAssistantTiming timing, ILogger? logger) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnHeartbeat.cs",
+        "declaration": "public async ValueTask DisposeAsync() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.ClientTools.cs",
@@ -36918,6 +36966,66 @@
         "declaration": "public ValueTask<TaskResult<NhAiAuthoritativeExecutionEvidence>> ValidateAsync( NhAiToolDescriptor descriptor, NhAiInvocationContext context, object arguments, CancellationToken cancellationToken = default)"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiRunPause.cs",
+        "declaration": "public NhAiRunPause(DateTimeOffset deadline, TimeProvider clock) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiRunPause.cs",
+        "declaration": "public static NhAiRunPause? Current => CurrentPause.Value;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiRunPause.cs",
+        "declaration": "public DateTimeOffset Deadline { get; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiRunPause.cs",
+        "declaration": "public bool IsPaused {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiRunPause.cs",
+        "declaration": "public TimeSpan Paused {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiRunPause.cs",
+        "declaration": "public static IDisposable Enter(NhAiRunPause pause) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiRunPause.cs",
+        "declaration": "public static DateTimeOffset? DeadlineOf(NhAiInvocationContext context) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiRunPause.cs",
+        "declaration": "public DateTimeOffset? Extend(DateTimeOffset? deadline) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiRunPause.cs",
+        "declaration": "public NhAiRunTimeout StartTimeout(TimeSpan timeout, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiRunPause.cs",
+        "declaration": "public IDisposable Pause() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiRunPause.cs",
+        "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiRunPause.cs",
+        "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiRunPause.cs",
+        "declaration": "public CancellationToken Token => _source.Token;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiRunPause.cs",
+        "declaration": "public TimeSpan Remaining {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiRunPause.cs",
+        "declaration": "public void Dispose() {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiServiceCollectionExtensions.cs",
         "declaration": "public static class NhAiServiceCollectionExtensions {"
       },
@@ -37170,6 +37278,26 @@
         "declaration": "public void Dispose() {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallSlot.cs",
+        "declaration": "public NhAiToolCallSlot( IAsyncDisposable lease, Func<TimeSpan, CancellationToken, ValueTask<NhAiConcurrencyDecision>> takeAgain) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallSlot.cs",
+        "declaration": "public bool IsHeld => Volatile.Read(ref _lease) is not null;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallSlot.cs",
+        "declaration": "public async ValueTask ReleaseAsync() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallSlot.cs",
+        "declaration": "public async ValueTask<bool> TakeAgainAsync(TimeSpan within, CancellationToken cancellationToken) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallSlot.cs",
+        "declaration": "public ValueTask DisposeAsync() {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
         "declaration": "public NhAiToolCallTimeout(TimeSpan timeout, TimeProvider clock, CancellationToken cancellationToken) {"
       },
@@ -37180,6 +37308,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
         "declaration": "public CancellationToken Token => _source.Token;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
+        "declaration": "public NhAiToolCallSlot? Slot { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
+        "declaration": "public bool SlotLost => _slotLost;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
@@ -37199,7 +37335,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
-        "declaration": "public void Dispose() {"
+        "declaration": "public async ValueTask<NhAiPersonWait> WaitForPersonAsync() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
@@ -37208,6 +37344,18 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
         "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
+        "declaration": "public void Dispose() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
+        "declaration": "public async ValueTask<bool> ResumeAsync() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
+        "declaration": "public async ValueTask DisposeAsync() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
@@ -38480,14 +38628,6 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpCallContext.cs",
         "declaration": "public NhAiInvocationContext Invocation { get; }"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpCallContext.cs",
-        "declaration": "public static readonly NoPause Instance = new();"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpCallContext.cs",
-        "declaration": "public void Dispose() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpCallContext.cs",
@@ -62029,6 +62169,7 @@
       "MinElicitationWaitMinutes",
       "DefaultElicitationWaitMinutes",
       "MaxElicitationWaitMinutes",
+      "MaxTurnPauseMinutes",
       "AdminMcpToolReviewedBeforeSync",
       "AdminMcpToolSeenAfterReview",
       "AllowLoopback",

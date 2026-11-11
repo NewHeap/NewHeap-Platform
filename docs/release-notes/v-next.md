@@ -37,12 +37,21 @@ the application's own create form prefilled; the turn waits for that browser's r
 
 An MCP server's request for input waits the server's own wait time for the person of a chat turn
 (`elicitationWaitMinutes`, `NhAssistantMcpServerRequest.ElicitationWaitMinutes`, 1 to 10 minutes) while
-the clock of the tool's own timeout stands still; the turn's own timeout keeps running.
+the turn stands still: the tool's own timeout and the turn's stop, at most ten minutes per turn in all
+(`NhAssistantMcpServerLimits.MaxTurnPauseMinutes`), and the call lets its tool's concurrency slot go.
 
 | Breaking change | Required action |
 |---|---|
 | The `McpServerElicitationWait` migrations add the nullable column `ElicitationWaitMinutes` to `AssistantMcpServer` on SQL Server and PostgreSQL. | Apply the assistant migrations for your provider, or keep `RunMigrations` on. |
-| A request for input now waits up to five minutes by default instead of ending at the tool's timeout (30 seconds for an imported tool), and the call keeps its tool's concurrency slot meanwhile. | Set a shorter `elicitationWaitMinutes` for a server whose tools many people call at once; raise `NhAssistantLimits.TurnTimeout` where people should get the full wait. |
+| A request for input now waits up to five minutes by default instead of ending at the tool's timeout (30 seconds for an imported tool), and the turn's timeout stands still meanwhile, so a turn may run up to ten minutes longer than `NhAssistantLimits.TurnTimeout`. | Keep a request-bound turn's stream open for `TurnTimeout` plus ten minutes, for example a reverse proxy's idle timeout, or keep turns after the caller leaves. |
+| A call lets its tool's concurrency slot go while its person is asked and takes one again before the answer goes back; a call that finds none within the time it has left ends as `ai-tool-concurrency-limited` and the server never receives the answer. | Nothing to change; tell people who see `ai-tool-concurrency-limited` after answering to ask again. |
+| A running chat's `UpdatedAt` moves every 30 seconds while its turn waits for its person, so no other request takes it over as abandoned; the chat list shows it as recently updated. | Nothing to change. |
+
+## NewHeap.Platform.AI.Common: concurrency slot while a person is asked
+
+| Breaking change | Required action |
+|---|---|
+| A governed call that waits for a person (an assistant's MCP request for input) releases its concurrency lease and asks `INhAiToolConcurrencyLimiter.WaitToAcquireAsync` again before it goes on, bounded by the time it has left. | Let a custom limiter's `WaitToAcquireAsync` wait if such a call should not be refused at once while another call holds the slot. |
 
 ## @newheap/platform-ai-chat: MCP elicitation wait time
 

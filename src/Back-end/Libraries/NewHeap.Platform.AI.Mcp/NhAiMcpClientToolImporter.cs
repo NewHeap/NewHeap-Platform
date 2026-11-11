@@ -78,7 +78,8 @@ public sealed record NhAiMcpImportOptions(
     /// which shows the page to the person of the call and says whether they finished it. The call is
     /// then made again, within the same governed execution. Without one such a refusal fails the call.
     /// The handler runs within the call (<see cref="NhAiMcpCallContext.Current"/>), so it can stop the
-    /// clock of the tool's own timeout while the person works on the page.
+    /// clock of the tool's own timeout and let the call's concurrency slot go while the person works on
+    /// the page.
     /// </summary>
     internal Func<ElicitRequestParams?, CancellationToken, ValueTask<ElicitResult>>? UrlElicitationHandler { get; init; }
 

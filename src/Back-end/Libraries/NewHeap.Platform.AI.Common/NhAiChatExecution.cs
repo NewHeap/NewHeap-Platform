@@ -476,7 +476,8 @@ internal sealed partial class NhAiChatExecutor(
     {
         ArgumentNullException.ThrowIfNull(request);
         ValidateRequest(request);
-        if (request.InvocationContext.Deadline is { } deadline
+        // A run that stood still for a person has its own deadline moved later by that time.
+        if (NhAiRunPause.DeadlineOf(request.InvocationContext) is { } deadline
             && deadline <= DateTimeOffset.UtcNow)
         {
             return TaskResult<PreparedChat>.Failed(
@@ -700,7 +701,7 @@ internal sealed partial class NhAiChatExecutor(
             return false;
         }
 
-        return context.Deadline is not { } deadline
+        return NhAiRunPause.DeadlineOf(context) is not { } deadline
                || deadline - DateTimeOffset.UtcNow > RetryDelay(attempt);
     }
 
@@ -777,7 +778,7 @@ internal sealed partial class NhAiChatExecutor(
         CancellationToken cancellationToken)
     {
         var timeout = profile.Timeout;
-        if (context.Deadline is { } deadline)
+        if (NhAiRunPause.DeadlineOf(context) is { } deadline)
         {
             timeout = TimeSpan.FromTicks(Math.Min(
                 timeout.Ticks,

@@ -1788,14 +1788,21 @@ timeout: five minutes unless an administrator sets one to ten (`elicitationWaitM
 `admin/mcp-servers` and the server editor) or the application's code does
 (`NhAssistantMcpServerRequest.ElicitationWaitMinutes`, bounded by `NhAssistantMcpServerLimits`
 `MinElicitationWaitMinutes`, `DefaultElicitationWaitMinutes` and `MaxElicitationWaitMinutes`; another
-value fails with `elicitationWaitMinutes: invalid`). The clock of the tool's own timeout stands still
-while the person is asked, in both forms and for a refused call, and runs on with the time that was
-left. The wait follows the application's clock (`TimeProvider`); when nobody answers in time the server
-reads a cancellation and the audit records `<mode>-expired`. The turn's own timeout
-(`NhAssistantLimits.TurnTimeout`) keeps running and ends the wait at the turn's deadline, so a person's
-answer never lets a turn run longer; raise `TurnTimeout` where people should get the full wait. The call
-keeps its tool's concurrency slot while it waits. As for `POST cancel`, an answer reaches only the
-process that runs the turn. Requests without a
+value fails with `elicitationWaitMinutes: invalid`). While the person is asked, in both forms and for a
+refused call, the turn stands still: the clock of the tool's own timeout and the turn's own
+(`NhAssistantLimits.TurnTimeout`) stop and run on with the time that was left, and the turn's model and
+tool calls find its deadline moved later by that time. A turn stands still at most ten minutes in all
+(`NhAssistantMcpServerLimits.MaxTurnPauseMinutes`, a fixed limit): a request waits no longer than what is
+left of them, and its `expiresAt` shows that end. The wait follows the application's clock
+(`TimeProvider`); when nobody answers in time the server reads a cancellation and the audit records
+`<mode>-expired`. The person's stop, or the end of a request-bound turn's request, ends the wait at once
+(`<mode>-cancelled`). A heartbeat keeps the turn's claim on the conversation meanwhile, so another request
+or process never takes a waiting turn over as abandoned; a request-bound turn's stream must stay open for
+`TurnTimeout` plus ten minutes. The call lets its tool's concurrency slot go while the person is asked, so
+another person's call of the same tool runs meanwhile, and takes one again within the time it has left
+before the answer goes back; when none becomes free, the call ends as `ai-tool-concurrency-limited` and
+the server never receives the answer. As for `POST cancel`, an answer reaches only the process that runs
+the turn. Requests without a
 person (a run, a consultation, a rule turn, a call of an exported tool), with nested or multiple-choice
 values, more than eight fields, a message over 1,000 characters or a link that is not https are declined
 without asking anyone. The audit records `McpElicitationRequested` and `McpElicitationClosed` with the
@@ -2033,8 +2040,9 @@ calls in a consultation store nothing and are not listed.
 - Treating an MCP server's request for input as the assistant's or the model's text, opening its link
   for the person, storing the answer, or treating an MCP client's accepted elicitation as an approval;
   a proposal is decided on the application's page with its hash.
-- Raising a tool's own timeout so a person has time to answer its server; set the server's
-  `elicitationWaitMinutes` instead, which stops the tool's clock while the person is asked.
+- Raising a tool's own timeout or `TurnTimeout` so a person has time to answer its server; set the
+  server's `elicitationWaitMinutes` instead. The tool's clock and the turn's stand still while the person
+  is asked, and the tool's slot is free for other people's calls meanwhile.
 
 - Treating a chat about a subject as the agent's thread, or authorizing a tool on
   `ConversationSubject` alone: it names what the person asked about, and the tool still checks the

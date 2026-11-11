@@ -39,7 +39,7 @@ internal sealed class NhAiInvocationContextCapabilityResolver : INhAiCapabilityR
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var expiry = context.Deadline ?? now.AddMinutes(5);
+        var expiry = NhAiRunPause.DeadlineOf(context) ?? now.AddMinutes(5);
         var grants = descriptor.RequiredCapabilities
             .Where(context.CapabilityGrants.Contains)
             .Select(capability => new NhAiCapabilityGrant(

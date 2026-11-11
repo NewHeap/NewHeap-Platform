@@ -271,6 +271,23 @@ internal sealed class NhAssistantStore(
         return affected == 1;
     }
 
+    public async Task<bool> TryKeepTurnAsync(
+        Guid conversationId,
+        Guid turnId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        var now = DateTimeOffset.UtcNow;
+        var affected = await context.Conversations
+            .Where(conversation => conversation.Id == conversationId
+                && conversation.ActiveTurnId == turnId
+                && conversation.Status == NhAssistantConversationStatuses.Running)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(conversation => conversation.UpdatedAt, now),
+                cancellationToken);
+        return affected == 1;
+    }
+
     public async Task<bool> TryEndTurnAsync(
         Guid conversationId,
         Guid turnId,

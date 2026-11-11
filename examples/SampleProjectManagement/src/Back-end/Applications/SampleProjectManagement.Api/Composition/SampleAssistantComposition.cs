@@ -63,6 +63,13 @@ public static class SampleAssistantComposition
     public const string AdminPolicy = "app.project.edit-or-admin";
 
     /// <summary>
+    /// How long one turn of the sample's assistant may run with a scripted model. SPM-251: it stands
+    /// still while the person answers an MCP server's request for input, so a server's wait of three
+    /// minutes (the milestones server) still gets its full wait within this minute.
+    /// </summary>
+    public static readonly TimeSpan TurnTimeout = TimeSpan.FromSeconds(60);
+
+    /// <summary>
     /// Seeded once as version 1 of the application context; administrators edit it afterwards.
     /// </summary>
     public static NhAiTextAsset DefaultApplicationContext { get; } = NhAiTextAssetFactory.Create(
@@ -188,10 +195,11 @@ public static class SampleAssistantComposition
                 // A run, a consultation or anything the chat cannot show safely is declined. The
                 // request waits the server's own wait time, five minutes unless an administrator or
                 // the application's code sets one to ten (the operations code gives the milestones
-                // server three, SampleAssistantOperationsService); the tool's own timeout stands still
-                // meanwhile. The turn's timeout below keeps running and ends the wait first, so a
-                // deployment that wants people to have the full wait raises TurnTimeout. The answer
-                // reaches only the API process that runs the turn.
+                // server three, SampleAssistantOperationsService). The turn stands still meanwhile: the
+                // tool's own timeout and the turn's timeout below stop, at most ten minutes per turn
+                // (NhAssistantMcpServerLimits.MaxTurnPauseMinutes), a heartbeat keeps another request
+                // from claiming the chat as abandoned, and the tool's slot is free for other people's
+                // calls until the person answered. The answer reaches only the API process that runs the turn.
                 mcp.ToolListCacheDuration = TimeSpan.FromMinutes(5);
                 // SPM-251: connecting to a server, and listing its tools, each end after ten seconds.
                 mcp.ConnectTimeout = TimeSpan.FromSeconds(10);
@@ -299,7 +307,7 @@ public static class SampleAssistantComposition
             {
                 limits.MaxToolCallsPerTurn = 4;
                 limits.MaxMessageChars = 4_000;
-                limits.TurnTimeout = TimeSpan.FromSeconds(60);
+                limits.TurnTimeout = TurnTimeout;
                 if (model is not null && model.Timeout * 2 > limits.TurnTimeout)
                 {
                     // A turn holds several model calls; a slow real model gets two of its timeouts.
