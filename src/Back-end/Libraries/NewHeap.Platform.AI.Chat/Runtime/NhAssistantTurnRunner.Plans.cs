@@ -14,11 +14,12 @@ internal sealed partial class NhAssistantTurnRunner
 {
     /// <summary>
     /// Whether the turn offers <c>update_plan</c>: a run, a turn in an agent's thread or a person's chat
-    /// of an agent that keeps a plan. Consultations, which write nothing into the thread, never offer it.
+    /// of an agent that keeps a plan. Consultations, which write nothing into the thread, never offer it,
+    /// and a chat that starts by choosing a skill offers it once the skill is chosen.
     /// </summary>
     private static bool OffersPlan(NhAssistantTurnState state)
     {
-        if (state.Scope.Consultation is not null)
+        if (state.Scope.Consultation is not null || state.OnlyRoutes)
         {
             return false;
         }

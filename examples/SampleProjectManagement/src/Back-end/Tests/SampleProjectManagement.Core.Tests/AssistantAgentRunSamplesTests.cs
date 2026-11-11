@@ -2090,6 +2090,8 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             // the whole application, and nothing is out of effect.
             var following = (await administrator.GetFromJsonAsync<NhAssistantAgentConfigurationDto>($"/api/assistant/admin/agents/{followUp}/configuration", Json))!;
             Assert.Equal(SampleProjectStarterComposition.FollowUpRoutingRules, following.RunSettings!.RuleHandler);
+            // Its run settings keep a plan, which an administrator switched on as data.
+            Assert.True(following.RunSettings.KeepsPlan);
             var schedule = Assert.Single(following.DataTriggers);
             Assert.Equal((NewHeap.Platform.AI.Chat.Entities.NhAssistantDataTriggerSources.Schedule, (string?)null), (schedule.Source, schedule.SubjectSet));
             Assert.Empty(following.Problems);
@@ -2107,6 +2109,7 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             {
                 SkillsInChat = true,
                 ChatRoutesFirst = true,
+                KeepsPlan = true,
                 TriageProfile = SampleProjectPlannerComposition.TriageProfileName,
                 RetryCount = 3,
                 MaxConcurrentRuns = 2,
@@ -3364,6 +3367,65 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
                 host.OwnerId,
                 null,
                 CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task SPM_304_a_planner_runs_result_shows_the_plan_it_kept_of_its_work()
+    {
+        // SPM-304 with KeepPlan(): the run's result (GET runs/{id}) shows the plan as the run left it.
+        const string planner = SampleProjectPlannerComposition.AgentId;
+        var project = await host.CreateProjectAsync("PLANKEPT", ownerId: host.OwnerId, status: ProjectStatus.Active, deadline: DateTimeOffset.UtcNow.AddDays(4));
+        await host.AddMemberAsync(project, host.ColleagueId, ProjectMemberRole.Approver);
+        await host.CreateTaskAsync(project, "Plan the release");
+        using var colleague = host.CreateClient(host.ColleagueId.ToString());
+        var projectText = project.ToString("D");
+        var triage = new NhAiScriptedChatClient()
+            .RespondWithText("""{"skill":"deadline-risk","reason":"The deadline is close."}""");
+        var deadline = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(
+                "update_plan",
+                new
+                {
+                    steps = new[]
+                    {
+                        new { text = "Count the open tasks", status = "in_progress" },
+                        new { text = "Judge the deadline", status = "pending" }
+                    }
+                },
+                "call-plan")
+            .RespondWithFunctionCall("update_plan", new { advance = true }, "call-advance")
+            .RespondWithFunctionCall("update_plan", new { advance = true }, "call-finish")
+            .RespondWithText("The project will make its deadline.");
+        host.Model.Use(new RoutingChatClient(
+            new SampleAssistantChatClient(),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "You route the work of an assistant agent")
+                && RoutingChatClient.Mentions(messages, options, projectText), triage),
+            ((messages, options) => RoutingChatClient.Mentions(messages, options, "## Skill: deadline-risk")
+                && RoutingChatClient.Mentions(messages, options, projectText), deadline)));
+        try
+        {
+            var started = await colleague.PostAsJsonAsync(
+                "/api/assistant/threads/start",
+                new NhAssistantStartAgentRequest(planner, ProjectSubjects.Type, projectText, $"Check the deadline of project {projectText}."),
+                Json);
+            Assert.Equal(HttpStatusCode.Accepted, started.StatusCode);
+            var conversationId = await WaitForThreadAsync(colleague, project, planner);
+            var run = Assert.Single(await WaitForRunCountAsync(colleague, conversationId, 1));
+
+            var result = await WaitForRunResultAsync(colleague, run.Id);
+
+            Assert.Equal(NhAssistantRunStatuses.Completed, result.Run.Status);
+            var plan = Assert.IsType<NhAssistantPlanDto>(result.Plan);
+            Assert.Equal(
+                [("Count the open tasks", NhAssistantPlanStepStatuses.Completed), ("Judge the deadline", NhAssistantPlanStepStatuses.Completed)],
+                plan.Steps.Select(step => (step.Text, step.Status)));
+            // The plan's updates are calls of the run, next to the model's answer.
+            Assert.Equal(3, result.Run.ToolCalls);
+        }
+        finally
+        {
+            host.Model.Use(new SampleAssistantChatClient());
         }
     }
 
