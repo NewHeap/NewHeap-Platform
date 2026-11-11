@@ -414,6 +414,18 @@ expired question, shows its localized error and reads the conversation again. Th
 closes it there too. An agent message of a chat with `SkillsInChat` names
 the skill it worked in (`Message.skillId`, SPM-333) for applications that show or count it.
 
+The plan an agent keeps of its work (`PlanPart`, server option `KeepPlan()`, SPM-333) renders in the
+thread as `nh-assistant-plan` (`NhAssistantPlanComponent`): a compact checklist under a label that
+says it is the agent's plan, with how many steps are done, the step in progress marked as the current
+one (`aria-current="step"`), completed steps checked and struck through, every step as plain text and
+never as markup or a link, and a pulse only when the person allows motion. The reducer follows
+`plan.updated` (`PlanUpdatedEvent`), a snapshot that replaces the plan of its message, also from live
+updates, and ignores an older one; the thread shows each turn's newest plan when a turn that waited
+continued in a new message. `nh-assistant-run-result` shows a run's plan (`AgentRunResult.plan`,
+SPM-304), the administration's run settings switch `keepsPlan` for an agent it defines and show an
+agent in code's `keepsPlan` read-only (SPM-298), and the mock API plays a `plan` step
+(`NhAssistantMockPlanStep`) and a run's `plan`.
+
 Render `approval.presentation` as the primary explanation. When it is absent, use the
 bundled localized fallback instead of `summary` or a tool descriptor. Keep tool ids,
 targets and bounded/redacted argument previews in collapsed technical details. A

@@ -1099,7 +1099,7 @@ trigger in code names the subject type it runs for up front (`NhAssistantCodeTri
 `nh-system` for a schedule for the whole application, `null` when only the fire knows it), and an agent
 in code reports whom it answers to, whether it delegates from the initiator, its approval policy and
 whether it works by rules (`CodeRunSettings`, `NhAssistantCodeRunSettingsDto`), and, read only for the
-administration's guardrails, what else its code sets: `SkillsInChat`, `AllowQuestions`, `UsesMemory`,
+administration's guardrails, what else its code sets: `SkillsInChat`, `AllowQuestions`, `KeepsPlan`, `UsesMemory`,
 `TriageProfile`, `RetryCount`, `MaxConcurrentRuns`, `MaxRunsPerSubjectPerDay`, `DailyToolCalls`,
 `DailyTokens`, `MaxTokensPerRun`, `MaxConsultationsPerTurn`, `ElevatedReads` and `AllowGatewayReads`,
 with the platform's defaults for what it leaves out (SPM-298). `GET admin/tools`
@@ -1459,6 +1459,32 @@ valid next to `ChatsAbout` and stays refused for a `ChatOnly()` without it. The 
 for `ChatsAbout` without `ChatOnly()`, since any other agent chats about what it works on, and for a
 type without a subject access resolver; `ChatsAbout` itself refuses a platform type such as `nh-system`,
 because a chat without a subject is already about the whole application.
+
+Let an agent whose work takes several steps show what it is doing with `KeepPlan()` (SPM-333,
+SPM-304), the same idea as a coding agent's visible task list, instead of instructions that make the
+model narrate its steps in its answer. Its runs, the turns of its threads and people's chats with it
+then offer the assistant's own `update_plan` (`assistant.plan`): the model sets the whole list of steps,
+each `pending`, `in_progress` or `completed`, or passes `advance: true` to complete the step in progress
+and start the next. A chat that starts by choosing a skill offers it once the skill is chosen, and a
+consultation never does. An update is plain text within `NhAssistantPlanLimits` (10 steps of 160
+characters, at most one in progress, 20 updates per turn); an update that breaks them changes nothing
+and the model reads `assistant-plan-invalid` or `assistant-plan-update-limit-reached`. It needs no
+approval, counts as a tool call of the turn and shows as the plan, never as a tool call of its own. The
+turn's message keeps the plan as a `plan` part, the turn streams every update as a `plan.updated`
+snapshot to its request and the conversation's live updates, and `GET runs/{id}` returns a run's last
+plan as `NhAssistantRunResultDto.Plan`. A turn that waited for a person goes on with its plan. The plan
+is the agent's own statement about its work in that run: people see it as the agent's, no later turn
+reads it and the audit keeps none of it. An agent created in the administration keeps one when its run
+settings say so (`NhAssistantAgentRunSettingsRequest.KeepsPlan`, stored by the AgentRunSettingsKeepsPlan
+migrations, SPM-298); an agent in code shows `KeepsPlan` read-only. It is off by default, so existing
+agents do not change:
+
+```csharp
+assistant.ConfigureAgent("project-planner", run => run
+    .WorksOn("project")
+    .SkillsInChat(routesFirst: true)
+    .KeepPlan());
+```
 
 Classify the data an agent sends to its model with `DataClassification(...)` on `ConfigureAgent`
 and, for a skill that reads more sensitive data than the rest of its agent, on `Skill(...)`. The
