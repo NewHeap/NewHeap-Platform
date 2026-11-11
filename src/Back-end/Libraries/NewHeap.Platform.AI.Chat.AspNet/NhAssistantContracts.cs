@@ -696,9 +696,83 @@ public sealed record NhAssistantToolCallPartDto(
     /// The result came from the agent's own grant and is shielded from this viewer.
     /// </summary>
     public bool Restricted { get; init; }
+
+    /// <summary>
+    /// The application's trusted card of what the call returned, in the caller's language
+    /// (<see cref="INhAssistantToolResultPresenter"/>). Only written for a call that has one and whose
+    /// result the caller may see.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NhAssistantToolResultPresentationDto? ResultPresentation { get; init; }
 }
 
-public sealed record NhAssistantPresentationFieldDto(string Label, string Value);
+/// <summary>
+/// One named fact of an approval or result card. A field of a change also states what it holds now.
+/// </summary>
+public sealed record NhAssistantPresentationFieldDto(string Label, string Value)
+{
+    /// <summary>
+    /// What the field holds now, empty for a field that is empty now. Only written when the presenter
+    /// states it.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CurrentValue { get; init; }
+
+    /// <summary>
+    /// How the field changes: <c>unchanged</c>, <c>added</c>, <c>changed</c> or <c>cleared</c>
+    /// (<see cref="NhAssistantPresentationFieldChange"/>). Only written with <see cref="CurrentValue"/>.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Change { get; init; }
+
+    internal static NhAssistantPresentationFieldDto From(NhAssistantPresentationField field)
+    {
+        return new NhAssistantPresentationFieldDto(field.Label, field.Value)
+        {
+            CurrentValue = field.CurrentValue,
+            Change = NameOf(field.Change)
+        };
+    }
+
+    private static string? NameOf(NhAssistantPresentationFieldChange change)
+    {
+        return change switch
+        {
+            NhAssistantPresentationFieldChange.Unchanged => "unchanged",
+            NhAssistantPresentationFieldChange.Added => "added",
+            NhAssistantPresentationFieldChange.Changed => "changed",
+            NhAssistantPresentationFieldChange.Cleared => "cleared",
+            _ => null
+        };
+    }
+}
+
+/// <summary>
+/// The link of a result card to a page of the application: a path within it and the text people read.
+/// </summary>
+public sealed record NhAssistantPresentationLinkDto(string Url, string Label);
+
+/// <summary>
+/// The application's trusted card of what a tool call returned: a title, an optional summary, at most
+/// eight fields and an optional link to a page of the application. Never the raw result.
+/// </summary>
+public sealed record NhAssistantToolResultPresentationDto(
+    string Title,
+    string? Summary,
+    IReadOnlyList<NhAssistantPresentationFieldDto> Fields,
+    NhAssistantPresentationLinkDto? Link)
+{
+    internal static NhAssistantToolResultPresentationDto? From(NhAssistantToolResultPresentation? presentation)
+    {
+        return presentation is null
+            ? null
+            : new NhAssistantToolResultPresentationDto(
+                presentation.Title,
+                presentation.Summary,
+                presentation.Fields.Select(NhAssistantPresentationFieldDto.From).ToArray(),
+                presentation.Link is { } link ? new NhAssistantPresentationLinkDto(link.Url, link.Label) : null);
+    }
+}
 
 public sealed record NhAssistantApprovalPresentationDto(
     string ToolDisplayName,
@@ -714,7 +788,7 @@ public sealed record NhAssistantApprovalPresentationDto(
                 presentation.ToolDisplayName,
                 presentation.Summary,
                 presentation.Fields
-                    .Select(field => new NhAssistantPresentationFieldDto(field.Label, field.Value))
+                    .Select(NhAssistantPresentationFieldDto.From)
                     .ToArray(),
                 presentation.Notice);
     }
@@ -907,7 +981,16 @@ public sealed record NhAssistantToolCompletedDto(
     Guid InvocationId,
     string Status,
     string? ResultCode,
-    string? ResultPreview);
+    string? ResultPreview)
+{
+    /// <summary>
+    /// The application's trusted card of what the call returned, in the language of the turn
+    /// (<see cref="INhAssistantToolResultPresenter"/>). Only written for a call that has one and whose
+    /// result is not shielded.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NhAssistantToolResultPresentationDto? ResultPresentation { get; init; }
+}
 
 public sealed record NhAssistantUsageDto(
     int InputTokens,

@@ -24,7 +24,9 @@ internal sealed record NhAssistantStoredPart(
     string? AddresseeActorId = null,
     DateTimeOffset? ExpiresAt = null,
     string? SkillId = null,
-    int? SkillVersion = null)
+    int? SkillVersion = null,
+    NhAssistantToolResultPresentation? ResultPresentation = null,
+    IReadOnlyDictionary<string, NhAssistantToolResultPresentation>? ResultPresentations = null)
 {
     public const string TextType = "text";
 
@@ -51,6 +53,15 @@ internal sealed record NhAssistantStoredPart(
     /// </summary>
     public const string ApplicationType = "application";
     public const string ToolCallType = "tool-call";
+
+    /// <summary>
+    /// The trusted card of what a call returned (<see cref="INhAssistantToolResultPresenter"/>):
+    /// <see cref="InvocationId"/> names the call, whose part may be in an earlier message, such as the
+    /// one a turn paused in for an approval; <see cref="ResultPresentation"/> is the card in the culture
+    /// of the turn and <see cref="ResultPresentations"/> the card by culture name when the application
+    /// supports more UI cultures. The conversation shows it on the call, never as a part of its own.
+    /// </summary>
+    public const string ToolResultType = "tool-result";
     public const string ApprovalType = "approval";
 
     /// <summary>
