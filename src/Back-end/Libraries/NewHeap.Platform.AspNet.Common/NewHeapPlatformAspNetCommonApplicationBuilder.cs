@@ -206,7 +206,7 @@ public class NewHeapPlatformAspNetCommonApplicationBuilder
             if (backgroundOperationMarker is not null)
             {
                 var backgroundOperationOptions = _services.GetRequiredService<NhBackgroundOperationsOptions>();
-                endpoints.MapNhBackgroundOperationHub(backgroundOperationOptions.HubPath);
+                endpoints.MapNhBackgroundOperationHub(backgroundOperationOptions);
             }
 
             _options.EndpointRouteConfigureAction?.Invoke(endpoints);

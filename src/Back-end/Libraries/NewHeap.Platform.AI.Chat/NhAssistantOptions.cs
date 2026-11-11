@@ -108,6 +108,21 @@ public sealed class NhAssistantOptions
     public string? HubPath { get; set; } = DefaultHubPath;
 
     /// <summary>
+    /// Whether a connection to the hub at <see cref="HubPath"/> may refresh its authentication without
+    /// reconnecting (<c>NewHeap:AI:Assistant:HubAuthenticationRefresh</c>), false by default; read when
+    /// <c>MapNewHeapAssistant</c> maps the hub. It takes effect on ASP.NET Core 11, where the hub then
+    /// maps SignalR's <c>/refresh</c> endpoint below its path; on ASP.NET Core 10 it changes nothing. A
+    /// client that presents its renewed token there keeps its connection, its groups and its watch past
+    /// the expiry of the token it connected with. The endpoint requires the assistant's access policy: an
+    /// expired token or a removed user is refused with 401, a token of another person or another
+    /// impersonation with 403, and the connection then still closes when its own authentication expires.
+    /// After every accepted refresh the hub resolves the caller again, as when the connection opened, and
+    /// closes the connection when the actor or the tenant changed or the caller no longer resolves; the
+    /// session check that closes a connection whose session ended follows the refreshed principal.
+    /// </summary>
+    public bool HubAuthenticationRefresh { get; set; }
+
+    /// <summary>
     /// Whether compositions are on (<c>NewHeap:AI:Assistant:Compositions</c>), false by default. The
     /// default <see cref="INhAssistantCompositionSwitch"/> reads it once per turn, run step and MCP
     /// request, so a reloaded configuration applies from the next one; an application that registers its

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.125",
   "backEnd": {
-    "hash": "ecaf6ad4442fbf7fc730918ee531326b5838d9ab5ca7b7b6b1d7da0143233d99",
-    "declarationCount": 13873,
+    "hash": "c5c83255b3e69d9c9955dee2a3dd7cb01a2842ff3cd0baae5374b7078586269d",
+    "declarationCount": 13880,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -7359,6 +7359,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHub.cs",
+        "declaration": "public override async Task OnAuthenticationRefreshedAsync() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHub.cs",
         "declaration": "public async Task<NhAssistantLiveWatchDto> WatchAgentWork() {"
       },
       {
@@ -7388,6 +7392,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHubSessions.cs",
         "declaration": "public void Watch(HubCallerContext connection) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHubSessions.cs",
+        "declaration": "public void Refreshed(HubCallerContext connection, ClaimsPrincipal principal) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHubSessions.cs",
+        "declaration": "public ClaimsPrincipal Principal {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantImportedMcpToolExports.cs",
@@ -25931,6 +25943,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+        "declaration": "public bool HubAuthenticationRefresh { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
         "declaration": "public bool Compositions { get; set; }"
       },
       {
@@ -39022,6 +39038,10 @@
         "declaration": "public async Task<bool> ValidateAsync( ClaimsPrincipal principal, CancellationToken cancellationToken = default)"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubAuthenticationRefresh.cs",
+        "declaration": "public static void Configure(HttpConnectionDispatcherOptions connection, bool authenticationRefresh) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubQueryTokens.cs",
         "declaration": "public const string HubPrefix = \"/hub\";"
       },
@@ -46491,6 +46511,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public bool HubAuthenticationRefresh { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
         "declaration": "public bool UserNotificationProjectionEnabled { get; set; } = true;"
       },
       {
@@ -47032,6 +47056,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationHub.cs",
         "declaration": "public override async Task OnConnectedAsync() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationHub.cs",
+        "declaration": "public override async Task OnAuthenticationRefreshedAsync() {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationHub.cs",
