@@ -160,7 +160,10 @@ const bootstrapScript = resolve(
   'scripts',
   'bootstrap-newheap-consumer.mjs'
 );
-const workspaces = [...new Set(selected.map(item => workspaceOf(evaluations, item)))].filter(name => workspaceHasFiles(evaluations, name));
+// Materialize every workspace the suite uses, so a case that claude's own --case or --tag filter
+// selects is never left without its fixture.
+const allCases = pluginEvals(evaluations);
+const workspaces = [...new Set(allCases.map(item => workspaceOf(evaluations, item)))].filter(name => workspaceHasFiles(evaluations, name));
 for (const name of workspaces) {
   const target = resolve(evalRoot, 'fixtures', name);
   await mkdir(target, { recursive: true });
@@ -172,7 +175,7 @@ for (const name of workspaces) {
     if (workspace.files) await cp(resolve(repositoryRoot, workspace.files), target, { recursive: true, force: true });
   }
 }
-for (const item of selected) await chmod(resolve(evalRoot, item.id, 'scaffold.sh'), 0o755);
+for (const item of allCases) await chmod(resolve(evalRoot, item.id, 'scaffold.sh'), 0o755);
 
 const outputDirectory = resolve(repositoryRoot, 'skill-evals', 'results', new Date().toISOString().replaceAll(':', '-').replace('.', '-'));
 const claudeArguments = [
@@ -196,7 +199,7 @@ const claudeArguments = [
 
 const runsPerArm = Number(options.runs ?? 3);
 const arms = options.baseline ? 2 : 1;
-console.log(`Staged newheap-platform ${codexManifest.version} with ${selected.length} of ${pluginEvals(evaluations).length} cases at ${repositoryPath(pluginRoot)}.`);
+console.log(`Staged newheap-platform ${codexManifest.version} with ${selected.length} of ${allCases.length} cases at ${repositoryPath(pluginRoot)}.`);
 console.log(`Workspaces: ${[...new Set(selected.map(item => workspaceOf(evaluations, item)))].join(', ')}.`);
 console.log(`About ${selected.length * runsPerArm * arms} agent runs (${selected.length} cases x ${runsPerArm} runs x ${arms} arm${arms > 1 ? 's' : ''}) plus up to three judge calls per rubric grade.`);
 if (options.all && !options['max-cost-usd']) console.warn('Warning: --all without --max-cost-usd has no cost ceiling.');
