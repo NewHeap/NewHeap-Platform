@@ -14,7 +14,7 @@
     "nuget-common": {
       "displayName": "NewHeap common NuGet packages",
       "kind": "nuget",
-      "version": "38.0.0",
+      "version": "38.1.0",
       "tagPrefix": "nuget-common-v",
       "includeSymbols": true,
       "replaces": "src/Back-end/publish-common.ps1",
@@ -199,7 +199,7 @@
     "npm-ai-chat": {
       "displayName": "@newheap/platform-ai-chat",
       "kind": "npm",
-      "version": "0.35.0",
+      "version": "0.35.1",
       "tagPrefix": "npm-ai-chat-v",
       "packageName": "@newheap/platform-ai-chat",
       "packageJson": "src/Front-end/projects/nh-ai-chat/package.json",
