@@ -114,6 +114,14 @@
             [answering]="deciding()"
             (answer)="answerQuestion(group.part, $event)" />
         }
+        @case ('elicitation') {
+          <nh-assistant-elicitation-card
+            class="part"
+            [elicitation]="group.part"
+            [canAnswer]="canAnswerElicitation(group.part)"
+            [answering]="answeringElicitationId() === group.part.elicitationId"
+            (answer)="answerElicitation(group.part, $event)" />
+        }
       }
     }
     @if (isApplication(message) && message.application?.link; as link) {

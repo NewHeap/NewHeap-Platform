@@ -29,6 +29,7 @@ import {
   ConversationSubjectRef,
   ConversationSummary,
   DirectoryEntry,
+  ElicitationAction,
   FileReference,
   Message,
   MessagePart
@@ -321,6 +322,7 @@ export class NhAssistantStore {
   private readonly sessionsState = signal<ReadonlyMap<string, NhAssistantSession>>(new Map());
   private readonly activeIdState = signal<string | null>(null);
   private readonly conversationLoadingState = signal(false);
+  private readonly answeringElicitationState = signal<string | null>(null);
   /** The conversation a message is being prepared for; `''` while a new conversation is created. */
   private readonly sendingState = signal<string | null>(null);
   private readonly draftErrorState = signal<NhAssistantError | null>(null);
@@ -625,6 +627,8 @@ export class NhAssistantStore {
     const question = conversation?.pendingQuestion;
     return !!question && question.status === 'pending' && question.addresseeActorId === conversation?.currentActorId;
   });
+  /** The request for input of an MCP server whose answer this tab sends now; `null` otherwise. */
+  readonly answeringElicitationId = this.answeringElicitationState.asReadonly();
   /** The member a pending question of the open conversation is addressed to, when it is someone else. */
   readonly questionAddressee = computed<ConversationMember | null>(() => {
     const conversation = this.activeConversation();
@@ -1393,6 +1397,50 @@ export class NhAssistantStore {
         this.afterTurn(conversationId, failed);
       }
     });
+  }
+
+  /**
+   * Answers the request for input of an MCP server that the open chat's running turn waits for:
+   * `accept` with the form's values, or for a link that the person finished the server's page,
+   * `decline` or `cancel`. The answer goes to the server through the waiting tool call, and the
+   * turn's own stream continues. Ignores a request that no longer waits, one for another person and a
+   * second answer while one is sent; a refused answer shows its error.
+   */
+  async answerElicitation(
+    elicitationId: string,
+    action: ElicitationAction,
+    content?: Record<string, string | number | boolean> | null
+  ): Promise<void> {
+    const conversation = this.activeSession()?.conversation;
+    const part = conversation?.messages
+      .flatMap(message => message.parts)
+      .find(item => item.type === 'elicitation' && item.elicitationId === elicitationId);
+    if (!conversation
+      || part?.type !== 'elicitation'
+      || part.status !== 'pending'
+      || part.addresseeActorId !== conversation.currentActorId
+      || this.answeringElicitationState() !== null) {
+      return;
+    }
+
+    const conversationId = conversation.id;
+    const revision = this.accountRevision;
+    this.answeringElicitationState.set(elicitationId);
+    this.patchSession(conversationId, current => ({ ...current, error: null }));
+    try {
+      await firstValueFrom(
+        this.api.answerElicitation(conversationId, elicitationId, {
+          action,
+          ...(action === 'accept' && content ? { content } : {})
+        }),
+        { defaultValue: undefined });
+    } catch (error) {
+      if (revision === this.accountRevision) {
+        this.setError(conversationId, error);
+      }
+    } finally {
+      this.answeringElicitationState.set(null);
+    }
   }
 
   /**

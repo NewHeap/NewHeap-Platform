@@ -3,6 +3,7 @@ import {
   ApprovalPart,
   Conversation,
   ConversationStatus,
+  ElicitationPart,
   Message,
   MessagePart,
   QuestionPart,
@@ -115,6 +116,15 @@ export function applyNhAssistantEvent(
         ...replaceQuestion(conversation, question),
         pendingQuestion: conversation.pendingQuestion?.questionId === question.questionId ? null : conversation.pendingQuestion ?? null
       };
+    }
+
+    case 'elicitation.requested':
+    case 'elicitation.closed': {
+      // A server's request for input shows where its tool call waits; a repeat replaces it.
+      const elicitation: ElicitationPart = { ...event.data, type: 'elicitation' };
+      return hasElicitation(conversation, elicitation.elicitationId)
+        ? replaceElicitation(conversation, elicitation)
+        : appendToCurrentAssistantMessage(conversation, elicitation);
     }
 
     case 'connection.required': {
@@ -369,6 +379,9 @@ function partKey(part: MessagePart): string {
   if (part.type === 'question') {
     return `question-${part.questionId}`;
   }
+  if (part.type === 'elicitation') {
+    return `elicitation-${part.elicitationId}`;
+  }
 
   return 'text';
 }
@@ -385,6 +398,23 @@ function replaceQuestion(conversation: Conversation, question: QuestionPart): Co
       ...message,
       parts: message.parts.map(part =>
         part.type === 'question' && part.questionId === question.questionId ? question : part
+      )
+    }))
+  };
+}
+
+function hasElicitation(conversation: Conversation, elicitationId: string): boolean {
+  return conversation.messages.some(message =>
+    message.parts.some(part => part.type === 'elicitation' && part.elicitationId === elicitationId));
+}
+
+function replaceElicitation(conversation: Conversation, elicitation: ElicitationPart): Conversation {
+  return {
+    ...conversation,
+    messages: conversation.messages.map(message => ({
+      ...message,
+      parts: message.parts.map(part =>
+        part.type === 'elicitation' && part.elicitationId === elicitation.elicitationId ? elicitation : part
       )
     }))
   };

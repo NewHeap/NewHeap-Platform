@@ -158,9 +158,11 @@
             [decisionOwner]="activeMemberName()"
             [approvalRights]="store.approvalRights()"
             [writingMessageId]="store.writingMessageId()"
+            [answeringElicitationId]="store.answeringElicitationId()"
             (approvalChoice)="decideApproval($event)"
             (approvalResolution)="resolveApproval($event)"
             (questionAnswer)="answerQuestion($event)"
+            (elicitationAnswer)="answerElicitation($event)"
             (retryMessage)="store.send($event)" />
         }
       }
