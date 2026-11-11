@@ -22,6 +22,7 @@ export * from './lib/services/nh-assistant-admin-api.service';
 export * from './lib/services/nh-assistant-agent-run-api.service';
 export * from './lib/services/nh-assistant-reducer';
 export * from './lib/services/nh-assistant-page-context';
+export * from './lib/services/nh-assistant-client-tools';
 export * from './lib/services/nh-assistant.store';
 export { NhAssistantLiveService, NhAssistantLiveState } from './lib/services/nh-assistant-live.service';
 export { NhAssistantAlertNotificationClick, NhAssistantPushService, NhAssistantPushState } from './lib/services/nh-assistant-push.service';

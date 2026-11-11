@@ -14,6 +14,7 @@ import { Alert, AlertDismissOptions, AlertList, AlertListFilter, AlertSummary, A
 import {
   AgentSummary,
   AnswerQuestionRequest,
+  ClientToolResultRequest,
   AssistantStatus,
   Conversation,
   ConversationPage,
@@ -157,6 +158,17 @@ export class NhAssistantApiService {
    */
   answerQuestion(conversationId: string, questionId: string, request: AnswerQuestionRequest): Observable<NhAssistantSseEvent> {
     const path = `conversations/${encodeURIComponent(conversationId)}/questions/${encodeURIComponent(questionId)}/answer`;
+    return this.requestStream(path, request, false);
+  }
+
+  /**
+   * Reports what the browser's handler of a client tool did and streams the resumed turn: the report is
+   * the result of the agent's call. Only the person whose turn called the tool reports; the server refuses
+   * others with `assistant-client-tool-forbidden`, a call that no longer waits with
+   * `assistant-client-tool-not-pending` and one whose wait ended with `assistant-client-tool-expired`.
+   */
+  reportClientTool(conversationId: string, invocationId: string, request: ClientToolResultRequest): Observable<NhAssistantSseEvent> {
+    const path = `conversations/${encodeURIComponent(conversationId)}/client-tools/${encodeURIComponent(invocationId)}/result`;
     return this.requestStream(path, request, false);
   }
 
