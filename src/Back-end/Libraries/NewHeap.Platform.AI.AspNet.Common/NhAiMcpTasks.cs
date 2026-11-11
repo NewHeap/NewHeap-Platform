@@ -496,15 +496,16 @@ internal sealed class NhAiMcpTaskRequestGuard(
         JsonRpcRequest request,
         CancellationToken cancellationToken)
     {
-        // Without tasks the SDK refuses the method itself, before it reads a task.
-        if (!NhAiMcpTasks.IsNegotiated(request)
-            || request.Params?["taskId"] is not JsonValue taskIdValue
+        // Without a task id the SDK refuses the request itself, before it reads or cancels a task.
+        if (request.Params?["taskId"] is not JsonValue taskIdValue
             || !taskIdValue.TryGetValue<string>(out var taskId)
             || string.IsNullOrWhiteSpace(taskId))
         {
             return await inner(request, cancellationToken);
         }
 
+        // Whatever the negotiation, the SDK's handler is reached only for the task's owner: it cancels
+        // the task's run even when the store refuses.
         if (!await store.AuthorizeAsync(taskId, cancellationToken))
         {
             logger.LogInformation("MCP task {TaskId}: {Method} refused, the task does not exist for the caller.", taskId, method);
