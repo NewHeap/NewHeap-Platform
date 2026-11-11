@@ -619,7 +619,8 @@ internal sealed class NhAssistantConsultationService(
             return options.Timeout;
         }
 
-        var left = asking.Deadline - DateTimeOffset.UtcNow - AnswerMargin;
+        // The asking turn's deadline as it stands now: later by the time it stood still for its person.
+        var left = asking.CurrentDeadline - DateTimeOffset.UtcNow - AnswerMargin;
         return left < options.Timeout ? left : options.Timeout;
     }
 

@@ -32,7 +32,10 @@ internal static class NhAssistantElicitationStatuses
 
     public const string Cancelled = "cancelled";
 
-    /// <summary>Nobody answered within the server's wait time, or before the turn's deadline.</summary>
+    /// <summary>
+    /// Nobody answered within the server's wait time, or within what was left of the turn's time for
+    /// its person.
+    /// </summary>
     public const string Expired = "expired";
 }
 
@@ -83,7 +86,9 @@ internal static class NhAssistantElicitationReasons
     /// link that is not https or more than the limits allow.</summary>
     public const string Unsupported = "unsupported";
 
-    /// <summary>Nobody answered within the server's wait time, or before the turn's deadline.</summary>
+    /// <summary>
+    /// Nobody answered within the server's wait time, or the turn had no time for its person left.
+    /// </summary>
     public const string Expired = "expired";
 
     /// <summary>The turn or the tool call ended while it waited.</summary>
@@ -125,9 +130,18 @@ internal static class NhAssistantElicitationLimits
 
     /// <summary>
     /// The longest a tool call waits for the person: the longest wait time of a server. The tool's own
-    /// timeout stands still meanwhile; the turn's deadline ends the wait earlier.
+    /// timeout and the turn's stand still meanwhile.
     /// </summary>
     public static readonly TimeSpan MaxWait = TimeSpan.FromMinutes(MaxWaitMinutes);
+
+    /// <summary>The most minutes one turn stands still for its person in all.</summary>
+    public const int MaxTurnPauseMinutes = 10;
+
+    /// <summary>
+    /// The most time one turn stands still for its person in all, over every request for input it
+    /// shows: a request waits no longer than what is left of it. One full wait of a server always fits.
+    /// </summary>
+    public static readonly TimeSpan MaxTurnPause = TimeSpan.FromMinutes(MaxTurnPauseMinutes);
 
     /// <summary>The wait time of a server that sets none.</summary>
     public static readonly TimeSpan DefaultWait = TimeSpan.FromMinutes(DefaultWaitMinutes);
@@ -198,7 +212,8 @@ internal sealed record NhAssistantElicitationRequest(string ServerId, string Ser
     /// <summary>
     /// How long the server lets its request wait for the person: the server's wait time, at most
     /// <see cref="NhAssistantElicitationLimits.MaxWait"/>; <see langword="null"/> waits
-    /// <see cref="NhAssistantElicitationLimits.DefaultWait"/>. The turn's deadline ends the wait earlier.
+    /// <see cref="NhAssistantElicitationLimits.DefaultWait"/>. What is left of the turn's
+    /// <see cref="NhAssistantElicitationLimits.MaxTurnPause"/> ends the wait earlier.
     /// </summary>
     public TimeSpan? Within { get; init; }
 }
@@ -233,8 +248,16 @@ internal sealed record NhAssistantElicitationOutcome(string Action)
 /// </summary>
 internal interface INhAssistantElicitor
 {
+    /// <summary>
+    /// Asks the person and waits for their answer. While they are asked, the clock of the waiting
+    /// <paramref name="call"/> and the turn's own stand still and the call lets its concurrency slot go;
+    /// the call's caller ending it, such as a person's stop, ends the wait at once.
+    /// </summary>
+    /// <param name="call">The timeout of the governed call that waits, or <see langword="null"/> for a
+    /// call outside the invoker.</param>
     Task<NhAssistantElicitationOutcome> ElicitAsync(
         NhAssistantElicitationRequest request,
+        NhAiToolCallTimeout? call,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -288,7 +311,7 @@ internal static class NhAssistantElicitationScope
 /// <param name="InvocationId">The tool call that waits for it.</param>
 /// <param name="AddresseeActorId">The person whose turn it is, who alone answers.</param>
 /// <param name="ExpiresAt">The end of the wait: the server's wait time after the request, never later
-/// than the turn's deadline.</param>
+/// than what is left of the turn's time for its person allows.</param>
 /// <param name="Status">One of <see cref="NhAssistantElicitationStatuses"/>.</param>
 internal sealed record NhAssistantElicitationView(
     Guid ElicitationId,

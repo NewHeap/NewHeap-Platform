@@ -62,19 +62,11 @@ public sealed class NhAiMcpCallContext
 
     /// <summary>
     /// The call's own timeout, which the invoker started; <see langword="null"/> for a call that runs
-    /// outside the invoker, such as one a test makes by hand.
+    /// outside the invoker, such as one a test makes by hand. While the call waits for a person, such as
+    /// the person who answers its server's request for input, its clock stands still and the call lets
+    /// its concurrency slot go (<see cref="NhAiToolCallTimeout.WaitForPersonAsync"/>).
     /// </summary>
     internal NhAiToolCallTimeout? Timeout { get; private set; }
-
-    /// <summary>
-    /// Stops the clock of the call's own timeout while it waits for a person, such as the person who
-    /// answers its server's request for input, until the returned scope is disposed; the call then has
-    /// the time that was left. The caller's own cancellation, such as the turn's timeout, still ends it.
-    /// </summary>
-    internal IDisposable PauseTimeout()
-    {
-        return Timeout?.Pause() ?? NoPause.Instance;
-    }
 
     /// <summary>
     /// The only governed call of <paramref name="serverId"/> in progress in this process, for a request
@@ -115,15 +107,6 @@ public sealed class NhAiMcpCallContext
         context.Flow = ExecutionContext.Capture();
         InProgress.TryAdd(context, 0);
         return new Scope(previous, context);
-    }
-
-    private sealed class NoPause : IDisposable
-    {
-        public static readonly NoPause Instance = new();
-
-        public void Dispose()
-        {
-        }
     }
 
     private sealed class Scope(NhAiMcpCallContext? previous, NhAiMcpCallContext context) : IDisposable

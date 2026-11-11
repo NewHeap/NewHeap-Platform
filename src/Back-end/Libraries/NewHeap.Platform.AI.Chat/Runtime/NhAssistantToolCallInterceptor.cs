@@ -522,7 +522,8 @@ internal sealed class NhAssistantToolCallInterceptor(
     NhAssistantTurnFiles? turnFiles = null,
     NhAssistantConsultationProposals? consultationProposals = null,
     NhAssistantRegistrationState? registration = null,
-    NhAssistantElicitationRegistry? elicitations = null)
+    NhAssistantElicitationRegistry? elicitations = null,
+    NhAssistantTiming? timing = null)
 {
     public const string ToolsDisabledCode = "assistant-tools-disabled";
     public const string ProposalRecordedCode = "assistant-proposal-recorded";
@@ -540,6 +541,11 @@ internal sealed class NhAssistantToolCallInterceptor(
     /// The application's clock, which a proposal's lifetime and reminders follow.
     /// </summary>
     private readonly TimeProvider _applicationClock = applicationClock ?? TimeProvider.System;
+
+    /// <summary>
+    /// The turn's clock and the interval of its heartbeat while it stands still for its person.
+    /// </summary>
+    private readonly NhAssistantTiming _timing = timing ?? NhAssistantTiming.Default;
 
     /// <summary>
     /// Whether the application executes the approved proposals of <paramref name="toolId"/>
@@ -1008,7 +1014,7 @@ internal sealed class NhAssistantToolCallInterceptor(
             && elicitations is not null
                 ? state.Scope.OwnerActorId
                 : null;
-        return new NhAssistantTurnElicitor(this, state, row, elicitations, person, _applicationClock);
+        return new NhAssistantTurnElicitor(this, state, row, elicitations, person, _applicationClock, store, _timing, logger);
     }
 
     /// <summary>

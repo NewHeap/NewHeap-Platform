@@ -85,7 +85,8 @@ internal static class NhAssistantMcpElicitation
 
     /// <summary>
     /// Asks the person of the governed call of <paramref name="serverId"/> in progress, or declines.
-    /// The clock of the call's own timeout stands still while the person is asked.
+    /// While the person is asked, the clock of the call's own timeout and the turn's stand still and the
+    /// call lets its concurrency slot go; it takes one again before the answer goes back.
     /// </summary>
     internal static async ValueTask<ElicitResult> HandleAsync(
         string serverId,
@@ -122,12 +123,9 @@ internal static class NhAssistantMcpElicitation
             return Declined();
         }
 
-        NhAssistantElicitationOutcome outcome;
-        // The person's time does not count against the tool's own timeout; the turn's still does.
-        using (call.PauseTimeout())
-        {
-            outcome = await elicitor.ElicitAsync(asked, cancellationToken);
-        }
+        // The person's time counts against neither the tool's own timeout nor the turn's, and another
+        // call of the tool may use its slot meanwhile.
+        var outcome = await elicitor.ElicitAsync(asked, call.Timeout, cancellationToken);
 
         if (outcome.Action != NhAssistantElicitationActions.Accept)
         {

@@ -2726,8 +2726,10 @@ internal sealed partial class NhAssistantTurnRunner(
         var interceptor = CreateInterceptor(state);
         var outcomeStatus = NhAssistantTurnStatuses.Completed;
         string? errorCode = null;
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(state.Scope.Limits.TurnTimeout);
+        // The turn's own timeout stands still while its person answers an MCP server's request for
+        // input, and its model and tool calls find the deadline as it stands now (NhAiRunPause).
+        using var timeout = state.Scope.Pause.StartTimeout(state.Scope.Limits.TurnTimeout, cancellationToken);
+        using var pauseScope = NhAiRunPause.Enter(state.Scope.Pause);
         try
         {
             using var turnScope = NhAssistantExecutionScope.EnterTurn(state.Scope);
@@ -3778,6 +3780,7 @@ internal sealed partial class NhAssistantTurnRunner(
                 PromptHash = prompt.PromptHash,
                 Prompt = prompt,
                 Deadline = DateTimeOffset.UtcNow.Add(limits.TurnTimeout),
+                TimeoutClock = _timing.TurnClock,
                 Limits = limits,
                 BudgetPurpose = agentTurn is null ? NhAiBudgetPurposes.Chat : NhAiBudgetPurposes.AgentRun,
                 RunId = agentTurn?.RunId,
@@ -3945,7 +3948,8 @@ internal sealed partial class NhAssistantTurnRunner(
             services.GetService<NhAssistantTurnFiles>(),
             services.GetService<NhAssistantConsultationProposals>(),
             registration,
-            services.GetService<NhAssistantElicitationRegistry>());
+            services.GetService<NhAssistantElicitationRegistry>(),
+            _timing);
     }
 
     private async Task FinishWithErrorAsync(
@@ -4275,6 +4279,11 @@ internal sealed partial class NhAssistantTurnRunner(
         };
     }
 
+    /// <summary>
+    /// When a running conversation counts as abandoned: its last update is older than the turn timeout
+    /// and a minute. A turn that stands still for its person renews its claim meanwhile
+    /// (<see cref="NhAssistantTurnHeartbeat"/>), so it is never taken over while it waits.
+    /// </summary>
     private static DateTimeOffset StaleBefore(NhAssistantLimits limits)
     {
         return DateTimeOffset.UtcNow - limits.TurnTimeout - TimeSpan.FromMinutes(1);

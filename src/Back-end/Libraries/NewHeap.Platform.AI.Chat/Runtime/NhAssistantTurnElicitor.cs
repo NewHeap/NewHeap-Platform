@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Logging;
 using NewHeap.Platform.AI.Chat.Entities;
+using NewHeap.Platform.AI.Chat.Persistence;
 
 namespace NewHeap.Platform.AI.Chat.Runtime;
 
@@ -10,12 +12,18 @@ namespace NewHeap.Platform.AI.Chat.Runtime;
 /// the call, the mode and the outcome. Without a person (<paramref name="personActorId"/> is
 /// <see langword="null"/>) it declines at once.
 /// <para>
-/// The request waits the server's wait time (<see cref="NhAssistantElicitationRequest.Within"/>, five
-/// minutes unless the server sets one to ten) on the application's clock, and never past the turn's
-/// deadline: the turn's own timeout keeps running while the person is asked, so the wait never makes a
-/// turn longer than <see cref="NhAssistantLimits.TurnTimeout"/>. The tool's own timeout stands still
-/// meanwhile (the MCP layer pauses it). When the wait ends first, the server reads a cancellation and
-/// the audit records <c>&lt;mode&gt;-expired</c>.
+/// While the person is asked, the turn stands still: its own timeout and the tool's stand still, the
+/// turn's deadline moves later by that time (<see cref="NhAssistantTurnScope.Pause"/>), and the call lets
+/// its concurrency slot go, so another person's call of the same tool can run meanwhile. A heartbeat
+/// keeps the turn's claim on the conversation (<see cref="NhAssistantTurnHeartbeat"/>). The request waits
+/// the server's wait time (<see cref="NhAssistantElicitationRequest.Within"/>, five minutes unless the
+/// server sets one to ten) on the application's clock, and no longer than what is left of the turn's
+/// <see cref="NhAssistantElicitationLimits.MaxTurnPause"/>; its <c>ExpiresAt</c> is that end. When the
+/// wait ends first, the server reads a cancellation and the audit records <c>&lt;mode&gt;-expired</c>.
+/// The call's caller ending it, such as the person's stop, ends the wait at once. Once the person
+/// answered, the call takes a slot again within the time it has left before the answer goes back; when
+/// none becomes free, the call ends as <see cref="NhAiToolFailureCodes.ConcurrencyLimited"/> and the
+/// server never receives the answer.
 /// </para>
 /// </summary>
 internal sealed class NhAssistantTurnElicitor(
@@ -24,10 +32,14 @@ internal sealed class NhAssistantTurnElicitor(
     AssistantToolInvocation row,
     NhAssistantElicitationRegistry? registry,
     string? personActorId,
-    TimeProvider applicationClock) : INhAssistantElicitor
+    TimeProvider applicationClock,
+    INhAssistantStore store,
+    NhAssistantTiming timing,
+    ILogger? logger) : INhAssistantElicitor
 {
     public async Task<NhAssistantElicitationOutcome> ElicitAsync(
         NhAssistantElicitationRequest request,
+        NhAiToolCallTimeout? call,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -40,11 +52,60 @@ internal sealed class NhAssistantTurnElicitor(
         var within = WaitOf(request);
         if (within <= TimeSpan.Zero)
         {
-            // The turn's deadline has passed: nobody could answer in time.
+            // The turn already stood still for its person as long as it may: nobody could answer in time.
             await RecordDeclinedAsync(request, NhAssistantElicitationReasons.Expired);
             return NhAssistantElicitationOutcome.Cancelled(NhAssistantElicitationReasons.Expired);
         }
 
+        // The person's time stands still for the call, which lets its slot go, and for the turn, which
+        // keeps its claim on the conversation; it begins before the person sees the request.
+        var callWait = call is null ? null : await call.WaitForPersonAsync();
+        try
+        {
+            NhAssistantElicitationOutcome outcome;
+            await using (await TurnWait.BeginAsync(state.Scope, store, timing, logger))
+            {
+                outcome = await AskAsync(request, within, call, cancellationToken);
+            }
+
+            if (callWait is not null && !await callWait.ResumeAsync())
+            {
+                // Another call of the tool holds its slot: the call has ended, and the server learns
+                // nothing of the answer.
+                return new NhAssistantElicitationOutcome(NhAssistantElicitationActions.Cancel);
+            }
+
+            return outcome;
+        }
+        finally
+        {
+            if (callWait is not null)
+            {
+                await callWait.DisposeAsync();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Audits a request that was declined without asking anyone.
+    /// </summary>
+    public async Task RecordDeclinedAsync(NhAssistantElicitationRequest request, string reason)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        await interceptor.RecordBusinessEventAsync(
+            Event(NhAssistantAuditEventKind.McpElicitationClosed, request) with { ResultCode = request.Mode + "-" + reason },
+            CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Shows the request, waits for the person within <paramref name="within"/> and closes it.
+    /// </summary>
+    private async Task<NhAssistantElicitationOutcome> AskAsync(
+        NhAssistantElicitationRequest request,
+        TimeSpan within,
+        NhAiToolCallTimeout? call,
+        CancellationToken cancellationToken)
+    {
         // The wait time follows the application's clock, as other business deadlines do, and starts
         // with the request, so it ends exactly when the request shows it ends.
         var now = applicationClock.GetUtcNow();
@@ -63,10 +124,10 @@ internal sealed class NhAssistantTurnElicitor(
             Fields: request.Fields.Count == 0 ? null : request.Fields,
             Status: NhAssistantElicitationStatuses.Pending);
 
-        using var waiter = registry.Register(
+        using var waiter = registry!.Register(
             part.ElicitationId!.Value,
             state.Conversation.Id,
-            personActorId,
+            personActorId!,
             request.Mode,
             request.Fields);
         state.AddPart(part);
@@ -78,7 +139,10 @@ internal sealed class NhAssistantTurnElicitor(
 
         NhAssistantElicitationOutcome outcome;
         string status;
-        using (var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, expiry.Token))
+        // While the call stands still, its own token ends only when its caller ends it, such as the
+        // person's stop or the end of a request-bound turn's request.
+        var stopped = call?.Token ?? CancellationToken.None;
+        using (var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, expiry.Token, stopped))
         {
             try
             {
@@ -94,7 +158,7 @@ internal sealed class NhAssistantTurnElicitor(
             {
                 // The wait ended, or the turn or the tool call ended while it waited; the server reads
                 // a cancellation, which is all it may learn.
-                var expired = !cancellationToken.IsCancellationRequested;
+                var expired = !cancellationToken.IsCancellationRequested && !stopped.IsCancellationRequested;
                 outcome = NhAssistantElicitationOutcome.Cancelled(expired ? NhAssistantElicitationReasons.Expired : NhAssistantElicitationReasons.Stopped);
                 status = expired ? NhAssistantElicitationStatuses.Expired : NhAssistantElicitationStatuses.Cancelled;
             }
@@ -115,8 +179,8 @@ internal sealed class NhAssistantTurnElicitor(
     }
 
     /// <summary>
-    /// How long the request waits: the server's wait time within its bounds, and never past the turn's
-    /// deadline, which the system clock measures as the turn's own timeout does.
+    /// How long the request waits: the server's wait time within its bounds, and no longer than what is
+    /// left of the time the turn may stand still for its person.
     /// </summary>
     private TimeSpan WaitOf(NhAssistantElicitationRequest request)
     {
@@ -126,19 +190,8 @@ internal sealed class NhAssistantTurnElicitor(
             wait = asked < NhAssistantElicitationLimits.MaxWait ? asked : NhAssistantElicitationLimits.MaxWait;
         }
 
-        var turnLeft = state.Scope.Deadline - DateTimeOffset.UtcNow;
-        return turnLeft < wait ? turnLeft : wait;
-    }
-
-    /// <summary>
-    /// Audits a request that was declined without asking anyone.
-    /// </summary>
-    public async Task RecordDeclinedAsync(NhAssistantElicitationRequest request, string reason)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        await interceptor.RecordBusinessEventAsync(
-            Event(NhAssistantAuditEventKind.McpElicitationClosed, request) with { ResultCode = request.Mode + "-" + reason },
-            CancellationToken.None);
+        var pauseLeft = state.Scope.PauseLeft;
+        return pauseLeft < wait ? pauseLeft : wait;
     }
 
     private NhAssistantElicitationView ViewOf(NhAssistantStoredPart part)
@@ -164,5 +217,37 @@ internal sealed class NhAssistantTurnElicitor(
             ObjectId = request.ServerId,
             StartedAt = row.StartedAt
         };
+    }
+
+    /// <summary>
+    /// The turn standing still for its person: its pause and the heartbeat that keeps its claim on the
+    /// conversation, which end together.
+    /// </summary>
+    private sealed class TurnWait(IDisposable pausing, NhAssistantTurnHeartbeat heartbeat) : IAsyncDisposable
+    {
+        public static async Task<TurnWait> BeginAsync(
+            NhAssistantTurnScope scope,
+            INhAssistantStore store,
+            NhAssistantTiming timing,
+            ILogger? logger)
+        {
+            var pausing = scope.Pause.Pause();
+            try
+            {
+                return new TurnWait(pausing, await NhAssistantTurnHeartbeat.StartAsync(store, scope, timing, logger));
+            }
+            catch
+            {
+                pausing.Dispose();
+                throw;
+            }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            // The turn runs on before the last beat, so that beat covers all the time it has left.
+            pausing.Dispose();
+            await heartbeat.DisposeAsync();
+        }
     }
 }

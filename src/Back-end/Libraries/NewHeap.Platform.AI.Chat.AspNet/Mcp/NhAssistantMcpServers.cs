@@ -292,6 +292,15 @@ public static class NhAssistantMcpServerLimits
     /// The longest wait of a server's request for input, in minutes.
     /// </summary>
     public const int MaxElicitationWaitMinutes = NhAssistantElicitationLimits.MaxWaitMinutes;
+
+    /// <summary>
+    /// The most minutes one chat turn stands still for its person in all, over every request for input
+    /// of every server it shows. The turn's own timeout (<see cref="NhAssistantLimits.TurnTimeout"/>)
+    /// stands still while the person is asked, so a request waits its server's full wait time; once a
+    /// turn has stood still this long, its requests are no longer shown and the server reads a
+    /// cancellation. It is a fixed limit, so one full wait of a server always fits.
+    /// </summary>
+    public const int MaxTurnPauseMinutes = NhAssistantElicitationLimits.MaxTurnPauseMinutes;
 }
 
 /// <summary>

@@ -43,4 +43,19 @@ internal sealed class NhAssistantTiming
     /// application's clock: every minute, as NewHeap's library hubs do.
     /// </summary>
     internal TimeSpan HubSessionCheckInterval { get; init; } = TimeSpan.FromMinutes(1);
+
+    /// <summary>
+    /// The clock of a turn's own timeout, of the time the turn stands still while its person answers an
+    /// MCP server's request for input, and of the heartbeat meanwhile: the system clock, as turns,
+    /// leases and heartbeats keep it. A test host registers a manual clock, so a person's minutes pass
+    /// without waiting.
+    /// </summary>
+    internal TimeProvider TurnClock { get; init; } = TimeProvider.System;
+
+    /// <summary>
+    /// How often a turn that stands still for its person renews its claim on the conversation, so that
+    /// no other request takes the conversation over as abandoned: well within the minute that a running
+    /// conversation is given beyond the turn timeout.
+    /// </summary>
+    internal TimeSpan TurnHeartbeatInterval { get; init; } = TimeSpan.FromSeconds(30);
 }

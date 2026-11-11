@@ -11,6 +11,7 @@ internal sealed class NhAssistantTurnScope
     private int _toolCalls;
     private int _consultations;
     private int _askerDecisionReserved;
+    private NhAiRunPause? _pause;
 
     public required Guid ConversationId { get; init; }
 
@@ -51,7 +52,36 @@ internal sealed class NhAssistantTurnScope
 
     public required string PromptHash { get; set; }
 
+    /// <summary>
+    /// The turn's deadline as it started, which its model and tool calls carry as
+    /// <see cref="NhAiInvocationContext.Deadline"/>; <see cref="CurrentDeadline"/> is the deadline as it
+    /// stands now.
+    /// </summary>
     public required DateTimeOffset Deadline { get; init; }
+
+    /// <summary>
+    /// The clock of the turn's own timeout and of <see cref="Pause"/>: the system clock unless a test
+    /// host registers another (<see cref="NhAssistantTiming.TurnClock"/>).
+    /// </summary>
+    public TimeProvider TimeoutClock { get; init; } = TimeProvider.System;
+
+    /// <summary>
+    /// The time the turn stands still while its person answers an MCP server's request for input, at
+    /// most <see cref="NhAssistantElicitationLimits.MaxTurnPause"/> in all: the turn's own timeout stands
+    /// still meanwhile and its deadline moves later by that time.
+    /// </summary>
+    public NhAiRunPause Pause => LazyInitializer.EnsureInitialized(ref _pause, () => new NhAiRunPause(Deadline, TimeoutClock));
+
+    /// <summary>
+    /// The turn's deadline as it stands now: <see cref="Deadline"/> moved later by the time the turn
+    /// stood still for its person.
+    /// </summary>
+    public DateTimeOffset CurrentDeadline => Deadline + Pause.Paused;
+
+    /// <summary>
+    /// What is left of the time the turn may stand still for its person.
+    /// </summary>
+    public TimeSpan PauseLeft => NhAssistantElicitationLimits.MaxTurnPause - Pause.Paused;
 
     public required NhAssistantLimits Limits { get; init; }
 
