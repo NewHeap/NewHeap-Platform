@@ -173,6 +173,13 @@ public static class SampleAssistantComposition
                 // headlessUse to organization, or to personal for a forwarded token, which then needs
                 // the consent of the person a run acts for; every server starts at never.
                 mcp.RequireHttps = true;
+                // SPM-251: a connected server may ask the person of a chat turn for input while its
+                // tool runs (MCP elicitation): a form of strings, numbers, yes/no and single choices,
+                // or an https page of its own that the person opens and finishes. The chat shows the
+                // request as the server's, the answer goes straight back to the server and is never
+                // stored, and the audit records only the server, the call, the mode and the outcome.
+                // A run, a consultation or anything the chat cannot show safely is declined. The
+                // person answers within the tool's own timeout, so nothing needs configuring here.
                 mcp.ToolListCacheDuration = TimeSpan.FromMinutes(5);
                 // SPM-251: connecting to a server, and listing its tools, each end after ten seconds.
                 mcp.ConnectTimeout = TimeSpan.FromSeconds(10);
