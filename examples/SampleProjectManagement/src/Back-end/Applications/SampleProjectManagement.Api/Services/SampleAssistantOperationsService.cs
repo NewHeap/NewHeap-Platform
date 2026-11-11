@@ -35,7 +35,9 @@ public sealed class SampleAssistantOperationsService(
     /// <summary>
     /// SPM-251: how many minutes a request for input of the milestones server waits for the person of
     /// a chat turn, instead of the five minutes a server waits by default (1 to 10). The lookup's own
-    /// timeout stands still while the person answers; the turn's own timeout still ends the wait.
+    /// timeout and the turn's stand still while the person answers, so the person gets all three minutes
+    /// although a turn of the sample has one (<see cref="SampleAssistantComposition.TurnTimeout"/>), and
+    /// another person's lookup runs meanwhile.
     /// </summary>
     public const int MilestonesElicitationWaitMinutes = 3;
 

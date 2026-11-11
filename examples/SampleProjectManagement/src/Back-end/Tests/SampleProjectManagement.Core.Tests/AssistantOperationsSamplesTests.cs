@@ -46,8 +46,11 @@ public sealed class AssistantOperationsSamplesTests(AssistantOperationsSampleHos
             Assert.Equal([SampleStatusAdvisorComposition.AgentId], connected.Data!.AssignedAgentIds);
             Assert.True(connected.Data.HasSecret);
             // SPM-251: the operations code gives the server's requests for input three minutes for the
-            // person's answer instead of the default five.
+            // person's answer instead of the default five. That is longer than a turn of the sample
+            // runs: the turn stands still while the person answers, within the ten minutes a turn may.
             Assert.Equal(SampleAssistantOperationsService.MilestonesElicitationWaitMinutes, connected.Data.ElicitationWaitMinutes);
+            Assert.True(TimeSpan.FromMinutes(connected.Data.ElicitationWaitMinutes) > SampleAssistantComposition.TurnTimeout);
+            Assert.InRange(connected.Data.ElicitationWaitMinutes, NhAssistantMcpServerLimits.MinElicitationWaitMinutes, NhAssistantMcpServerLimits.MaxTurnPauseMinutes);
             Assert.All(milestones.ApiKeys, key => Assert.Equal(ApiKey, key));
 
             // The administration shows the same server, assigned to the advisor, without its key; the
