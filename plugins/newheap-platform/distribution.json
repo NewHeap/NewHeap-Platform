@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "pluginVersion": "1.13.125",
   "guidanceVersion": "1.13.125",
-  "skillContentHash": "e0ee8db465fb7ac7092139721997520774624ec7f57c6bc507bbe5ff3ed6ad48",
+  "skillContentHash": "2aba57280687019886db2313b949fbd2e31184532eb86ece3b2b5b95ae7b40f0",
   "skills": [
     "newheap-platform-development"
   ],
@@ -76,7 +76,7 @@
       "@angular/common": "^20.3.28",
       "@angular/core": "^20.3.28",
       "@angular/router": "^20.3.28",
-      "@microsoft/signalr": "^10.0.11",
+      "@microsoft/signalr": "^10.0.11 || ^11.0.0",
       "@newheap/platform-common": "^6.1.0 || ^7.0.0",
       "@ngx-translate/core": "^17.0.0",
       "dompurify": "^3.4.0",
@@ -89,7 +89,7 @@
       "@angular/forms": "^20.3.28 || ^21.0.0 || ^22.0.0",
       "@angular/platform-browser": "^20.3.28 || ^21.0.0 || ^22.0.0",
       "@angular/router": "^20.3.28 || ^21.0.0 || ^22.0.0",
-      "@microsoft/signalr": "^10.0.11",
+      "@microsoft/signalr": "^10.0.11 || ^11.0.0",
       "@msgpack/msgpack": "^2.8.0",
       "@newheap/nh-toastr": "^0.0.7 || ^0.0.8 || ^0.1.0",
       "@ngx-translate/core": "^17.0.0 || ^18.0.0",

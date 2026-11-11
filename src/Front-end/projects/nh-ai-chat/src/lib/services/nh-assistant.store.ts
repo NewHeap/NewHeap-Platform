@@ -2067,13 +2067,14 @@ export class NhAssistantStore {
   /** Connects live updates and notifications once per account and server configuration. */
   private startCollaboration(status: AssistantStatus): void {
     const collaboration = status.collaboration ?? null;
-    const key = `${this.accountRevision}|${collaboration?.hubPath ?? ''}|${collaboration?.push === true}`;
+    const authenticationRefresh = collaboration?.hubAuthenticationRefresh === true;
+    const key = `${this.accountRevision}|${collaboration?.hubPath ?? ''}|${collaboration?.push === true}|${authenticationRefresh}`;
     if (key === this.collaborationKey) {
       return;
     }
     const accountChanged = this.collaborationKey?.split('|')[0] !== String(this.accountRevision);
     this.collaborationKey = key;
-    void this.live.connect(collaboration?.hubPath ?? null, accountChanged);
+    void this.live.connect(collaboration?.hubPath ?? null, accountChanged, { authenticationRefresh });
     this.pushActivated = true;
     void this.push.activate(collaboration?.push === true);
   }

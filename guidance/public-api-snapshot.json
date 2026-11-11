@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.125",
   "backEnd": {
-    "hash": "c5c83255b3e69d9c9955dee2a3dd7cb01a2842ff3cd0baae5374b7078586269d",
-    "declarationCount": 13880,
+    "hash": "f436882c406e5937193acf2abc37d1994087ad875a6cabd9b5ebdedc92753a41",
+    "declarationCount": 13882,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -8971,7 +8971,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "public sealed record NhAssistantCollaborationDto( bool Directory, string? HubPath, bool Push, int MaxParticipants);"
+        "declaration": "public sealed record NhAssistantCollaborationDto( bool Directory, string? HubPath, bool Push, int MaxParticipants) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public bool HubAuthenticationRefresh { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -39036,6 +39040,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhAuthenticationSessionState.cs",
         "declaration": "public async Task<bool> ValidateAsync( ClaimsPrincipal principal, CancellationToken cancellationToken = default)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubAuthenticationRefresh.cs",
+        "declaration": "public static bool IsMapped(bool authenticationRefresh) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubAuthenticationRefresh.cs",

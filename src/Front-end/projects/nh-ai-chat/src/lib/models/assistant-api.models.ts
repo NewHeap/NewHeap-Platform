@@ -37,6 +37,12 @@ export interface AssistantCollaboration {
   push: boolean;
   /** Maximum participants per conversation, not counting the owner. */
   maxParticipants: number;
+  /**
+   * The hub accepts authentication refresh (`NewHeap:AI:Assistant:HubAuthenticationRefresh` on ASP.NET
+   * Core 11): after `accessTokenChanges` emits, the open connection presents the renewed token instead
+   * of closing when its old one expires. Missing on older servers, which do not accept it.
+   */
+  hubAuthenticationRefresh?: boolean;
 }
 
 /** The caller's relation to a conversation. */

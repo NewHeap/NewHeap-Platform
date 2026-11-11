@@ -1,7 +1,7 @@
 import { DestroyRef, EnvironmentInjector, Injectable, PLATFORM_ID, inject, runInInjectionContext, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import type { HubConnection } from '@microsoft/signalr';
-import { Observable, Subject } from 'rxjs';
+import { Observable, Subject, Subscription } from 'rxjs';
 import {
   LiveAgentWorkChanged,
   LiveAgentWorkWatch,
@@ -14,6 +14,17 @@ import { NH_ASSISTANT_CONFIG } from '../nh-assistant.config';
 import { nhAssistantRequestHeaders } from './nh-assistant-transport';
 
 export type NhAssistantLiveState = 'off' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
+
+/** How `NhAssistantLiveService.connect` connects. */
+export interface NhAssistantLiveConnectOptions {
+  /**
+   * The server's hub accepts authentication refresh (`GET status` → `collaboration.hubAuthenticationRefresh`):
+   * when `accessTokenChanges` emits a renewed token of the same state scope, the open connection
+   * presents it instead of closing when its old token expires. Needs `@microsoft/signalr` 11.
+   * Default `false`.
+   */
+  authenticationRefresh?: boolean;
+}
 
 const reconnectDelaysMs = [0, 2_000, 5_000, 10_000, 30_000];
 const restartDelayMs = 30_000;
@@ -53,6 +64,13 @@ export class NhAssistantLiveService {
   /** The screens that watch the work of agents for the whole application. */
   private agentWorkWatchers = 0;
   private watchTimer?: ReturnType<typeof setTimeout>;
+  /** Whether the open connection's hub accepts authentication refresh. */
+  private authenticationRefresh = false;
+  /** The token the connection last presented to the hub. */
+  private presentedToken: string | null = null;
+  /** The state scope the connection was opened for. */
+  private connectedScope: string | null = null;
+  private tokenChanges?: Subscription;
 
   readonly changed$: Observable<LiveConversationChanged> = this.changedSubject.asObservable();
   readonly read$: Observable<LiveConversationRead> = this.readSubject.asObservable();
@@ -70,6 +88,7 @@ export class NhAssistantLiveService {
   constructor() {
     inject(DestroyRef).onDestroy(() => {
       this.agentWorkWatchers = 0;
+      this.tokenChanges?.unsubscribe();
       void this.stop();
       this.changedSubject.complete();
       this.readSubject.complete();
@@ -83,10 +102,12 @@ export class NhAssistantLiveService {
   /**
    * Connects to the hub at `hubPath`, or disconnects when it is `null`. Calling it again with the
    * same path keeps the connection; another path or `restart` reconnects, for example after the
-   * signed-in user changed.
+   * signed-in user changed. `options.authenticationRefresh` says whether the hub accepts
+   * authentication refresh, as `GET status` reports it.
    */
-  async connect(hubPath: string | null, restart = false): Promise<void> {
+  async connect(hubPath: string | null, restart = false, options: NhAssistantLiveConnectOptions = {}): Promise<void> {
     const url = this.browser && this.config.liveUpdates !== false && hubPath ? this.resolveUrl(hubPath) : null;
+    this.authenticationRefresh = options.authenticationRefresh === true;
     if (!restart && url === this.hubUrl && this.connection) {
       return;
     }
@@ -100,7 +121,9 @@ export class NhAssistantLiveService {
 
     const revision = ++this.revision;
     this.stateSignal.set('connecting');
+    this.watchTokenChanges();
     try {
+      this.connectedScope = await this.scope();
       const connection = await this.build(url);
       if (revision !== this.revision) {
         await connection.stop().catch(() => undefined);
@@ -171,14 +194,30 @@ export class NhAssistantLiveService {
     const signalR = await import('@microsoft/signalr');
     const headers = await nhAssistantRequestHeaders(this.config, this.injector);
     const hubUrl = await this.withQueryParameters(url);
-    const connection = new signalR.HubConnectionBuilder()
+    const builder = new signalR.HubConnectionBuilder()
       .withUrl(hubUrl, {
-        accessTokenFactory: async () => (await this.token()) ?? '',
+        accessTokenFactory: async () => {
+          const token = await this.token();
+          this.presentedToken = token;
+          return token ?? '';
+        },
         headers
       })
       .withAutomaticReconnect(reconnectDelaysMs)
-      .configureLogging(signalR.LogLevel.None)
-      .build();
+      .configureLogging(signalR.LogLevel.None);
+    if (this.authenticationRefresh && typeof builder.withAuthenticationRefresh === 'function') {
+      // The host's session decides when the token renews; the connection refreshes after that.
+      builder.withAuthenticationRefresh({ enableAutoRefresh: false });
+    }
+    const connection = builder.build();
+    if (typeof connection.onAuthenticationRefreshFailed === 'function') {
+      connection.onAuthenticationRefreshFailed(() => {
+        // The hub refused the renewed token: start over with the current session and reload snapshots.
+        if (this.connection === connection && this.hubPath) {
+          void this.connect(this.hubPath, true, { authenticationRefresh: this.authenticationRefresh });
+        }
+      });
+    }
 
     connection.on('ConversationChanged', (message: LiveConversationChanged) => this.changedSubject.next(message));
     connection.on('ConversationRead', (message: LiveConversationRead) => this.readSubject.next(message));
@@ -235,9 +274,71 @@ export class NhAssistantLiveService {
     clearTimeout(this.restartTimer);
     this.restartTimer = setTimeout(() => {
       if (revision === this.revision && this.hubPath) {
-        void this.connect(this.hubPath, true);
+        void this.connect(this.hubPath, true, { authenticationRefresh: this.authenticationRefresh });
       }
     }, restartDelayMs);
+  }
+
+  /** Follows the host's `accessTokenChanges`, once, to refresh the open connection after a renewal. */
+  private watchTokenChanges(): void {
+    const getter = this.config.accessTokenChanges;
+    if (this.tokenChanges || !getter) {
+      return;
+    }
+
+    try {
+      this.tokenChanges = runInInjectionContext(this.injector, () => getter()).subscribe({
+        next: () => void this.refreshAuthentication(),
+        error: () => undefined
+      });
+    } catch {
+      // A failing getter leaves the connection to close on expiry and reconnect.
+    }
+  }
+
+  /**
+   * Presents a renewed token on the open connection when its hub accepts authentication refresh and
+   * `@microsoft/signalr` 11 can do it. A token of another state scope, such as after an account switch,
+   * is left to the restart the account change brings.
+   */
+  private async refreshAuthentication(): Promise<void> {
+    const connection = this.connection;
+    if (!this.authenticationRefresh
+      || !connection
+      || this.stateSignal() !== 'connected'
+      || typeof connection.refreshAuthentication !== 'function') {
+      return;
+    }
+
+    const token = await this.token();
+    if (!token || token === this.presentedToken) {
+      return;
+    }
+    if (this.config.getStateScope && (await this.scope()) !== this.connectedScope) {
+      return;
+    }
+    if (connection !== this.connection || this.stateSignal() !== 'connected') {
+      return;
+    }
+
+    try {
+      await connection.refreshAuthentication();
+    } catch {
+      // onAuthenticationRefreshFailed restarts the connection.
+    }
+  }
+
+  private async scope(): Promise<string | null> {
+    const getter = this.config.getStateScope;
+    if (!getter) {
+      return null;
+    }
+
+    try {
+      return (await runInInjectionContext(this.injector, () => getter())) ?? null;
+    } catch {
+      return null;
+    }
   }
 
   private async token(): Promise<string | null> {

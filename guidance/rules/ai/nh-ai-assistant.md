@@ -671,10 +671,16 @@ origin with 403, after which the connection keeps its own principal until that e
 accepted refresh keeps the connection, its groups and its watch only while the refreshed principal
 resolves to the same actor in the same tenant; the hub closes it otherwise, also when the refresh
 completed while the connection still joined its groups, and the session check validates the
-refreshed principal from then on. The .NET client refreshes with `WithAuthenticationRefresh` and
-`RefreshAuthenticationAsync`; the Angular client of `nh-ai-chat` uses `@microsoft/signalr` 10, which
-has no refresh, so a browser keeps reconnecting when its token expires and restarts the connection
-when the account changes. On ASP.NET Core 10 the option changes nothing. The hub sends
+refreshed principal from then on. `GET status` reports it as `collaboration.hubAuthenticationRefresh`.
+The .NET client refreshes with `WithAuthenticationRefresh` and `RefreshAuthenticationAsync`. In the
+browser, give `provideNhAssistant` an `accessTokenChanges` that emits when the session renews the
+token `getAccessToken` returns, such as `() => inject(MyAuthService).authSubject`, as the sample does:
+with `@microsoft/signalr` 11 and the status field, `NhAssistantLiveService` then refreshes the open
+connection with a renewed token of the same state scope (`getStateScope`) instead of letting it close
+at expiry, restarts it and reloads snapshots when the hub refuses the token, and leaves a token of
+another account to the restart the account switch brings. `nh-ai-chat` still accepts
+`@microsoft/signalr` 10, with which the connection closes on expiry and reconnects as before. On
+ASP.NET Core 10 the option changes nothing. The hub sends
 `ConversationChanged`, `ConversationRead` (to the reader only), `ConversationRemoved`
 and `ConversationEvent` with the same turn events the starting request streams plus
 `message.created`. NewHeap hosts read the bearer token and active division from the
@@ -1941,7 +1947,12 @@ connection outlives its first token, keeps receiving and is validated with the r
 that another person's token is refused with 403 while the connection keeps receiving its caller's
 updates, that a token of another tenant closes it, and that an expired token and a removed user are
 refused with 401 (`AssistantHubAuthenticationRefreshTests`); on ASP.NET Core 10 assert that no
-refresh endpoint is mapped. For push, check the RFC 8291 test vector,
+refresh endpoint is mapped and that the status reports `hubAuthenticationRefresh: false`. In
+`nh-ai-chat` specs, assert that a renewed token of the same scope refreshes the open connection once
+without a reconnect, that a token of another scope is left to the account switch's restart, that a
+refused refresh restarts the connection and reloads snapshots, that a hub without the status field
+refreshes nothing, and that the store connects with the status field and restarts after an account
+switch. For push, check the RFC 8291 test vector,
 a verifiable VAPID token, the endpoint allow-list, the notification rules, an
 encrypted delivery without message content, the opt-out and the removal of a gone
 subscription (SPM-264), and on both providers that Web Push and in-app notifications skip a

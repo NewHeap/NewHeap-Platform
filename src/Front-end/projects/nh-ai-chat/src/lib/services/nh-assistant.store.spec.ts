@@ -73,7 +73,7 @@ class FakeLiveService {
   readonly agentWork$ = this.agentWork.asObservable();
   readonly state = signal<NhAssistantLiveState>('connected').asReadonly();
 
-  connect(): Promise<void> {
+  connect(_hubPath?: string | null, _restart?: boolean, _options?: { authenticationRefresh?: boolean }): Promise<void> {
     return Promise.resolve();
   }
 
@@ -505,6 +505,27 @@ describe('NhAssistantStore', () => {
     expect(store.setDraft(`${'A'.repeat(99)}\u{1F680} launch`)).toBeTrue();
 
     expect(store.pendingDraft()).toEqual({ text: 'A'.repeat(99), replace: false });
+  });
+
+  it('connects live updates with the authentication refresh of the hub and restarts them after an account switch', async () => {
+    const live = new FakeLiveService();
+    const connect = spyOn(live, 'connect').and.callThrough();
+    let scope = 'user-1';
+    api.status.and.returnValue(of({
+      ...status,
+      collaboration: { directory: false, hubPath: '/hub/assistant', push: false, maxParticipants: 0, hubAuthenticationRefresh: true }
+    }));
+    const store = setup(() => scope, undefined, [{ provide: NhAssistantLiveService, useValue: live }]);
+    await store.initialize();
+
+    expect(connect).toHaveBeenCalledOnceWith('/hub/assistant', true, { authenticationRefresh: true });
+
+    // Another account: the connection's groups belong to the previous one, so it starts over.
+    scope = 'user-2';
+    await store.reloadStatus();
+
+    expect(connect).toHaveBeenCalledTimes(2);
+    expect(connect.calls.mostRecent().args).toEqual(['/hub/assistant', true, { authenticationRefresh: true }]);
   });
 
   /** FB44: the thread is in view while any surface shows it, whichever reported last. */
