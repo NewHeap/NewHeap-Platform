@@ -228,6 +228,16 @@ export function sqlServerFlagParameters(source) {
   return [...source.matchAll(/[(,]\s*bool\??\s+(\w*sql_?server\w*)\s*(?=[,)=])/gi)].map(match => match[1]);
 }
 
+/**
+ * The type and method names in C# test source that say `SqlServer` only because they name a MySQL
+ * server, such as `MySqlServerWideGrantTests`. `providerRuns` sends every test whose display name
+ * contains `SqlServer` to the SQL Server process, which then starts MySQL and MariaDB servers of its
+ * own next to those of the process that runs the other MySQL cases.
+ */
+export function mySqlServerNames(source) {
+  return [...source.matchAll(/\b(?:class|record|struct|interface|void|Task)\s+(\w*my_?sql_?server\w*)/gi)].map(match => match[1]);
+}
+
 /** Whether a change needs both database providers. */
 export function needsAllProviders(changedFiles) {
   return changedFiles.map(normalizePath).some(file => persistencePatterns.some(pattern => pattern.test(file)));
