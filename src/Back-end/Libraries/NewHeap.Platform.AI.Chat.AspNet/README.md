@@ -62,6 +62,7 @@ approvals and tools without a presenter.
 | `NewHeap:AI:Assistant:Mcp:OAuth:ReturnOrigins` | the redirect URI's origin | Origins of the pages that start an authorization; the callback page posts to them or returns to them. |
 | `NewHeap:AI:Assistant:Mcp:OAuth:ClientMetadataDocumentUri` | none | The public URL of `<prefix>/mcp/oauth/client-metadata.json`, by which supporting authorization servers identify the host without a registration. |
 | `NewHeap:AI:Assistant:Mcp:OAuth:FlowLifetime`, `RefreshSkew`, `RefreshLeaseDuration`, `ConnectionRetention`, `MaxPendingFlowsPerActor` | 10 minutes, 60 seconds, 30 seconds, 90 days, 5 | Limits of authorizations, renewal and personal connections; checked at startup. |
+| `NewHeap:AI:Assistant:Mcp:ApprovalLinkTemplate` | none (off) | The application's page of one proposal with `{approvalId}`, https or http on a loopback name. An MCP client of `WithNewHeapPlatformAITools` whose call left proposals for a person, and that supports multi round-trip requests and link requests, is sent there (`input_required` with a URL elicitation); its retry returns the decision and never runs the tool again. |
 
 ## Endpoints
 
@@ -76,6 +77,7 @@ approvals and tools without a presenter.
 | `POST conversations/{id}/messages` `{ text, clientMessageId, clientContext? }` | `text/event-stream`; `409` when the conversation is not idle |
 | `POST conversations/{id}/approvals/{approvalId}/decide` `{ decision, expectedProposalHash, reason? }` | `text/event-stream` of the resumed turn |
 | `POST conversations/{id}/questions/{questionId}/answer` `{ choice }` | `text/event-stream` of the resumed turn; only the question's addressee answers (`403 assistant-question-forbidden`), and an expired question answers `409 assistant-question-expired` (`run.AllowQuestions()`) |
+| `POST conversations/{id}/elicitations/{elicitationId}/answer` `{ action, content? }` | `204`; answers the request for input of an MCP server whose tool the caller's running turn calls (`accept` with the form's values, or for a link that the page is finished, `decline`, `cancel`). The answer goes to the server and is never stored; the turn's stream carries `elicitation.requested` and `elicitation.closed`. Only the person of the turn answers (`403 assistant-elicitation-forbidden`); `400 assistant-elicitation-answer-invalid`, `409 assistant-elicitation-not-pending` |
 | `POST conversations/{id}/cancel` | `202` |
 | `GET` / `PUT preferences` | the caller's style preferences |
 | `GET mcp-connections`, `PUT mcp-connections/{serverId}` `{ allowBackgroundUse }` | MCP servers that background runs may use with the caller's own account, and the caller's consent |
