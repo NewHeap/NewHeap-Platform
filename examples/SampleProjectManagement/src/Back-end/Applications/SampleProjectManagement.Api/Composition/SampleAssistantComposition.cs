@@ -219,6 +219,9 @@ public static class SampleAssistantComposition
                     SampleAiBridgeComposition.ToolSetId + ".*",
                     // SPM-289: the gateway's four reads, which the application map points at.
                     SampleAiBridgeComposition.GatewayToolSetId + ".*",
+                    // SPM-400: the client tools that open a project or the create-task form in the
+                    // person's portal; a turn offers them only when that browser can run them.
+                    SampleClientToolsComposition.ToolSetPrefix + ".*",
                     NhAssistantConsultationTools.ConsultToolId(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type),
                     NhAssistantConsultationTools.RequestToolId(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type),
                     // SPM-361: the planner takes requests only; it has no consult tool to select.
@@ -555,9 +558,11 @@ public sealed class SampleAssistantAuditSink(SampleAssistantAuditLog log) : INhA
 /// its event message; a message that names a project id and "the intake reviewer" consults it, or
 /// with "again" requests a new review (SPM-278), and the consulted reviewer answers from its
 /// working memory; a message that names a project id and its documents reads them through the
-/// document tool (SPM-306); any other message searches projects; a tool result is summarized, and
-/// files that reach it are named with their type and size or the start of their text (SPM-305). It
-/// demonstrates the governed flow, not language understanding.
+/// document tool (SPM-306); "open project &lt;id&gt;" and "create task &lt;title&gt; for project &lt;id&gt;" call the
+/// client tools that the person's portal runs, when the turn offers them (SPM-400); any other message
+/// searches projects; a tool result is summarized, and files that reach it are named with their type and
+/// size or the start of their text (SPM-305). It demonstrates the governed flow, not language
+/// understanding.
 /// </summary>
 public sealed partial class SampleAssistantChatClient : IChatClient
 {
@@ -569,7 +574,7 @@ public sealed partial class SampleAssistantChatClient : IChatClient
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(new ChatResponse(Respond(messages.ToArray()))
+        return Task.FromResult(new ChatResponse(Respond(messages.ToArray(), options))
         {
             ModelId = "sample-assistant-model"
         });
@@ -580,7 +585,7 @@ public sealed partial class SampleAssistantChatClient : IChatClient
         ChatOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var message = Respond(messages.ToArray());
+        var message = Respond(messages.ToArray(), options);
         foreach (var content in message.Contents)
         {
             await Task.Yield();
@@ -610,7 +615,7 @@ public sealed partial class SampleAssistantChatClient : IChatClient
     {
     }
 
-    private static ChatMessage Respond(IReadOnlyList<ChatMessage> messages)
+    private static ChatMessage Respond(IReadOnlyList<ChatMessage> messages, ChatOptions? options)
     {
         var last = messages.LastOrDefault();
         if (last is not null && DescribeFiles(last) is { } received)
@@ -665,6 +670,12 @@ public sealed partial class SampleAssistantChatClient : IChatClient
                     "Nothing to propose: " + (explanation ?? "the work is already done."));
             }
 
+            // SPM-400: the person's portal reports what happened to a client tool.
+            if (ClientToolAnswer(result.Result) is { } clientTool)
+            {
+                return new ChatMessage(ChatRole.Assistant, clientTool);
+            }
+
             // SPM-328: an approval in the person's own chat went to the order desk, which reports here.
             if (ResultCodeOf(result.Result) == "assistant-proposal-handed-to-application")
             {
@@ -716,6 +727,26 @@ public sealed partial class SampleAssistantChatClient : IChatClient
         {
             // SPM-306: the document reader reads the project's documents through its tool.
             return Call("project_documents_read_v1", new
+            {
+                input = new { projectId = Guid.Parse(projectId) }
+            });
+        }
+
+        // SPM-400: the portal opens the project, or its create-task form prefilled; only offered when the
+        // person's browser can run them.
+        var createTask = CreateTaskPattern().Match(text);
+        if (projectId is not null && createTask.Success && Offers(options, SampleClientToolsComposition.CreateTaskFunction))
+        {
+            return Call(SampleClientToolsComposition.CreateTaskFunction, new
+            {
+                input = new { projectId = Guid.Parse(projectId), title = createTask.Groups["title"].Value.Trim() }
+            });
+        }
+
+        if (projectId is not null && text.Contains("open project", StringComparison.OrdinalIgnoreCase)
+            && Offers(options, SampleClientToolsComposition.OpenProjectFunction))
+        {
+            return Call(SampleClientToolsComposition.OpenProjectFunction, new
             {
                 input = new { projectId = Guid.Parse(projectId) }
             });
@@ -953,6 +984,50 @@ public sealed partial class SampleAssistantChatClient : IChatClient
 
     [GeneratedRegex("\\b(draft|active|onhold|completed|archived)\\b", RegexOptions.IgnoreCase)]
     private static partial Regex StatusPattern();
+
+    /// <summary>
+    /// SPM-400: a task the person asks to create, such as "create task Book the venue for project …".
+    /// </summary>
+    [GeneratedRegex(@"\bcreate (?:a )?task (?<title>.{1,120}?) for project\b", RegexOptions.IgnoreCase)]
+    private static partial Regex CreateTaskPattern();
+
+    /// <summary>
+    /// Whether the turn offers the function <paramref name="name"/>.
+    /// </summary>
+    private static bool Offers(ChatOptions? options, string name)
+    {
+        return options?.Tools?.Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal)) == true;
+    }
+
+    /// <summary>
+    /// SPM-400: what the assistant says after the person's portal reported a client tool: the outcome it
+    /// read as data, never an instruction. <see langword="null"/> for any other result.
+    /// </summary>
+    private static string? ClientToolAnswer(object? result)
+    {
+        var code = ResultCodeOf(result);
+        if (code is null || !code.StartsWith("assistant-client-tool-", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var outcome = result is JsonElement { ValueKind: JsonValueKind.Object } json
+            && json.TryGetProperty("data", out var data)
+            && data.ValueKind == JsonValueKind.Object
+            && data.TryGetProperty("outcome", out var value)
+            && value.ValueKind == JsonValueKind.String
+                ? value.GetString()
+                : null;
+        return (code, outcome) switch
+        {
+            ("assistant-client-tool-completed", "navigated") => "The project is open in your portal.",
+            ("assistant-client-tool-completed", "saved") => "You saved the task in your portal.",
+            ("assistant-client-tool-completed", _) => "You left the form without saving; nothing changed.",
+            ("assistant-client-tool-declined", _) => "You chose not to open it; nothing changed.",
+            ("assistant-client-tool-unavailable", _) => "Your portal cannot do that here; open the project from the project list instead.",
+            _ => "Your portal could not finish that; nothing changed that I know of."
+        };
+    }
 
     [GeneratedRegex("<working-memory[^>]*>(?<memory>.*?)</working-memory>", RegexOptions.Singleline)]
     private static partial Regex WorkingMemoryPattern();
