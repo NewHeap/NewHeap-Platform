@@ -983,6 +983,17 @@ describe('NhAssistantPanelComponent', () => {
     }
   });
 
+  it('gives the drawer in the overlay container the theme tokens, outside the panel element', async () => {
+    await open();
+
+    const drawer = overlay.querySelector('.drawer') as HTMLElement;
+    const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+    expect(drawer.closest('nh-assistant-panel')).toBeNull();
+    expect(drawer.hasAttribute('data-nh-assistant-tokens')).toBeTrue();
+    expect(getComputedStyle(drawer).getPropertyValue('--nha-background').trim()).toBe(dark ? '#0b0e22' : '#ffffff');
+    expect(getComputedStyle(drawer).backgroundColor).toBe(dark ? 'rgb(11, 14, 34)' : 'rgb(255, 255, 255)');
+  });
+
   it('edits a queued message without replacing the fresh draft or dispatching an unfinished edit', async () => {
     await open();
     const store = TestBed.inject(NhAssistantStore);

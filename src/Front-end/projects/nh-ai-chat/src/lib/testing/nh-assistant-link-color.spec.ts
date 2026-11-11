@@ -1,19 +1,15 @@
-import { Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
-import { NhAssistantElicitationCardViewComponent } from '../components/elicitation-card/nh-assistant-elicitation-card-view.component';
-import { NhAssistantQuestionCardComponent } from '../components/question-card/nh-assistant-question-card.component';
-import { NhAssistantThreadComponent } from '../components/thread/nh-assistant-thread.component';
 import { NhAssistantToolResultCardViewComponent } from '../components/tool-result/nh-assistant-tool-result-card-view.component';
-import { NhAssistantSubjectLinkComponent } from '../internal/nh-assistant-subject-link.component';
+import { NhAssistantTokensComponent } from '../internal/nh-assistant-tokens';
 import { provideNhAssistant } from '../provide-nh-assistant';
 
 /**
  * The link color (`--nh-assistant-link`, private `--nha-link`): links and other accent-colored text
- * read on the assistant's surfaces in both schemes. The defaults are read from the components' own
- * compiled styles, so the check follows the tokens.
+ * read on the assistant's surfaces in both schemes. The defaults are read from the compiled tokens
+ * stylesheet, which every component receives, so the check follows the tokens.
  */
 type Scheme = Record<string, string>;
 
@@ -30,9 +26,9 @@ function contrast(first: string, second: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-/** The defaults of the `--nha-*` tokens in a component's compiled styles, by scheme. */
-function tokenDefaults(component: Type<unknown>): { light: Scheme; dark: Scheme } {
-  const css = (component as unknown as { ɵcmp: { styles: string[] } }).ɵcmp.styles.join('\n');
+/** The defaults of the `--nha-*` tokens in the compiled tokens stylesheet, by scheme. */
+function tokenDefaults(): { light: Scheme; dark: Scheme } {
+  const css = (NhAssistantTokensComponent as unknown as { ɵcmp: { styles: string[] } }).ɵcmp.styles.join('\n');
   const darkStart = css.search(/@media\s*\(prefers-color-scheme:\s*dark\)/);
   expect(darkStart).toBeGreaterThan(0);
 
@@ -49,26 +45,16 @@ function resolve(scheme: Scheme, value: string): string {
 }
 
 describe('The link color', () => {
-  const components: Type<unknown>[] = [
-    NhAssistantThreadComponent,
-    NhAssistantToolResultCardViewComponent,
-    NhAssistantElicitationCardViewComponent,
-    NhAssistantQuestionCardComponent,
-    NhAssistantSubjectLinkComponent
-  ];
-
   it('defaults to the accent in the light scheme and to its own light blue in the dark scheme', () => {
-    for (const component of components) {
-      const { light, dark } = tokenDefaults(component);
+    const { light, dark } = tokenDefaults();
 
-      expect(light['link']).withContext(component.name).toBe('var(--nha-accent)');
-      expect(dark['link']).withContext(component.name).toMatch(/^#[0-9a-f]{6}$/i);
-      expect(dark['link']).withContext(component.name).not.toBe(dark['accent']);
-    }
+    expect(light['link']).toBe('var(--nha-accent)');
+    expect(dark['link']).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(dark['link']).not.toBe(dark['accent']);
   });
 
   it('keeps 4.5:1 on the background and surfaces of both schemes, where the dark accent does not', () => {
-    const { light, dark } = tokenDefaults(NhAssistantThreadComponent);
+    const { light, dark } = tokenDefaults();
     const surfaces = ['background', 'surface', 'surface-strong'];
 
     expect(surfaces.map(surface => dark[surface])).toEqual(['#0b0e22', '#11152d', '#181d3b']);
