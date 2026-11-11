@@ -304,7 +304,9 @@ it per scheme. A host's own result renderer uses `--nh-assistant-link` for its l
 plan, the request for input of an MCP server, the default result card and the presentation fields
 load on first use, in chunks of their own, so an application's initial bundle stays without them;
 until a card has arrived, and on the server, an empty box of about its height holds its place.
-Tests that render them call `fixture.whenStable()` before reading the card. A host that maps every `NhAssistantIconName`, as SampleProjectManagement's
+Tests that read such a card render its defer block first (`fixture.getDeferBlocks()`, then
+`render(DeferBlockState.Complete)`), or wait with `fixture.whenStable()` when nothing else keeps the
+fixture busy. A host that maps every `NhAssistantIconName`, as SampleProjectManagement's
 management portal does, maps a new name when the library adds one, such as `attach` and `file` for
 attachments (SPM-305).
 
