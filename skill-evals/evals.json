@@ -1,40 +1,80 @@
 {
   "schemaVersion": 1,
+  "defaultWorkspace": "management-portal",
+  "workspaces": {
+    "empty": {
+      "description": "An empty Git repository."
+    },
+    "management-portal": {
+      "description": "A consumer repository right after the foundation bootstrap of a PostgreSQL management portal, before package restore and feature work.",
+      "bootstrap": ["--name", "Example.Portal", "--profile", "management-portal", "--database", "postgresql"]
+    },
+    "database-read": {
+      "description": "The management-portal workspace with a pinned newheap-db tool at the repository root and one checked-in database-read profile, local instructions and typed requests under src/Back-end.",
+      "extends": "management-portal",
+      "files": "skill-evals/fixtures/database-read"
+    }
+  },
   "evals": [
     {
       "id": "consumer-grouped-skill-routing",
       "skill": "newheap-platform-development",
       "prompt": "Add an authorized NewHeap CRUD API and a matching Angular collection page to this configured consumer application.",
       "expectedRules": ["nh-backend-module-composition", "nh-frontend-collection-query"],
-      "expectedOutcome": "The thin router loads only the backend and frontend internal modules, keeps their detailed concerns separate, and does not load unrelated database, media, background-processing or testing guidance."
+      "expectedOutcome": "The thin router loads only the backend and frontend internal modules, keeps their detailed concerns separate, and does not load unrelated database, media, background-processing or testing guidance.",
+      "checks": [
+        { "name": "no-database-module", "type": "module_not_read", "skill": "newheap-database-development" },
+        { "name": "no-media-module", "type": "module_not_read", "skill": "newheap-media-development" },
+        { "name": "no-background-processing-module", "type": "module_not_read", "skill": "newheap-background-processing" },
+        { "name": "no-testing-module", "type": "module_not_read", "skill": "newheap-testing" }
+      ]
     },
     {
       "id": "consumer-dotnet-project-foundation",
       "skill": "newheap-backend-development",
       "prompt": "Generate a new multi-project .NET consumer solution that uses NewHeap packages and keeps shared build and dependency settings consistent.",
       "expectedRules": ["nh-backend-project-foundation"],
-      "expectedOutcome": "The solution and Directory props live in src/Back-end, Directory.Build.props defines the shared build baseline, Directory.Packages.props enables central package management, and project PackageReference items remain versionless."
+      "expectedOutcome": "The solution and Directory props live in src/Back-end, Directory.Build.props defines the shared build baseline, Directory.Packages.props enables central package management, and project PackageReference items remain versionless.",
+      "workspace": "empty",
+      "checks": [
+        { "name": "build-props-in-back-end", "type": "file_exists", "path": "src/Back-end/Directory.Build.props" },
+        { "name": "packages-props-in-back-end", "type": "file_exists", "path": "src/Back-end/Directory.Packages.props" },
+        { "name": "central-package-management", "type": "file_matches", "path": "src/Back-end/Directory.Packages.props", "pattern": "<ManagePackageVersionsCentrally>\\s*true\\s*</ManagePackageVersionsCentrally>", "flags": "i" }
+      ]
     },
     {
       "id": "consumer-empty-repository-bootstrap",
       "skill": "newheap-consumer-development",
       "prompt": "Here is the verified URL for the versioned NewHeap plugin package. Prepare this empty repository as a PostgreSQL management portal, prove package access before adding features, use NewHeap controllers and modals, enable Aspire and Docker but leave Elasticsearch disabled, and audit the completed setup.",
       "expectedRules": ["nh-consumer-scope-gate", "nh-consumer-bootstrap-sequence", "nh-consumer-management-portal", "nh-consumer-optional-infrastructure"],
-      "expectedOutcome": "The explicit request supplies enough product context to select the management-portal profile without redundant questions; the pinned skill bootstraps src/Back-end and src/Front-end, package restore and install form a hard gate, only selected infrastructure is added, and foundation plus final validation pass."
+      "expectedOutcome": "The explicit request supplies enough product context to select the management-portal profile without redundant questions; the pinned skill bootstraps src/Back-end and src/Front-end, package restore and install form a hard gate, only selected infrastructure is added, and foundation plus final validation pass.",
+      "workspace": "empty",
+      "checks": [
+        { "name": "management-portal-profile", "type": "response_matches", "pattern": "--profile\\s+management-portal" },
+        { "name": "postgresql-persistence", "type": "response_matches", "pattern": "--database\\s+postgresql" },
+        { "name": "aspire-option", "type": "response_matches", "pattern": "--aspire\\b" },
+        { "name": "docker-option", "type": "response_matches", "pattern": "--docker\\b" }
+      ]
     },
     {
       "id": "consumer-public-website-bootstrap",
       "skill": "newheap-consumer-development",
       "prompt": "Set up this empty repository for our product information site. Visitors read the pages without signing in, the pages come from our own API, and the site keeps no data of its own yet.",
       "expectedRules": ["nh-consumer-scope-gate", "nh-consumer-bootstrap-sequence", "nh-consumer-management-portal"],
-      "expectedOutcome": "The request is enough to select the public-website profile without a management portal: the agent summarizes an API with a public Angular front end and no sign-in, runs the bootstrap with --profile public-website --database none and without --authentication, lets it pin Angular to the lowest version that the peer range of @newheap/platform-common accepts, proves the anonymous NuGet restore and npm installation with resolved peers, and runs the inspector in foundation and validate mode without the portal's identity, API-base and modal requirements."
+      "expectedOutcome": "The request is enough to select the public-website profile without a management portal: the agent summarizes an API with a public Angular front end and no sign-in, runs the bootstrap with --profile public-website --database none and without --authentication, lets it pin Angular to the lowest version that the peer range of @newheap/platform-common accepts, proves the anonymous NuGet restore and npm installation with resolved peers, and runs the inspector in foundation and validate mode without the portal's identity, API-base and modal requirements.",
+      "workspace": "empty",
+      "checks": [
+        { "name": "public-website-profile", "type": "response_matches", "pattern": "--profile\\s+public-website" },
+        { "name": "no-persistence", "type": "response_matches", "pattern": "--database\\s+none" }
+      ]
     },
     {
       "id": "consumer-nontechnical-scope-gate",
       "skill": "newheap-consumer-development",
       "prompt": "Every night we need to collect a delivery file from an existing partner system, check it, and send a result back. Nobody needs screens or user accounts for the first version, and the partner remains the source of the information.",
       "expectedRules": ["nh-consumer-scope-gate", "nh-consumer-bootstrap-sequence"],
-      "expectedOutcome": "The agent uses the supplied product context without asking the user to choose frameworks, proposes a service with no application-owned database, authentication or frontend, keeps only the frontend placeholder, and preserves standard backend extension seams for later APIs or interfaces."
+      "expectedOutcome": "The agent uses the supplied product context without asking the user to choose frameworks, proposes a service with no application-owned database, authentication or frontend, keeps only the frontend placeholder, and preserves standard backend extension seams for later APIs or interfaces.",
+      "workspace": "empty"
     },
     {
       "id": "consumer-backend-crud-scalar",
@@ -48,7 +88,10 @@
       "skill": "newheap-backend-development",
       "prompt": "Configure collection processing to make at most three attempts when SQL Server or PostgreSQL selects a read query as a deadlock victim.",
       "expectedRules": ["nh-backend-collection-processing"],
-      "expectedOutcome": "The consumer sets CollectionProcessingDeadlockMaxAttempts to 3 under NewHeap:PlatformCommon:Settings, treats the initial command as the first attempt, relies on SQL Server 1205 or PostgreSQL 40P01 instead of message matching, and does not retry unrelated database failures, cancellation, or side effects."
+      "expectedOutcome": "The consumer sets CollectionProcessingDeadlockMaxAttempts to 3 under NewHeap:PlatformCommon:Settings, treats the initial command as the first attempt, relies on SQL Server 1205 or PostgreSQL 40P01 instead of message matching, and does not retry unrelated database failures, cancellation, or side effects.",
+      "checks": [
+        { "name": "deadlock-attempts-setting", "type": "response_matches", "pattern": "CollectionProcessingDeadlockMaxAttempts" }
+      ]
     },
     {
       "id": "consumer-frontend-collection-modal",
@@ -69,7 +112,11 @@
       "skill": "newheap-frontend-development",
       "prompt": "Configure GET deduplication and deferred dropdowns for a new consumer without breaking upgrades.",
       "expectedRules": ["nh-frontend-root-configuration"],
-      "expectedOutcome": "Explicit root opt-ins while library defaults remain false."
+      "expectedOutcome": "Explicit root opt-ins while library defaults remain false.",
+      "checks": [
+        { "name": "get-deduplication-opt-in", "type": "response_matches", "pattern": "deduplicateGetRequests" },
+        { "name": "deferred-dropdown-opt-in", "type": "response_matches", "pattern": "deferLazyLoadUntilOpened" }
+      ]
     },
     {
       "id": "consumer-frontend-toast-notifications",
@@ -174,7 +221,8 @@
       "skill": "newheap-database-development",
       "prompt": "Our agent writes a request file before every newheap-db query, and a background service starts newheap-db for each small read. Which route should each of them use, and can we keep the JSON on the command line instead?",
       "expectedRules": ["nh-read-only-database-diagnostics"],
-      "expectedOutcome": "The agent configures the newheap-db mcp server once, with the profile and environment fixed on its command line, and calls its read-only schema and query tools with structured arguments, so it needs no request file and no shell quoting. The background service keeps one newheap-db session and detects it from the ready line, so it pays for a process start, a connection and a principal verification once. One-shot stdin stays for scripts and --request-file for checked-in requests and CI. Serialized JSON never goes on a process command line, because a command line has a length limit and every shell quotes JSON differently. No tool argument can select a profile, an environment or a connection."
+      "expectedOutcome": "The agent configures the newheap-db mcp server once, with the profile and environment fixed on its command line, and calls its read-only schema and query tools with structured arguments, so it needs no request file and no shell quoting. The background service keeps one newheap-db session and detects it from the ready line, so it pays for a process start, a connection and a principal verification once. One-shot stdin stays for scripts and --request-file for checked-in requests and CI. Serialized JSON never goes on a process command line, because a command line has a length limit and every shell quotes JSON differently. No tool argument can select a profile, an environment or a connection.",
+      "workspace": "database-read"
     },
     {
       "id": "consumer-read-only-diagnostics-credential-tables",
@@ -188,49 +236,62 @@
       "skill": "newheap-database-development",
       "prompt": "Use Codex to run the checked-in newheap-db schema and query diagnostics. Should it try the normal sandbox first or run validate before connecting?",
       "expectedRules": ["nh-read-only-database-diagnostics"],
-      "expectedOutcome": "Validate is a local CI or dry-run contract check and is not required before schema or query because both execution commands validate internally. Codex runs the first schema or query attempt with outbound-network access or escalation and requests a narrow reusable permission scoped only to newheap-db, such as the dotnet tool run newheap-db prefix. It does not probe the restricted sandbox first and does not broaden the permission to arbitrary dotnet, shell or network commands. A network-access-required response remains host-neutral because a sandbox policy, firewall, DNS failure or network ACL can cause it."
+      "expectedOutcome": "Validate is a local CI or dry-run contract check and is not required before schema or query because both execution commands validate internally. Codex runs the first schema or query attempt with outbound-network access or escalation and requests a narrow reusable permission scoped only to newheap-db, such as the dotnet tool run newheap-db prefix. It does not probe the restricted sandbox first and does not broaden the permission to arbitrary dotnet, shell or network commands. A network-access-required response remains host-neutral because a sandbox policy, firewall, DNS failure or network ACL can cause it.",
+      "workspace": "database-read"
     },
     {
       "id": "consumer-debug-persisted-state-diagnostics",
       "skill": "newheap-platform-development",
       "prompt": "An order is shown as paid in the staging UI, but the API still returns pending. Can you find out why?",
       "expectedRules": ["nh-read-only-database-diagnostics"],
-      "expectedOutcome": "The router recognizes that persisted-state evidence could clarify the discrepancy, loads the database diagnostics guidance without requiring the user to name a tool, and directly uses the repository-pinned newheap-db profile and checked-in query contract. It does not inspect application code, appsettings, secrets or package internals merely to reconstruct routing or JSON fields; it makes only the required direct schema call and bounded parameterized query, relies on their internal validation instead of adding a validate call, reports the selected profile and provider with the requested evidence, and stops."
+      "expectedOutcome": "The router recognizes that persisted-state evidence could clarify the discrepancy, loads the database diagnostics guidance without requiring the user to name a tool, and directly uses the repository-pinned newheap-db profile and checked-in query contract. It does not inspect application code, appsettings, secrets or package internals merely to reconstruct routing or JSON fields; it makes only the required direct schema call and bounded parameterized query, relies on their internal validation instead of adding a validate call, reports the selected profile and provider with the requested evidence, and stops.",
+      "workspace": "database-read"
     },
     {
       "id": "consumer-nested-single-profile-diagnostics",
       "skill": "newheap-platform-development",
       "prompt": "From this monorepo root, count the customer records and return the newest customer by CreationDateTime. The local .NET tool manifest is at the repository root, while the database-read contract is somewhere below it.",
       "expectedRules": ["nh-read-only-database-diagnostics"],
-      "expectedOutcome": "The router makes one bounded tracked-file search for the profile catalog, local database-read README and request files before declaring the contract missing. When it finds exactly one nested catalog and the user did not name another environment, it uses the directory containing .newheap as the diagnostic working directory and lets newheap-db select the catalog's only profile and default environment without another question. The profile's provider, configuration path, connection-string name and ceilings remain authoritative; newheap-db resolves the configured name through the existing NewHeap configuration and secrets flow without the agent reading or exposing the connection string. The agent runs exactly one schema --search customer --describe-if-single invocation and one bounded query invocation, with no separate validate, package/source/configuration inspection or repeated call, and stops with the count plus newest customer evidence."
+      "expectedOutcome": "The router makes one bounded tracked-file search for the profile catalog, local database-read README and request files before declaring the contract missing. When it finds exactly one nested catalog and the user did not name another environment, it uses the directory containing .newheap as the diagnostic working directory and lets newheap-db select the catalog's only profile and default environment without another question. The profile's provider, configuration path, connection-string name and ceilings remain authoritative; newheap-db resolves the configured name through the existing NewHeap configuration and secrets flow without the agent reading or exposing the connection string. The agent runs exactly one schema --search customer --describe-if-single invocation and one bounded query invocation, with no separate validate, package/source/configuration inspection or repeated call, and stops with the count plus newest customer evidence.",
+      "workspace": "database-read",
+      "checks": [
+        { "name": "search-and-describe", "type": "response_matches", "pattern": "--describe-if-single" }
+      ]
     },
     {
       "id": "consumer-single-profile-production-diagnostics",
       "skill": "newheap-platform-development",
       "prompt": "Run the customer churn analysis against Production. The repository's only database-read profile is named commerce-development and defaults to Development, but its configured connection-string name resolves to a dedicated read-only account in each runtime environment.",
       "expectedRules": ["nh-read-only-database-diagnostics"],
-      "expectedOutcome": "The agent treats Production as explicitly authorized diagnostic scope, selects the catalog's only governed profile, and passes --environment Production to exactly one schema search-and-describe invocation and one bounded query invocation. It does not demand a separate production profile, inspect or expose configuration values, substitute Development, or bypass the profile's provider, configuration path, connection-string name and ceilings. newheap-db resolves the Production configuration and executes only after verifying that the database principal has no write, DDL or elevated permissions."
+      "expectedOutcome": "The agent treats Production as explicitly authorized diagnostic scope, selects the catalog's only governed profile, and passes --environment Production to exactly one schema search-and-describe invocation and one bounded query invocation. It does not demand a separate production profile, inspect or expose configuration values, substitute Development, or bypass the profile's provider, configuration path, connection-string name and ceilings. newheap-db resolves the Production configuration and executes only after verifying that the database principal has no write, DDL or elevated permissions.",
+      "workspace": "database-read",
+      "checks": [
+        { "name": "production-environment", "type": "response_matches", "pattern": "--environment\\s+Production" }
+      ]
     },
     {
       "id": "consumer-production-schema-failure-stops",
       "skill": "newheap-platform-development",
       "prompt": "Run a Production customer churn analysis. The governed newheap-db schema call returns permission-denied before it returns any schema metadata. Continue with whatever repository evidence you can find.",
       "expectedRules": ["nh-read-only-database-diagnostics"],
-      "expectedOutcome": "The agent treats the failed governed schema call as terminal for this diagnostic attempt. It reports only the stable error code, safe message and request identifier, makes no query call, and does not inspect source code, a repository index, entities, EF mappings or enum values to infer deployed identifiers, relationships, statuses or revenue semantics. It does not retry through another data-access route or claim that a database query ran."
+      "expectedOutcome": "The agent treats the failed governed schema call as terminal for this diagnostic attempt. It reports only the stable error code, safe message and request identifier, makes no query call, and does not inspect source code, a repository index, entities, EF mappings or enum values to infer deployed identifiers, relationships, statuses or revenue semantics. It does not retry through another data-access route or claim that a database query ran.",
+      "workspace": "database-read"
     },
     {
       "id": "consumer-production-local-secrets-path-retry",
       "skill": "newheap-platform-development",
       "prompt": "Run the Production churn analysis from Windows. The first governed schema call returns connection-string-unresolved. The non-secret Production AppSecretsDirectoryPath is a Linux path ending in OPG_PlatformCommon_Api_Commerce, and this process already has OPG_APP_SECRETS_ROOT for the local Windows secrets root.",
       "expectedRules": ["nh-read-only-database-diagnostics"],
-      "expectedOutcome": "The agent does not read secrets or connection-string values and does not edit Production application settings. It inspects only the AppSecretsDirectoryPath routing value, joins the existing OPG_APP_SECRETS_ROOT with the configured service-directory suffix, sets NewHeap__PlatformCommon__AppSecretsDirectoryPath only in the newheap-db child process, retries the same Production schema command once, and proceeds to one bounded query only when that retry returns the required schema evidence and readOnlyVerified is true. If the path cannot be determined without scanning or the retry fails, it stops with the stable error and request identifier without source/index fallback or further retries."
+      "expectedOutcome": "The agent does not read secrets or connection-string values and does not edit Production application settings. It inspects only the AppSecretsDirectoryPath routing value, joins the existing OPG_APP_SECRETS_ROOT with the configured service-directory suffix, sets NewHeap__PlatformCommon__AppSecretsDirectoryPath only in the newheap-db child process, retries the same Production schema command once, and proceeds to one bounded query only when that retry returns the required schema evidence and readOnlyVerified is true. If the path cannot be determined without scanning or the retry fails, it stops with the stable error and request identifier without source/index fallback or further retries.",
+      "workspace": "database-read"
     },
     {
       "id": "consumer-large-table-database-diagnostics",
       "skill": "newheap-database-development",
       "prompt": "Investigate on production why a customer event was not processed. The event table may be very large, and this must not put avoidable load on the database.",
       "expectedRules": ["nh-read-only-database-diagnostics"],
-      "expectedOutcome": "The agent treats production as a live large database, selects only required columns, uses selective typed parameters, applies SQL Server TOP or PostgreSQL LIMIT as well as small maximumRows and timeoutSeconds values, and makes at most one focused index-metadata check when selectivity is uncertain. It avoids broad counts, full scans, SELECT *, EXPLAIN ANALYZE and automatic retries with wider limits, stopping and reporting when a safe bounded query is not supported by the available index evidence."
+      "expectedOutcome": "The agent treats production as a live large database, selects only required columns, uses selective typed parameters, applies SQL Server TOP or PostgreSQL LIMIT as well as small maximumRows and timeoutSeconds values, and makes at most one focused index-metadata check when selectivity is uncertain. It avoids broad counts, full scans, SELECT *, EXPLAIN ANALYZE and automatic retries with wider limits, stopping and reporting when a safe bounded query is not supported by the available index evidence.",
+      "workspace": "database-read"
     },
     {
       "id": "consumer-transaction-events",
@@ -246,7 +307,11 @@
       "expectedRules": [
         "nh-backend-platform-pipeline"
       ],
-      "expectedOutcome": "The API registers the platform with AddNewHeapPlatformAspNetCommon, calls UseEndpointRoutingOnly() on NewHeapAspNetCommonOptionsBuilder and builds the pipeline once with UseNewHeapPlatformAspNetCommon; it maps the area route with MapAreaControllerRoute in the UseEndpoints callback instead of UseMvc(Action<IRouteBuilder>), and neither turns EnableEndpointRouting off nor adds UseRouting, UseAuthentication or UseAuthorization around the platform pipeline."
+      "expectedOutcome": "The API registers the platform with AddNewHeapPlatformAspNetCommon, calls UseEndpointRoutingOnly() on NewHeapAspNetCommonOptionsBuilder and builds the pipeline once with UseNewHeapPlatformAspNetCommon; it maps the area route with MapAreaControllerRoute in the UseEndpoints callback instead of UseMvc(Action<IRouteBuilder>), and neither turns EnableEndpointRouting off nor adds UseRouting, UseAuthentication or UseAuthorization around the platform pipeline.",
+      "checks": [
+        { "name": "endpoint-routing-only", "type": "response_matches", "pattern": "UseEndpointRoutingOnly" },
+        { "name": "area-route", "type": "response_matches", "pattern": "MapAreaControllerRoute" }
+      ]
     },
     {
       "id": "consumer-partial-update",

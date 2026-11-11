@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "newheap.platform.databaseread.tool": {
+      "version": "38.0.0",
+      "commands": [
+        "newheap-db"
+      ],
+      "rollForward": false
+    }
+  }
+}

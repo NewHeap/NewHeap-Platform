@@ -22,6 +22,8 @@ For EF, migrations, raw SQL, provider translation, constraints or transactions, 
 
 For Angular visual changes inspect login, shell, navigation and changed surfaces at desktop and narrow mobile widths. Check console errors, focus, reduced motion, loading/empty/error/disabled states and horizontal overflow.
 
+When a release changes consumer skills, rules or the router description, run the affected skill evals with a baseline before the plugin release, for example `npm run skills:eval:run -- --tag <module> --baseline --model sonnet --judge-model sonnet --max-cost-usd 10`, and investigate every case whose delta dropped or whose skill no longer fires. See [skill evals](skill-evals.md); the runs are paid model calls on your own account and stay out of CI.
+
 Before release, run change-impact validation against the target branch and confirm that the public API snapshot, sample registry, generated plan/status, consumer guide, skill references and skill manifest are clean after regeneration. Feature branches must retain the last published guidance and plugin versions; never pre-bump them to satisfy change-impact validation.
 
 Install the generated consumer skill suite into a temporary consumer root, run the installer again with `--check`, and validate the packaged `plugins/newheap-platform` manifest. The plugin version must match `guidance/version.json`; `distribution.json` records the focused skill list, centralized immutable-evidence source and compatible library-package versions separately.
