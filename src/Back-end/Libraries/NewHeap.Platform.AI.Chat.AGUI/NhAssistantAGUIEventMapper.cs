@@ -99,8 +99,7 @@ internal sealed class NhAssistantAGUIEventMapper(
                     new NhAssistantConnectionRequiredDto(connection.ServerId, connection.DisplayName, connection.Reason),
                     NhAssistantJsonSerializerContext.Default.NhAssistantConnectionRequiredDto)),
             NhAssistantTurnCompletedEvent completed => Completed(completed),
-            NhAssistantErrorEvent error => Failed(error.Code),
-            _ => throw new InvalidOperationException($"Unknown assistant turn event '{evt.GetType().Name}'.")
+            NhAssistantErrorEvent error => Failed(error.Code)
         });
         return events;
     }

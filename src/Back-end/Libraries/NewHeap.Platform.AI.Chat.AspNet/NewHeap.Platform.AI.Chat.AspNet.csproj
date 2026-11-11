@@ -9,6 +9,8 @@
     <PackageDescription>ASP.NET Core assistant endpoints with server-sent event streaming and approval decisions for NewHeap AI.</PackageDescription>
     <PackageTags>newheap platform ai chat assistant aspnetcore sse</PackageTags>
     <IsPackable>true</IsPackable>
+    <!-- The turn events and message parts are closed hierarchies: a translation that misses one fails the build. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS8509</WarningsAsErrors>
     <!--
       The Request Delegate Generator writes the request delegates of the minimal API endpoints when the
       library is built, so a host start does not compile them with RequestDelegateFactory. With it on,
