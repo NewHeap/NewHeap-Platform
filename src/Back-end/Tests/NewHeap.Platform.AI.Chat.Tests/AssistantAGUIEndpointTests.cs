@@ -215,6 +215,14 @@ public sealed class AssistantAGUIEndpointTests(AssistantAGUIHostFixture host) : 
         var created = await ReadEventsAsync(await PostAsync(first, Message(thread, "Hello?")));
         Assert.Equal("RUN_FINISHED", created[^1].GetProperty("type").GetString());
 
+        // An answer to an MCP server's request for input goes to the elicitation service, which only hands it to a
+        // waiting call; an interrupt id the endpoint never issued is refused.
+        using var notWaiting = await PostAsync(first, Resume(thread, $"nh-elicitation:{Guid.NewGuid():N}", new { action = "accept" }));
+        Assert.Equal(HttpStatusCode.Conflict, notWaiting.StatusCode);
+        Assert.Equal("assistant-elicitation-not-pending", (await ReadJsonAsync(notWaiting)).GetProperty("code").GetString());
+        using var unknown = await PostAsync(first, Resume(thread, "approval-1", new { approved = true }));
+        Assert.Equal(HttpStatusCode.BadRequest, unknown.StatusCode);
+
         // A GUID thread of another person answers as a conversation that does not exist.
         using var foreign = await PostAsync(second, Message(thread, "Show me that chat."));
         Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
