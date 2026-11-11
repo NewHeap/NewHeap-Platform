@@ -93,7 +93,9 @@ public sealed class ProjectPortfolioAnalysisAiTools(IProjectPortfolioAnalyses an
         NhAiToolEffect.ReadOnly,
         NhAiToolExposure.Local | NhAiToolExposure.Mcp,
         TaskSupport = NhAiToolTaskSupport.Optional,
+        // A task holds its concurrency slot while the tool waits, so allow several analyses at once.
         TimeoutSeconds = 600,
+        MaxConcurrency = 4,
         RequiredCapabilities = new[] { ProjectAiTools.ReadCapability })]
     [Authorize(Policy = ProjectAiTools.ViewPolicy)]
     [Description("Analyse the portfolio of the authorized active division. Pass your own request id and keep it on a retry. As an MCP task the call returns the finished analysis; otherwise poll projects.portfolio-analysis-status with the returned analysis id until finished.")]
