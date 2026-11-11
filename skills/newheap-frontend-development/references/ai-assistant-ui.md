@@ -295,7 +295,20 @@ package names it. Translate the server's `assistant-model-region-denied` and the
 texts from `NH_ASSISTANT_ADMIN_TRANSLATIONS` or `@newheap/platform-ai-chat/admin/i18n/en.json` and
 `nl.json` next to `NH_ASSISTANT_TRANSLATIONS` or `@newheap/platform-ai-chat/i18n/*.json`. Theme the panel through the `--nh-assistant-*` custom
 properties mapped onto the host's tokens, and pass the host icon library through
-`NH_ASSISTANT_ICONS`. A host that maps every `NhAssistantIconName`, as SampleProjectManagement's
+`NH_ASSISTANT_ICONS`. `--nh-assistant-accent` fills buttons, borders and markers;
+`--nh-assistant-link` colors links and other accent-colored text (message and card links, subject
+links on hover, inline link buttons, the header of a pending question or request for input). It
+defaults to the accent in the light scheme and to a light blue in the dark scheme. A host that maps
+the accent onto a dark brand color also maps the link color onto a color with at least 4.5:1 contrast
+on the assistant's background and surfaces in both schemes, as SampleProjectManagement's management
+portal maps it onto its informational blue (SPM-248); a host that switches schemes with a class sets
+it per scheme. A host's own result renderer uses `--nh-assistant-link` for its links as well. The
+plan, the request for input of an MCP server, the default result card and the presentation fields
+load on first use, in chunks of their own, so an application's initial bundle stays without them;
+until a card has arrived, and on the server, an empty box of about its height holds its place.
+Tests that read such a card render its defer block first (`fixture.getDeferBlocks()`, then
+`render(DeferBlockState.Complete)`), or wait with `fixture.whenStable()` when nothing else keeps the
+fixture busy. A host that maps every `NhAssistantIconName`, as SampleProjectManagement's
 management portal does, maps a new name when the library adds one, such as `attach` and `file` for
 attachments (SPM-305).
 

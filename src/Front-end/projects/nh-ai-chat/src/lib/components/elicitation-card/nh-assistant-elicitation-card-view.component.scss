@@ -4,7 +4,8 @@
 
 :host {
   display: block;
-  --nha-status-color: var(--nha-accent);
+  // A pending request's color is also its header and status text, so it reads as text.
+  --nha-status-color: var(--nha-link);
   --nha-status-background: var(--nha-surface-strong);
 }
 
@@ -86,7 +87,7 @@ h3 {
 .open {
   display: inline-block;
   margin: 8px 0 0;
-  color: var(--nha-accent);
+  color: var(--nha-link);
   font-size: 13px;
   font-weight: 700;
   overflow-wrap: anywhere;

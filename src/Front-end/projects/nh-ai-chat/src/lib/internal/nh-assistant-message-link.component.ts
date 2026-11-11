@@ -30,7 +30,7 @@ import { NhAssistantSubjectTarget, nhAssistantLinkTarget, nhAssistantOpenLink } 
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      color: var(--nha-accent);
+      color: var(--nha-link);
       font-size: 13px;
       font-weight: 600;
       text-decoration: none;

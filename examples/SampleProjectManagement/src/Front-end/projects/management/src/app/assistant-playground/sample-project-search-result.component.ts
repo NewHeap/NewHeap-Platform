@@ -107,7 +107,8 @@ import { NhAssistantToolResult } from '@newheap/platform-ai-chat';
     .link {
       display: inline-block;
       margin-top: 10px;
-      color: var(--primary);
+      /* The assistant's link color, readable on the panel's light and dark surfaces. */
+      color: var(--nh-assistant-link);
       font-size: 13px;
       font-weight: 600;
     }

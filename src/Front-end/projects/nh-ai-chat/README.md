@@ -223,6 +223,21 @@ provideNhAssistantToolResultRenderers({ toolId: 'projects.search', component: Pr
 
 The component injects `NhAssistantToolResult` and reads its `presentation` signal: the
 trusted card the server's presenter wrote, never the call's raw result or arguments.
+Links in such a component use `--nh-assistant-link` (see [Theme](#theme)).
+
+Cards that are rarely on screen load on first use, in chunks of their own, so they stay
+out of the application's initial bundle: `nh-assistant-plan`,
+`nh-assistant-elicitation-card`, `nh-assistant-tool-result-card` and
+`nh-assistant-presentation-fields`. Until a card has arrived, and on the server, an empty
+box of about its height holds its place; the thread loads them while the browser is idle
+once it shows. A spec that reads such a card renders its defer block first:
+
+```ts
+fixture.detectChanges();
+for (const block of await fixture.getDeferBlocks()) {
+  await block.render(DeferBlockState.Complete);
+}
+```
 
 The panel selects the assistant in the prompt bar below the message field, alongside
 the send/stop action. The picker is hidden when only one assistant is available;
@@ -586,10 +601,22 @@ Map them onto the host's design tokens with custom properties:
   --nh-assistant-text-muted: var(--muted);
   --nh-assistant-border: var(--line);
   --nh-assistant-accent: var(--primary);
+  --nh-assistant-link: var(--info);
   --nh-assistant-highlight: var(--brand);
   --nh-assistant-focus: var(--accent);
 }
 ```
+
+`--nh-assistant-accent` fills buttons, borders and markers. `--nh-assistant-link`
+colors links and other accent-colored text on the assistant's surfaces: message and
+card links, subject links on hover, inline link buttons, and the header and status of
+a pending question or request for input. It defaults to the accent in the light
+scheme and to `#7eb5ff` in the dark scheme, because a brand accent that is dark
+enough to fill a button is often unreadable as text on a dark surface. Set it when
+the host sets the accent, to a color with at least 4.5:1 contrast on
+`--nh-assistant-background`, `-surface` and `-surface-strong` in both schemes. A host
+that switches schemes with a class rather than `prefers-color-scheme` sets it for
+each scheme.
 
 Further properties: `--nh-assistant-surface-strong`, `-accent-contrast`,
 `-user-bubble`, `-user-text`, `-success`, `-success-soft`, `-warning`,

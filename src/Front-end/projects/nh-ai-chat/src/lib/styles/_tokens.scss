@@ -4,6 +4,11 @@
 // usually on `:root`. Every component resolves them into private `--nha-*` properties with
 // light and dark defaults, so the components look complete without host styles. Nothing
 // here targets elements outside a component host.
+//
+// `--nh-assistant-link` is the color of links and other accent-colored text on the
+// assistant's surfaces. It defaults to the accent in the light scheme and to a light blue in
+// the dark scheme, because a brand accent that fills buttons is often too dark to read as text
+// on a dark surface. Both defaults keep 4.5:1 on the default surfaces of their scheme.
 
 @mixin light-defaults {
   --nha-font: var(--nh-assistant-font, inherit);
@@ -15,6 +20,7 @@
   --nha-border: var(--nh-assistant-border, #dce0ec);
   --nha-accent: var(--nh-assistant-accent, #022962);
   --nha-accent-contrast: var(--nh-assistant-accent-contrast, #ffffff);
+  --nha-link: var(--nh-assistant-link, var(--nha-accent));
   --nha-highlight: var(--nh-assistant-highlight, #c84f00);
   --nha-user-bubble: var(--nh-assistant-user-bubble, #022962);
   --nha-user-text: var(--nh-assistant-user-text, #ffffff);
@@ -62,6 +68,7 @@
   --nha-border: var(--nh-assistant-border, #2b3155);
   --nha-accent: var(--nh-assistant-accent, #0f4087);
   --nha-accent-contrast: var(--nh-assistant-accent-contrast, #ffffff);
+  --nha-link: var(--nh-assistant-link, #7eb5ff);
   --nha-highlight: var(--nh-assistant-highlight, #ff6700);
   --nha-user-bubble: var(--nh-assistant-user-bubble, #022962);
   --nha-user-text: var(--nh-assistant-user-text, #ffffff);

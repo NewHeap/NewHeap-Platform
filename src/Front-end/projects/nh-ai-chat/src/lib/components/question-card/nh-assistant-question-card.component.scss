@@ -4,7 +4,8 @@
 
 :host {
   display: block;
-  --nha-status-color: var(--nha-accent);
+  // A pending question's color is also its header and status text, so it reads as text.
+  --nha-status-color: var(--nha-link);
   --nha-status-background: var(--nha-surface-strong);
 }
 

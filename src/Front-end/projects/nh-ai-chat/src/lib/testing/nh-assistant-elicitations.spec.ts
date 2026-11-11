@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, DeferBlockBehavior, DeferBlockState, TestBed } from '@angular/core/testing';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import {
@@ -59,8 +59,9 @@ describe('NhAssistantElicitationCardComponent', () => {
   let fixture: ComponentFixture<NhAssistantElicitationCardComponent>;
   let answers: NhAssistantElicitationAnswer[];
 
-  async function create(part: ElicitationPart, canAnswer = true): Promise<HTMLElement> {
+  async function create(part: ElicitationPart, canAnswer = true, deferBlockBehavior = DeferBlockBehavior.Playthrough): Promise<HTMLElement> {
     TestBed.configureTestingModule({
+      deferBlockBehavior,
       providers: [
         provideTranslateService({ fallbackLang: 'en' }),
         provideNhAssistant({ apiBaseUrl: '/api/assistant', getAccessToken: () => 'token' })
@@ -73,8 +74,30 @@ describe('NhAssistantElicitationCardComponent', () => {
     answers = [];
     fixture.componentInstance.answer.subscribe(answer => answers.push(answer));
     fixture.detectChanges();
+    if (deferBlockBehavior === DeferBlockBehavior.Playthrough) {
+      // The card loads on first use.
+      const [card] = await fixture.getDeferBlocks();
+      await card.render(DeferBlockState.Complete);
+    }
     return fixture.nativeElement as HTMLElement;
   }
+
+  it('holds the card\'s place with an empty box of about its height until it has loaded', async () => {
+    const element = await create(elicitation(), true, DeferBlockBehavior.Manual);
+
+    const placeholder = element.querySelector('nh-assistant-card-placeholder') as HTMLElement;
+    expect(placeholder.getAttribute('aria-hidden')).toBe('true');
+    // Frame, header and message; three fields and a check box; the actions with the countdown.
+    expect(placeholder.style.minHeight).toBe(`${110 + 2 + 3 * 68 + 30 + 104}px`);
+    expect(element.querySelector('form')).toBeNull();
+    expect(element.getAttribute('data-status')).toBe('pending');
+    expect(element.getAttribute('data-mode')).toBe('form');
+
+    const [card] = await fixture.getDeferBlocks();
+    await card.render(DeferBlockState.Complete);
+    expect(element.querySelector('nh-assistant-card-placeholder')).toBeNull();
+    expect(element.querySelectorAll('form .field').length).toBe(4);
+  });
 
   function type(element: HTMLElement, name: string, value: string): void {
     const input = element.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${name}"]`)!;
