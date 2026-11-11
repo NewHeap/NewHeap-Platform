@@ -205,7 +205,8 @@ export class NhAssistantThreadComponent {
     return lastPart.type === 'tool-call'
       && lastPart.status !== 'running'
       && lastPart.status !== 'awaiting-approval'
-      && lastPart.status !== 'awaiting-answer';
+      && lastPart.status !== 'awaiting-answer'
+      && lastPart.status !== 'awaiting-client';
   });
   /**
    * The message in whose row the working indicator shows: the answer `writingMessageId` names.

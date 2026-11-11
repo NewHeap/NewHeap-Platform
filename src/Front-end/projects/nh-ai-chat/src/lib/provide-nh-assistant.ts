@@ -10,6 +10,7 @@ import { NhAssistantAdminApiService } from './services/nh-assistant-admin-api.se
 import { NhAssistantAgentRunApiService } from './services/nh-assistant-agent-run-api.service';
 import { NhAssistantAlertBadgeService } from './services/nh-assistant-alert-badge.service';
 import { NhAssistantApiService } from './services/nh-assistant-api.service';
+import { NhAssistantClientTools } from './services/nh-assistant-client-tools';
 import { NhAssistantLiveService } from './services/nh-assistant-live.service';
 import { NhAssistantMcpConnectService } from './services/nh-assistant-mcp-connect.service';
 import { NhAssistantPushService } from './services/nh-assistant-push.service';
@@ -34,6 +35,8 @@ export function provideNhAssistant(config: NhAssistantConfig): EnvironmentProvid
     NhAssistantAgentRunApiService,
     NhAssistantLiveService,
     NhAssistantPushService,
+    // The handlers of client tools that provideNhAssistantClientTools registers in the same scope.
+    NhAssistantClientTools,
     NhAssistantStore,
     NhAssistantUiState,
     NhAssistantPanelService,

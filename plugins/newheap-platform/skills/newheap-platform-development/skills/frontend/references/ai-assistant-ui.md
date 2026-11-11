@@ -1042,6 +1042,25 @@ and reads it again after a save. The mock API answers it from the scenario's `ad
 or `scripts: not-allowed`, as the server does. The sample's assistant settings page does it with its
 own table (SPM-371).
 
+Client tools (SPM-400) run in the person's own browser when the server declares them with
+`AddClientTool` (`nh-ai-assistant`). Register one handler per declared tool id with
+`provideNhAssistantClientTools(...)` next to `provideNhAssistant` in the same providers; the store names
+those ids with each request that carries a turn, runs a handler only for a `client-tool.requested`
+event of the person's own stream once that stream ended, never for a live update or a reloaded page,
+and reports the result with `NhAssistantApiService.reportClientTool`, which streams the resumed turn.
+A handler (`NhAssistantClientToolHandler`) starts in the assistant's injection context and returns a
+`completed`, `declined`, `unavailable` or `failed` result with a dash-case `outcome`; a tool without a
+handler reports `unavailable`, a handler that throws `failed`, and an outcome or id out of bounds is
+left out. Treat the arguments as untrusted values: check them before they build a route or a form.
+Prefer the built-ins of `@newheap/platform-ai-chat/client-tools`: `nhAssistantNavigateTool` navigates
+to the route its `route` builds from checked arguments, or reports `route-not-allowed` for `null`, so
+the model never names a URL; `nhAssistantModalTool` opens the application's own
+`NhModalMutateBaseComponent` content (`component`, or `loadComponent` to keep it out of the initial
+bundle) prefilled through `inputs`, refuses what `accepts` does not, and reports `saved` with the id
+`resultId` chooses to return, `cancelled` when the person used the form's own close and `closed`
+otherwise. The person saves through the application's normal API with their own rights, so the hand-off
+needs no proposal. The tool call shows `awaiting-client` (`Running in the app`) while it waits.
+
 ## Avoid
 - Building a generic JSON form for agent metadata, or editing it inside the agent editor's form; render
   the application's own editor in the entry's slot.

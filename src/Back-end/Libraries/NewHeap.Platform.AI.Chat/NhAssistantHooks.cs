@@ -634,6 +634,28 @@ public enum NhAssistantAuditEventKind
     AdminProposalWithdrawn = 138,
 
     /// <summary>
+    /// The agent called a client tool in a person's chat and the turn waits for that person's browser to
+    /// run it in the application's own interface. <see cref="NhAssistantAuditEvent.ToolId"/> is the tool,
+    /// <see cref="NhAssistantAuditEvent.InvocationId"/> the call and <see cref="NhAssistantAuditEvent.ObjectId"/>
+    /// the person whose browser runs it. Never the arguments.
+    /// </summary>
+    ClientToolRequested = 139,
+
+    /// <summary>
+    /// The browser reported the result of a client tool and the turn continued.
+    /// <see cref="NhAssistantAuditEvent.ActorId"/> is the person, <see cref="NhAssistantAuditEvent.InvocationId"/>
+    /// the call and <see cref="NhAssistantAuditEvent.ResultCode"/> the reported status: <c>completed</c>,
+    /// <c>declined</c>, <c>unavailable</c> or <c>failed</c>. Never the outcome, the id or the data.
+    /// </summary>
+    ClientToolCompleted = 140,
+
+    /// <summary>
+    /// A client tool call expired without a result, found when the browser reported too late or a new
+    /// message came. <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>assistant-client-tool-expired</c>.
+    /// </summary>
+    ClientToolExpired = 141,
+
+    /// <summary>
     /// An administrator-connected MCP server asked the person of a chat turn for input while its tool ran
     /// (MCP elicitation), and the tool call waits for the answer. <see cref="NhAssistantAuditEvent.ObjectId"/>
     /// is the server, <see cref="NhAssistantAuditEvent.ToolId"/> and <see cref="NhAssistantAuditEvent.InvocationId"/>

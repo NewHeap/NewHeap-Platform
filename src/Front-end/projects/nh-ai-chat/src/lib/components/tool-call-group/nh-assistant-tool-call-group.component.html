@@ -20,12 +20,15 @@
         @case ('awaiting-answer') {
           {{ 'nh-assistant.tool-group.awaiting-answer' | translate }}
         }
+        @case ('awaiting-client') {
+          {{ 'nh-assistant.tool-group.awaiting-client' | translate: { name: current()?.displayName } }}
+        }
         @default {
           {{ (total() === 1 ? 'nh-assistant.tool-group.used-one' : 'nh-assistant.tool-group.used-many') | translate: { count: total() } }}
         }
       }
     </span>
-    @if (state() === 'running' || state() === 'awaiting-approval' || state() === 'awaiting-answer') {
+    @if (state() === 'running' || state() === 'awaiting-approval' || state() === 'awaiting-answer' || state() === 'awaiting-client') {
       <span class="count">{{ 'nh-assistant.tool-group.progress' | translate: { finished: finished(), total: total() } }}</span>
     } @else {
       @if (failed() > 0) {

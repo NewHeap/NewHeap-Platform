@@ -190,6 +190,29 @@ internal interface INhAssistantStore
         DateTimeOffset completedAt,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The client tool call of <paramref name="turnId"/> that waits for its person's browser, or
+    /// <see langword="null"/>.
+    /// </summary>
+    Task<AssistantToolInvocation?> FindAwaitingClientToolAsync(
+        Guid conversationId,
+        Guid turnId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Closes a client tool call that still waits for its person's browser: it takes
+    /// <paramref name="status"/>, <paramref name="resultCode"/> and <paramref name="resultJson"/>. Returns
+    /// <see langword="false"/> when the call no longer waits, so a result, an expiry and a cancellation
+    /// close it once.
+    /// </summary>
+    Task<bool> TryCloseClientToolAsync(
+        Guid invocationId,
+        string status,
+        string? resultCode,
+        string? resultJson,
+        DateTimeOffset completedAt,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<AssistantToolInvocation>> GetToolInvocationsAsync(
         Guid conversationId,
         IReadOnlyCollection<Guid> invocationIds,

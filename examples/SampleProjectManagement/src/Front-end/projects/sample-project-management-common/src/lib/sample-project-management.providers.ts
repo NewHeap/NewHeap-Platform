@@ -94,7 +94,10 @@ export function provideSampleProjectManagement(routes: Routes = [], options: Sam
       hubUrlSuffix: '/hub/background-operations',
       pollingInterval: 5000,
       liveUpdatesEnabled: true,
-      listPageSize: 100
+      listPageSize: 100,
+      // SPM-083: the API maps the hub with HubAuthenticationRefresh; after the session renews its token
+      // the open connection presents it instead of closing when the old one expires (ASP.NET Core 11).
+      authenticationRefresh: true
     })
   });
 

@@ -924,5 +924,18 @@
     "unread": "{{count}} unread",
     "bell": "Alerts",
     "bell-unread": "Alerts, {{count}} unread"
+  },
+  "project-task": {
+    "modal-title": "Create task",
+    "create-label": "Project task",
+    "create-title": "Create a task",
+    "create-description": "Review the task and save it to add it to the project. Nothing changes until you save.",
+    "project": "Project",
+    "project-loading": "Loading the project...",
+    "project-load-failed": "The project could not be loaded. Close the form and open the project from the project list.",
+    "task-title": "Title",
+    "task-title-help": "At most 180 characters.",
+    "cancel": "Cancel",
+    "save": "Save task"
   }
 }

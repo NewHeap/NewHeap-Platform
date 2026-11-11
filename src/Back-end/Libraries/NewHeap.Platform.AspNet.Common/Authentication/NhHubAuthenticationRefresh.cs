@@ -20,6 +20,19 @@ namespace NewHeap.Platform.AspNet.Common.Authentication;
 internal static class NhHubAuthenticationRefresh
 {
     /// <summary>
+    /// Whether a library hub with the opt-in maps the refresh endpoint: on ASP.NET Core 11, so a library
+    /// can tell its clients that they may refresh instead of reconnecting.
+    /// </summary>
+    public static bool IsMapped(bool authenticationRefresh)
+    {
+#if NET11_0_OR_GREATER
+        return authenticationRefresh;
+#else
+        return false;
+#endif
+    }
+
+    /// <summary>
     /// Configures the connection endpoints of a library hub. <paramref name="authenticationRefresh"/>
     /// is the library's opt-in; it takes effect on ASP.NET Core 11 only.
     /// </summary>

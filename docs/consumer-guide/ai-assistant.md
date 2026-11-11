@@ -903,10 +903,16 @@ origin with 403, after which the connection keeps its own principal until that e
 accepted refresh keeps the connection, its groups and its watch only while the refreshed principal
 resolves to the same actor in the same tenant; the hub closes it otherwise, also when the refresh
 completed while the connection still joined its groups, and the session check validates the
-refreshed principal from then on. The .NET client refreshes with `WithAuthenticationRefresh` and
-`RefreshAuthenticationAsync`; the Angular client of `nh-ai-chat` uses `@microsoft/signalr` 10, which
-has no refresh, so a browser keeps reconnecting when its token expires and restarts the connection
-when the account changes. On ASP.NET Core 10 the option changes nothing. The hub sends
+refreshed principal from then on. `GET status` reports it as `collaboration.hubAuthenticationRefresh`.
+The .NET client refreshes with `WithAuthenticationRefresh` and `RefreshAuthenticationAsync`. In the
+browser, give `provideNhAssistant` an `accessTokenChanges` that emits when the session renews the
+token `getAccessToken` returns, such as `() => inject(MyAuthService).authSubject`, as the sample does:
+with `@microsoft/signalr` 11 and the status field, `NhAssistantLiveService` then refreshes the open
+connection with a renewed token of the same state scope (`getStateScope`) instead of letting it close
+at expiry, restarts it and reloads snapshots when the hub refuses the token, and leaves a token of
+another account to the restart the account switch brings. `nh-ai-chat` still accepts
+`@microsoft/signalr` 10, with which the connection closes on expiry and reconnects as before. On
+ASP.NET Core 10 the option changes nothing. The hub sends
 `ConversationChanged`, `ConversationRead` (to the reader only), `ConversationRemoved`
 and `ConversationEvent` with the same turn events the starting request streams plus
 `message.created`. NewHeap hosts read the bearer token and active division from the
@@ -998,6 +1004,48 @@ in a chat, so it cannot tell the parts of one turn apart. The question itself co
 size `MaxToolCallsPerTurn` for the work plus the questions it may need. A decision on an inline
 approval still starts a new allowance: a person who decides a proposal approves real work, and each
 proposal costs the model a call that needs that decision.
+
+## Client tools in the person's browser
+
+Some work belongs in the application's own interface rather than on the server: opening a page, or
+opening the application's own create form so the person reviews and saves the change themselves.
+Declare such a tool on the server with `AddClientTool<TInput>(toolId, tool => tool.Describe(...)
+.RequirePolicy(...))` (SPM-400). The application owns its id, description, input (the JSON schema of
+`TInput`, bound with required constructor parameters and nullable annotations respected) and policies;
+a browser never declares a tool, so the model never reads text a browser wrote. The browser registers
+a handler per tool id and names the ids it can run with every request that carries a turn
+(`clientTools` on the message, decision, answer and client tool result requests); ids the application
+did not declare are ignored. A client tool is a governed read-only tool that only agents see: the
+agent's selectors select it, the invocation gate checks the person's policies, and the tool budget,
+`MaxToolCallsPerTurn` and the content-free audit count it. Mark a tool that opens a form for a change
+with `HandsOffChange()`: it is offered only where the agent's model is offered changes in a person's
+chat (execute autonomy), exactly where it could propose the same change, and its description tells the
+model to prefer the hand-off over a proposal while the person takes part. Keep proposals for runs,
+consultations and changes the person should approve rather than make.
+
+A turn offers a client tool only in a person's own chat whose browser declared its handler; agent
+threads, runs, rule turns, consultations, an application's channel (`INhAssistantConversationTurns`),
+follow-up turns, a step of a composition or script, and MCP clients never get one, and a call there
+ends at once as `not-executed` with `assistant-client-tool-unavailable`, without running anything.
+When the model calls it, the invoker authorizes and audits the call and the turn waits as for a
+question: the call is `awaiting-client`, the conversation `waiting-for-approval` with
+`pendingClientTool`, and only the stream of the person's own request receives `client-tool.requested`
+with the bound `arguments`; other sessions and participants see the waiting call without them. The
+person's browser runs the handler and posts the result to `POST
+conversations/{id}/client-tools/{invocationId}/result` (`NhAssistantClientToolResultRequest`): a
+`status` of `completed`, `declined`, `unavailable` or `failed`, a dash-case `outcome` such as `saved`,
+an optional `id` of what the person created, and `data` only for a tool that declares
+`Returns<TResult>()`, which is bound to `TResult` so undeclared properties never reach the model. Anyone
+else is refused with `403 assistant-client-tool-forbidden`, a call that no longer waits with
+`409 assistant-client-tool-not-pending` and a result out of bounds with `400
+assistant-client-tool-result-invalid`. The result resumes the turn as a stream with the report as the
+call's output, data from the browser and never instructions; the turn continues on the tool calls,
+tokens and consultations it has left. The wait ends after `NhAssistantLimits.ClientToolLifetime` (15
+minutes by default, one minute to one day) on the application's clock: a late result is refused with
+`409 assistant-client-tool-expired` and releases the conversation, as a new message does, and stopping
+the turn cancels the call. The audit records `ClientToolRequested`, `ClientToolCompleted` with the
+reported status and `ClientToolExpired`, never the arguments, the outcome, the id or the data. A
+client tool needs no storage of its own: it lives in its call and the message's `client-tool` part.
 
 ## Application messages
 
@@ -2080,7 +2128,7 @@ proposal, an exhausted daily budget, the tool-call limit, cancel and a disabled
 flag. For `AllowQuestions`, assert that a question waits, that its addressee's answer resumes the
 turn with the answer as the call's result, that another participant is refused, that a question
 expires on the application's clock and that a stopped turn cancels it, and that an agent without the
-opt-in offers no `ask_question`. Script a provider error inside the stream with
+opt-in offers no `ask_question`. For `AddClientTool`, assert that the call waits for the person's browser and resumes with its report, that only that person reports a bounded result, that the wait expires on the application's clock, that a browser without the handler is offered no tool and that a hand-off is offered only where the agent may change data. Script a provider error inside the stream with
 `RespondWithProviderError("server_is_overloaded")` and assert that one retry answers, that
 a repeated or non-transient error fails the turn with `assistant-model-unavailable`, and
 that the failed conversation accepts the next message. At the tool-call limit, assert a closing answer from a request with tool choice
@@ -2208,7 +2256,12 @@ connection outlives its first token, keeps receiving and is validated with the r
 that another person's token is refused with 403 while the connection keeps receiving its caller's
 updates, that a token of another tenant closes it, and that an expired token and a removed user are
 refused with 401 (`AssistantHubAuthenticationRefreshTests`); on ASP.NET Core 10 assert that no
-refresh endpoint is mapped. For push, check the RFC 8291 test vector,
+refresh endpoint is mapped and that the status reports `hubAuthenticationRefresh: false`. In
+`nh-ai-chat` specs, assert that a renewed token of the same scope refreshes the open connection once
+without a reconnect, that a token of another scope is left to the account switch's restart, that a
+refused refresh restarts the connection and reloads snapshots, that a hub without the status field
+refreshes nothing, and that the store connects with the status field and restarts after an account
+switch. For push, check the RFC 8291 test vector,
 a verifiable VAPID token, the endpoint allow-list, the notification rules, an
 encrypted delivery without message content, the opt-out and the removal of a gone
 subscription (SPM-264), and on both providers that Web Push and in-app notifications skip a
@@ -2492,3 +2545,8 @@ opt-in no imported tool is listed (SPM-399).
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/ImportedMcpToolExportSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/ImportedMcpToolExportSamplesTests.cs)
+- SPM-400 — The project assistant opens a project and hands a new task to the person's portal with client tools
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleClientToolsComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleClientToolsComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs)
