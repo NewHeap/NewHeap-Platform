@@ -19,9 +19,9 @@ export const NH_ASSISTANT_TOKENS_ATTRIBUTE = 'data-nh-assistant-tokens';
 
 /**
  * The stylesheet of the theme tokens (internal). It is never placed in a template: creating it adds
- * its styles to the document through Angular's shared styles, on the server and in the browser, as
- * Angular's own components load styles they share. The styles apply to the elements marked with
- * {@link NH_ASSISTANT_TOKENS_ATTRIBUTE}.
+ * its styles to the document through Angular's shared styles host, on the server and in the
+ * browser, the way the Angular CDK loads the structural styles its components share. The styles
+ * apply to the elements marked with {@link NH_ASSISTANT_TOKENS_ATTRIBUTE}.
  */
 @Component({
   selector: 'nh-assistant-tokens',
@@ -33,9 +33,12 @@ export const NH_ASSISTANT_TOKENS_ATTRIBUTE = 'data-nh-assistant-tokens';
 })
 export class NhAssistantTokensComponent {}
 
-/** Adds the tokens stylesheet to the document once per application (internal). */
+/**
+ * Adds the tokens stylesheet to the document once per application (internal). It stays until the
+ * application is destroyed; without a marked element its rules match nothing.
+ */
 @Injectable({ providedIn: 'root' })
-export class NhAssistantTokensLoader {
+class NhAssistantTokensLoader {
   private readonly injector = inject(EnvironmentInjector);
   private stylesheet?: ComponentRef<NhAssistantTokensComponent>;
 
