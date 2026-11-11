@@ -245,6 +245,41 @@ the included context in its tooltip; clicking it leaves context out of the next 
 `clientContext: null`. Page context is untrusted data: the server treats entity ids as
 search hints and still authorizes every tool call.
 
+## Client tools
+
+A client tool runs in the person's browser, in your own interface, when the agent calls it: it opens a
+page or your own create form prefilled, and the person saves the change through your normal API. The
+server declares every client tool with `AddClientTool<TInput>(...)`; the browser only registers a
+handler per tool id, in the same providers as `provideNhAssistant`:
+
+```typescript
+import { provideNhAssistantClientTools } from '@newheap/platform-ai-chat';
+import { nhAssistantModalTool, nhAssistantNavigateTool } from '@newheap/platform-ai-chat/client-tools';
+
+provideNhAssistantClientTools(
+  nhAssistantNavigateTool<{ projectId?: unknown }>({
+    toolId: 'app.open-project',
+    // Your allow-list: a route from checked values, or null to refuse.
+    route: args => isProjectId(args.projectId) ? ['/projects', args.projectId] : null
+  }),
+  nhAssistantModalTool<{ projectId?: unknown; title?: unknown }, TaskViewModel>({
+    toolId: 'app.create-task',
+    loadComponent: () => import('./task-create-modal.component').then(module => module.TaskCreateModalComponent),
+    accepts: args => isProjectId(args.projectId),
+    options: () => ({ title: 'Create task', modalClasses: 'large' }),
+    inputs: args => ({ prefill: { projectId: args.projectId, title: typeof args.title === 'string' ? args.title : '' } }),
+    resultId: task => task.id
+  })
+);
+```
+
+The assistant names these ids with every message, runs a handler only for the `client-tool.requested`
+event of the person's own turn once its stream ended, and reports what happened, which continues the
+turn: `navigated`, or `saved` (with the id `resultId` returns), `cancelled` or `closed` for the modal. A
+handler of your own implements `NhAssistantClientToolHandler`; it starts in the assistant's injection
+context and returns `completed`, `declined`, `unavailable` or `failed` with a dash-case `outcome`. The
+arguments are bound to the tool's input on the server, but treat them as untrusted values all the same.
+
 ## Preferences
 
 The panel header opens `nh-assistant-preferences`. Users choose a style (standard,
