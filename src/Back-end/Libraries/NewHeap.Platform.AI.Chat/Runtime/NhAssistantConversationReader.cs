@@ -105,6 +105,10 @@ internal sealed class NhAssistantConversationReader(
                         parts.Add(question);
                         questions.Add(question);
                         break;
+                    case NhAssistantStoredPart.PlanType when NhAssistantPlans.ViewOf(part) is { } plan:
+                        // The agent's plan as it stood after the last update in this message.
+                        parts.Add(plan);
+                        break;
                     case NhAssistantStoredPart.SkillType when part.SkillId is not null:
                         // The message names the skill it worked in at its end (LS20).
                         skillId = part.SkillId;

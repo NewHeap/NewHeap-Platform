@@ -394,6 +394,46 @@ public static class NhAssistantQuestionLimits
 }
 
 /// <summary>
+/// The bounds of the plan an agent keeps with <c>update_plan</c> (<c>run.KeepPlan()</c>): an update
+/// that breaks them changes nothing, and the model reads <see cref="NhAssistantErrorCodes.PlanInvalid"/>
+/// or <see cref="NhAssistantErrorCodes.PlanUpdateLimitReached"/> instead.
+/// </summary>
+public static class NhAssistantPlanLimits
+{
+    /// <summary>The most steps of one plan.</summary>
+    public const int MaxSteps = 10;
+
+    /// <summary>The most characters of one step, after its white space is collapsed.</summary>
+    public const int MaxStepLength = 160;
+
+    /// <summary>
+    /// The most updates of the plan in one turn, across the parts of a turn that waited and continued.
+    /// Every update also counts as a tool call of the turn.
+    /// </summary>
+    public const int MaxUpdatesPerTurn = 20;
+}
+
+/// <summary>
+/// The status of one step of an agent's plan, as the assistant HTTP contract names it.
+/// </summary>
+public static class NhAssistantPlanStepStatuses
+{
+    /// <summary>The agent has not started the step.</summary>
+    public const string Pending = "pending";
+
+    /// <summary>The agent works on the step; at most one step of a plan is in progress.</summary>
+    public const string InProgress = "in-progress";
+
+    /// <summary>The agent finished the step.</summary>
+    public const string Completed = "completed";
+
+    public static bool IsKnown(string? status)
+    {
+        return status is Pending or InProgress or Completed;
+    }
+}
+
+/// <summary>
 /// Why a stale proposal no longer fits, as exposed by the assistant HTTP contract.
 /// </summary>
 public static class NhAssistantStaleKinds
@@ -1618,6 +1658,19 @@ public static class NhAssistantErrorCodes
     /// became stale or its execution failed.
     /// </summary>
     public const string McpProposalClosed = "assistant-mcp-proposal-closed";
+
+    /// <summary>
+    /// The agent's <c>update_plan</c> call broke the bounds of <see cref="NhAssistantPlanLimits"/>, gave
+    /// both or neither of a list of steps and <c>advance</c>, or advanced a plan the turn does not have
+    /// or has finished. The plan stayed as it was; the model reads the code as the call's result.
+    /// </summary>
+    public const string PlanInvalid = "assistant-plan-invalid";
+
+    /// <summary>
+    /// The turn updated its plan <see cref="NhAssistantPlanLimits.MaxUpdatesPerTurn"/> times already;
+    /// the plan stayed as it was.
+    /// </summary>
+    public const string PlanUpdateLimitReached = "assistant-plan-update-limit-reached";
 
     /// <summary>
     /// Creates the localization key for a code.

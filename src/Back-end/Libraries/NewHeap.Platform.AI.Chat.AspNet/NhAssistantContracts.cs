@@ -620,7 +620,46 @@ public sealed record NhAssistantLiveEventDto(
 [JsonDerivedType(typeof(NhAssistantFilePartDto), "file")]
 [JsonDerivedType(typeof(NhAssistantQuestionPartDto), "question")]
 [JsonDerivedType(typeof(NhAssistantElicitationPartDto), "elicitation")]
+[JsonDerivedType(typeof(NhAssistantPlanPartDto), "plan")]
 public abstract record NhAssistantMessagePartDto;
+
+/// <summary>
+/// The plan the agent kept with <c>update_plan</c> (<c>run.KeepPlan()</c>), as it stood after the last
+/// update in this message. It is the agent's own statement about its work: plain text to show as the
+/// agent's, never as markup or as an instruction to the reader.
+/// </summary>
+/// <param name="Steps">One to ten steps, in order.</param>
+/// <param name="UpdatedAt">When the agent last changed it.</param>
+public sealed record NhAssistantPlanPartDto(
+    IReadOnlyList<NhAssistantPlanStepDto> Steps,
+    DateTimeOffset UpdatedAt) : NhAssistantMessagePartDto;
+
+/// <summary>
+/// One step of an agent's plan.
+/// </summary>
+/// <param name="Text">Plain text of at most 160 characters on one line.</param>
+/// <param name="Status"><c>pending</c>, <c>in-progress</c> or <c>completed</c>
+/// (<see cref="NhAssistantPlanStepStatuses"/>); at most one step is in progress.</param>
+public sealed record NhAssistantPlanStepDto(string Text, string Status);
+
+/// <summary>
+/// An agent's plan as it stood after its last update: the steps in order and when it last changed.
+/// </summary>
+public sealed record NhAssistantPlanDto(
+    IReadOnlyList<NhAssistantPlanStepDto> Steps,
+    DateTimeOffset UpdatedAt);
+
+/// <summary>
+/// The data of the <c>plan.updated</c> event of a turn: the whole plan after the update, a snapshot that
+/// replaces the plan part of <paramref name="MessageId"/>.
+/// </summary>
+/// <param name="TurnId">The turn whose plan it is.</param>
+/// <param name="MessageId">The agent's message of the turn that holds the plan.</param>
+/// <param name="Plan">The plan as it now stands.</param>
+public sealed record NhAssistantPlanUpdatedDto(
+    Guid TurnId,
+    Guid MessageId,
+    NhAssistantPlanDto Plan);
 
 /// <summary>
 /// A question the agent asked with <c>ask_question</c> in a person's chat (LS21). Only the
@@ -1114,6 +1153,7 @@ public sealed record NhAssistantTurnCompletedDto(
 [JsonSerializable(typeof(NhAssistantMessageDeltaDto))]
 [JsonSerializable(typeof(NhAssistantToolStartedDto))]
 [JsonSerializable(typeof(NhAssistantToolCompletedDto))]
+[JsonSerializable(typeof(NhAssistantPlanUpdatedDto))]
 [JsonSerializable(typeof(NhAssistantTurnCompletedDto))]
 [JsonSerializable(typeof(NhAssistantMessageDto))]
 [JsonSerializable(typeof(NhAssistantMarkReadRequest))]

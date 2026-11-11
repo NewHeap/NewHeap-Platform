@@ -838,7 +838,15 @@ public sealed record NhAssistantRunResultDto(
     IReadOnlyList<NhAssistantProposalDto> Proposals,
     int HiddenProposals,
     IReadOnlyList<NhAssistantArtifactDto> Artifacts,
-    bool CanOpenConversation);
+    bool CanOpenConversation)
+{
+    /// <summary>
+    /// The plan the run's agent kept of its work with <c>update_plan</c> (<c>run.KeepPlan()</c>), as it
+    /// stood after the run's last update: the agent's own statement, plain text to show as the agent's.
+    /// <see langword="null"/> for a run whose agent kept none.
+    /// </summary>
+    public NhAssistantPlanDto? Plan { get; init; }
+}
 
 /// <summary>
 /// The subjects of one type a search found that the caller may see, in the order the application's

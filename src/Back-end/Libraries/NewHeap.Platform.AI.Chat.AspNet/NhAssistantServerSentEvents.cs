@@ -138,6 +138,9 @@ internal sealed class NhAssistantServerSentEventsResult(NhAssistantTurnHandle ha
             NhAssistantElicitationClosedEvent closed => ("elicitation.closed", Json(
                 NhAssistantDtoMapper.ToDto(closed.Elicitation),
                 context.NhAssistantMessagePartDto)),
+            NhAssistantPlanUpdatedEvent plan => ("plan.updated", Json(
+                new NhAssistantPlanUpdatedDto(plan.TurnId, plan.MessageId, NhAssistantDtoMapper.ToPlanDto(plan.Plan)),
+                context.NhAssistantPlanUpdatedDto)),
             NhAssistantConnectionRequiredEvent connection => ("connection.required", Json(
                 new NhAssistantConnectionRequiredDto(connection.ServerId, connection.DisplayName, connection.Reason),
                 context.NhAssistantConnectionRequiredDto)),
@@ -326,6 +329,20 @@ internal static class NhAssistantDtoMapper
     }
 
     /// <summary>
+    /// An agent's plan as the API shows it outside a message: in <c>plan.updated</c> and a run's result.
+    /// </summary>
+    public static NhAssistantPlanDto ToPlanDto(NhAssistantPlanPartView plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        return new NhAssistantPlanDto(StepsOf(plan), plan.UpdatedAt);
+    }
+
+    private static NhAssistantPlanStepDto[] StepsOf(NhAssistantPlanPartView plan)
+    {
+        return plan.Steps.Select(step => new NhAssistantPlanStepDto(step.Text, step.Status)).ToArray();
+    }
+
+    /// <summary>
     /// The caller who may resolve uncertain executions in <paramref name="view"/>: the caller of a chat;
     /// an agent thread's uncertain executions are resolved through <c>approvals/{id}/resolve</c>.
     /// </summary>
@@ -384,6 +401,7 @@ internal static class NhAssistantDtoMapper
                 UrlHost = elicitation.UrlHost,
                 ClosedAt = elicitation.ClosedAt
             },
+            NhAssistantPlanPartView plan => new NhAssistantPlanPartDto(StepsOf(plan), plan.UpdatedAt),
             NhAssistantQuestionView question => new NhAssistantQuestionPartDto(
                 question.QuestionId,
                 question.Question,

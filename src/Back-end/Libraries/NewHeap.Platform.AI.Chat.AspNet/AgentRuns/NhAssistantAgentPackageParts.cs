@@ -88,7 +88,8 @@ internal static class NhAssistantAgentPackageParts
         {
             // Written only when there are any, so the hash of run settings without them is the one they
             // had before the list existed and no linked agent reads as changed locally.
-            AlertKinds = alertKinds.Count == 0 ? null : alertKinds
+            AlertKinds = alertKinds.Count == 0 ? null : alertKinds,
+            KeepsPlan = row.KeepsPlan ? true : null
         };
     }
 
@@ -312,7 +313,8 @@ internal static class NhAssistantAgentPackageParts
             part.MaxFileTokensPerTurn)
         {
             // The package's list replaces the host's: left out lists none.
-            AlertKinds = part.AlertKinds ?? []
+            AlertKinds = part.AlertKinds ?? [],
+            KeepsPlan = part.KeepsPlan == true
         };
     }
 

@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Runs;
+using NewHeap.Platform.AI.Chat.Runtime;
 
 namespace NewHeap.Platform.AI.Chat.Persistence;
 
@@ -1417,6 +1418,45 @@ internal sealed class NhAssistantRunStore(NhAssistantDbContextFactory contextFac
                 select new { run, thread })
             .SingleOrDefaultAsync(cancellationToken);
         return row is null ? null : new NhAssistantRunRow(row.run, row.thread);
+    }
+
+    /// <summary>
+    /// The most agent messages of a run that <see cref="FindRunPlanAsync"/> reads, newest first: enough
+    /// for every turn of a run and the messages its turns continued in after a decision.
+    /// </summary>
+    internal const int MaxRunPlanMessages = 50;
+
+    /// <summary>
+    /// The plan the run's agent kept with <c>update_plan</c>, as it stood after the run's last update;
+    /// <see langword="null"/> for a run whose agent kept none. The plan lives in the agent's messages of
+    /// the run's turns, which name the run; the run's thread works on one turn at a time, so those are
+    /// the thread's agent messages written while the run lived, read newest first.
+    /// </summary>
+    internal async Task<NhAssistantPlanPartView?> FindRunPlanAsync(AssistantRun run, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(run);
+        if (run.StartedAt is not { } startedAt)
+        {
+            return null;
+        }
+
+        await using var context = contextFactory.CreateDbContext();
+        var query = context.Messages.AsNoTracking()
+            .Where(message => message.ConversationId == run.ConversationId
+                              && message.Role == NhAssistantMessageRoles.Assistant
+                              && message.CreatedAt >= startedAt);
+        if (run.EndedAt is { } endedAt)
+        {
+            query = query.Where(message => message.CreatedAt <= endedAt);
+        }
+
+        var parts = await query
+            .OrderByDescending(message => message.CreatedAt)
+            .ThenByDescending(message => message.Sequence)
+            .Select(message => message.PartsJson)
+            .Take(MaxRunPlanMessages)
+            .ToListAsync(cancellationToken);
+        return NhAssistantPlans.LatestOfRun(parts, run.Id);
     }
 
     /// <summary>

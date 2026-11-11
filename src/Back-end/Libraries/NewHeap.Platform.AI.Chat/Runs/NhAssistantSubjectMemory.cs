@@ -483,6 +483,16 @@ internal sealed class NhAssistantMemoryFunction(
         "Asks a person of the conversation a question with choices and waits for the answer.",
         NhAiToolEffect.ReadOnly);
 
+    /// <summary>
+    /// <c>update_plan</c>: sets or advances the short plan the agent shows of its work in this turn
+    /// (<c>run.KeepPlan()</c>). It changes nothing outside the turn's own message.
+    /// </summary>
+    public static NhAiToolDescriptor PlanDescriptor { get; } = Create(
+        "assistant.plan",
+        "update_plan",
+        "Keeps the plan the agent shows of its work.",
+        NhAiToolEffect.ReadOnly);
+
     private readonly JsonElement _schema = JsonDocument.Parse(schema).RootElement.Clone();
 
     public NhAiToolDescriptor Descriptor { get; } = descriptor;

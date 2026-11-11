@@ -154,6 +154,12 @@ public sealed record NhAssistantPackageRunSettings(
     /// property.
     /// </summary>
     public IReadOnlyList<string>? AlertKinds { get; init; }
+
+    /// <summary>
+    /// The agent keeps a plan of its work: written only when it does, so the hash of run settings
+    /// without it is the one they had before the setting existed. Left out keeps no plan.
+    /// </summary>
+    public bool? KeepsPlan { get; init; }
 }
 
 /// <summary>

@@ -281,6 +281,14 @@ public sealed class NhAssistantAgentRunOptions
     public bool AllowQuestions { get; internal set; }
 
     /// <summary>
+    /// The agent keeps a short visible plan of its work with <c>update_plan</c>, in its runs, in the
+    /// turns of its threads and in people's chats with it. Off by default; see
+    /// <see cref="NhAssistantAgentRunBuilder.KeepPlan"/>, or the run settings of an agent created in the
+    /// administration.
+    /// </summary>
+    public bool KeepsPlan { get; internal set; }
+
+    /// <summary>
     /// In headless runs the agent may use what the person or technical account it answers to may
     /// use, within its tool selectors (<see cref="NhAiGrantSource.Accountable"/>). Always on for an
     /// agent whose run settings are data.
@@ -871,6 +879,22 @@ public sealed class NhAssistantAgentRunBuilder
     public NhAssistantAgentRunBuilder AllowQuestions(bool enabled = true)
     {
         _options.AllowQuestions = enabled;
+        return this;
+    }
+
+    /// <summary>
+    /// Lets the agent keep a short visible plan of its work: its runs, the turns of its threads and
+    /// people's chats with it offer the assistant's own <c>update_plan</c>, with which the model sets the
+    /// whole list of steps (pending, in progress or completed) or advances to the next step. The plan is
+    /// plain text within <see cref="NhAssistantPlanLimits"/>; an update needs no approval and counts
+    /// against the turn's tool calls. The turn's message keeps the plan, the turn streams it as
+    /// <c>plan.updated</c> to its request and the conversation's live updates, and a run's result
+    /// (<c>GET runs/{id}</c>) shows the run's last plan. It is the agent's statement about its own work:
+    /// people see it as the agent's, and no later turn reads it. Consultations never offer it.
+    /// </summary>
+    public NhAssistantAgentRunBuilder KeepPlan(bool enabled = true)
+    {
+        _options.KeepsPlan = enabled;
         return this;
     }
 
