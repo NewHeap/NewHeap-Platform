@@ -68,7 +68,7 @@ public sealed class NhBackgroundOperationsOptions
     /// sessions changed their security stamp, or an impersonation's origin session ended. Without the
     /// check such a connection keeps receiving its user's changes until the authentication it was opened
     /// with expires. After an accepted refresh (<see cref="HubAuthenticationRefresh"/>) the check
-    /// validates the refreshed principal. Each check reads the user once through the validator; a host
+    /// validates the refreshed principal. Each check asks the validator once per open connection; a host
     /// without a registered validator, such as one with its own authentication, is not checked.
     /// </summary>
     public bool HubSessionCheckEnabled { get; set; } = true;
