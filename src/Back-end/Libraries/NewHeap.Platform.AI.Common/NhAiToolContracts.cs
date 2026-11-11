@@ -189,8 +189,11 @@ public sealed class NhAiToolAttribute(
     /// <see cref="NhAiToolTaskSupport.Required"/> lets a client with the MCP Tasks extension call it as a
     /// task where the exposure enables tasks. The tool's <see cref="TimeoutSeconds"/> still bounds every
     /// call, also as a task. Requires <see cref="NhAiToolExposure.Mcp"/>; the generator refuses it
-    /// otherwise (<c>NHAI020</c>). How a client receives the result is no part of what the tool does, so
-    /// it does not change the tool's contract hash.
+    /// otherwise (<c>NHAI020</c>). A task runs after its request ended, without the caller's token, so the
+    /// generator also refuses it for a tool set that takes <c>INhAiCallerCredentialAccessor</c> or
+    /// <c>IHttpContextAccessor</c> (<c>NHAI021</c>): such a tool reads the caller's token or request.
+    /// How a client receives the result is no part of what the tool does, so it does not change the
+    /// tool's contract hash.
     /// </summary>
     public NhAiToolTaskSupport TaskSupport { get; set; } = NhAiToolTaskSupport.None;
 
@@ -347,6 +350,17 @@ public sealed record NhAiToolDescriptor(
     /// A hand-built or attested catalog may set it; it takes part in no contract hash.
     /// </summary>
     public NhAiToolTaskSupport TaskSupport { get; init; } = NhAiToolTaskSupport.None;
+
+    /// <summary>
+    /// Whether the tool passes the calling person's own token on, as the API bridge's tools and the
+    /// gateway's reads do with <c>INhAiCallerCredentialAccessor</c>. Such a tool needs its caller's
+    /// request, so it never runs as an MCP task, which runs after its request ended and without the
+    /// caller's token: the MCP exposure refuses to start when an exported tool declares both this and
+    /// <see cref="TaskSupport"/>. A hand-built or attested catalog sets it for a tool that passes the
+    /// caller's token on; the generator refuses task support for a tool set that takes the caller's token
+    /// or request instead (<c>NHAI021</c>). It takes part in no contract hash.
+    /// </summary>
+    public bool ForwardsCallerToken { get; init; }
 
     /// <summary>
     /// The maximum number of concurrent invocations. A further call waits for a free slot until the

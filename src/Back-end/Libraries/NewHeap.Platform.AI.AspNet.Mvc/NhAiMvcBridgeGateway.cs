@@ -409,6 +409,9 @@ internal static class NhAiMvcBridgeGatewayBuilderLogic
                 ContractHash = Hash(id + "\n" + inputSchema + "\n" + resourceMaterial),
                 Approval = NhAiApprovalRequirement.PolicyControlled,
                 Idempotency = NhAiIdempotencySupport.None,
+                // A query or get reads the API with the caller's token, or a person's delegated read
+                // credential in a headless run; searching and describing resources reads nothing.
+                ForwardsCallerToken = kind is NhAiMvcBridgeGatewayKinds.Query or NhAiMvcBridgeGatewayKinds.Get,
                 Timeout = TimeSpan.FromSeconds(defaults.TimeoutSeconds),
                 MaxConcurrency = defaults.MaxConcurrency,
                 MaxInputBytes = defaults.MaxInputBytes,

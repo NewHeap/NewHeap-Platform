@@ -32,7 +32,12 @@ public sealed class NhAiMvcBridgeGatewayTests
             Assert.Equal(NhAiToolEffect.ReadOnly, descriptor.Effect);
             Assert.True(descriptor.Exposure.HasFlag(NhAiToolExposure.Mcp));
             Assert.InRange(descriptor.ExportName.Length, 1, 64);
+            Assert.Equal(NhAiToolTaskSupport.None, descriptor.TaskSupport);
         });
+        // Query and get read the API with the caller's token; searching and describing read nothing.
+        Assert.Equal(
+            ["test-gateway.get", "test-gateway.query"],
+            gatewayTools.Where(descriptor => descriptor.ForwardsCallerToken).Select(descriptor => descriptor.Id));
         Assert.Equal(["order", "order-audit"], catalog.GatewayResources.Order(StringComparer.Ordinal));
         NhAiToolCatalogAttestation.Validate(catalog, factory.Services.CreateScope().ServiceProvider);
     }

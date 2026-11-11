@@ -548,20 +548,23 @@ internal sealed class NhAssistantStartupValidator(
         // A chat-only agent never runs, so it needs no background operations (FB8).
         if (state.CodeAgentRuns.Values.Any(run => !run.ChatOnly))
         {
-            var operations = provider.GetService<NewHeap.Platform.AspNet.Common.Services.BackgroundOperations.NhBackgroundOperationRegistry>();
-            if (operations is null
-                || !operations.TryGetForOperationType(NhAssistantAgentRunOperationTypes.Run, out _)
-                || !operations.TryGetForOperationType(NhAssistantAgentRunOperationTypes.ExecuteProposal, out _)
-                || !operations.TryGetForOperationType(NhAssistantAgentRunOperationTypes.ExecuteProposalOnce, out _))
-            {
-                throw new InvalidOperationException(
-                    "Agents configured with ConfigureAgent need background operations. Call AddAssistantAgentRuns inside WithBackgroundOperations.");
-            }
-
             var subjectTypes = provider.GetRequiredService<NewHeap.Platform.AI.Chat.Runs.NhAssistantSubjectAccessService>();
             // The platform's own whole application serves schedules without subjects; every other
             // trigger works on the application's objects.
             var applicationTypes = subjectTypes.SubjectTypes.Count(type => !NhAiSubjectRef.IsReservedType(type));
+            if (NeedsBackgroundOperations(applicationTypes))
+            {
+                var operations = provider.GetService<NewHeap.Platform.AspNet.Common.Services.BackgroundOperations.NhBackgroundOperationRegistry>();
+                if (operations is null
+                    || !operations.TryGetForOperationType(NhAssistantAgentRunOperationTypes.Run, out _)
+                    || !operations.TryGetForOperationType(NhAssistantAgentRunOperationTypes.ExecuteProposal, out _)
+                    || !operations.TryGetForOperationType(NhAssistantAgentRunOperationTypes.ExecuteProposalOnce, out _))
+                {
+                    throw new InvalidOperationException(
+                        "Agents configured with ConfigureAgent need background operations. Call AddAssistantAgentRuns inside WithBackgroundOperations.");
+                }
+            }
+
             foreach (var trigger in state.CodeTriggers.Values.Where(trigger => !trigger.IsSystemSchedule))
             {
                 if (applicationTypes == 0)
@@ -573,6 +576,32 @@ internal sealed class NhAssistantStartupValidator(
 
             await ValidateConsultationsAsync(provider, subjectTypes);
         }
+    }
+
+    /// <summary>
+    /// Whether an agent in code can run, which takes background operations: a run of the agent
+    /// (<see cref="NhAssistantAgentRunOperationTypes.Run"/>) for a start by hand on an object's page, a
+    /// person's message in its thread, a trigger, a schedule or a hand-off, and the execution of an
+    /// approved proposal in its thread, also one a consultation left there
+    /// (<see cref="NhAssistantAgentRunOperationTypes.ExecuteProposal"/>,
+    /// <see cref="NhAssistantAgentRunOperationTypes.ExecuteProposalOnce"/>). Every one of them works on a
+    /// subject the agent works on. An agent that works on nothing the host registers never runs: a
+    /// chat-only agent, and an agent that works on all object types, as one that does not say does, on a
+    /// host that registers none and without the whole application. Its chat settings, such as questions
+    /// and a plan, work in people's chats, which answer, decide and continue in their own requests.
+    /// </summary>
+    /// <param name="applicationTypes">How many object types of the application the host registers.</param>
+    private bool NeedsBackgroundOperations(int applicationTypes)
+    {
+        if (state.CodeTriggers.Count > 0)
+        {
+            return true;
+        }
+
+        return state.CodeAgentRuns.Values.Any(run => !run.ChatOnly
+            && (run.WorksOn.Application
+                || run.WorksOn.SubjectTypes.Count > 0
+                || (run.WorksOn.AllSubjects && applicationTypes > 0)));
     }
 
     /// <summary>

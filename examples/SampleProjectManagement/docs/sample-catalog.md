@@ -902,7 +902,12 @@ person's request id. A client without tasks gets the analysis it started right a
 `projects.portfolio-analysis-status`, as such clients always did, and its retry with the same request id
 finds the same analysis. The tasks live in the assistant's store, so every instance of the API answers a
 poll; another person or division never finds the task, and it expires an hour after the tool's timeout.
-`McpTaskSamplesTests` runs both clients with the official MCP SDK.
+`McpTaskSamplesTests` runs both clients with the official MCP SDK. A task runs on after its request
+ended and without the person's token, so the analysis works with the caller of its invocation context
+only. The API bridge's tools on the same endpoint call the API with that token: they declare
+`ForwardsCallerToken` and stay plain calls, which `AiBridgeSamplesTests` checks on an exposure with tasks.
+The generator would refuse task support for a tool set that takes `INhAiCallerCredentialAccessor` or
+`IHttpContextAccessor` (`NHAI021`), and the API would not start with a tool that declares both.
 
 Whether the assistant uses compositions and the script tool is the portal's own setting (SPM-371). The
 assistant settings page stores it per environment and agent in the portal's table

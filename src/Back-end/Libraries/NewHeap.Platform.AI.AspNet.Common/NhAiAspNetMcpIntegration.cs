@@ -444,6 +444,15 @@ internal sealed class NhAiMcpAuthorityStartupValidator(
                     throw new InvalidOperationException(
                         $"NewHeap AI MCP export name '{descriptor.ExportName}' is registered more than once.");
                 }
+                if (descriptor.TaskSupport != NhAiToolTaskSupport.None && descriptor.ForwardsCallerToken)
+                {
+                    // A task runs after its request ended, without the caller's token: the tool would
+                    // fail, or pass a token on only while the request happened to last.
+                    throw new InvalidOperationException(
+                        $"AI tool '{descriptor.Id}' of catalog '{catalog.Manifest.CatalogId}' declares MCP task support ({descriptor.TaskSupport}) "
+                        + "but passes the caller's token on (ForwardsCallerToken). An MCP task runs after its request ended, without the caller's token. "
+                        + "Set TaskSupport to None, or let the tool work with the caller of its NhAiInvocationContext instead of their token.");
+                }
             }
         }
 

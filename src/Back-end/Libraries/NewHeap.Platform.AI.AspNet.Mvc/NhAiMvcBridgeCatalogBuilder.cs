@@ -319,6 +319,8 @@ internal sealed class NhAiMvcBridgeCatalogBuilder(
                 ? NhAiApprovalRequirement.PolicyControlled
                 : NhAiApprovalRequirement.Required,
             Idempotency = readOnly ? NhAiIdempotencySupport.None : NhAiIdempotencySupport.Required,
+            // A bridge tool calls the application's own API with the caller's token.
+            ForwardsCallerToken = true,
             Timeout = TimeSpan.FromSeconds(timeoutSeconds),
             MaxConcurrency = defaults.MaxConcurrency,
             MaxInputBytes = defaults.MaxInputBytes,
