@@ -261,6 +261,9 @@ public static class SampleAssistantComposition
             // A reviewed research MCP tool receives who acts for whom and a bounded snapshot of the
             // conversation as request metadata; other MCP servers never do.
             .AddSampleResearchContext(configuration)
+            // SPM-399: with the opt-in, people call that reviewed research tool from their own AI app
+            // over the API's /mcp, as themselves and without a turn of the assistant in between.
+            .AddSampleImportedMcpToolExport(configuration)
             // SPM-366: the API's name in consultation chains across applications and the reviewed
             // partner whose chain a consultation over MCP continues.
             .AddSampleConsultationChain(configuration)

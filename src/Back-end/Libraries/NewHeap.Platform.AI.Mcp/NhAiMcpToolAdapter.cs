@@ -21,7 +21,10 @@ public interface INhAiMcpToolAdapter
 /// Adds tools to the MCP export of one request after the governed tools the caller may see, such as
 /// the script tool of <c>NewHeap.Platform.AI.Scripting</c>. A contributor receives exactly the governed
 /// tools the export lists for that caller and works only through them, so a contributed tool can never
-/// reach a tool the caller is not offered. Its tools run with the budget purpose of an MCP call. Register
+/// reach a tool the caller is not offered. The one exception is the assistant's opt-in export of reviewed
+/// imported MCP tools (<c>ExportImportedMcpTools</c> in NewHeap.Platform.AI.Chat.AspNet), which adds governed
+/// tools of its own, each checked with the host's discovery policy and run through the shared invoker.
+/// Its tools run with the budget purpose of an MCP call. Register
 /// it with <see cref="NhAiMcpServiceCollectionExtensions.AddNewHeapPlatformAIMcpToolContributor{TContributor}"/>;
 /// a contributed tool that takes the name of another tool of the export fails the listing.
 /// </summary>

@@ -1612,6 +1612,30 @@ or output of the running turn, also not text written before an approval pause. A
 the application reviews and stores while it runs, instead of in code, follows "Links the
 application stores" below.
 
+## Reviewed imported MCP tools for a person's own AI app
+
+Imported MCP tools never reach an MCP client by default. When people should call a coupled
+application's read tools from their own AI app, without a turn of the assistant in between, opt in
+with `ExportImportedMcpTools<TSelector>()` next to `WithNewHeapPlatformAITools` (SPM-399). The
+scoped `INhAssistantImportedMcpToolExportSelector` is asked per request about each enabled,
+read-only tool (`NhAssistantExportableMcpTool`: server, remote name and the reviewed description)
+of an enabled server whose credential belongs to the organization and whose required policy, or
+else the assistant's access policy, the caller passes; it returns an `NhAssistantImportedMcpToolExport`
+with the export name, or `null`. A tool is then imported for the calling person exactly as in that
+person's own turn: with the server's own credential (a person's OAuth connection or a forwarded
+token never serves the export), the reviewed description and the remote schema, skipped and, with the
+shared credential, disabled when its schema no longer matches the reviewed one. The host's
+`INhAiToolDiscoveryPolicy` must allow its `mcp.<server>.<tool>` id per caller, as the sample's
+`ProjectAiToolDiscoveryPolicy` does for the research server. A call runs through `INhAiToolInvoker`
+with the caller's invocation context and is audited there (`INhAiAuditSink`: tool id with server and
+tool, the caller, the outcome); the assistant's business audit stays bound to turns. A tool with a
+context binding receives `com.newheap/assistant-context` with `channel: mcp`, the caller as actor
+and `accountableOwnerId` and no conversation, snapshot or chain, so the remote binds the call to the
+person itself. A server that serves background runs with the organization's credential
+(`headlessUse: organization`) acts for nobody in particular and is left out unless the selection sets
+`AllowOrganizationHeadlessServer`. An export name holds 1 to 64 letters, digits, underscores, dots or
+dashes; one that another tool of the export has fails the listing. Mutating tools are not exported.
+
 ## Consultation chains across applications
 
 When cooperating applications consult each other's agents over MCP, let them keep one
@@ -1818,6 +1842,11 @@ returned to the model, and per tool what the calls saved: `GET admin/agents/{id}
 calls in a consultation store nothing and are not listed.
 
 ## Avoid
+
+- Exporting imported MCP tools by registering them as MCP-exposed catalogs or a second MCP client in
+  the host; use `ExportImportedMcpTools`, which keeps the turn's credential, binding, bounds and audit.
+  Do not allow a server that serves background runs with the organization's credential in the export
+  unless that server binds each call to the person itself.
 
 - Treating a chat about a subject as the agent's thread, or authorizing a tool on
   `ConversationSubject` alone: it names what the person asked about, and the tool still checks the
@@ -2154,6 +2183,15 @@ the ceiling, its setting and the switch all allow it (SPM-371). For a compositio
 validates scopes, as Development does, with a scoped catalog next to it, and assert that it starts and
 that a step's tool of that catalog runs with the turn's own services (SPM-372).
 
+For reviewed imported MCP tools in the export, call the host's `/mcp` over Streamable HTTP and assert
+on SQL Server and PostgreSQL that only the read-only tools the selector names are listed, under its
+names with the reviewed description and the remote schema; that a call reaches the remote with the
+caller as actor and `accountableOwnerId`, `channel: mcp` and no conversation, and is audited; that a
+changed remote schema leaves the tool out and disables it; that the server's required policy and the
+discovery policy decide per caller; that a server with organization background use is exported only
+when the selection allows it; that a duplicate export name fails the listing; and that without the
+opt-in no imported tool is listed (SPM-399).
+
 ## Executable evidence
 
 - SPM-245 — Assistant conversation with streamed turn
@@ -2346,3 +2384,8 @@ that a step's tool of that catalog runs with the turn's own services (SPM-372).
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs)
   - [../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpConnectionSpeedTests.cs](../../examples/SampleProjectManagement/../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpConnectionSpeedTests.cs)
+- SPM-399 — A person calls a reviewed tool of an imported MCP server from their own AI app
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleImportedMcpToolExport.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleImportedMcpToolExport.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/ImportedMcpToolExportSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/ImportedMcpToolExportSamplesTests.cs)

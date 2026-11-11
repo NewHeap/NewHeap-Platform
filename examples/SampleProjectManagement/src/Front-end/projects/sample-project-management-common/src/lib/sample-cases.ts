@@ -7288,5 +7288,23 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhLogoutAuthenticationHandler.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/LogoutEndpointProviderTests.cs"
     ]
+  },
+  {
+    "id": "SPM-399",
+    "title": "A person calls a reviewed tool of an imported MCP server from their own AI app",
+    "category": "AI tools and generated catalogs",
+    "surface": "NhAssistantImportedMcpToolExports.ExportImportedMcpTools<TSelector> with INhAssistantImportedMcpToolExportSelector, NhAssistantExportableMcpTool, NhAssistantImportedMcpToolExport (ExportName, AllowOrganizationHeadlessServer), NhAssistantImportedMcpToolExports.IsExportName and MaxExportNameLength, next to WithNewHeapPlatformAITools; the assistant context of an exported call (channel: mcp, the caller as accountableOwnerId, no conversation)",
+    "outcome": "With the opt-in, the API's own /mcp offers the reviewed research tool to a person's AI app under the name the selector gives it, with the reviewed description and the remote schema, read-only. The call runs through the governed invoker as in that person's own turn, with the server's own credential, and the research service receives the assistant context with the person as actor and accountable owner, `channel: mcp` and no conversation or snapshot. The same service connected under another id stays with the assistant, and without the opt-in no imported tool reaches an MCP client. NewHeap exports only enabled read-only tools whose schema still matches the reviewed one, only of servers with the organization's credential, not of a server that serves background runs with that credential unless the selection allows it, and only to a person who passes the server's required policy and the host's discovery policy; an export name another tool of the export has fails the listing, and every call is audited by the invoker.",
+    "implementation": "implemented",
+    "evidence": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleImportedMcpToolExport.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ImportedMcpToolExportSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantImportedMcpToolExports.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantImportedMcpToolExportTests.cs"
+    ]
   }
 ] as const;

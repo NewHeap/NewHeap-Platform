@@ -18,6 +18,13 @@ public sealed class ProjectAiToolDiscoveryPolicy : INhAiToolDiscoveryPolicy
     /// </summary>
     private const string AgentBuilderToolPrefix = "assistant.agent-builder.";
 
+    /// <summary>
+    /// SPM-399: the tools of the reviewed research server (<c>mcp.research.&lt;tool&gt;</c>), which the API
+    /// exports to a person's own AI app when it opts in. The server's required policy, or else the
+    /// assistant's access policy, decides every call; they need no division.
+    /// </summary>
+    private const string ExportedResearchToolPrefix = "mcp.research.";
+
     public ValueTask<bool> CanDiscoverAsync(
         NhAiToolDescriptor descriptor,
         NhAiInvocationContext context,
@@ -27,6 +34,11 @@ public sealed class ProjectAiToolDiscoveryPolicy : INhAiToolDiscoveryPolicy
         if (descriptor.Id.StartsWith(AgentBuilderToolPrefix, StringComparison.Ordinal))
         {
             return ValueTask.FromResult(descriptor.RequiresAuthorization);
+        }
+
+        if (descriptor.Id.StartsWith(ExportedResearchToolPrefix, StringComparison.Ordinal))
+        {
+            return ValueTask.FromResult(descriptor.RequiresAuthorization && descriptor.Effect == NhAiToolEffect.ReadOnly);
         }
 
         var hasAuthorizedDivision = context.TryGetScopeValue(

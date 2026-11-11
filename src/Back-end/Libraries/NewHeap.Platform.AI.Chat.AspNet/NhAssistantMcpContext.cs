@@ -345,6 +345,9 @@ internal sealed class NhAssistantMcpContextBindings(IEnumerable<NhAssistantMcpCo
 /// <summary>
 /// Binds the assistant context to a reviewed MCP call. The snapshot provider verifies the call,
 /// the turn and the accountable actor's access, so a stale or foreign call fails before sending. A
+/// call of a tool the host exports to its own MCP clients (<see cref="NhAssistantImportedMcpToolExports"/>)
+/// runs in no turn: it names the calling person as accountable, carries <c>channel: mcp</c> and no
+/// conversation, snapshot or chain, and binds only when the invocation is the exported call's own. A
 /// call from a consultation turn, which only a binding with the chain binds, is verified against the
 /// running call and carries no snapshot. A tool of an administrator-connected server that a stored
 /// binding bound when the turn imported it fails to bind once that binding is revoked.
@@ -403,6 +406,26 @@ internal sealed class NhAssistantMcpContextBinder(
             ["invocation"] = context.Identity.ToJson()
         };
         var turn = NhAssistantExecutionScope.CurrentTurn;
+        if (turn is null && NhAssistantMcpExportCall.ActorId is { } exportActor)
+        {
+            // An exported call has no turn to verify: the person the export authorized must be the
+            // invocation's own human actor.
+            if (context.Invocation.ActorKind != NhAiActorKind.Human
+                || !string.Equals(context.Invocation.ActorId, exportActor, StringComparison.Ordinal))
+            {
+                return TaskResult<NhAiMcpRequestMetadata>.Failed(
+                    NhAssistantSnapshotCodes.Forbidden,
+                    "The invocation does not belong to the exported MCP call.");
+            }
+
+            var invocation = (JsonObject)json["invocation"]!;
+            // A person who calls a tool from their own AI app answers for the call.
+            invocation["accountableOwnerId"] ??= exportActor;
+            json["channel"] = NhAssistantMcpExportCall.Channel;
+            return TaskResult<NhAiMcpRequestMetadata>.Succeeded(
+                NhAiMcpRequestMetadata.Create(NhAssistantMcpContext.MetaKey, json));
+        }
+
         if (binding.IncludeChain && turn?.Consultation is not null)
         {
             // A consultation turn works in the consulted agent's thread and stores no messages, so the

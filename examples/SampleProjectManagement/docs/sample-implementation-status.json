@@ -384,7 +384,8 @@
     "SPM-395",
     "SPM-396",
     "SPM-397",
-    "SPM-398"
+    "SPM-398",
+    "SPM-399"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -4556,6 +4557,16 @@
       "../../src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.spec.ts",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhLogoutAuthenticationHandler.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/LogoutEndpointProviderTests.cs"
+    ],
+    "SPM-399": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleImportedMcpToolExport.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ImportedMcpToolExportSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantImportedMcpToolExports.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpConnections.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantMcpContext.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantImportedMcpToolExportTests.cs"
     ]
   }
 }

@@ -850,6 +850,87 @@ internal sealed partial class NhAssistantMcpToolSource(
     }
 
     /// <summary>
+    /// The governed functions of the reviewed tools a host exports to MCP clients
+    /// (<see cref="NhAssistantImportedMcpToolExports"/>), for <paramref name="personActorId"/>: planned,
+    /// connected and imported exactly as a person's own turn imports them, with the server's own
+    /// credential, the reviewed descriptions and schemas and the server's context binding. A tool
+    /// whose schema changed is left out and, with the shared credential, disabled as in a turn; a server
+    /// that does not connect is left out with its code in <see cref="NhAssistantMcpToolSet.SkippedServers"/>.
+    /// </summary>
+    internal async Task<NhAssistantMcpToolSet> GetExportToolsAsync(
+        IReadOnlyList<(AssistantMcpServer Server, IReadOnlyList<AssistantMcpTool> Tools)> selected,
+        string personActorId,
+        CancellationToken cancellationToken)
+    {
+        var subject = new NhAssistantMcpCredentialSubject(false, personActorId, NhAiGrantSource.None, null);
+        var skipped = new Dictionary<string, string>(StringComparer.Ordinal);
+        var skippedTools = new Dictionary<string, string>(StringComparer.Ordinal);
+        var planned = new List<PlannedConnection>(selected.Count);
+        foreach (var (server, tools) in selected)
+        {
+            var plan = await planner.PlanAsync(server, subject, cancellationToken);
+            if (!plan.Success)
+            {
+                await SkipAsync(server, skipped, NhAssistantResults.CodeOf(plan), perCaller: false);
+                continue;
+            }
+            planned.Add(new PlannedConnection(server, plan.Data, tools));
+        }
+
+        var functions = new List<AIFunction>();
+        var leases = new List<NhAssistantMcpLease>();
+        var connected = await ConnectAllAsync(planned, cancellationToken);
+        for (var index = 0; index < planned.Count; index++)
+        {
+            var (server, plan, tools) = planned[index];
+            var lease = connected[index];
+            if (!lease.Success)
+            {
+                await SkipAsync(server, skipped, NhAssistantResults.CodeOf(lease), plan.IsPerCaller);
+                continue;
+            }
+            if (!plan.IsPerCaller)
+            {
+                await RecordHealthAsync(server, null);
+            }
+            leases.Add(lease.Data);
+            functions.AddRange(await ImportAsync(server, plan, tools, lease.Data.Tools, skippedTools, cancellationToken));
+        }
+
+        return new NhAssistantMcpToolSet(OfferedOnce(functions, skippedTools), async () =>
+        {
+            foreach (var lease in leases)
+            {
+                await lease.DisposeAsync();
+            }
+        })
+        {
+            SkippedServers = skipped,
+            SkippedTools = skippedTools
+        };
+    }
+
+    /// <summary>
+    /// The description a turn offers for <paramref name="tool"/>: the administrator's override, or else
+    /// the reviewed remote text, or else its remote name, at most <see cref="MaxToolDescriptionLength"/>
+    /// characters.
+    /// </summary>
+    internal static string ReviewedDescription(AssistantMcpTool tool)
+    {
+        var description = string.IsNullOrWhiteSpace(tool.DescriptionOverride) ? tool.Description : tool.DescriptionOverride;
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            description = tool.RemoteName;
+        }
+        return description.Length > MaxToolDescriptionLength ? description[..MaxToolDescriptionLength] : description;
+    }
+
+    /// <summary>
+    /// The assistant's access policy, which a server without a required policy asks of its callers.
+    /// </summary>
+    internal string AccessPolicyName => AccessPolicy();
+
+    /// <summary>
     /// Connects to the planned servers at the same time. A turn that ends meanwhile closes again what
     /// did connect.
     /// </summary>
@@ -1148,15 +1229,10 @@ internal sealed partial class NhAssistantMcpToolSource(
             }
 
             var readOnly = tool.Effect == NhAssistantMcpToolEffects.ReadOnly;
-            var description = string.IsNullOrWhiteSpace(tool.DescriptionOverride) ? tool.Description : tool.DescriptionOverride;
-            if (string.IsNullOrWhiteSpace(description))
-            {
-                description = tool.RemoteName;
-            }
             policies.Add(new NhAiMcpImportedToolPolicy(
                 tool.RemoteName,
                 localName,
-                description.Length > MaxToolDescriptionLength ? description[..MaxToolDescriptionLength] : description,
+                ReviewedDescription(tool),
                 readOnly ? NhAiToolEffect.ReadOnly : NhAiToolEffect.Mutation,
                 NhAiToolExposure.Agent,
                 [server.RequiredPolicy ?? AccessPolicy()])
