@@ -55276,8 +55276,8 @@
     ]
   },
   "frontEnd": {
-    "hash": "fa930b4dc06c805634ddf6f65b9742b28b27a36a3ab8194b7bfd418a1e96f85f",
-    "declarationCount": 949,
+    "hash": "77778f545e941510db0a3576475ad446d18b678fbeba1f56e61d21776e7ed359",
+    "declarationCount": 950,
     "declarations": [
       {
         "path": "src/Front-end/projects/nh-common/sanitize/src/lib/nh-html-sanitizer-options.ts",
@@ -57610,6 +57610,10 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
         "declaration": "public get accounts(): NhBrowserAccount[] {"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",
+        "declaration": "public get activeAccountUserId(): string | undefined {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/services/nh-auth.service.ts",

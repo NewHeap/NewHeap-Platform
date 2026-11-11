@@ -19,6 +19,7 @@ import {
   NhTwoFactorMethods,
   NhTwoFactorReauthentication,
   NhTwoFactorVerifyModel,
+  NhUser,
   RefreshTokenLoginAccountMutateModel
 } from '../models/auth.models';
 import {
@@ -844,6 +845,28 @@ describe('BaseNhAuthService multiple accounts', () => {
       expect(storedRefreshToken(bob.userId)).toBe('refresh-bob-2');
     });
 
+    it('names the active account as accounts lists it, also after another tab switched', async () => {
+      expect(authService.activeAccountUserId).toBeUndefined();
+
+      await signIn(authService, alice, 'refresh-alice');
+      await signIn(authService, bob, 'refresh-bob');
+      const otherTab = openTab(() => new TestAuthService());
+      expect(otherTab.activeAccountUserId).toBe(bob.userId);
+
+      const toAlice = authService.switchAccount(alice.userId);
+      (await nextRequest(refreshUrl)).flush(sessionResponse(alice.userId, 'refresh-alice-2'));
+      expect((await toAlice).isSuccess).toBeTrue();
+
+      expect(authService.activeAccountUserId).toBe(alice.userId);
+      expect(otherTab.activeAccountUserId).toBe(alice.userId);
+      expect(authService.accounts.find(account => account.isActive)?.userId).toBe(authService.activeAccountUserId);
+
+      const profile = authService.getAuthorization()!;
+      profile.user = new NhUser({id: ` ${alice.userId.toUpperCase()} `, email: alice.userName});
+      authService.setAuthorization(profile);
+      expect(authService.activeAccountUserId).toBe(alice.userId);
+    });
+
     it('lets two tabs renew the same session with exactly one request to the refresh endpoint', async () => {
       await signIn(authService, alice, 'refresh-alice', expiringSoon());
       const otherTab = openTab(() => new TestAuthService());
@@ -1293,6 +1316,16 @@ describe('BaseNhAuthService multiple accounts', () => {
       expect(() => authService.forgetAccount(alice.userId)).toThrowError(/multipleAccounts/);
       expect(() => authService.logoutAccount(alice.userId)).toThrowError(/multipleAccounts/);
       expect(() => authService.logoutAllAccounts()).toThrowError(/multipleAccounts/);
+    });
+
+    it('names the active account of the single session', async () => {
+      expect(authService.activeAccountUserId).toBeUndefined();
+
+      await signIn(authService, bob, 'refresh-bob');
+      expect(authService.activeAccountUserId).toBe(bob.userId);
+
+      authService.clearAuthorization();
+      expect(authService.activeAccountUserId).toBeUndefined();
     });
 
     it('removes accounts and a hint cookie that an earlier opt-in left behind', () => {

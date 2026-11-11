@@ -81,6 +81,15 @@ export class AuthPlaygroundComponent {
   readonly authorization = signal(this.authService.getAuthorization());
   /** SPM-398: the accounts this browser is signed in to; updates when another tab changes them. */
   readonly accounts = toSignal(this.authService.accountsChanged, { initialValue: this.authService.accounts });
+  /**
+   * SPM-398: the active account's user id, normalized like `NhBrowserAccount.userId`. Compare
+   * accounts with it instead of with `getAuthorization()?.user?.id`.
+   */
+  readonly activeAccountUserId = computed(() => {
+    this.accounts();
+    this.authorization();
+    return this.authService.activeAccountUserId;
+  });
   readonly accountHintCookieName = SAMPLE_MANAGEMENT_ACCOUNT_HINT_COOKIE;
   readonly accountHintCookie = computed(() => {
     this.accounts();

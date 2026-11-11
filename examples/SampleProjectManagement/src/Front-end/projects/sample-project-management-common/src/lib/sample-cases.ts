@@ -7268,7 +7268,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
     "id": "SPM-398",
     "title": "Multiple accounts in one browser",
     "category": "Authentication, identity, and authorization",
-    "surface": "AuthenticationNhCommonModuleConfig.multipleAccounts, BaseNhAuthService.accounts, accountsChanged, renewSession, switchAccount, forgetAccount, logoutAccount and logoutAllAccounts, NhBrowserAccount",
+    "surface": "AuthenticationNhCommonModuleConfig.multipleAccounts, BaseNhAuthService.accounts, activeAccountUserId, accountsChanged, renewSession, switchAccount, forgetAccount, logoutAccount and logoutAllAccounts, NhBrowserAccount",
     "outcome": "With the explicit opt-in the browser stays signed in to several accounts, each with a refresh-token session of its own, and a second sign-in no longer replaces the first; without it nothing changes and `localStorage['at']` keeps one authorization. Switching rotates only the chosen account and makes it active in every tab, signing out another account revokes exactly its refresh token with `keepAuthenticationCookies`, so the active account keeps its cookies (an older server that expires them makes the library renew the active session), removing an account from the browser revokes nothing, and a session the server rejects drops every account. `renewSession` rotates once for every tab under one lock, Web Locks or a `localStorage` lease, and continues with the stored session when another tab already rotated the token. The session coordinator treats a second account whose profile is still loading as a sign-in, not a sign-out. An optional hint cookie holds only the number of accounts.",
     "implementation": "implemented",
     "evidence": [

@@ -1424,6 +1424,26 @@ export abstract class BaseNhAuthService<TAuthorization extends INhAuthorization>
   }
 
   /**
+   * The user id of the active account, which every tab of the application shares: trimmed and in
+   * lower case, exactly as `NhBrowserAccount.userId` holds it, so it can be compared with the ids of
+   * `accounts`, `switchAccount` and `renewSession`. It reads the stored session, so it names the
+   * account another tab switched to also before this tab received the change. Comes from
+   * `describeBrowserAccount`: the profile's `user.id`, or the access token's user id claim while the
+   * profile is loading. `undefined` when nobody is signed in or on the server.
+   *
+   * Works with and without `authentication.multipleAccounts`. Use it instead of
+   * `getAuthorization()?.user?.id` to tell which account is active; never use it to decide what the
+   * user may do, which the server decides.
+   */
+  public get activeAccountUserId(): string | undefined {
+    if (isPlatformServer(this.platformId)) {
+      return undefined;
+    }
+
+    return this.activeBrowserAccountUserId();
+  }
+
+  /**
    * Renews the active session with its refresh token, once for every tab of the browser: concurrent
    * calls, in this tab or another, share one request to the refresh endpoint. Inside the lock it
    * reads the stored session again, keeps a session that another tab renewed meanwhile or whose

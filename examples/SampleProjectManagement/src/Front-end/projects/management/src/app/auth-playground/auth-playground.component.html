@@ -133,6 +133,10 @@
         }
         <dl class="browser-account-hint">
           <div>
+            <dt><code>activeAccountUserId</code></dt>
+            <dd>{{ activeAccountUserId() ?? '-' }}</dd>
+          </div>
+          <div>
             <dt><code>{{ accountHintCookieName }}</code></dt>
             <dd>{{ accountHintCookie() ?? '-' }}</dd>
           </div>
