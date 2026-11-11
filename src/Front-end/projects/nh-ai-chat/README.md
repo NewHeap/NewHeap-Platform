@@ -223,6 +223,21 @@ provideNhAssistantToolResultRenderers({ toolId: 'projects.search', component: Pr
 
 The component injects `NhAssistantToolResult` and reads its `presentation` signal: the
 trusted card the server's presenter wrote, never the call's raw result or arguments.
+Links in such a component use `--nh-assistant-link` (see [Theme](#theme)).
+
+Cards that are rarely on screen load on first use, in chunks of their own, so they stay
+out of the application's initial bundle: `nh-assistant-plan`,
+`nh-assistant-elicitation-card`, `nh-assistant-tool-result-card` and
+`nh-assistant-presentation-fields`. Until a card has arrived, and on the server, an empty
+box of about its height holds its place; the thread loads them while the browser is idle
+once it shows. A spec that reads such a card renders its defer block first:
+
+```ts
+fixture.detectChanges();
+for (const block of await fixture.getDeferBlocks()) {
+  await block.render(DeferBlockState.Complete);
+}
+```
 
 The panel selects the assistant in the prompt bar below the message field, alongside
 the send/stop action. The picker is hidden when only one assistant is available;
