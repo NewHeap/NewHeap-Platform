@@ -84,7 +84,9 @@ public static class NhAssistantBackgroundOperationBuilderExtensions
     /// <summary>
     /// Registers the background operations that run agents and execute their approved proposals.
     /// Call it inside <c>WithBackgroundOperations</c> when the assistant has agents configured with
-    /// <c>ConfigureAgent</c>.
+    /// <c>ConfigureAgent</c> that can run: host start demands it for a trigger and for an agent that works
+    /// on the whole application, a named object type, or all object types of a host that registers some.
+    /// A chat-only agent, and an agent without a statement on a host without object types, never run.
     /// </summary>
     public static NhBackgroundOperationBuilder AddAssistantAgentRuns(this NhBackgroundOperationBuilder operations)
     {
