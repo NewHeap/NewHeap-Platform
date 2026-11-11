@@ -802,8 +802,10 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 CancellationToken.None);
         }
 
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(executionTimeout);
+        // The call's own time, on the system clock as before; it stands still while the call waits for
+        // a person (NhAiToolCallTimeout.Pause), such as an MCP server's request for input.
+        using var timeout = new NhAiToolCallTimeout(executionTimeout, TimeProvider.System, cancellationToken);
+        using var timeoutScope = NhAiToolCallTimeout.Enter(timeout);
         string? verificationCode = null;
         string? verificationEvidenceReference = null;
         try

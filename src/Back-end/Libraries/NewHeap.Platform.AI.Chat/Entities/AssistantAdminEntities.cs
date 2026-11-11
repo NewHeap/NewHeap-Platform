@@ -353,6 +353,13 @@ public sealed class AssistantMcpServer
     /// </summary>
     public string HeadlessUse { get; set; } = NhAssistantMcpHeadlessUses.Never;
 
+    /// <summary>
+    /// How long the server's request for input waits for the person of a chat turn, in whole minutes
+    /// from 1 to 10; <see langword="null"/> waits five minutes. The tool's own timeout stands still
+    /// meanwhile; the turn's deadline still ends the wait.
+    /// </summary>
+    public int? ElicitationWaitMinutes { get; set; }
+
     public DateTimeOffset? LastSyncAt { get; set; }
 
     public string? LastSyncStatus { get; set; }

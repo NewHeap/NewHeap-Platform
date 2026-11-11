@@ -1775,6 +1775,14 @@ public sealed record NhAssistantMcpServerInputDto(
     /// <c>readers[0].toolName</c>.
     /// </summary>
     public IReadOnlyList<NhAssistantMcpReaderInputDto?>? Readers { get; init; }
+
+    /// <summary>
+    /// How long a request for input of the server waits for the person of a chat turn, in whole
+    /// minutes from 1 to 10 (<c>elicitationWaitMinutes: invalid</c> otherwise). Omitted or null keeps
+    /// the stored value; a new server waits 5 minutes. The tool's own timeout stands still while the
+    /// person is asked; the turn's own timeout keeps running.
+    /// </summary>
+    public int? ElicitationWaitMinutes { get; init; }
 }
 
 /// <summary>
@@ -1908,6 +1916,12 @@ public sealed record NhAssistantMcpServerDto(
     /// Whether the tools are offered in headless runs (<see cref="NhAssistantMcpHeadlessUses"/>).
     /// </summary>
     public string HeadlessUse { get; init; } = NhAssistantMcpHeadlessUses.Never;
+
+    /// <summary>
+    /// How long a request for input of the server waits for the person of a chat turn, in minutes:
+    /// from 1 to 10, 5 unless an administrator or the application's code set another.
+    /// </summary>
+    public int ElicitationWaitMinutes { get; init; } = Mcp.NhAssistantMcpServerLimits.DefaultElicitationWaitMinutes;
 
     /// <summary>
     /// When an administrator's test or sync, or a turn with the shared credential, last connected.

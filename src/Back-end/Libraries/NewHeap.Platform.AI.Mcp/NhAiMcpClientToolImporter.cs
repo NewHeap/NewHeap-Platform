@@ -77,6 +77,8 @@ public sealed record NhAiMcpImportOptions(
     /// its own (<c>URL_ELICITATION_REQUIRED</c>): the host's handler of the server's requests for input,
     /// which shows the page to the person of the call and says whether they finished it. The call is
     /// then made again, within the same governed execution. Without one such a refusal fails the call.
+    /// The handler runs within the call (<see cref="NhAiMcpCallContext.Current"/>), so it can stop the
+    /// clock of the tool's own timeout while the person works on the page.
     /// </summary>
     internal Func<ElicitRequestParams?, CancellationToken, ValueTask<ElicitResult>>? UrlElicitationHandler { get; init; }
 

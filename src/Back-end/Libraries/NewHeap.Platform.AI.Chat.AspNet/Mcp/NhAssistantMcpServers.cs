@@ -1,5 +1,6 @@
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AI.Chat.AspNet.Mcp;
@@ -148,9 +149,10 @@ public interface INhAssistantMcpServers
 /// only while the URL's origin, <see cref="AuthMode"/> and the <c>api-key</c> header stay the same; a
 /// change of any of them clears both and needs one of them again (<c>secret: required</c>).
 /// <see cref="HeadlessUse"/>,
-/// <see cref="Transport"/>, <see cref="UserName"/> and <see cref="ConnectionScope"/>:
-/// <see langword="null"/> keeps the stored value; a new server starts at <c>never</c>,
-/// <c>streamable-http</c> and <c>organization</c>.
+/// <see cref="Transport"/>, <see cref="UserName"/>, <see cref="ConnectionScope"/> and
+/// <see cref="ElicitationWaitMinutes"/>: <see langword="null"/> keeps the stored value; a new server
+/// starts at <c>never</c>, <c>streamable-http</c>, <c>organization</c> and a wait of
+/// <see cref="NhAssistantMcpServerLimits.DefaultElicitationWaitMinutes"/> minutes.
 /// </summary>
 /// <param name="Id">The server's lowercase dash-case id, at most 40 characters; it names the server's
 /// tools (<c>mcp.&lt;id&gt;.&lt;tool&gt;</c>).</param>
@@ -207,6 +209,16 @@ public sealed record NhAssistantMcpServerRequest(
     /// error of a reader names its index, such as <c>readers[0].toolName</c>.
     /// </summary>
     public IReadOnlyList<NhAssistantMcpReaderRequest>? Readers { get; init; }
+
+    /// <summary>
+    /// How long a request for input of the server waits for the person of a chat turn, in whole
+    /// minutes from <see cref="NhAssistantMcpServerLimits.MinElicitationWaitMinutes"/> to
+    /// <see cref="NhAssistantMcpServerLimits.MaxElicitationWaitMinutes"/>; another value is refused with
+    /// the field error <c>elicitationWaitMinutes: invalid</c>. The tool's own timeout stands still while
+    /// the person is asked; the turn's own timeout keeps running and ends the wait at the turn's
+    /// deadline. The answer reaches only the process that runs the turn.
+    /// </summary>
+    public int? ElicitationWaitMinutes { get; init; }
 }
 
 /// <summary>
@@ -264,6 +276,22 @@ public static class NhAssistantMcpServerLimits
     /// <c>assistant-configuration-limit</c>.
     /// </summary>
     public const int MaxToolsAwaitingSync = 100;
+
+    /// <summary>
+    /// The shortest wait of a server's request for input for the person of a chat turn
+    /// (<see cref="NhAssistantMcpServerRequest.ElicitationWaitMinutes"/>), in minutes.
+    /// </summary>
+    public const int MinElicitationWaitMinutes = NhAssistantElicitationLimits.MinWaitMinutes;
+
+    /// <summary>
+    /// The wait of a server's request for input when the server sets none, in minutes.
+    /// </summary>
+    public const int DefaultElicitationWaitMinutes = NhAssistantElicitationLimits.DefaultWaitMinutes;
+
+    /// <summary>
+    /// The longest wait of a server's request for input, in minutes.
+    /// </summary>
+    public const int MaxElicitationWaitMinutes = NhAssistantElicitationLimits.MaxWaitMinutes;
 }
 
 /// <summary>
@@ -572,7 +600,8 @@ internal sealed class NhAssistantMcpServerService(
                     reader?.ToolName,
                     reader?.MaxClassification,
                     reader?.Priority ?? 0))
-                .ToArray()
+                .ToArray(),
+            ElicitationWaitMinutes = request.ElicitationWaitMinutes
         };
     }
 
@@ -618,6 +647,7 @@ internal static class NhAssistantMcpServerDtos
             agentIds)
         {
             HeadlessUse = server.HeadlessUse,
+            ElicitationWaitMinutes = server.ElicitationWaitMinutes ?? NhAssistantMcpServerLimits.DefaultElicitationWaitMinutes,
             LastConnectAt = server.LastConnectAt,
             LastConnectCode = server.LastConnectCode,
             UserName = server.UserName,

@@ -1258,7 +1258,8 @@ internal static class NhAssistantAdminEndpoints
                     reader?.ToolName,
                     reader?.MaxClassification,
                     reader?.Priority ?? 0))
-                .ToArray()
+                .ToArray(),
+            ElicitationWaitMinutes = body.ElicitationWaitMinutes
         }, errors);
     }
 

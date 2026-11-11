@@ -32,7 +32,7 @@ internal static class NhAssistantElicitationStatuses
 
     public const string Cancelled = "cancelled";
 
-    /// <summary>Nobody answered before the tool call's wait ended.</summary>
+    /// <summary>Nobody answered within the server's wait time, or before the turn's deadline.</summary>
     public const string Expired = "expired";
 }
 
@@ -83,7 +83,7 @@ internal static class NhAssistantElicitationReasons
     /// link that is not https or more than the limits allow.</summary>
     public const string Unsupported = "unsupported";
 
-    /// <summary>Nobody answered before the wait ended.</summary>
+    /// <summary>Nobody answered within the server's wait time, or before the turn's deadline.</summary>
     public const string Expired = "expired";
 
     /// <summary>The turn or the tool call ended while it waited.</summary>
@@ -114,10 +114,43 @@ internal static class NhAssistantElicitationLimits
 
     public const int MaxUrlLength = 2_048;
 
+    /// <summary>The shortest wait time of a server, in minutes.</summary>
+    public const int MinWaitMinutes = 1;
+
+    /// <summary>The wait time of a server that sets none, in minutes.</summary>
+    public const int DefaultWaitMinutes = 5;
+
+    /// <summary>The longest wait time of a server, in minutes.</summary>
+    public const int MaxWaitMinutes = 10;
+
     /// <summary>
-    /// The longest a tool call waits for the person; the tool's own timeout ends the wait earlier.
+    /// The longest a tool call waits for the person: the longest wait time of a server. The tool's own
+    /// timeout stands still meanwhile; the turn's deadline ends the wait earlier.
     /// </summary>
-    public static readonly TimeSpan MaxWait = TimeSpan.FromMinutes(10);
+    public static readonly TimeSpan MaxWait = TimeSpan.FromMinutes(MaxWaitMinutes);
+
+    /// <summary>The wait time of a server that sets none.</summary>
+    public static readonly TimeSpan DefaultWait = TimeSpan.FromMinutes(DefaultWaitMinutes);
+
+    /// <summary>
+    /// Whether <paramref name="minutes"/> is a wait time a server may have: whole minutes from
+    /// <see cref="MinWaitMinutes"/> to <see cref="MaxWaitMinutes"/>.
+    /// </summary>
+    public static bool IsValidWait(int minutes)
+    {
+        return minutes is >= MinWaitMinutes and <= MaxWaitMinutes;
+    }
+
+    /// <summary>
+    /// The wait time of a server as stored: <see cref="DefaultWait"/> when it sets none, and never
+    /// outside the bounds, also for a value stored by hand.
+    /// </summary>
+    public static TimeSpan WaitOf(int? minutes)
+    {
+        return minutes is { } value
+            ? TimeSpan.FromMinutes(Math.Clamp(value, MinWaitMinutes, MaxWaitMinutes))
+            : DefaultWait;
+    }
 }
 
 /// <summary>
@@ -162,7 +195,11 @@ internal sealed record NhAssistantElicitationRequest(string ServerId, string Ser
     /// <summary>The https page of a <see cref="NhAssistantElicitationModes.Url"/> request.</summary>
     public string? Url { get; init; }
 
-    /// <summary>How long the tool call may still wait, when the MCP layer knows it.</summary>
+    /// <summary>
+    /// How long the server lets its request wait for the person: the server's wait time, at most
+    /// <see cref="NhAssistantElicitationLimits.MaxWait"/>; <see langword="null"/> waits
+    /// <see cref="NhAssistantElicitationLimits.DefaultWait"/>. The turn's deadline ends the wait earlier.
+    /// </summary>
     public TimeSpan? Within { get; init; }
 }
 
@@ -250,7 +287,8 @@ internal static class NhAssistantElicitationScope
 /// <param name="ElicitationId">The request; the answer names it.</param>
 /// <param name="InvocationId">The tool call that waits for it.</param>
 /// <param name="AddresseeActorId">The person whose turn it is, who alone answers.</param>
-/// <param name="ExpiresAt">The end of the wait, never later than the tool call's own timeout.</param>
+/// <param name="ExpiresAt">The end of the wait: the server's wait time after the request, never later
+/// than the turn's deadline.</param>
 /// <param name="Status">One of <see cref="NhAssistantElicitationStatuses"/>.</param>
 internal sealed record NhAssistantElicitationView(
     Guid ElicitationId,
@@ -408,7 +446,8 @@ internal static class NhAssistantElicitationAnswers
 /// <summary>
 /// The requests for input that wait for a person in this process. A request lives only while its tool
 /// call waits: the answer goes straight back to the waiting call and is never stored. As for
-/// <c>POST cancel</c>, an answer reaches only a call that runs in the same process.
+/// <c>POST cancel</c>, an answer reaches only a call that runs in the same process, also when the
+/// server's wait time is minutes long.
 /// </summary>
 internal sealed class NhAssistantElicitationRegistry
 {
