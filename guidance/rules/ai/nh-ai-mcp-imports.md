@@ -107,6 +107,14 @@ credential a request may carry, and refuses a request of a call that was authori
 for someone other than the credential's owner. It is `null` while a client
 connects or lists tools and holds no credentials or arguments.
 
+A server that offers MCP tasks (SEP-2663) on a 2026-07-28 connection runs a long tool as a task.
+The assistant calls the tools of its administrator-connected servers as tasks there and polls them
+inside the same governed invocation, so the tool's timeout and the turn's budget bound the wait;
+the server's poll interval is kept between 250 milliseconds and 5 seconds. A call that ends early
+cancels the remote task, a task that asks for input is cancelled because nobody in the turn answers
+it, and a failed or cancelled task fails with `ai-mcp-remote-task-ended`. A server without tasks is
+called as before, and the result of a task is untrusted remote data like any other.
+
 ## Avoid
 
 - Passing every tool returned by `ListToolsAsync` directly to a model.
@@ -124,6 +132,8 @@ connects or lists tools and holds no credentials or arguments.
 - Registering an invocation binder for every server or for tools an administrator can add without review.
 - Allowing agent grants on a tool whose server receives a person's credential.
 - Choosing a credential from model arguments instead of `NhAiMcpCallContext`.
+- Polling a remote MCP task outside the governed invocation, at the server's unbounded interval, or
+  answering its input requests on behalf of a person who never saw them.
 
 ## Verification
 

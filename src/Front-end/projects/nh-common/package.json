@@ -7,7 +7,7 @@
     "@angular/forms": "^20.3.28 || ^21.0.0 || ^22.0.0",
     "@angular/platform-browser": "^20.3.28 || ^21.0.0 || ^22.0.0",
     "@angular/router": "^20.3.28 || ^21.0.0 || ^22.0.0",
-    "@microsoft/signalr": "^10.0.11",
+    "@microsoft/signalr": "^10.0.11 || ^11.0.0",
     "@msgpack/msgpack": "^2.8.0",
     "@ngx-translate/core": "^17.0.0 || ^18.0.0",
     "@swimlane/ngx-datatable": "^23.0.1 || ^24.0.0 || ^25.0.0",

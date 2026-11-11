@@ -20,6 +20,12 @@ internal sealed class InMemoryMcpServers : INhAssistantMcpClientFactory
 
     public ConcurrentQueue<string> Calls { get; } = new();
 
+    /// <summary>
+    /// The protocol version the clients request; <see langword="null"/> lets the SDK prefer the latest
+    /// revision, with multi round-trip requests.
+    /// </summary>
+    public string? ProtocolVersion { get; init; }
+
     public void Register(string url, Func<IReadOnlyList<McpServerTool>> tools)
     {
         _servers[url] = () => new McpServerOptions { ScopeRequests = false, ToolCollection = [.. tools()] };
@@ -46,8 +52,12 @@ internal sealed class InMemoryMcpServers : INhAssistantMcpClientFactory
             new StreamServerTransport(clientToServer.Reader.AsStream(), serverToClient.Writer.AsStream()),
             options());
         _ = server.RunAsync(CancellationToken.None);
+        // The assistant's own client options: it answers the server's requests for input.
+        var clientOptions = NhAssistantMcpElicitation.ClientOptions(plan);
+        clientOptions.ProtocolVersion = ProtocolVersion;
         return await McpClient.CreateAsync(
             new StreamClientTransport(clientToServer.Writer.AsStream(), serverToClient.Reader.AsStream()),
+            clientOptions,
             cancellationToken: cancellationToken);
     }
 

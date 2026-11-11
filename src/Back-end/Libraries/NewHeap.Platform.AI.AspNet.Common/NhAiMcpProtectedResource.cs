@@ -243,11 +243,44 @@ public sealed class NhAiMcpProtectedResourceTokenValidatedContext
 /// </summary>
 public sealed class NhAiMcpExposureBuilder
 {
+    private readonly IMcpServerBuilder _server;
     private readonly IServiceCollection _services;
 
-    internal NhAiMcpExposureBuilder(IServiceCollection services)
+    internal NhAiMcpExposureBuilder(IMcpServerBuilder server)
     {
-        _services = services;
+        _server = server;
+        _services = server.Services;
+    }
+
+    /// <summary>
+    /// Lets MCP clients with the MCP Tasks extension (SEP-2663) call the tools that declare
+    /// <see cref="NhAiToolAttribute.TaskSupport"/> as tasks: the call returns a task at once, the tool runs
+    /// on in this process with the caller's rights as they were when the call started, within its own
+    /// timeout, and the client polls <c>tasks/get</c> for the result. The negotiation decides: a client
+    /// without the extension, or on a protocol revision before tasks, gets the tool's own answer, as
+    /// before; a tool that requires tasks refuses it.
+    /// <list type="bullet">
+    /// <item>A task belongs to the actor, tenant and active division that started it; for anybody else it
+    /// does not exist. Every <c>tasks/get</c>, <c>tasks/update</c> and <c>tasks/cancel</c> checks again
+    /// that the tool is still offered to the caller.</item>
+    /// <item>A task expires after <see cref="NhAiMcpTaskOptions.TimeToLive"/> on the application's
+    /// <see cref="TimeProvider"/>; its stored result is bounded by
+    /// <see cref="NhAiMcpTaskOptions.MaxResultBytes"/>. A task whose process ended before the tool
+    /// answered fails with <see cref="NhAiMcpTaskFailureCodes.Abandoned"/> once its timeout passed.</item>
+    /// <item>Tasks are kept in the assistant's store, shared by every instance of the host; register the
+    /// assistant, or use <see cref="NhAiMcpTaskOptions.UseInMemoryStore"/> for tests and development.
+    /// The application's log gets the task's id, tool and status, never its arguments or result.</item>
+    /// </list>
+    /// Call it once per exposure.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Tasks are enabled already, or an option is
+    /// invalid.</exception>
+    public NhAiMcpExposureBuilder UseTasks(Action<NhAiMcpTaskOptions>? configure = null)
+    {
+        var options = new NhAiMcpTaskOptions();
+        configure?.Invoke(options);
+        NhAiMcpTasks.Register(_server, options);
+        return this;
     }
 
     /// <summary>

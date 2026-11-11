@@ -385,6 +385,8 @@
     "assistant-prompt-list": "Toolaanroep en tabel",
     "assistant-prompt-tools": "Meerdere tool-aanroepen",
     "assistant-prompt-approval": "Goedkeuring",
+    "assistant-prompt-result-cards": "Resultaatkaarten",
+    "assistant-result-search-label": "Projecten die de assistent vond",
     "assistant-prompt-question": "Vraag met keuzes",
     "assistant-prompt-legacy-approval": "Oude goedkeuring",
     "assistant-prompt-forbidden": "Mislukte toolaanroep",

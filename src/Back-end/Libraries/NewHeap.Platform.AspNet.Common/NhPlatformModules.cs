@@ -166,7 +166,9 @@ public static class NhPlatformModuleEndpointRouteBuilderExtensions
 {
     /// <summary>
     /// Maps the background-operation hub when live updates are enabled. A hub connection closes when
-    /// the authentication it was opened with expires. The controllers are mapped by <c>MapControllers</c>.
+    /// the authentication it was opened with expires, unless it refreshes it on ASP.NET Core 11 with
+    /// <see cref="NhBackgroundOperationsOptions.HubAuthenticationRefresh"/> on. The controllers are mapped
+    /// by <c>MapControllers</c>.
     /// </summary>
     public static IEndpointRouteBuilder MapNewHeapBackgroundOperations(this IEndpointRouteBuilder endpoints)
     {
@@ -175,7 +177,7 @@ public static class NhPlatformModuleEndpointRouteBuilderExtensions
         if (endpoints.ServiceProvider.GetService<NhBackgroundOperationSignalRMarker>() is not null)
         {
             var options = endpoints.ServiceProvider.GetRequiredService<NhBackgroundOperationsOptions>();
-            endpoints.MapNhBackgroundOperationHub(options.HubPath);
+            endpoints.MapNhBackgroundOperationHub(options);
         }
 
         return endpoints;

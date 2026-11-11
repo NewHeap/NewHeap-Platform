@@ -992,7 +992,12 @@
       "../../src/Front-end/projects/nh-common/src/lib/components/nh-background-operations-badge/component.ts",
       "../../src/Front-end/projects/nh-common/src/lib/components/nh-background-operations-badge/component.spec.ts",
       "src/Front-end/projects/management/src/app/management-layout/management-layout.component.ts",
-      "src/Front-end/projects/management/src/app/management-layout/management-layout.component.html"
+      "src/Front-end/projects/management/src/app/management-layout/management-layout.component.html",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubAuthenticationRefresh.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationHubAuthenticationRefreshTests.cs",
+      "src/Front-end/projects/sample-project-management-common/src/lib/sample-project-management.providers.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-background-operation-live-update.service.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-background-operation-live-update.service.spec.ts"
     ],
     "SPM-084": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
@@ -1804,7 +1809,17 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiHostValidationTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiMcpMessageFormatTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiMcpPublicationTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/NhAiMcpHttpMessageFormatTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/NhAiMcpHttpMessageFormatTests.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectPortfolioAnalysisAiTools.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SamplePortfolioAnalysisToolsComposition.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/McpTaskSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/PortfolioAnalysisToolSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpTasks.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpTaskRecords.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantMcpTaskStore.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpTaskRecords.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/NhAiMcpTaskTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpTaskStoreTests.cs"
     ],
     "SPM-223": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
@@ -1861,7 +1876,9 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpInvocationBinding.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiMcpInvocationBinderTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolResultTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiMcpFunctionNameTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiMcpFunctionNameTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpRemoteTasks.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpRemoteTaskTests.cs"
     ],
     "SPM-229": [
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationSuspension.cs",
@@ -2054,7 +2071,11 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDurableManagerTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantPresentationCultures.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantPresentationCultures.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolResultPresenter.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.en-US.resx",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantToolResultCardTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs"
     ],
     "SPM-247": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
@@ -2093,7 +2114,14 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-part-groups.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-markdown-libraries.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-markdown.spec.ts",
-      "src/Front-end/scripts/report-initial-bundle.mjs"
+      "src/Front-end/scripts/report-initial-bundle.mjs",
+      "src/Front-end/projects/management/src/app/assistant-playground/sample-project-search-result.component.ts",
+      "src/Front-end/projects/management/public/i18n/en.json",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/tool-result/nh-assistant-tool-result.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/tool-result/nh-assistant-tool-result-card.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/tool-result/nh-assistant-tool-result-renderers.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/presentation-fields/nh-assistant-presentation-fields.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/tool-result/nh-assistant-tool-result.spec.ts"
     ],
     "SPM-249": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantEndToEndSamplesTests.cs",
@@ -2152,7 +2180,13 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpCredentialTests.DecisionTurns.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpResponseLimits.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpBoundsTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpFunctionNameTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpFunctionNameTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpElicitation.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantElicitations.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnElicitor.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpElicitationTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/elicitation-card/nh-assistant-elicitation-card.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-elicitations.spec.ts"
     ],
     "SPM-252": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
@@ -2330,7 +2364,13 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantLiveReadRuleTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantHubSessionTests.cs",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubAuthenticationRefresh.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantHubAuthenticationRefreshTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-playground/sample-assistant.config.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-live.service.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-live.service.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant.store.spec.ts"
     ],
     "SPM-264": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantCollaboration.cs",
@@ -3804,7 +3844,8 @@
       "src/Back-end/Libraries/SampleProjectManagement.DAL/Entities/Project.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantToolPresentationTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantToolPresentationTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolResultPresenter.cs"
     ],
     "SPM-348": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleApprovalReplyChannel.cs",
@@ -4005,7 +4046,14 @@
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantProposalForPersonSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantProposals.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantPersonProposals.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantProposalForPersonTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantProposalForPersonTests.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectStatusRequestAiTools.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleProjectStatusRequestTool.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpElicitationSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpApprovalElicitation.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiAspNetMcpIntegration.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpApprovalElicitationTests.cs"
     ],
     "SPM-365": [
       "src/Back-end/Applications/SampleProjectManagement.Api/appsettings.Development.json",

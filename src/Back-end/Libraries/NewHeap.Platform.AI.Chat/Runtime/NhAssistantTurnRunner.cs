@@ -941,7 +941,9 @@ internal sealed partial class NhAssistantTurnRunner(
             UserMessageId = Guid.Empty,
             AssistantMessageId = invocation.MessageId,
             Events = DiscardEvents(),
-            Broadcast = BroadcastOf(conversation, agent.ActorId)
+            Broadcast = BroadcastOf(conversation, agent.ActorId),
+            // The message is the one the proposing turn wrote; this execution keeps none of its parts.
+            RecordsResultCards = false
         };
 
         if (governed is not null)
@@ -3942,7 +3944,8 @@ internal sealed partial class NhAssistantTurnRunner(
             _applicationClock,
             services.GetService<NhAssistantTurnFiles>(),
             services.GetService<NhAssistantConsultationProposals>(),
-            registration);
+            registration,
+            services.GetService<NhAssistantElicitationRegistry>());
     }
 
     private async Task FinishWithErrorAsync(

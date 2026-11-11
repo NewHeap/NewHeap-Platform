@@ -108,6 +108,21 @@ public sealed class NhAssistantOptions
     public string? HubPath { get; set; } = DefaultHubPath;
 
     /// <summary>
+    /// Whether a connection to the hub at <see cref="HubPath"/> may refresh its authentication without
+    /// reconnecting (<c>NewHeap:AI:Assistant:HubAuthenticationRefresh</c>), false by default; read when
+    /// <c>MapNewHeapAssistant</c> maps the hub. It takes effect on ASP.NET Core 11, where the hub then
+    /// maps SignalR's <c>/refresh</c> endpoint below its path; on ASP.NET Core 10 it changes nothing. A
+    /// client that presents its renewed token there keeps its connection, its groups and its watch past
+    /// the expiry of the token it connected with. The endpoint requires the assistant's access policy: an
+    /// expired token or a removed user is refused with 401, a token of another person or another
+    /// impersonation with 403, and the connection then still closes when its own authentication expires.
+    /// After every accepted refresh the hub resolves the caller again, as when the connection opened, and
+    /// closes the connection when the actor or the tenant changed or the caller no longer resolves; the
+    /// session check that closes a connection whose session ended follows the refreshed principal.
+    /// </summary>
+    public bool HubAuthenticationRefresh { get; set; }
+
+    /// <summary>
     /// Whether compositions are on (<c>NewHeap:AI:Assistant:Compositions</c>), false by default. The
     /// default <see cref="INhAssistantCompositionSwitch"/> reads it once per turn, run step and MCP
     /// request, so a reloaded configuration applies from the next one; an application that registers its
@@ -268,6 +283,25 @@ public sealed class NhAssistantMcpOptions
     /// </summary>
     public NhAssistantMcpOAuthOptions OAuth { get; set; } = new();
 
+    /// <summary>The placeholder of <see cref="ApprovalLinkTemplate"/> that the proposal's id replaces.</summary>
+    public const string ApprovalLinkPlaceholder = "{approvalId}";
+
+    /// <summary>
+    /// The application's page where a person decides one proposal, as an absolute URL with
+    /// <c>{approvalId}</c>, such as <c>https://app.example.com/approvals/{approvalId}</c>
+    /// (<c>NewHeap:AI:Assistant:Mcp:ApprovalLinkTemplate</c>); https, or http on a loopback name. Off
+    /// (<see langword="null"/>) by default. When it is set, a call of the application's MCP exposure
+    /// (<c>WithNewHeapPlatformAITools</c>) that leaves proposals waiting for a person, through
+    /// <c>INhAssistantProposals.ProposeForAsync</c> or a consultation whose proposals wait for the
+    /// subject's approvers, asks an MCP client that supports multi round-trip requests and link requests
+    /// to send its person to that page (<c>input_required</c> with a URL elicitation). The client's
+    /// retry carries only the protected reference to the proposals, which is checked again for the
+    /// caller, and returns their decision: approved and executed, rejected or closed, or still pending.
+    /// The decision is made on that page only, with the proposal's hash: a client's accept never
+    /// approves anything. Clients without that support receive the tool's result as before.
+    /// </summary>
+    public string? ApprovalLinkTemplate { get; set; }
+
     /// <summary>
     /// Throws when a bound of the MCP connections is out of its range, so the host fails at start
     /// instead of at the first request.
@@ -304,6 +338,48 @@ public sealed class NhAssistantMcpOptions
             throw new InvalidOperationException(
                 "NewHeap:AI:Assistant:Mcp:LinkCacheDuration must be from zero to 5 minutes.");
         }
+        if (ApprovalLinkTemplate is not null && !IsValidApprovalLinkTemplate(ApprovalLinkTemplate))
+        {
+            throw new InvalidOperationException(
+                "NewHeap:AI:Assistant:Mcp:ApprovalLinkTemplate must be an absolute https URL (http only on a loopback name) without user information or a fragment, with one {approvalId} after the host.");
+        }
+    }
+
+    /// <summary>
+    /// Whether <paramref name="template"/> is an absolute https URL, or http on a loopback name, without
+    /// user information or a fragment, whose single <see cref="ApprovalLinkPlaceholder"/> follows the host.
+    /// </summary>
+    internal static bool IsValidApprovalLinkTemplate(string template)
+    {
+        var placeholder = template.IndexOf(ApprovalLinkPlaceholder, StringComparison.Ordinal);
+        if (string.IsNullOrWhiteSpace(template)
+            || template.Length > 2_000
+            || template.Any(character => char.IsWhiteSpace(character) || char.IsControl(character))
+            || placeholder < 0
+            || template.IndexOf(ApprovalLinkPlaceholder, placeholder + ApprovalLinkPlaceholder.Length, StringComparison.Ordinal) >= 0
+            || !Uri.TryCreate(template.Replace(ApprovalLinkPlaceholder, "x", StringComparison.Ordinal), UriKind.Absolute, out var uri)
+            || string.IsNullOrEmpty(uri.Host)
+            || !string.IsNullOrEmpty(uri.UserInfo)
+            || uri.Fragment.Length > 0
+            || !(uri.Scheme == Uri.UriSchemeHttps
+                || (uri.Scheme == Uri.UriSchemeHttp && NhAiLoopbackNames.IsLoopbackName(uri))))
+        {
+            return false;
+        }
+
+        var authorityEnd = template.IndexOf('/', uri.Scheme.Length + "://".Length);
+        return authorityEnd > 0 && placeholder > authorityEnd;
+    }
+
+    /// <summary>
+    /// The page of <paramref name="approvalId"/> from <see cref="ApprovalLinkTemplate"/>, or
+    /// <see langword="null"/> when no valid template is set.
+    /// </summary>
+    internal string? ApprovalLinkOf(Guid approvalId)
+    {
+        return ApprovalLinkTemplate is { } template && IsValidApprovalLinkTemplate(template)
+            ? template.Replace(ApprovalLinkPlaceholder, approvalId.ToString("D"), StringComparison.Ordinal)
+            : null;
     }
 
     /// <summary>

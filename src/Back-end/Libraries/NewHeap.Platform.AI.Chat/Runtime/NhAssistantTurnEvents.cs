@@ -30,7 +30,15 @@ internal sealed record NhAssistantToolCompletedEvent(
     Guid InvocationId,
     string Status,
     string? ResultCode,
-    string? ResultPreview) : NhAssistantTurnEvent;
+    string? ResultPreview) : NhAssistantTurnEvent
+{
+    /// <summary>
+    /// The application's card of what the call returned in the culture of the turn
+    /// (<see cref="INhAssistantToolResultPresenter"/>); <see langword="null"/> without one and for a
+    /// shielded result.
+    /// </summary>
+    public NhAssistantToolResultPresentation? ResultPresentation { get; init; }
+}
 
 internal sealed record NhAssistantApprovalRequiredEvent(
     NhAssistantApprovalView Approval) : NhAssistantTurnEvent;
@@ -328,6 +336,13 @@ internal sealed record NhAssistantToolCallPartView(
     /// The result came from the agent's own grant or a delegated read and the viewer may not see it.
     /// </summary>
     public bool Restricted { get; init; }
+
+    /// <summary>
+    /// The application's card of what the call returned, in the viewer's culture
+    /// (<see cref="INhAssistantToolResultPresenter"/>); <see langword="null"/> without one and for a
+    /// viewer from whom the result is shielded.
+    /// </summary>
+    public NhAssistantToolResultPresentation? ResultPresentation { get; init; }
 
     /// <summary>
     /// For a delegated read, the person whose rights the call read with. Never sent to clients.

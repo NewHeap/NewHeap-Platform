@@ -74,6 +74,12 @@
         }
         @case ('tools') {
           <nh-assistant-tool-call-group class="part" [calls]="group.calls" />
+          <!-- The application's trusted cards of what the calls returned stay visible under the collapsed group. -->
+          @for (call of group.calls; track call.invocationId) {
+            @if (call.resultPresentation) {
+              <nh-assistant-tool-result class="part" [part]="call" />
+            }
+          }
         }
         @case ('files') {
           <ul class="files" [attr.aria-label]="'nh-assistant.thread.files' | translate">
@@ -113,6 +119,14 @@
             [addresseeName]="addresseeName(group.part)"
             [answering]="deciding()"
             (answer)="answerQuestion(group.part, $event)" />
+        }
+        @case ('elicitation') {
+          <nh-assistant-elicitation-card
+            class="part"
+            [elicitation]="group.part"
+            [canAnswer]="canAnswerElicitation(group.part)"
+            [answering]="answeringElicitationId() === group.part.elicitationId"
+            (answer)="answerElicitation(group.part, $event)" />
         }
       }
     }

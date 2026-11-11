@@ -274,6 +274,11 @@ builder.Services
         // client's hubUrlSuffix follows. HubPath may be any absolute application path outside the
         // operations' API under /background-operations, such as /hubs/background-operations; the
         // bearer token is read from the query string at that path (SPM-083).
+        // On ASP.NET Core 11 a connection may refresh its authentication at
+        // /hub/background-operations/refresh instead of reconnecting when its token expires; the hub
+        // keeps it only for the same person while that person may still use the connection's active
+        // division. On ASP.NET Core 10 the setting changes nothing (SPM-083).
+        operations.Options.HubAuthenticationRefresh = true;
         operations.Options.ProgressFlushInterval = TimeSpan.FromMilliseconds(250);
         operations
             .WithGlobalConcurrency(8)
@@ -374,10 +379,15 @@ builder.Services.AddSampleQuickAnswers();
 builder.Services.AddSampleProjectChat();
 // SPM-372: the project overview chains three reads of the project assistant into one tool.
 builder.Services.AddSampleProjectOverview();
+// SPM-222: the long-running MCP tool over the portfolio analysis, a task for MCP clients with tasks.
+builder.Services.AddSamplePortfolioAnalysisTools();
 // SPM-362: the planning service's one reviewed MCP tool, offered as the API's own code-owned tool.
 builder.Services.AddSamplePlanningMilestones(builder.Configuration);
 // SPM-375: a project tool with a due date and a time of day, which a script passes as strings.
 builder.Services.AddSampleProjectDeadlines();
+// SPM-364 and SPM-370: the project page's status request as an MCP tool. Its proposal sends an MCP client
+// that supports links to the portal's intake reviews (NewHeap:AI:Assistant:Mcp:ApprovalLinkTemplate).
+builder.Services.AddSampleProjectStatusRequestTool();
 // SPM-392: the deadline watch's rules warn people about a project due today, as an alert of a kind in code.
 builder.Services.AddSampleDeadlineAlerts();
 // SPM-393: the document check's rules are a rule script an administrator writes, dry-runs and sets live.
@@ -405,7 +415,9 @@ builder.Services.AddMcpServer()
     .WithHttpTransport(options => options.Stateless = true)
     // SPM-371: MCP clients may use the script tool where the portal's setting of the exposure has it on.
     // SPM-372: compositions such as the project overview are part of the exposure as well; the switch decides.
-    .WithNewHeapPlatformAITools(exposure => exposure.WithSampleMcpSignIn(builder.Configuration).AllowScripts().AllowCompositions());
+    // SPM-222: MCP clients with the MCP Tasks extension call projects.analyze-portfolio as a task; the
+    // tasks live in the assistant's store, which every instance of the API shares.
+    .WithNewHeapPlatformAITools(exposure => exposure.WithSampleMcpSignIn(builder.Configuration).AllowScripts().AllowCompositions().UseTasks());
 builder.Services.AddScoped<IClaimsTransformation, SampleRuntimeClaimsTransformation>();
 builder.Services.AddSingleton<IAuthorizationHandler, ProjectAccessHandler>();
 // SPM-325: the stand-in for the other system that keeps every project's latest analysis.

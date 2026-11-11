@@ -205,6 +205,20 @@ group show `not-executed` as a finished call that did not run, never as waiting.
 `nh-assistant-agent-picker` are exported for custom layouts. All components are
 standalone and use `OnPush`.
 
+Approval cards show a field of an update with what it holds now and what it gets
+(`currentValue`, `change`), each labelled and with the change in words, through
+`nh-assistant-presentation-fields`. A call the server presented
+(`ToolCallPart.resultPresentation`) keeps a result card visible under its tool group:
+`nh-assistant-tool-result-card` by default, or the application's own standalone
+component for the tool:
+
+```ts
+provideNhAssistantToolResultRenderers({ toolId: 'projects.search', component: ProjectSearchResultComponent })
+```
+
+The component injects `NhAssistantToolResult` and reads its `presentation` signal: the
+trusted card the server's presenter wrote, never the call's raw result or arguments.
+
 The panel selects the assistant in the prompt bar below the message field, alongside
 the send/stop action. The picker is hidden when only one assistant is available;
 that assistant stays automatically selected. Custom composer layouts can project controls marked with

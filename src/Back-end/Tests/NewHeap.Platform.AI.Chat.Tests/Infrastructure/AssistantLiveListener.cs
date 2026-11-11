@@ -100,6 +100,38 @@ internal sealed class AssistantLiveListener : IAsyncDisposable
     }
 
     /// <summary>
+    /// Connects to <c>/hub/assistant</c> over WebSockets after negotiating, as a browser does, with the
+    /// bearer token that <paramref name="accessToken"/> returns when each request is made, so a test can
+    /// renew it; <paramref name="configure"/> configures the connection further, such as its
+    /// authentication refresh.
+    /// </summary>
+    public static async Task<AssistantLiveListener> ConnectWithTokenAsync(
+        AssistantWebApplication app,
+        Func<string> accessToken,
+        Action<IHubConnectionBuilder>? configure = null)
+    {
+        var builder = new HubConnectionBuilder()
+            .WithUrl(new Uri(app.Server.BaseAddress, "/hub/assistant"), options =>
+            {
+                options.Transports = HttpTransportType.WebSockets;
+                options.HttpMessageHandlerFactory = _ => app.Server.CreateHandler();
+                options.AccessTokenProvider = () => Task.FromResult<string?>(accessToken());
+                options.WebSocketFactory = async (context, cancellationToken) =>
+                {
+                    var client = app.Server.CreateWebSocketClient();
+                    client.ConfigureRequest = request => request.Headers.Authorization = "Bearer " + accessToken();
+                    return await client.ConnectAsync(context.Uri, cancellationToken);
+                };
+            });
+        configure?.Invoke(builder);
+        var listener = new AssistantLiveListener(builder.Build());
+        await listener.Connection.StartAsync();
+        // The hub answers an invocation only after it finished connecting, so the groups are in place.
+        await listener.Connection.InvokeAsync("UnwatchAgentWork");
+        return listener;
+    }
+
+    /// <summary>
     /// Waits for a turn or <c>message.created</c> event that matches, at most a generous time that
     /// only matters when the test fails.
     /// </summary>

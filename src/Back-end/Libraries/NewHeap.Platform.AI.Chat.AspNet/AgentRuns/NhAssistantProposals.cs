@@ -834,6 +834,8 @@ internal sealed class NhAssistantProposals(
                 false,
                 CancellationToken.None,
                 proposalCount: 1);
+            // An MCP client's call that recorded it may send its person to the approval page.
+            Mcp.NhAssistantMcpCallProposals.Record(approval.Id, _person.ActorId);
 
             return TaskResult<NhAssistantProposalResult>.Succeeded(ResultOf(NhAssistantProposeOutcome.Created, approval, policy) with
             {

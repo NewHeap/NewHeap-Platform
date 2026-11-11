@@ -84,6 +84,7 @@ internal sealed class NhAssistantConversationReader(
             approvals,
             cancellationToken);
         var now = _applicationClock.GetUtcNow();
+        var resultCards = ResultCardsOf(storedParts.Values, CultureInfo.CurrentUICulture);
 
         var messageViews = new List<NhAssistantMessageView>(messages.Count);
         var questions = new List<NhAssistantQuestionView>();
@@ -119,7 +120,12 @@ internal sealed class NhAssistantConversationReader(
                         break;
                     case NhAssistantStoredPart.ToolCallType
                         when part.InvocationId is { } invocationId && invocations.TryGetValue(invocationId, out var invocation):
-                        parts.Add(ToView(invocation, LocalizedToolName(invocation, approvals)));
+                        parts.Add(ToView(invocation, LocalizedToolName(invocation, approvals)) with
+                        {
+                            ResultPresentation = invocation.DataClassification < NhAiDataClassification.Confidential
+                                ? resultCards.GetValueOrDefault(invocationId)
+                                : null
+                        });
                         break;
                     case NhAssistantStoredPart.ApprovalType
                         when part.ApprovalId is { } approvalId && approvals.TryGetValue(approvalId, out var approval):
@@ -128,6 +134,14 @@ internal sealed class NhAssistantConversationReader(
                     case NhAssistantStoredPart.ConnectionRequiredType
                         when part is { ServerId: { } serverId, DisplayName: { } serverName, Reason: { } reason }:
                         parts.Add(new NhAssistantConnectionRequiredPartView(serverId, serverName, reason));
+                        break;
+                    // A server's request for input waits only while its turn runs; once the turn ended
+                    // without closing it, it reads as expired.
+                    case NhAssistantStoredPart.ElicitationType
+                        when NhAssistantElicitationView.From(
+                            part,
+                            conversation.Status == NhAssistantConversationStatuses.Running ? now : DateTimeOffset.MaxValue) is { } elicitation:
+                        parts.Add(elicitation);
                         break;
                     // A person's attachments show by name, type and size; the files a tool returned
                     // stay named in that call's result, which follows the viewer's rights to it.
@@ -228,6 +242,31 @@ internal sealed class NhAssistantConversationReader(
             PendingClientTool = pendingClientTool,
             Subject = NhAssistantChatSubjectView.Of(conversation, subjects)
         };
+    }
+
+    /// <summary>
+    /// The result cards of the conversation's calls in the viewer's culture, by invocation id. A card
+    /// may be stored in a later message than its call, such as the turn that ran an approved call.
+    /// </summary>
+    private static Dictionary<Guid, NhAssistantToolResultPresentation> ResultCardsOf(
+        IEnumerable<IReadOnlyList<NhAssistantStoredPart>> messages,
+        CultureInfo culture)
+    {
+        var cards = new Dictionary<Guid, NhAssistantToolResultPresentation>();
+        foreach (var part in messages.SelectMany(parts => parts))
+        {
+            if (part.Type != NhAssistantStoredPart.ToolResultType || part.InvocationId is not { } invocationId)
+            {
+                continue;
+            }
+
+            if (NhAssistantToolPresentationResolver.PickResult(part.ResultPresentation, part.ResultPresentations, culture) is { } card)
+            {
+                cards[invocationId] = card;
+            }
+        }
+
+        return cards;
     }
 
     /// <summary>

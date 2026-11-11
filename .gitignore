@@ -376,3 +376,7 @@ tmp/
 # Local package-manager and Codex state
 .pnpm-store/
 .codex
+
+# Skill eval runs: the staged plugin and the claude plugin eval results
+/skill-evals/.staging/
+/skill-evals/results/

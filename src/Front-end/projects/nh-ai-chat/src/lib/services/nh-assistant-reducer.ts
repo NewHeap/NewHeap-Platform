@@ -4,6 +4,7 @@ import {
   ClientToolRequest,
   Conversation,
   ConversationStatus,
+  ElicitationPart,
   Message,
   MessagePart,
   QuestionPart,
@@ -79,7 +80,9 @@ export function applyNhAssistantEvent(
         ...part,
         status: data.status,
         resultCode: data.resultCode,
-        resultPreview: data.resultPreview
+        resultPreview: data.resultPreview,
+        // The trusted card of the result; a live event without one keeps a card the snapshot had.
+        ...(data.resultPresentation ? { resultPresentation: data.resultPresentation } : {})
       }));
     }
 
@@ -125,6 +128,15 @@ export function applyNhAssistantEvent(
       const clientTool: ClientToolRequest = request;
       const withToolAwaiting = updateToolCall(conversation, clientTool.invocationId, part => ({ ...part, status: 'awaiting-client' }));
       return { ...withToolAwaiting, status: 'waiting-for-approval', pendingClientTool: clientTool };
+    }
+
+    case 'elicitation.requested':
+    case 'elicitation.closed': {
+      // A server's request for input shows where its tool call waits; a repeat replaces it.
+      const elicitation: ElicitationPart = { ...event.data, type: 'elicitation' };
+      return hasElicitation(conversation, elicitation.elicitationId)
+        ? replaceElicitation(conversation, elicitation)
+        : appendToCurrentAssistantMessage(conversation, elicitation);
     }
 
     case 'connection.required': {
@@ -397,6 +409,9 @@ function partKey(part: MessagePart): string {
   if (part.type === 'question') {
     return `question-${part.questionId}`;
   }
+  if (part.type === 'elicitation') {
+    return `elicitation-${part.elicitationId}`;
+  }
 
   return 'text';
 }
@@ -413,6 +428,23 @@ function replaceQuestion(conversation: Conversation, question: QuestionPart): Co
       ...message,
       parts: message.parts.map(part =>
         part.type === 'question' && part.questionId === question.questionId ? question : part
+      )
+    }))
+  };
+}
+
+function hasElicitation(conversation: Conversation, elicitationId: string): boolean {
+  return conversation.messages.some(message =>
+    message.parts.some(part => part.type === 'elicitation' && part.elicitationId === elicitationId));
+}
+
+function replaceElicitation(conversation: Conversation, elicitation: ElicitationPart): Conversation {
+  return {
+    ...conversation,
+    messages: conversation.messages.map(message => ({
+      ...message,
+      parts: message.parts.map(part =>
+        part.type === 'elicitation' && part.elicitationId === elicitation.elicitationId ? elicitation : part
       )
     }))
   };

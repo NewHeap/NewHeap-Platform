@@ -329,14 +329,8 @@
     @if (proposal.presentation; as presentation) {
       <p class="summary">{{ presentation.summary }}</p>
       @if (presentation.fields.length > 0) {
-        <dl class="presentation-fields">
-          @for (field of presentation.fields; track $index) {
-            <div>
-              <dt>{{ field.label }}</dt>
-              <dd>{{ field.value }}</dd>
-            </div>
-          }
-        </dl>
+        <!-- A field of a change shows what it holds now and what it gets, in words. -->
+        <nh-assistant-presentation-fields class="presentation-fields" [fields]="presentation.fields" />
       }
       @if (presentation.notice) {
         <p class="message warning">{{ presentation.notice }}</p>

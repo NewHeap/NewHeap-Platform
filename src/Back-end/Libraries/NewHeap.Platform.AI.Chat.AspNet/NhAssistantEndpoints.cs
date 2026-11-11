@@ -14,6 +14,7 @@ using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
+using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.Utilities;
 using NewHeap.Platform.Common.Models;
 
@@ -142,6 +143,15 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        enabled.MapPost("conversations/{id:guid}/elicitations/{elicitationId:guid}/answer", AnswerElicitationAsync)
+            .WithName("NhAssistantAnswerElicitation")
+            .WithSummary("Answer an MCP server's request for input")
+            .WithDescription("Answers the request for input (MCP elicitation) of an administrator-connected MCP server whose tool the caller's running turn calls: action accept with the form's values in content, decline or cancel; for a url request, accept says the caller finished the server's page, which the client never opens by itself. The answer goes to the server that asked, through the waiting tool call, and is never stored; the turn's own stream continues. Only the person whose turn it is answers (403 assistant-elicitation-forbidden). Values that do not fit the fields, or an unknown action, answer 400 assistant-elicitation-answer-invalid. A request that was answered, whose wait ended, whose turn was stopped or whose call runs in another process of the application answers 409 assistant-elicitation-not-pending.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         enabled.MapPost("conversations/{id:guid}/cancel", CancelAsync)
             .WithName("NhAssistantCancelTurn")
             .WithSummary("Cancel a turn")
@@ -171,11 +181,14 @@ public static class NhAssistantEndpointRouteBuilderExtensions
 
         if (!string.IsNullOrWhiteSpace(options.HubPath))
         {
-            // A connection ends when the authentication it was opened with expires; the hub also ends
-            // it when the session validator refuses its principal (NhAssistantHubSessions).
+            // A connection ends when the authentication it was opened with expires, unless the client
+            // refreshes it (HubAuthenticationRefresh, ASP.NET Core 11); the hub also ends it when the
+            // session validator refuses its principal (NhAssistantHubSessions). The access policy
+            // covers the refresh endpoint as well.
+            var authenticationRefresh = options.HubAuthenticationRefresh;
             endpoints.MapHub<NhAssistantHub>(
                     options.HubPath,
-                    connection => connection.CloseOnAuthenticationExpiration = true)
+                    connection => NhHubAuthenticationRefresh.Configure(connection, authenticationRefresh))
                 .RequireAuthorization(accessPolicy);
         }
         return group;
@@ -213,11 +226,16 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         // Checks the registration without constructing the application's directory.
         var directory = httpContext.RequestServices.GetService<IServiceProviderIsService>()
             ?.IsService(typeof(INhAssistantParticipantDirectory)) == true;
+        var hubPath = string.IsNullOrWhiteSpace(current.HubPath) ? null : current.HubPath;
         var collaboration = new NhAssistantCollaborationDto(
             directory,
-            string.IsNullOrWhiteSpace(current.HubPath) ? null : current.HubPath,
+            hubPath,
             current.Push.IsConfigured,
-            state.Limits.MaxParticipantsPerConversation);
+            state.Limits.MaxParticipantsPerConversation)
+        {
+            HubAuthenticationRefresh = hubPath is not null
+                && NhHubAuthenticationRefresh.IsMapped(current.HubAuthenticationRefresh)
+        };
         return Json(
             new NhAssistantStatusDto(
                 true,
@@ -812,6 +830,43 @@ public static class NhAssistantEndpointRouteBuilderExtensions
     private static IReadOnlySet<string> ClientToolsOf(HttpContext httpContext, IReadOnlyList<string>? declared)
     {
         return httpContext.RequestServices.GetRequiredService<NhAssistantRegistrationState>().KnownClientTools(declared);
+    }
+
+    /// <summary>
+    /// Hands the caller's answer to the MCP server's request for input that their running turn waits
+    /// for; the answer is never stored.
+    /// </summary>
+    private static async Task<IResult> AnswerElicitationAsync(
+        Guid id,
+        Guid elicitationId,
+        HttpContext httpContext,
+        NhAssistantElicitationAnswerService answers)
+    {
+        var caller = await ResolveCallerAsync(httpContext);
+        if (!caller.Success)
+        {
+            return ContextUnavailable();
+        }
+        var request = await ReadBodyAsync(httpContext, NhAssistantJsonSerializerContext.Default.NhAssistantAnswerElicitationRequest);
+        if (request is null)
+        {
+            return Error(NhAssistantErrorCodes.ElicitationAnswerInvalid);
+        }
+        var resolved = await ResolveAccessAsync(httpContext, id, caller.Data, NhAssistantAgentCheck.Everyone);
+        if (resolved.Error is not null)
+        {
+            return resolved.Error;
+        }
+
+        var answered = await answers.AnswerAsync(
+            id,
+            elicitationId,
+            caller.Data.ActorId,
+            caller.Data.TenantId,
+            request.Action,
+            request.Content,
+            httpContext.RequestAborted);
+        return answered.Success ? Results.NoContent() : FromFailure(answered);
     }
 
     /// <summary>

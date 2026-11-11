@@ -27,6 +27,7 @@ import {
   NH_ASSISTANT_MAX_PROPOSAL_LOOKUP,
   NhAssistantAgentRunApiService,
   NhAssistantError,
+  NhAssistantPresentationFieldsComponent,
   NhAssistantProposalFeedbackComponent,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
@@ -149,6 +150,7 @@ interface NhAssistantFeedbackRequest {
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
     NhAssistantSubjectLinkComponent,
+    NhAssistantPresentationFieldsComponent,
     NhAssistantProposalFeedbackComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

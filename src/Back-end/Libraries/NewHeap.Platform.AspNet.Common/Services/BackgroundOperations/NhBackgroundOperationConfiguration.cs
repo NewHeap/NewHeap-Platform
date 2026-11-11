@@ -44,6 +44,22 @@ public sealed class NhBackgroundOperationsOptions
     /// <c>hubUrlSuffix</c> at the same path.
     /// </summary>
     public string HubPath { get; set; } = "/hub/background-operations";
+
+    /// <summary>
+    /// Whether a live-update connection may refresh its authentication without reconnecting, false by
+    /// default. It takes effect on ASP.NET Core 11, where the hub then maps SignalR's
+    /// <c>/refresh</c> endpoint below <see cref="HubPath"/>; on ASP.NET Core 10 it changes nothing. A
+    /// client that presents its renewed token there (<c>RefreshAuthenticationAsync</c> in the .NET client)
+    /// keeps its connection and its groups past the expiry of the token it connected with. The endpoint
+    /// requires the hub's authentication: an expired token or a removed user is refused with 401, a token
+    /// of another person or another impersonation with 403, and the connection then still closes when
+    /// its own authentication expires. After every accepted refresh the hub checks the user and the active
+    /// division again, as when the connection opened, and closes the connection once the person may no
+    /// longer use that division. A connection that does not refresh closes on expiry and reconnects as
+    /// before.
+    /// </summary>
+    public bool HubAuthenticationRefresh { get; set; }
+
     public bool UserNotificationProjectionEnabled { get; set; } = true;
     public string OperationUrlPrefix { get; set; } = "/background-operations";
     public TimeSpan DispatchInterval { get; set; } = TimeSpan.FromSeconds(1);

@@ -93,6 +93,32 @@ public enum NhAiToolExportSchema
     Flat = 1
 }
 
+/// <summary>
+/// Whether an MCP client may call a tool as a task of the MCP Tasks extension (SEP-2663): the call
+/// returns a task at once, the tool runs on, and the client polls <c>tasks/get</c> for its result. Only
+/// an MCP exposure that enables tasks (<c>UseTasks</c> of <c>WithNewHeapPlatformAITools</c>) offers it,
+/// and only to a client that negotiated the extension. The tool sees that it runs as a task in
+/// <see cref="NhAiInvocationContext.McpTaskId"/>.
+/// </summary>
+public enum NhAiToolTaskSupport
+{
+    /// <summary>The tool always answers the call itself, as every tool did before tasks existed.</summary>
+    None = 0,
+
+    /// <summary>
+    /// A client with tasks gets a task; a client without them gets the tool's own answer, for example
+    /// a receipt with a request id that it polls with a status tool of the application.
+    /// </summary>
+    Optional = 1,
+
+    /// <summary>
+    /// Only a client with tasks may call the tool; a client without them is refused with the MCP error
+    /// for a missing client capability. Use it for a tool that has no answer of its own for such a
+    /// client.
+    /// </summary>
+    Required = 2
+}
+
 public enum NhAiToolCatalogGovernance
 {
     None = 0,
@@ -157,6 +183,16 @@ public sealed class NhAiToolAttribute(
 
     public string? VerifierId { get; set; }
     public int TimeoutSeconds { get; set; } = 60;
+
+    /// <summary>
+    /// Declares the tool long-running for MCP clients: <see cref="NhAiToolTaskSupport.Optional"/> or
+    /// <see cref="NhAiToolTaskSupport.Required"/> lets a client with the MCP Tasks extension call it as a
+    /// task where the exposure enables tasks. The tool's <see cref="TimeoutSeconds"/> still bounds every
+    /// call, also as a task. Requires <see cref="NhAiToolExposure.Mcp"/>; the generator refuses it
+    /// otherwise (<c>NHAI020</c>). How a client receives the result is no part of what the tool does, so
+    /// it does not change the tool's contract hash.
+    /// </summary>
+    public NhAiToolTaskSupport TaskSupport { get; set; } = NhAiToolTaskSupport.None;
 
     /// <summary>
     /// The maximum number of concurrent invocations. A further call waits for a free slot until the
@@ -305,6 +341,12 @@ public sealed record NhAiToolDescriptor(
     public NhAiToolHint OpenWorldHint { get; init; } = NhAiToolHint.Inherit;
     public string? VerifierId { get; init; }
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// Whether an MCP client may call the tool as a task. See <see cref="NhAiToolAttribute.TaskSupport"/>.
+    /// A hand-built or attested catalog may set it; it takes part in no contract hash.
+    /// </summary>
+    public NhAiToolTaskSupport TaskSupport { get; init; } = NhAiToolTaskSupport.None;
 
     /// <summary>
     /// The maximum number of concurrent invocations. A further call waits for a free slot until the
@@ -521,6 +563,16 @@ public sealed record NhAiInvocationContext(
     /// evidence.
     /// </summary>
     public NhAiWithoutApprovalDecision? WithoutApproval { get; init; }
+
+    /// <summary>
+    /// The MCP task (SEP-2663) the invocation runs in, when an MCP client called a tool that declares
+    /// <see cref="NhAiToolAttribute.TaskSupport"/> as a task: the client already has the task and polls
+    /// it for the tool's result, so the tool may wait for its work to finish within its timeout.
+    /// <see langword="null"/> when the caller waits for the answer itself, such as an MCP client without
+    /// tasks, which gets the tool's own answer, for example a receipt to poll. Like
+    /// <see cref="ConversationId"/> it takes part in no proposal hash or approval evidence.
+    /// </summary>
+    public string? McpTaskId { get; init; }
 
     public bool TryGetScopeValue(string key, out string value)
     {

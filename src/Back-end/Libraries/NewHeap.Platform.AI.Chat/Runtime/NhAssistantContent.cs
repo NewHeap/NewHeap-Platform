@@ -24,9 +24,27 @@ internal sealed record NhAssistantStoredPart(
     string? AddresseeActorId = null,
     DateTimeOffset? ExpiresAt = null,
     string? SkillId = null,
-    int? SkillVersion = null)
+    int? SkillVersion = null,
+    NhAssistantToolResultPresentation? ResultPresentation = null,
+    IReadOnlyDictionary<string, NhAssistantToolResultPresentation>? ResultPresentations = null,
+    Guid? ElicitationId = null,
+    string? Mode = null,
+    IReadOnlyList<NhAssistantElicitationField>? Fields = null,
+    string? Status = null,
+    DateTimeOffset? ClosedAt = null)
 {
     public const string TextType = "text";
+
+    /// <summary>
+    /// A request for input of an MCP server whose tool the turn ran: <see cref="ElicitationId"/> names
+    /// it and <see cref="InvocationId"/> the call that waited for it; <see cref="ServerId"/> and
+    /// <see cref="DisplayName"/> the server that asked, <see cref="Mode"/> <c>form</c> or <c>url</c>,
+    /// <see cref="Text"/> the server's message, <see cref="Fields"/> what a form asked for,
+    /// <see cref="LinkUrl"/> the page of a <c>url</c> request, <see cref="AddresseeActorId"/> the person
+    /// who answers, <see cref="ExpiresAt"/> the end of its wait, <see cref="Status"/> how it closed
+    /// (<see cref="NhAssistantElicitationStatuses"/>) and <see cref="ClosedAt"/> when. Never the answer.
+    /// </summary>
+    public const string ElicitationType = "elicitation";
 
     /// <summary>
     /// A question the agent asked with <c>ask_question</c> (LS21): <see cref="InvocationId"/> names its
@@ -51,6 +69,15 @@ internal sealed record NhAssistantStoredPart(
     /// </summary>
     public const string ApplicationType = "application";
     public const string ToolCallType = "tool-call";
+
+    /// <summary>
+    /// The trusted card of what a call returned (<see cref="INhAssistantToolResultPresenter"/>):
+    /// <see cref="InvocationId"/> names the call, whose part may be in an earlier message, such as the
+    /// one a turn paused in for an approval; <see cref="ResultPresentation"/> is the card in the culture
+    /// of the turn and <see cref="ResultPresentations"/> the card by culture name when the application
+    /// supports more UI cultures. The conversation shows it on the call, never as a part of its own.
+    /// </summary>
+    public const string ToolResultType = "tool-result";
     public const string ApprovalType = "approval";
 
     /// <summary>

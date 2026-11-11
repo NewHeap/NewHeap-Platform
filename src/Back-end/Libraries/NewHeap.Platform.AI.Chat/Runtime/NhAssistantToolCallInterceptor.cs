@@ -371,6 +371,13 @@ internal sealed class NhAssistantTurnState
 
     public int ToolCalls { get; set; }
 
+    /// <summary>
+    /// Whether the turn writes the parts of its own message and records the result cards of its calls
+    /// there (<see cref="INhAssistantToolResultPresenter"/>); <see langword="false"/> for an approved
+    /// proposal that executes outside a turn of its conversation, in a message another turn wrote.
+    /// </summary>
+    public bool RecordsResultCards { get; init; } = true;
+
     public IReadOnlyList<NhAssistantStoredPart> Parts
     {
         get
@@ -400,6 +407,22 @@ internal sealed class NhAssistantTurnState
         lock (_sync)
         {
             _parts.Add(part);
+        }
+    }
+
+    /// <summary>
+    /// Replaces a part this turn added, such as a request for input that closed; a part that is gone
+    /// stays gone.
+    /// </summary>
+    public void ReplacePart(NhAssistantStoredPart part, NhAssistantStoredPart replacement)
+    {
+        lock (_sync)
+        {
+            var index = _parts.IndexOf(part);
+            if (index >= 0)
+            {
+                _parts[index] = replacement;
+            }
         }
     }
 
@@ -461,7 +484,8 @@ internal sealed class NhAssistantToolCallInterceptor(
     TimeProvider? applicationClock = null,
     NhAssistantTurnFiles? turnFiles = null,
     NhAssistantConsultationProposals? consultationProposals = null,
-    NhAssistantRegistrationState? registration = null)
+    NhAssistantRegistrationState? registration = null,
+    NhAssistantElicitationRegistry? elicitations = null)
 {
     public const string ToolsDisabledCode = "assistant-tools-disabled";
     public const string ProposalRecordedCode = "assistant-proposal-recorded";
@@ -704,15 +728,20 @@ internal sealed class NhAssistantToolCallInterceptor(
                 RequireApprovalForEffects = true
             };
         }
-        var execution = await ExecuteAsync(
-            descriptor,
-            row,
-            null,
-            null,
-            token => InvokeInScopeAsync(targetScope, () => request.Invoke(token)),
-            cancellationToken,
-            logger,
-            this);
+        NhAssistantToolExecution execution;
+        // An MCP server that asks for input while its tool runs asks the person of this call, if any.
+        using (NhAssistantElicitationScope.Enter(CreateElicitor(row)))
+        {
+            execution = await ExecuteAsync(
+                descriptor,
+                row,
+                null,
+                null,
+                token => InvokeInScopeAsync(targetScope, () => request.Invoke(token)),
+                cancellationToken,
+                logger,
+                this);
+        }
         if (execution.Outcome.Kind == NhAssistantToolOutcomeKind.ApprovalMissing)
         {
             NhAssistantPlacedThread? placed = null;
@@ -928,6 +957,21 @@ internal sealed class NhAssistantToolCallInterceptor(
         return (
             execution with { Result = described },
             contents.Length > 0 ? new NhAiToolResultWithContent(described, contents) : described);
+    }
+
+    /// <summary>
+    /// The elicitor of one call of this turn: it asks the turn's person in a person's own chat turn and
+    /// declines for everyone else, such as a run, a consultation or a rule turn, where nobody answers.
+    /// </summary>
+    private INhAssistantElicitor CreateElicitor(AssistantToolInvocation row)
+    {
+        var person = state.AgentTurn is null
+            && state.Scope.Consultation is null
+            && !state.RuleTurn
+            && elicitations is not null
+                ? state.Scope.OwnerActorId
+                : null;
+        return new NhAssistantTurnElicitor(this, state, row, elicitations, person, _applicationClock);
     }
 
     /// <summary>
@@ -1215,11 +1259,105 @@ internal sealed class NhAssistantToolCallInterceptor(
         // read is shielded per viewer; live events carry none of it, and viewers read the thread
         // again to see what they may.
         var shielded = row.GrantSource is NhAiGrantSource.Agent or NhAiGrantSource.Accountable or NhAiGrantSource.DelegatedRead;
+        var card = succeeded && state.RecordsResultCards
+            ? await PresentResultAsync(row, execution, cancellationToken)
+            : null;
         await state.EmitAsync(new NhAssistantToolCompletedEvent(
             row.Id,
             row.Status,
             row.ResultCode,
-            shielded ? null : NhAssistantContent.ResultPreview(row.ResultJson, row.DataClassification)));
+            shielded ? null : NhAssistantContent.ResultPreview(row.ResultJson, row.DataClassification))
+        {
+            ResultPresentation = shielded ? null : card
+        });
+    }
+
+    /// <summary>
+    /// The application's card of what the call returned (<see cref="INhAssistantToolResultPresenter"/>),
+    /// stored in the turn's message so a reloaded conversation shows it on the call, or
+    /// <see langword="null"/> without one. It never reaches the model.
+    /// </summary>
+    private async Task<NhAssistantToolResultPresentation?> PresentResultAsync(
+        AssistantToolInvocation row,
+        NhAssistantToolExecution execution,
+        CancellationToken cancellationToken)
+    {
+        if (DataOf(execution.Result) is not { } data)
+        {
+            return null;
+        }
+
+        var card = await toolPresentation.ResolveResultInCulturesAsync(
+            execution.Call.Descriptor,
+            data,
+            ArgumentsOf(row.ArgumentsJson),
+            CultureInfo.CurrentUICulture,
+            cancellationToken);
+        if (card is null)
+        {
+            return null;
+        }
+
+        state.AddPart(new NhAssistantStoredPart(
+            NhAssistantStoredPart.ToolResultType,
+            InvocationId: row.Id,
+            ResultPresentation: card.Presentation,
+            ResultPresentations: card.Localized));
+        await FlushAsync(cancellationToken);
+        return card.Presentation;
+    }
+
+    /// <summary>
+    /// What a tool returned, as a result presenter reads it: the <c>data</c> of a governed result,
+    /// otherwise the whole result; <see langword="null"/> without a result or one that is no JSON value.
+    /// </summary>
+    private static JsonElement? DataOf(object? result)
+    {
+        if (result is null)
+        {
+            return null;
+        }
+
+        JsonElement element;
+        try
+        {
+            element = result is JsonElement json
+                ? json
+                : JsonSerializer.SerializeToElement(result, result.GetType(), NhAssistantContent.JsonOptions);
+        }
+        catch (Exception exception) when (exception is JsonException or NotSupportedException or InvalidOperationException)
+        {
+            return null;
+        }
+
+        if (element.ValueKind == JsonValueKind.Object && element.TryGetProperty(NhAiToolResult.DataPropertyName, out var data))
+        {
+            return data.Clone();
+        }
+
+        return element.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null ? null : element.Clone();
+    }
+
+    /// <summary>
+    /// The model's arguments as the call stored them; <see langword="null"/> when they were too long to
+    /// store or are no JSON object.
+    /// </summary>
+    private static JsonElement? ArgumentsOf(string? argumentsJson)
+    {
+        if (string.IsNullOrWhiteSpace(argumentsJson))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(argumentsJson);
+            return document.RootElement.ValueKind == JsonValueKind.Object ? document.RootElement.Clone() : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     /// <summary>

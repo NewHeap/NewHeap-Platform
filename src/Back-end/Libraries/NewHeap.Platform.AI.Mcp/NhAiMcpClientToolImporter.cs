@@ -71,7 +71,32 @@ public sealed record NhAiMcpImportOptions(
     /// a pair this list does not name still needs a registration.
     /// </summary>
     internal IReadOnlyList<NhAiMcpInvocationBinderRegistration> HostInvocationBinders { get; init; } = [];
+
+    /// <summary>
+    /// What the importing host answers when the server refuses a call until a person finished a page of
+    /// its own (<c>URL_ELICITATION_REQUIRED</c>): the host's handler of the server's requests for input,
+    /// which shows the page to the person of the call and says whether they finished it. The call is
+    /// then made again, within the same governed execution. Without one such a refusal fails the call.
+    /// </summary>
+    internal Func<ElicitRequestParams?, CancellationToken, ValueTask<ElicitResult>>? UrlElicitationHandler { get; init; }
+
+    /// <summary>
+    /// How the importing NewHeap host calls a remote tool after every invoker check, such as the
+    /// assistant's call as an MCP task where the server offers tasks; <see langword="null"/> calls
+    /// <see cref="McpClientTool.CallAsync"/>.
+    /// </summary>
+    internal NhAiMcpRemoteCall? RemoteCall { get; init; }
 }
+
+/// <summary>
+/// Calls one remote tool for a governed imported tool, within the invocation's cancellation, which
+/// carries the tool's timeout and the turn's budget.
+/// </summary>
+internal delegate ValueTask<CallToolResult> NhAiMcpRemoteCall(
+    McpClientTool remote,
+    IReadOnlyDictionary<string, object?> arguments,
+    RequestOptions? options,
+    CancellationToken cancellationToken);
 
 /// <summary>
 /// Stable result codes of imported MCP tools.
@@ -83,6 +108,13 @@ public static class NhAiMcpImportedToolCodes
     /// the failure's <c>data</c>, so the model can read what the server said.
     /// </summary>
     public const string RemoteError = "ai-mcp-remote-tool-error";
+
+    /// <summary>
+    /// The remote server refused the call until a person finished a page of its own
+    /// (<c>URL_ELICITATION_REQUIRED</c>), and nobody did: the person declined or cancelled, nobody could be
+    /// asked, or the server kept refusing. The remote tool did not run.
+    /// </summary>
+    public const string UrlElicitationRequired = "ai-mcp-url-elicitation-required";
 }
 
 public interface INhAiMcpClientToolImporter
@@ -168,7 +200,11 @@ internal sealed partial class NhAiMcpClientToolImporter(
                 remote,
                 inputSchema,
                 outputSchema,
-                binder));
+                binder,
+                options.RemoteCall)
+            {
+                UrlElicitationHandler = options.UrlElicitationHandler
+            });
         }
 
         return new NhAiImportedMcpCatalog(options.ServerId, options.Namespace, imported);
@@ -348,8 +384,15 @@ internal sealed record NhAiImportedMcpTool(
     McpClientTool Remote,
     string InputSchema,
     string OutputSchema,
-    NhAiMcpInvocationBinderRegistration? Binder = null)
+    NhAiMcpInvocationBinderRegistration? Binder = null,
+    NhAiMcpRemoteCall? RemoteCall = null)
 {
+    /// <summary>
+    /// The host's handler of the server's requests for input, for a call the server refuses until a
+    /// person finished a page of its own; see <see cref="NhAiMcpImportOptions.UrlElicitationHandler"/>.
+    /// </summary>
+    public Func<ElicitRequestParams?, CancellationToken, ValueTask<ElicitResult>>? UrlElicitationHandler { get; init; }
+
     public NhAiToolDescriptor Descriptor { get; } = CreateDescriptor(
         ServerId,
         Namespace,
@@ -513,14 +556,16 @@ internal sealed class NhAiGovernedMcpClientFunction(
                     }
                     requestOptions = new RequestOptions { Meta = bound.Data };
                 }
-                CallToolResult result;
+                CallToolResult? result;
                 using (NhAiMcpCallContext.Enter(imported.ServerId, imported.Policy.RemoteName, imported.Descriptor, context))
                 {
-                    result = await imported.Remote.CallAsync(
-                        remoteArguments,
-                        progress: null,
-                        options: requestOptions,
-                        cancellationToken: invocationCancellationToken);
+                    result = await CallRemoteAsync(remoteArguments, requestOptions, invocationCancellationToken);
+                }
+                if (result is null)
+                {
+                    return TaskResult<CallToolResult>.Failed(
+                        NhAiMcpImportedToolCodes.UrlElicitationRequired,
+                        "The imported MCP server needs a person to finish a page of its own first.");
                 }
                 return result.IsError is true
                     ? TaskResult<CallToolResult>
@@ -532,6 +577,59 @@ internal sealed class NhAiGovernedMcpClientFunction(
 
         // The remote result is a protocol type; the SDK's options own its wire format.
         return NhAiToolResult.Create(outcome, McpJsonUtilities.DefaultOptions);
+    }
+
+    /// <summary>
+    /// The most times a call is made again after the server refused it until a person finished a page
+    /// of its own.
+    /// </summary>
+    internal const int MaxUrlElicitationRounds = 2;
+
+    /// <summary>
+    /// Calls the remote tool. When the server refuses the call until a person finished a page of its
+    /// own (<c>URL_ELICITATION_REQUIRED</c>), the host's handler shows each page to the person of the
+    /// call, and the call is made again once they finished every page, at most
+    /// <see cref="MaxUrlElicitationRounds"/> times. Returns <see langword="null"/> when they did not, or
+    /// nobody could be asked; the remote tool then did not run.
+    /// </summary>
+    private async Task<CallToolResult?> CallRemoteAsync(
+        IReadOnlyDictionary<string, object?> remoteArguments,
+        RequestOptions? requestOptions,
+        CancellationToken cancellationToken)
+    {
+        for (var round = 0; ; round++)
+        {
+            try
+            {
+                // A server that offers MCP tasks runs the tool as a task (RemoteCall); others take a plain call.
+                if (imported.RemoteCall is { } remoteCall)
+                {
+                    return await remoteCall(imported.Remote, remoteArguments, requestOptions, cancellationToken);
+                }
+
+                return await imported.Remote.CallAsync(
+                    remoteArguments,
+                    progress: null,
+                    options: requestOptions,
+                    cancellationToken: cancellationToken);
+            }
+            catch (UrlElicitationRequiredException required)
+            {
+                if (imported.UrlElicitationHandler is not { } handler || round >= MaxUrlElicitationRounds)
+                {
+                    return null;
+                }
+
+                foreach (var elicitation in required.Elicitations)
+                {
+                    var answered = await handler(elicitation, cancellationToken);
+                    if (!answered.IsAccepted)
+                    {
+                        return null;
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>

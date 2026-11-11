@@ -20,6 +20,7 @@ export class NhBackgroundOperationLiveUpdateService implements OnDestroy {
   private reconnectTimer?: ReturnType<typeof setTimeout>;
   private consumers = 0;
   private authorizationScopeKey: string;
+  private sessionKey: string;
 
   readonly changed$: Observable<NhBackgroundOperationChanged> = this.changedSubject.asObservable();
   readonly resync$: Observable<void> = this.resyncSubject.asObservable();
@@ -31,6 +32,7 @@ export class NhBackgroundOperationLiveUpdateService implements OnDestroy {
     private readonly app: NhAppService
   ) {
     this.authorizationScopeKey = this.getAuthorizationScopeKey();
+    this.sessionKey = this.getSessionKey();
 
     if (!config.backgroundOperations.liveUpdatesEnabled || app.isPlatformServer()) {
       this.connectionStateSubject.next('disabled');
@@ -38,13 +40,21 @@ export class NhBackgroundOperationLiveUpdateService implements OnDestroy {
 
     this.authSubscription = auth.authSubject.subscribe(() => {
       const nextScopeKey = this.getAuthorizationScopeKey();
-      if (nextScopeKey === this.authorizationScopeKey) {
+      const nextSessionKey = this.getSessionKey();
+      if (nextScopeKey !== this.authorizationScopeKey) {
+        // Another user or active division: the connection's groups belong to the previous one.
+        this.authorizationScopeKey = nextScopeKey;
+        this.sessionKey = nextSessionKey;
+        if (this.consumers > 0 && this.isEnabled()) {
+          void this.restart();
+        }
         return;
       }
 
-      this.authorizationScopeKey = nextScopeKey;
-      if (this.consumers > 0 && this.isEnabled()) {
-        void this.restart();
+      if (nextSessionKey !== this.sessionKey) {
+        // The same user renewed the session: the open connection may take the new token.
+        this.sessionKey = nextSessionKey;
+        void this.refreshAuthentication();
       }
     });
   }
@@ -127,7 +137,7 @@ export class NhBackgroundOperationLiveUpdateService implements OnDestroy {
     const hubUrl = divisionId
       ? this.appendQueryParameter(baseHubUrl, 'divisionId', divisionId)
       : baseHubUrl;
-    const connection = new signalR.HubConnectionBuilder()
+    const builder = new signalR.HubConnectionBuilder()
       .withUrl(hubUrl, {
         withCredentials: true,
         accessTokenFactory: () =>
@@ -136,12 +146,26 @@ export class NhBackgroundOperationLiveUpdateService implements OnDestroy {
             : ''
       })
       .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
-      .configureLogging(signalR.LogLevel.Warning)
-      .build();
+      .configureLogging(signalR.LogLevel.Warning);
+    if (this.config.backgroundOperations.authenticationRefresh
+      && typeof builder.withAuthenticationRefresh === 'function') {
+      // The session decides when the token renews; the connection refreshes after that, not on a timer.
+      builder.withAuthenticationRefresh({ enableAutoRefresh: false });
+    }
+    const connection = builder.build();
 
     connection.on('OperationChanged', (change: NhBackgroundOperationChanged) => {
       this.changedSubject.next(change);
     });
+    if (typeof connection.onAuthenticationRefreshFailed === 'function') {
+      connection.onAuthenticationRefreshFailed(() => {
+        // The server refused the renewed token for this connection, or did not take it: start over
+        // with the current session, as at expiry, and resynchronize.
+        if (this.connection === connection && this.consumers > 0 && this.isEnabled()) {
+          void this.restart();
+        }
+      });
+    }
     connection.onreconnecting(() => this.connectionStateSubject.next('reconnecting'));
     connection.onreconnected(() => {
       this.connectionStateSubject.next('connected');
@@ -152,6 +176,28 @@ export class NhBackgroundOperationLiveUpdateService implements OnDestroy {
       this.scheduleReconnect();
     });
     return connection;
+  }
+
+  /**
+   * Presents the renewed token on the open connection (`@microsoft/signalr` 11), so it outlives the
+   * token it opened with. Without the opt-in, without a connection or with a client that cannot
+   * refresh, the connection keeps closing on expiry and reconnecting.
+   */
+  private async refreshAuthentication(): Promise<void> {
+    const connection = this.connection;
+    if (!this.config.backgroundOperations.authenticationRefresh
+      || !this.isEnabled()
+      || !connection
+      || connection.state !== 'Connected'
+      || typeof connection.refreshAuthentication !== 'function') {
+      return;
+    }
+
+    try {
+      await connection.refreshAuthentication();
+    } catch {
+      // onAuthenticationRefreshFailed restarts the connection.
+    }
   }
 
   private async stopConnection(): Promise<void> {
@@ -197,6 +243,12 @@ export class NhBackgroundOperationLiveUpdateService implements OnDestroy {
   private appendQueryParameter(url: string, name: string, value: string): string {
     const separator = url.includes('?') ? '&' : '?';
     return `${url}${separator}${encodeURIComponent(name)}=${encodeURIComponent(value)}`;
+  }
+
+  /** Changes when the session renews its access token, also in cookie mode through its expiry. */
+  private getSessionKey(): string {
+    const authorization = this.auth.getAuthorization();
+    return `${authorization?.token ?? ''}|${authorization?.validTo ?? ''}`;
   }
 
   private getAuthorizationScopeKey(): string {

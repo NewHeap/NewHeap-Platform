@@ -175,6 +175,10 @@
       "show-calls": "Tool-aanroepen tonen",
       "hide-calls": "Tool-aanroepen verbergen"
     },
+    "tool-result": {
+      "label": "Resultaat van {{name}}",
+      "open-link": "Openen"
+    },
     "approval": {
       "title": "Goedkeuring nodig",
       "fallback-summary": "Controleer deze actie voordat ze wordt uitgevoerd.",
@@ -238,6 +242,25 @@
         "moved": "Het wacht nu op de goedkeurders van {{subject}}."
       }
     },
+    "presentation": {
+      "current": "Nu",
+      "proposed": "Voorgesteld",
+      "before": "Voor",
+      "after": "Na",
+      "empty": "Leeg",
+      "change": {
+        "unchanged": "Ongewijzigd",
+        "added": "Nieuwe waarde",
+        "changed": "Wijzigt",
+        "cleared": "Wordt leeggemaakt"
+      },
+      "change-result": {
+        "unchanged": "Ongewijzigd",
+        "added": "Toegevoegd",
+        "changed": "Gewijzigd",
+        "cleared": "Leeggemaakt"
+      }
+    },
     "question": {
       "title": "Vraag",
       "status": {
@@ -255,6 +278,36 @@
       "answered": "Antwoord: {{choice}}",
       "expired": "Niemand heeft op tijd geantwoord.",
       "cancelled": "De vraag is ingetrokken toen de taak werd gestopt."
+    },
+    "elicitation": {
+      "title": "Verzoek van {{server}}",
+      "status": {
+        "pending": "Wacht op jou",
+        "accepted": "Beantwoord",
+        "declined": "Geweigerd",
+        "cancelled": "Geannuleerd",
+        "expired": "Verlopen"
+      },
+      "from": "{{server}} vraagt dit, niet de assistent:",
+      "host": "Opent een pagina op {{host}}",
+      "open": "{{host}} openen",
+      "choose": "Kies",
+      "invalid": "Vul dit veld in zoals gevraagd.",
+      "asked": "Gevraagd naar",
+      "recipient": "Je antwoord gaat alleen naar {{server}}. Het wordt niet bewaard en de assistent leest het niet.",
+      "submit": "Naar {{server}} sturen",
+      "decline": "Weigeren",
+      "cancel": "Annuleren",
+      "done": "Ik ben klaar",
+      "expires-in": "Antwoord binnen {{time}}",
+      "answering": "Je antwoord wordt verstuurd",
+      "waiting": "Wacht op de persoon wiens beurt het is.",
+      "outcome": {
+        "accepted": "{{server}} heeft het antwoord ontvangen.",
+        "declined": "Het verzoek van {{server}} is geweigerd.",
+        "cancelled": "Het verzoek van {{server}} is geannuleerd.",
+        "expired": "Niemand heeft {{server}} op tijd geantwoord."
+      }
     },
     "proposal-feedback": {
       "legend": "Wat klopte er niet? (optioneel)",
@@ -578,6 +631,10 @@
       "assistant-client-tool-result-invalid": "Je app meldde iets wat de assistent niet kan gebruiken.",
       "assistant-client-tool-declined": "Je hebt deze stap in je app afgewezen.",
       "assistant-client-tool-failed": "Je app kon deze stap niet afronden.",
+      "assistant-elicitation-not-found": "Het verzoek om invoer is niet gevonden.",
+      "assistant-elicitation-not-pending": "Het verzoek om invoer wacht niet meer op een antwoord.",
+      "assistant-elicitation-forbidden": "Alleen de persoon wiens beurt het is beantwoordt dit verzoek.",
+      "assistant-elicitation-answer-invalid": "Het antwoord past niet bij het verzoek. Controleer de velden en probeer het opnieuw.",
       "assistant-step-tool-unavailable": "Een stap noemde een tool die hier niet beschikbaar is.",
       "assistant-step-limit-reached": "De aanroep heeft zoveel stappen uitgevoerd als mag.",
       "assistant-step-mutation-limit-reached": "De aanroep heeft zoveel wijzigende stappen uitgevoerd als mag.",

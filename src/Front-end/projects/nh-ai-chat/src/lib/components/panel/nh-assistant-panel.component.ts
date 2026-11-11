@@ -44,6 +44,7 @@ import {
 import {
   NhAssistantApprovalChoice,
   NhAssistantApprovalResolutionChoice,
+  NhAssistantElicitationReply,
   NhAssistantQuestionAnswer,
   NhAssistantThreadComponent
 } from '../thread/nh-assistant-thread.component';
@@ -545,6 +546,11 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   /** Answers the question the conversation waits for; only its addressee gets the choices. */
   answerQuestion(answer: NhAssistantQuestionAnswer): void {
     this.store.answerQuestion(answer.questionId, answer.choice);
+  }
+
+  /** Answers an MCP server's request for input; only the person whose turn it is gets the form or link. */
+  answerElicitation(reply: NhAssistantElicitationReply): void {
+    void this.store.answerElicitation(reply.elicitationId, reply.action, reply.content);
   }
 
   cancel(): void {

@@ -179,6 +179,14 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         DiagnosticSeverity.Error,
         true);
 
+    private static readonly DiagnosticDescriptor InvalidTaskSupport = new(
+        "NHAI020",
+        "AI tool cannot run as an MCP task",
+        "AI tool '{0}' declares TaskSupport, which requires Mcp exposure and a value of NhAiToolTaskSupport",
+        "NewHeap.AI",
+        DiagnosticSeverity.Error,
+        true);
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var attributedMethods = context.SyntaxProvider.CreateSyntaxProvider(
@@ -305,6 +313,9 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             // How a person decides the proposals is no part of what the tool does, so it stays out of
             // the contract hash and a pending proposal keeps its binding when the author adds it.
             var requireIndividualDecision = GetNamedBool(toolAttribute, "RequireIndividualDecision");
+            // How an MCP client receives the result is no part of what the tool does either, so the
+            // task support stays out of the contract hash as well.
+            var taskSupport = GetNamedInt(toolAttribute, "TaskSupport", 0);
             if (version < 1)
             {
                 context.ReportDiagnostic(Diagnostic.Create(
@@ -368,6 +379,15 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             {
                 context.ReportDiagnostic(Diagnostic.Create(
                     InvalidWithoutApproval,
+                    location,
+                    setId + "." + toolId));
+                continue;
+            }
+            // Task support 1 = Optional, 2 = Required; only an MCP export can offer a task.
+            if (taskSupport != 0 && ((exposure & 2) == 0 || taskSupport < 0 || taskSupport > 2))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    InvalidTaskSupport,
                     location,
                     setId + "." + toolId));
                 continue;
@@ -571,7 +591,8 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 subject.Type,
                 subject.ArgumentName,
                 allowWithoutApproval,
-                requireIndividualDecision));
+                requireIndividualDecision,
+                taskSupport));
         }
 
         var duplicateGroups = tools.GroupBy(tool => tool.LogicalId + "@" + tool.Version)
@@ -828,6 +849,11 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         if (tool.RequireIndividualDecision)
         {
             builder.AppendLine("        RequireIndividualDecision = true,");
+        }
+        if (tool.TaskSupport != 0)
+        {
+            builder.Append("        TaskSupport = (global::NewHeap.Platform.AI.NhAiToolTaskSupport)")
+                .Append(tool.TaskSupport).AppendLine(",");
         }
         if (tool.SubjectType is not null && tool.SubjectArgument is not null)
         {
@@ -1969,7 +1995,8 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             string? subjectType,
             string? subjectArgument,
             bool allowWithoutApproval,
-            bool requireIndividualDecision)
+            bool requireIndividualDecision,
+            int taskSupport)
         {
             Method = method;
             SetId = setId;
@@ -2010,6 +2037,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             SubjectArgument = subjectArgument;
             AllowWithoutApproval = allowWithoutApproval;
             RequireIndividualDecision = requireIndividualDecision;
+            TaskSupport = taskSupport;
         }
 
         public IMethodSymbol Method { get; }
@@ -2052,6 +2080,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         public string? SubjectArgument { get; }
         public bool AllowWithoutApproval { get; }
         public bool RequireIndividualDecision { get; }
+        public int TaskSupport { get; }
     }
 
     /// <summary>

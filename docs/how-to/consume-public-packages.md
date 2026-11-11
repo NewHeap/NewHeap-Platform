@@ -43,6 +43,22 @@ Use nuget.org as the only committed package source unless the consumer has an un
 
 Run restore from an empty local package cache when validating a source cutover. No NuGet API key is required for restore. API keys and OIDC credentials belong only to the protected Platform publication workflow.
 
+### Minimum publish age
+
+With the .NET 11 SDK (11.0.100 or later, NuGet 8.0), add a minimum publish age to the nuget.org source and exempt NewHeap's own packages, as the Platform's `src/Back-end/nuget.config` does:
+
+```xml
+<add key="nuget.org" value="https://api.nuget.org/v3/index.json" protocolVersion="3" minPublishAgeHours="72" />
+```
+
+```xml
+<minPublishAgeExceptions>
+  <package pattern="NewHeap.*" />
+</minPublishAgeExceptions>
+```
+
+The age delays only the versions that NuGet chooses for you: `dotnet package add` and `dotnet package update` without an explicit version skip versions published less than 72 hours ago, and restore fails with `NU1020` for a floating version of a package that is not exempt. Pinned versions in `Directory.Packages.props` restore unchanged, and an explicitly requested version bypasses the age. The exception keeps a NewHeap release available on the day it is published. The nearest configuration file that defines `minPublishAgeExceptions` replaces the inherited list, so keep `NewHeap.*` in every such file, and repeat `minPublishAgeHours` in a file that redefines the nuget.org source. Older SDKs, such as 10.0.4xx, ignore both settings. Configure Dependabot or Renovate cooldowns separately. See [Minimum package publish age](https://learn.microsoft.com/nuget/consume-packages/minimum-package-publish-age).
+
 ## AI plugin and consumer skill
 
 Download `newheap-platform-<version>.tar.gz` and `SHA256SUMS` from the immutable GitHub Release tagged `newheap-platform-plugin-v<version>`, verify the archive, and install the plugin, or run `scripts/install-consumer-skills.mjs --consumer <consumer-root>` from the extracted artifact. The default Codex target writes one `.agents/skills/newheap-platform-development` directory; use `--target claude` for the matching `.claude/skills/newheap-platform-development` directory or `--target both` for both discovery roots. If the matching release does not exist, that plugin version is not available for stable installation. Commit each pinned `newheap-platform-development` directory, including its `.newheap-platform-install.json`. The suite is self-contained; its optional sample links target immutable public source and do not require a SampleProjectManagement checkout.

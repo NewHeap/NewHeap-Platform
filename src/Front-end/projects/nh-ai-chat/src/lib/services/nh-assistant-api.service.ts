@@ -13,6 +13,7 @@ import { AgentTriggerOutcome, AgentTriggerReceipt } from '../models/assistant-ag
 import { Alert, AlertDismissOptions, AlertList, AlertListFilter, AlertSummary, AlertSummaryFilter } from '../models/assistant-alert.models';
 import {
   AgentSummary,
+  AnswerElicitationRequest,
   AnswerQuestionRequest,
   ClientToolResultRequest,
   AssistantStatus,
@@ -170,6 +171,19 @@ export class NhAssistantApiService {
   reportClientTool(conversationId: string, invocationId: string, request: ClientToolResultRequest): Observable<NhAssistantSseEvent> {
     const path = `conversations/${encodeURIComponent(conversationId)}/client-tools/${encodeURIComponent(invocationId)}/result`;
     return this.requestStream(path, request, false);
+  }
+
+  /**
+   * Answers the request for input of an MCP server whose tool the caller's running turn calls
+   * (`POST conversations/{id}/elicitations/{elicitationId}/answer`). The answer goes to the server
+   * through the waiting tool call; the turn's own stream carries what follows. Fails with
+   * `assistant-elicitation-forbidden` for anyone but the person of the turn,
+   * `assistant-elicitation-answer-invalid` for values that do not fit, and
+   * `assistant-elicitation-not-pending` once the request no longer waits.
+   */
+  answerElicitation(conversationId: string, elicitationId: string, request: AnswerElicitationRequest): Observable<void> {
+    const path = `conversations/${encodeURIComponent(conversationId)}/elicitations/${encodeURIComponent(elicitationId)}/answer`;
+    return this.transport.json<void>('POST', path, request);
   }
 
   /**
