@@ -187,6 +187,16 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-question-expired',
   'assistant-question-cancelled',
   'assistant-question-answer-invalid',
+  // Client tools that run in the person's browser (AddClientTool)
+  'assistant-client-tool-unavailable',
+  'assistant-client-tool-not-found',
+  'assistant-client-tool-not-pending',
+  'assistant-client-tool-forbidden',
+  'assistant-client-tool-expired',
+  'assistant-client-tool-cancelled',
+  'assistant-client-tool-result-invalid',
+  'assistant-client-tool-declined',
+  'assistant-client-tool-failed',
   // Requests for input of MCP servers whose tools a person's turn runs
   'assistant-elicitation-not-found',
   'assistant-elicitation-not-pending',

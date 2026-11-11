@@ -63,7 +63,8 @@ internal sealed class NhAssistantConversationReader(
             message => NhAssistantContent.DeserializeParts(message.PartsJson));
         var invocationIds = storedParts.Values
             .SelectMany(parts => parts)
-            .Where(part => part.Type is NhAssistantStoredPart.ToolCallType or NhAssistantStoredPart.QuestionType && part.InvocationId is not null)
+            .Where(part => part.Type is NhAssistantStoredPart.ToolCallType or NhAssistantStoredPart.QuestionType or NhAssistantStoredPart.ClientToolType
+                && part.InvocationId is not null)
             .Select(part => part.InvocationId!.Value)
             .ToHashSet();
         var approvalIds = storedParts.Values
@@ -87,6 +88,7 @@ internal sealed class NhAssistantConversationReader(
 
         var messageViews = new List<NhAssistantMessageView>(messages.Count);
         var questions = new List<NhAssistantQuestionView>();
+        var clientTools = new List<NhAssistantClientToolView>();
         foreach (var message in messages)
         {
             var parts = new List<NhAssistantPartView>();
@@ -104,6 +106,13 @@ internal sealed class NhAssistantConversationReader(
                             && NhAssistantQuestions.ViewOf(part, asked, now) is { } question:
                         parts.Add(question);
                         questions.Add(question);
+                        break;
+                    // A client tool call shows as its tool call; the conversation names the one it waits for.
+                    case NhAssistantStoredPart.ClientToolType
+                        when part.InvocationId is { } clientInvocationId
+                            && invocations.TryGetValue(clientInvocationId, out var handed)
+                            && NhAssistantClientTools.ViewOf(part, handed, now) is { } clientTool:
+                        clientTools.Add(clientTool);
                         break;
                     case NhAssistantStoredPart.SkillType when part.SkillId is not null:
                         // The message names the skill it worked in at its end (LS20).
@@ -186,6 +195,13 @@ internal sealed class NhAssistantConversationReader(
                 && asked.Status == NhAssistantToolCallStatuses.AwaitingAnswer)
             : null;
 
+        // A waiting turn that handed a client tool to its person's browser waits for its result.
+        var pendingClientTool = pending is null && pendingQuestion is null && conversation.Status == NhAssistantConversationStatuses.WaitingForApproval
+            ? clientTools.LastOrDefault(clientTool => clientTool.TurnId == conversation.ActiveTurnId
+                && invocations.TryGetValue(clientTool.InvocationId, out var handed)
+                && handed.Status == NhAssistantToolCallStatuses.AwaitingClient)
+            : null;
+
         var participants = await store.GetParticipantsAsync(conversation.Id, cancellationToken);
         IReadOnlyList<NhAssistantMemberView> members = participants.Count == 0
             ? []
@@ -223,6 +239,7 @@ internal sealed class NhAssistantConversationReader(
             Members = members,
             ProtectedShareToken = access.IsOwner ? conversation.ProtectedShareToken : null,
             PendingQuestion = pendingQuestion,
+            PendingClientTool = pendingClientTool,
             Subject = NhAssistantChatSubjectView.Of(conversation, subjects)
         };
     }

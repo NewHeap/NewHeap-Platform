@@ -352,12 +352,13 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database) : 
             context.NhAssistantSendMessageRequest);
         AssertNames(clientContext, "route", "title", "entities");
         AssertNames(clientContext.GetProperty("entities")[0], "type", "id", "label");
-        AssertNames(message, "text", "clientMessageId", "clientContext", "files");
+        AssertNames(message, "text", "clientMessageId", "clientContext", "files", "clientTools");
         var read = JsonSerializer.Deserialize(
-            """{ "text": "Hi", "clientMessageId": "c-1", "clientContext": { "route": "/x" }, "files": [{ "id": "f-1", "name": "Plan.pdf", "mediaType": "application/pdf", "size": 12, "hash": null }] }""",
+            """{ "text": "Hi", "clientMessageId": "c-1", "clientContext": { "route": "/x" }, "files": [{ "id": "f-1", "name": "Plan.pdf", "mediaType": "application/pdf", "size": 12, "hash": null }], "clientTools": ["projects.open"] }""",
             context.NhAssistantSendMessageRequest)!;
         Assert.Equal("/x", read.ClientContext!.Value.GetProperty("route").GetString());
         Assert.Equal(new NhAiFileReference("f-1", "Plan.pdf", NhAiMediaTypes.Pdf, 12), Assert.Single(read.Files!));
+        Assert.Equal(["projects.open"], read.ClientTools);
 
         // The upload answers the file's reference; a message shows an attachment as a `file` part.
         var reference = JsonSerializer.SerializeToElement(

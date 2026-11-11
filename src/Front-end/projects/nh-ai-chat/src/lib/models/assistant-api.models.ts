@@ -155,6 +155,11 @@ export interface Conversation extends ConversationSummary {
    * the server); missing when the conversation waits for no question and on older servers.
    */
   pendingQuestion?: QuestionPart | null;
+  /**
+   * The client tool call the waiting turn handed to the browser of its person and waits for, without
+   * its arguments; missing when the conversation waits for none and on older servers.
+   */
+  pendingClientTool?: ClientToolRequest | null;
   /** The owner followed by the participants; empty while the conversation is not shared. */
   members?: ConversationMember[];
   /** The current invitation-link token; only for the owner. */
@@ -379,6 +384,51 @@ export interface QuestionPart {
 export interface AnswerQuestionRequest {
   /** The zero-based index of the chosen answer. */
   choice: number;
+  /** The client tools this browser can run for the rest of the turn; see `SendMessageRequest.clientTools`. */
+  clientTools?: string[];
+}
+
+/**
+ * `pending` while the turn waits for the browser of its person; `completed`, `declined`, `unavailable`
+ * or `failed` as that browser reported; `expired` when nothing came back within the server's
+ * `ClientToolLifetime`; `cancelled` when the turn was stopped.
+ */
+export type ClientToolStatus = 'pending' | 'completed' | 'declined' | 'unavailable' | 'failed' | 'expired' | 'cancelled';
+
+/**
+ * A client tool call (`AddClientTool` on the server): a tool the agent called that runs in the browser
+ * of the person whose turn it is, in the application's own interface. The `client-tool.requested` event
+ * of that person's own stream carries the `arguments` its handler receives; the conversation and the
+ * live updates of everyone else show the waiting call without them.
+ */
+export interface ClientToolRequest {
+  invocationId: string;
+  toolId: string;
+  /** The person whose browser runs it; nobody else reports its result. */
+  actorId: string;
+  /** After this moment a result is refused with `assistant-client-tool-expired`. */
+  expiresAt: string;
+  status: ClientToolStatus;
+  /** When its result came, or it expired or was cancelled; only sent then. */
+  closedAt?: string | null;
+  /** The arguments bound to the tool's input on the server; only on the person's own stream. */
+  arguments?: Record<string, unknown> | null;
+}
+
+/** What a browser reports after it ran a client tool's handler. */
+export type ClientToolReportStatus = 'completed' | 'declined' | 'unavailable' | 'failed';
+
+/** Body of `POST conversations/{id}/client-tools/{invocationId}/result`. */
+export interface ClientToolResultRequest {
+  status: ClientToolReportStatus;
+  /** How it ended in the interface: a dash-case code of at most 40 characters, such as `saved`. */
+  outcome?: string | null;
+  /** The id of what the person created, at most 64 letters, digits and `-_.:`, when the application returns one. */
+  id?: string | null;
+  /** Data the tool declares on the server with `Returns<TResult>()`; refused for a tool that declares none. */
+  data?: Record<string, unknown> | null;
+  /** The client tools this browser can run for the rest of the turn; see `SendMessageRequest.clientTools`. */
+  clientTools?: string[];
 }
 
 /**
@@ -422,7 +472,7 @@ export interface TextPart {
  * `assistant-proposal-<approval status>`, for example `assistant-proposal-expired`. An `ask_question`
  * call waits as `awaiting-answer` for the person it asked.
  */
-export type ToolCallStatus = 'running' | 'succeeded' | 'failed' | 'awaiting-approval' | 'awaiting-answer' | 'rejected' | 'not-executed';
+export type ToolCallStatus = 'running' | 'succeeded' | 'failed' | 'awaiting-approval' | 'awaiting-answer' | 'awaiting-client' | 'rejected' | 'not-executed';
 
 export interface ToolCallPart {
   type: 'tool-call';
@@ -655,6 +705,11 @@ export interface SendMessageRequest {
   clientContext?: ClientContext | null;
   /** Files the person attaches, as `POST conversations/{id}/files` returned them. */
   files?: FileReference[];
+  /**
+   * The ids of the client tools this browser has a handler for (`provideNhAssistantClientTools`). The
+   * server offers only the tools the application declared among them, and only in a person's own chat.
+   */
+  clientTools?: string[];
 }
 
 /**
@@ -668,6 +723,8 @@ export interface DecideApprovalRequest {
   decision: ApprovalDecision;
   expectedProposalHash: string;
   reason?: string;
+  /** The client tools this browser can run for the rest of the turn; see `SendMessageRequest.clientTools`. */
+  clientTools?: string[];
 }
 
 /** Response of `POST conversations/{id}/share-link`. */

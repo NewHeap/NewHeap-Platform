@@ -1,0 +1,52 @@
+<div class="task-dialog" [attr.aria-busy]="isLoadingOrSubmitting">
+  <form #taskForm="ngForm" [id]="formId" (ngSubmit)="submit($event)" class="task-form" autocomplete="off">
+    @if (formData) {
+      <div class="form-intro">
+        <span>{{ 'project-task.create-label' | translate }}</span>
+        <h2>{{ 'project-task.create-title' | translate }}</h2>
+        <p>{{ 'project-task.create-description' | translate }}</p>
+      </div>
+
+      <section class="task-project" [attr.aria-label]="'project-task.project' | translate">
+        @switch (projectState()) {
+          @case ('loading') {
+            <p class="project-state" role="status">{{ 'project-task.project-loading' | translate }}</p>
+          }
+          @case ('failed') {
+            <p class="project-state error" role="alert">{{ 'project-task.project-load-failed' | translate }}</p>
+          }
+          @default {
+            <span>{{ 'project-task.project' | translate }}</span>
+            <strong>{{ project()?.key }} &middot; {{ project()?.name }}</strong>
+          }
+        }
+      </section>
+
+      <label>
+        <span>{{ 'project-task.task-title' | translate }}</span>
+        <input #taskTitle="ngModel" name="title" required maxlength="180" [(ngModel)]="formData.title">
+        <small>{{ 'project-task.task-title-help' | translate }}</small>
+        <nh-form-error-message [control]="taskTitle.control"></nh-form-error-message>
+      </label>
+
+      <nh-form-error-message [control]="taskForm.controls['']"></nh-form-error-message>
+    }
+  </form>
+
+  @if (formData) {
+    <footer>
+      <button type="button" class="secondary-button" (click)="closeDialog()">
+        <i class="ph ph-x" aria-hidden="true"></i>
+        {{ 'project-task.cancel' | translate }}
+      </button>
+      <button
+        type="submit"
+        class="primary-button"
+        [attr.form]="formId"
+        [disabled]="taskForm.invalid || isLoadingOrSubmitting || projectState() !== 'ready'">
+        <i class="ph" [class.ph-spinner-gap]="isLoadingOrSubmitting" [class.ph-floppy-disk]="!isLoadingOrSubmitting" aria-hidden="true"></i>
+        {{ 'project-task.save' | translate }}
+      </button>
+    </footer>
+  }
+</div>

@@ -398,6 +398,8 @@ builder.Services.AddSampleAlertKindsAsData();
 builder.Services.AddSampleAgentBuilder();
 // SPM-396: the agent builder builds an application-wide weekly count through the gateway that warns above ten.
 builder.Services.AddSampleWeeklyCount();
+// SPM-400: client tools of the project assistant open a project's page or the create-task form in the portal.
+builder.Services.AddSampleClientTools();
 if (builder.Environment.IsDevelopment())
 {
     // After the assistant's own start-up work: its schema exists when the project starter is created.

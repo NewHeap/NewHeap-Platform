@@ -193,11 +193,77 @@ public sealed record NhAssistantConversationDto(
     public NhAssistantMessagePartDto? PendingQuestion { get; init; }
 
     /// <summary>
+    /// The client tool call the waiting turn handed to the browser of its person and waits for, without
+    /// its arguments; left out when the conversation waits for none. A reloaded page shows that the
+    /// person's app runs it and never runs it again.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NhAssistantClientToolDto? PendingClientTool { get; init; }
+
+    /// <summary>
     /// The subject a person's chat is about (FB25); left out for a chat without one and for an agent
     /// thread, whose subject <see cref="Thread"/> names.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public NhAssistantConversationSubjectDto? Subject { get; init; }
+}
+
+/// <summary>
+/// A client tool call (<c>AddClientTool</c>) that the turn handed to the browser of the person whose turn
+/// it is: the data of the <c>client-tool.requested</c> event and of <c>pendingClientTool</c>.
+/// </summary>
+/// <param name="InvocationId">The call; the browser reports its result with
+/// <c>POST conversations/{id}/client-tools/{invocationId}/result</c>.</param>
+/// <param name="ToolId">The client tool, whose handler the browser runs.</param>
+/// <param name="ActorId">The person whose browser runs it; nobody else reports its result.</param>
+/// <param name="ExpiresAt">The end of the wait, after which a result is refused with <c>assistant-client-tool-expired</c>.</param>
+/// <param name="Status"><c>pending</c>, <c>completed</c>, <c>declined</c>, <c>unavailable</c>, <c>failed</c>,
+/// <c>expired</c> or <c>cancelled</c> (<see cref="NhAssistantClientToolStatuses"/>).</param>
+public sealed record NhAssistantClientToolDto(
+    Guid InvocationId,
+    string ToolId,
+    string ActorId,
+    DateTimeOffset ExpiresAt,
+    string Status)
+{
+    /// <summary>
+    /// When its result came, or it expired or was cancelled; only sent then.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? ClosedAt { get; init; }
+
+    /// <summary>
+    /// The arguments the tool's handler receives, bound to the tool's input on the server. Only the
+    /// stream of the request of the person whose turn called the tool carries them; live updates and
+    /// <c>pendingClientTool</c> leave them out.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonElement? Arguments { get; init; }
+}
+
+/// <summary>
+/// Body of <c>POST conversations/{id}/client-tools/{invocationId}/result</c>: what the browser of the person
+/// whose turn called a client tool reports after it ran the tool's handler. The model reads it as the
+/// result of the call; it is data from the browser, never instructions.
+/// </summary>
+/// <param name="Status"><c>completed</c>, <c>declined</c>, <c>unavailable</c> or <c>failed</c>.</param>
+/// <param name="Outcome">How it ended in the interface, a dash-case code of at most 40 characters such
+/// as <c>navigated</c>, <c>saved</c>, <c>cancelled</c> or <c>closed</c>.</param>
+/// <param name="Id">The id of what the person created, at most 64 letters, digits and <c>-_.:</c>, when
+/// the application returns one.</param>
+/// <param name="Data">Data the tool declares with <c>Returns&lt;TResult&gt;()</c>, at most 4,096 bytes;
+/// refused for a tool that declares none.</param>
+public sealed record NhAssistantClientToolResultRequest(
+    string? Status,
+    string? Outcome = null,
+    string? Id = null,
+    JsonElement? Data = null)
+{
+    /// <summary>
+    /// The client tools this browser can run, for the rest of the turn; see
+    /// <see cref="NhAssistantSendMessageRequest.ClientTools"/>.
+    /// </summary>
+    public IReadOnlyList<string>? ClientTools { get; init; }
 }
 
 /// <summary>
@@ -666,7 +732,14 @@ public sealed record NhAssistantQuestionPartDto(
 /// Body of <c>POST conversations/{id}/questions/{questionId}/answer</c> (LS21).
 /// </summary>
 /// <param name="Choice">The zero-based index of the chosen answer.</param>
-public sealed record NhAssistantAnswerQuestionRequest(int? Choice);
+public sealed record NhAssistantAnswerQuestionRequest(int? Choice)
+{
+    /// <summary>
+    /// The client tools this browser can run, for the rest of the turn; see
+    /// <see cref="NhAssistantSendMessageRequest.ClientTools"/>.
+    /// </summary>
+    public IReadOnlyList<string>? ClientTools { get; init; }
+}
 
 /// <summary>
 /// A file a person attached to the message: its name, media type and size in bytes, never its
@@ -1024,7 +1097,15 @@ public sealed record NhAssistantSendMessageRequest(
     string? Text,
     string? ClientMessageId,
     JsonElement? ClientContext = null,
-    IReadOnlyList<NhAiFileReference>? Files = null);
+    IReadOnlyList<NhAiFileReference>? Files = null)
+{
+    /// <summary>
+    /// The ids of the client tools (<c>AddClientTool</c>) this browser has a handler for. The turn offers
+    /// only the tools the application declared among them, and only in a person's own chat; the browser
+    /// declares no description or schema. Ids the application did not declare are ignored; at most 64.
+    /// </summary>
+    public IReadOnlyList<string>? ClientTools { get; init; }
+}
 
 /// <summary>
 /// What the user has open: route (max 200), title (max 120) and at most 5 entities. Untrusted data
@@ -1051,7 +1132,14 @@ public sealed record NhAssistantClientEntityDto(
 public sealed record NhAssistantDecideApprovalRequest(
     string? Decision,
     string? ExpectedProposalHash,
-    string? Reason);
+    string? Reason)
+{
+    /// <summary>
+    /// The client tools this browser can run, for the rest of the turn; see
+    /// <see cref="NhAssistantSendMessageRequest.ClientTools"/>.
+    /// </summary>
+    public IReadOnlyList<string>? ClientTools { get; init; }
+}
 
 public sealed record NhAssistantErrorDto(
     string Code,
@@ -1117,6 +1205,8 @@ public sealed record NhAssistantTurnCompletedDto(
 [JsonSerializable(typeof(NhAssistantClientContextDto))]
 [JsonSerializable(typeof(NhAssistantDecideApprovalRequest))]
 [JsonSerializable(typeof(NhAssistantAnswerQuestionRequest))]
+[JsonSerializable(typeof(NhAssistantClientToolResultRequest))]
+[JsonSerializable(typeof(NhAssistantClientToolDto))]
 [JsonSerializable(typeof(NhAssistantAnswerElicitationRequest))]
 [JsonSerializable(typeof(NhAssistantErrorDto))]
 [JsonSerializable(typeof(NhAssistantTurnStartedDto))]

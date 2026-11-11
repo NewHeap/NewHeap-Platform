@@ -45,6 +45,9 @@
       ],
       "@newheap/platform-ai-chat/agent-runs": [
         "./projects/nh-ai-chat/agent-runs/src/public-api"
+      ],
+      "@newheap/platform-ai-chat/client-tools": [
+        "./projects/nh-ai-chat/client-tools/src/public-api"
       ]
     },
     "esModuleInterop": true,

@@ -353,6 +353,83 @@ public static class NhAssistantToolCallStatuses
     /// <see cref="NhAssistantErrorCodes.QuestionCancelled"/> when the turn was stopped.
     /// </summary>
     public const string AwaitingAnswer = "awaiting-answer";
+
+    /// <summary>
+    /// A call of a client tool (<see cref="NhAssistantBuilder.AddClientTool{TInput}"/>) that waits for the
+    /// browser of the person whose turn it is to run it in the application's own interface. It ends as
+    /// <see cref="Succeeded"/> with what the browser reported as its result, as <see cref="NotExecuted"/>
+    /// when the person declined it, the browser could not run it or the turn was stopped, or as
+    /// <see cref="Failed"/> when the browser failed or nothing came back within
+    /// <see cref="NhAssistantLimits.ClientToolLifetime"/>.
+    /// </summary>
+    public const string AwaitingClient = "awaiting-client";
+}
+
+/// <summary>
+/// What a browser reports after it ran a client tool (<see cref="NhAssistantBuilder.AddClientTool{TInput}"/>)
+/// in the application's own interface, and the status of a waiting client tool as the conversation shows it.
+/// </summary>
+public static class NhAssistantClientToolStatuses
+{
+    /// <summary>The call waits for the browser of the person whose turn it is.</summary>
+    public const string Pending = "pending";
+
+    /// <summary>
+    /// The browser ran the tool, for example it navigated, or it opened the form and the person saved or
+    /// cancelled it; the reported outcome says how it ended.
+    /// </summary>
+    public const string Completed = "completed";
+
+    /// <summary>The person declined to let the application run it.</summary>
+    public const string Declined = "declined";
+
+    /// <summary>
+    /// The browser has no handler for the tool, or the handler cannot run it for these arguments, such
+    /// as a route the application does not allow.
+    /// </summary>
+    public const string Unavailable = "unavailable";
+
+    /// <summary>The handler failed.</summary>
+    public const string Failed = "failed";
+
+    /// <summary>Nothing came back within <see cref="NhAssistantLimits.ClientToolLifetime"/>.</summary>
+    public const string Expired = "expired";
+
+    /// <summary>The turn was stopped while the call waited.</summary>
+    public const string Cancelled = "cancelled";
+
+    /// <summary>
+    /// Whether a browser may report <paramref name="status"/>: <see cref="Completed"/>,
+    /// <see cref="Declined"/>, <see cref="Unavailable"/> or <see cref="Failed"/>.
+    /// </summary>
+    public static bool IsReportable(string? status)
+    {
+        return status is Completed or Declined or Unavailable or Failed;
+    }
+}
+
+/// <summary>
+/// The bounds of client tools and of what a browser reports after it ran one.
+/// </summary>
+public static class NhAssistantClientToolLimits
+{
+    /// <summary>The most characters of the outcome, a dash-case code such as <c>saved</c>.</summary>
+    public const int MaxOutcomeLength = 40;
+
+    /// <summary>The most characters of the id of what the person created, when the application returns one.</summary>
+    public const int MaxIdLength = 64;
+
+    /// <summary>
+    /// The most bytes of the JSON data a browser may return for a tool that declares
+    /// <see cref="NhAssistantClientToolBuilder{TInput}.Returns{TResult}"/>, before it is bound.
+    /// </summary>
+    public const int MaxDataBytes = 4_096;
+
+    /// <summary>The most client tool ids a browser declares it can run in one request.</summary>
+    public const int MaxDeclaredTools = 64;
+
+    /// <summary>The longest description of a client tool.</summary>
+    public const int MaxDescriptionLength = 1_024;
 }
 
 /// <summary>
@@ -1578,6 +1655,56 @@ public static class NhAssistantErrorCodes
     /// The answer names no choice of the question.
     /// </summary>
     public const string QuestionAnswerInvalid = "assistant-question-answer-invalid";
+
+    /// <summary>
+    /// The client tool cannot run here, and the model reads this code as the call's result at once: the
+    /// turn is not a person's own chat turn in the browser (an agent run, a rule, a consultation, an
+    /// application's channel or a step of a composition or script), the person's browser declared no
+    /// handler for it, or the turn already waits for something else.
+    /// </summary>
+    public const string ClientToolUnavailable = "assistant-client-tool-unavailable";
+
+    /// <summary>
+    /// The conversation has no client tool call with that id.
+    /// </summary>
+    public const string ClientToolNotFound = "assistant-client-tool-not-found";
+
+    /// <summary>
+    /// The client tool call no longer waits: its result came, it expired or its turn was stopped.
+    /// </summary>
+    public const string ClientToolNotPending = "assistant-client-tool-not-pending";
+
+    /// <summary>
+    /// Only the person whose turn called the client tool reports its result, from their own browser.
+    /// </summary>
+    public const string ClientToolForbidden = "assistant-client-tool-forbidden";
+
+    /// <summary>
+    /// Nothing came back from the browser within <see cref="NhAssistantLimits.ClientToolLifetime"/>: a
+    /// late result is refused and the conversation is released.
+    /// </summary>
+    public const string ClientToolExpired = "assistant-client-tool-expired";
+
+    /// <summary>
+    /// The turn was stopped while its client tool waited.
+    /// </summary>
+    public const string ClientToolCancelled = "assistant-client-tool-cancelled";
+
+    /// <summary>
+    /// The browser's result breaks the bounds of <see cref="NhAssistantClientToolLimits"/>, names a status
+    /// a browser does not report, or carries data the tool does not declare.
+    /// </summary>
+    public const string ClientToolResultInvalid = "assistant-client-tool-result-invalid";
+
+    /// <summary>
+    /// The person declined the client tool in their browser. The model reads it as the call's result.
+    /// </summary>
+    public const string ClientToolDeclined = "assistant-client-tool-declined";
+
+    /// <summary>
+    /// The browser's handler of the client tool failed. The model reads it as the call's result.
+    /// </summary>
+    public const string ClientToolFailed = "assistant-client-tool-failed";
 
     /// <summary>
     /// The conversation has no request for input of an MCP server with that id.

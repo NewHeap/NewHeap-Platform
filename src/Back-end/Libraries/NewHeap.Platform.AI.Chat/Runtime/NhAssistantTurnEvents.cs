@@ -1,3 +1,4 @@
+using System.Text.Json;
 using NewHeap.Platform.AI.Chat.Collaboration;
 using NewHeap.Platform.AI.Chat.Entities;
 
@@ -54,6 +55,18 @@ internal sealed record NhAssistantQuestionAskedEvent(
 /// </summary>
 internal sealed record NhAssistantQuestionAnsweredEvent(
     NhAssistantQuestionView Question) : NhAssistantTurnEvent;
+
+/// <summary>
+/// The agent called a client tool; the turn waits for the browser of <see cref="NhAssistantClientToolView.ActorId"/>
+/// to run it. Only the stream of that person's own request carries <see cref="Arguments"/>, the bound
+/// arguments the browser's handler receives; what the other sessions and participants receive leaves them
+/// out, so no other browser can run it.
+/// </summary>
+internal sealed record NhAssistantClientToolRequestedEvent(
+    NhAssistantClientToolView ClientTool) : NhAssistantTurnEvent
+{
+    public JsonElement? Arguments { get; init; }
+}
 
 /// <summary>
 /// The turn's person has to connect an MCP server, which each person connects to with OAuth, before
@@ -138,6 +151,12 @@ internal sealed record NhAssistantConversationView(
     /// conversation does not wait for a question.
     /// </summary>
     public NhAssistantQuestionView? PendingQuestion { get; init; }
+
+    /// <summary>
+    /// The client tool call the waiting turn waits for, which the browser of its person runs;
+    /// <see langword="null"/> when the conversation does not wait for one.
+    /// </summary>
+    public NhAssistantClientToolView? PendingClientTool { get; init; }
 
     /// <summary>
     /// The subject a person's chat is about (FB25), with how people see it; <see langword="null"/> for a
@@ -359,6 +378,33 @@ internal sealed record NhAssistantQuestionView(
 
     /// <summary>
     /// The turn that asked it. Never sent to clients.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public Guid TurnId { get; init; }
+}
+
+/// <summary>
+/// A client tool call as the conversation shows it: the call, its tool, the person whose browser runs it,
+/// the end of its wait and its status.
+/// </summary>
+/// <param name="InvocationId">The call; the browser's report names it.</param>
+/// <param name="ActorId">The person whose turn called it and whose browser runs it.</param>
+/// <param name="ExpiresAt">The end of its wait on the application's clock.</param>
+/// <param name="Status">One of <see cref="NhAssistantClientToolStatuses"/>.</param>
+internal sealed record NhAssistantClientToolView(
+    Guid InvocationId,
+    string ToolId,
+    string ActorId,
+    DateTimeOffset ExpiresAt,
+    string Status)
+{
+    /// <summary>
+    /// When its result came, or it expired or was cancelled.
+    /// </summary>
+    public DateTimeOffset? ClosedAt { get; init; }
+
+    /// <summary>
+    /// The turn that called it. Never sent to clients.
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public Guid TurnId { get; init; }

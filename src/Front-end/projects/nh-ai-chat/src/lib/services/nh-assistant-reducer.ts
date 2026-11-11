@@ -1,6 +1,7 @@
 import {
   ApprovalDecision,
   ApprovalPart,
+  ClientToolRequest,
   Conversation,
   ConversationStatus,
   ElicitationPart,
@@ -120,6 +121,15 @@ export function applyNhAssistantEvent(
       };
     }
 
+    case 'client-tool.requested': {
+      // The call waits for its person's browser; the conversation keeps it without its arguments, which
+      // only the store of that person's own stream hands to the handler.
+      const { arguments: _arguments, ...request } = event.data;
+      const clientTool: ClientToolRequest = request;
+      const withToolAwaiting = updateToolCall(conversation, clientTool.invocationId, part => ({ ...part, status: 'awaiting-client' }));
+      return { ...withToolAwaiting, status: 'waiting-for-approval', pendingClientTool: clientTool };
+    }
+
     case 'elicitation.requested':
     case 'elicitation.closed': {
       // A server's request for input shows where its tool call waits; a repeat replaces it.
@@ -150,7 +160,8 @@ export function applyNhAssistantEvent(
         ...conversation,
         status,
         pendingApproval: status === 'waiting-for-approval' ? conversation.pendingApproval : null,
-        pendingQuestion: status === 'waiting-for-approval' ? conversation.pendingQuestion ?? null : null
+        pendingQuestion: status === 'waiting-for-approval' ? conversation.pendingQuestion ?? null : null,
+        pendingClientTool: status === 'waiting-for-approval' ? conversation.pendingClientTool ?? null : null
       };
     }
 
@@ -231,6 +242,22 @@ export function applyNhAssistantQuestionAnswer(
     part => ({ ...part, status: 'running' }));
 }
 
+/**
+ * Records locally that the person's browser reported the result of the client tool call
+ * `invocationId`, until the server state is reloaded: the conversation waits for it no longer and the
+ * turn runs again.
+ */
+export function applyNhAssistantClientToolReport(conversation: Conversation, invocationId: string): Conversation {
+  return updateToolCall(
+    {
+      ...conversation,
+      status: 'running',
+      pendingClientTool: conversation.pendingClientTool?.invocationId === invocationId ? null : conversation.pendingClientTool ?? null
+    },
+    invocationId,
+    part => ({ ...part, status: 'running' }));
+}
+
 /** An approval part after the user's decision. */
 function decidedApproval(part: ApprovalPart, decision: ApprovalDecision): ApprovalPart {
   const decided: ApprovalPart = { ...part, status: decision === 'approve' ? 'approved' : 'rejected' };
@@ -271,7 +298,8 @@ export function applyNhAssistantConversationChange(conversation: Conversation, c
     lastMessageSequence: change.lastMessageSequence,
     participantCount: change.participantCount,
     pendingApproval: change.status === 'waiting-for-approval' ? conversation.pendingApproval : null,
-    pendingQuestion: change.status === 'waiting-for-approval' ? conversation.pendingQuestion ?? null : null
+    pendingQuestion: change.status === 'waiting-for-approval' ? conversation.pendingQuestion ?? null : null,
+    pendingClientTool: change.status === 'waiting-for-approval' ? conversation.pendingClientTool ?? null : null
   };
 }
 

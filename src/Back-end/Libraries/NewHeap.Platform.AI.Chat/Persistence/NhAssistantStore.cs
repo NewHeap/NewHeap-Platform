@@ -574,6 +574,44 @@ internal sealed class NhAssistantStore(
         return affected == 1;
     }
 
+    public async Task<AssistantToolInvocation?> FindAwaitingClientToolAsync(
+        Guid conversationId,
+        Guid turnId,
+        CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory.CreateDbContext();
+        return await context.ToolInvocations
+            .AsNoTracking()
+            .Where(invocation => invocation.ConversationId == conversationId
+                && invocation.TurnId == turnId
+                && invocation.Status == NhAssistantToolCallStatuses.AwaitingClient)
+            .OrderByDescending(invocation => invocation.StartedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<bool> TryCloseClientToolAsync(
+        Guid invocationId,
+        string status,
+        string? resultCode,
+        string? resultJson,
+        DateTimeOffset completedAt,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(status);
+        await using var context = contextFactory.CreateDbContext();
+        var affected = await context.ToolInvocations
+            .Where(invocation => invocation.Id == invocationId
+                && invocation.Status == NhAssistantToolCallStatuses.AwaitingClient)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(invocation => invocation.Status, status)
+                    .SetProperty(invocation => invocation.ResultCode, resultCode)
+                    .SetProperty(invocation => invocation.ResultJson, resultJson)
+                    .SetProperty(invocation => invocation.CompletedAt, completedAt),
+                cancellationToken);
+        return affected == 1;
+    }
+
     public async Task<IReadOnlyList<AssistantToolInvocation>> GetToolInvocationsAsync(
         Guid conversationId,
         IReadOnlyCollection<Guid> invocationIds,

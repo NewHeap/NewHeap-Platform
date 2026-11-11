@@ -385,7 +385,8 @@
     "SPM-396",
     "SPM-397",
     "SPM-398",
-    "SPM-399"
+    "SPM-399",
+    "SPM-400"
   ],
   "gaps": {
     "SPM-102": "OneOfSchemaTransformer currently clears properties but does not yet construct the two OpenAPI variants.",
@@ -4618,6 +4619,31 @@
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantResearch.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantMcpContextSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Mcp/NhAiMcpClientToolImporter.cs"
+    ],
+    "SPM-400": [
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleClientToolsComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
+      "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/ClientToolSamplesTests.cs",
+      "src/Front-end/projects/management/src/app/assistant-playground/sample-assistant.config.ts",
+      "src/Front-end/projects/management/src/app/project-task-create-modal/project-task-create-modal.component.ts",
+      "src/Front-end/projects/sample-project-management-common/src/lib/project-task-api.service.ts",
+      "src/Front-end/projects/management/public/i18n/en.json",
+      "src/Front-end/projects/management/public/i18n/nl.json",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/ClientTools/NhAssistantClientToolBuilder.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/ClientTools/NhAssistantClientToolCatalog.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnRunner.ClientTools.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantClientToolTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantClientToolEndpointTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-client-tools.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/services/nh-assistant-client-tools.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/client-tools/src/nh-assistant-navigate-tool.ts",
+      "../../src/Front-end/projects/nh-ai-chat/client-tools/src/nh-assistant-modal-tool.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-client-navigate-tool.spec.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-client-modal-tool.spec.ts"
     ]
   }
 }

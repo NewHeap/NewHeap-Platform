@@ -43,6 +43,17 @@ internal interface INhAssistantTurnRunner
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Checks what the browser of the person whose turn called a client tool reported, claims the
+    /// conversation and resumes the turn with that report as the result of the call. Only that person
+    /// reports; a call that no longer waits, or whose wait passed <see cref="NhAssistantLimits.ClientToolLifetime"/>,
+    /// is refused, the latter releasing the conversation. Expected failures are returned before any event
+    /// is produced.
+    /// </summary>
+    Task<TaskResult<NhAssistantTurnHandle>> StartClientToolResultTurnAsync(
+        NhAssistantClientToolResultTurnRequest request,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Claims a person's idle or failed chat and starts the turn that continues it after the application
     /// reported the execution of a proposal approved there (FB61): a turn nobody typed, which stores no
     /// message of the person, reads the chat's history with the report as the application's information
@@ -135,6 +146,12 @@ internal sealed record NhAssistantMessageTurnRequest(
     /// The turn opens them with the person's rights and fails with the code of the first refusal.
     /// </summary>
     public IReadOnlyList<NhAiFileReference> Files { get; init; } = [];
+
+    /// <summary>
+    /// The client tools the person's browser can run, among those the application declared
+    /// (<see cref="NhAssistantRegistrationState.KnownClientTools"/>); empty for a request without a browser.
+    /// </summary>
+    public IReadOnlySet<string> ClientTools { get; init; } = new HashSet<string>(StringComparer.Ordinal);
 }
 
 internal sealed record NhAssistantDecisionTurnRequest(
@@ -167,6 +184,9 @@ internal sealed record NhAssistantDecisionTurnRequest(
 
     /// <inheritdoc cref="NhAssistantMessageTurnRequest.Channel"/>
     public string? Channel { get; init; }
+
+    /// <inheritdoc cref="NhAssistantMessageTurnRequest.ClientTools"/>
+    public IReadOnlySet<string> ClientTools { get; init; } = new HashSet<string>(StringComparer.Ordinal);
 }
 
 /// <param name="ConversationId">The person's chat.</param>
@@ -207,6 +227,35 @@ internal sealed record NhAssistantAnswerTurnRequest(
 
     /// <inheritdoc cref="NhAssistantMessageTurnRequest.Channel"/>
     public string? Channel { get; init; }
+
+    /// <inheritdoc cref="NhAssistantMessageTurnRequest.ClientTools"/>
+    public IReadOnlySet<string> ClientTools { get; init; } = new HashSet<string>(StringComparer.Ordinal);
+}
+
+/// <param name="ConversationId">The chat whose turn waits for the client tool.</param>
+/// <param name="CallerContext">Authenticated invocation context of the person who reports.</param>
+/// <param name="InvocationId">The client tool call, as the <c>client-tool.requested</c> event named it.</param>
+/// <param name="Status">What happened, one of the reportable <see cref="NhAssistantClientToolStatuses"/>.</param>
+/// <param name="Outcome">How it ended in the interface, a dash-case code such as <c>saved</c>, or <see langword="null"/>.</param>
+/// <param name="Id">The id of what the person created, when the application returns one.</param>
+/// <param name="Data">The data the tool declares (<see cref="NhAssistantClientToolBuilder{TInput}.Returns{TResult}"/>), or <see langword="null"/>.</param>
+/// <param name="RequestAborted">Token that fires when the client disconnects.</param>
+internal sealed record NhAssistantClientToolResultTurnRequest(
+    Guid ConversationId,
+    NhAiInvocationContext CallerContext,
+    Guid InvocationId,
+    string? Status,
+    string? Outcome,
+    string? Id,
+    System.Text.Json.JsonElement? Data,
+    CancellationToken RequestAborted,
+    string Language = "en")
+{
+    /// <inheritdoc cref="NhAssistantMessageTurnRequest.Person"/>
+    public NhAiPersonInvocation? Person { get; init; }
+
+    /// <inheritdoc cref="NhAssistantMessageTurnRequest.ClientTools"/>
+    public IReadOnlySet<string> ClientTools { get; init; } = new HashSet<string>(StringComparer.Ordinal);
 }
 
 /// <summary>

@@ -1,5 +1,5 @@
 import { AgentTriggerReceipt } from './assistant-agent-run.models';
-import { ApprovalPart, ConnectionRequiredReason, ElicitationPart, QuestionPart, ToolResultPresentation } from './assistant-api.models';
+import { ApprovalPart, ClientToolRequest, ConnectionRequiredReason, ElicitationPart, QuestionPart, ToolResultPresentation } from './assistant-api.models';
 
 /*
  * Server-sent events of an assistant turn.
@@ -46,6 +46,13 @@ export type QuestionAskedEvent = QuestionPart;
 
 /** The addressee answered the question; the turn continues with the answer. */
 export type QuestionAnsweredEvent = QuestionPart;
+
+/**
+ * The agent called a client tool; the turn waits for the browser of `actorId` to run it. Only that
+ * person's own stream carries the `arguments`; the store runs the registered handler once the stream
+ * ended and reports its result.
+ */
+export type ClientToolRequestedEvent = ClientToolRequest;
 
 /** An MCP server asked the person of the turn for input while its tool runs; the call waits. */
 export type ElicitationRequestedEvent = ElicitationPart;
@@ -96,6 +103,7 @@ export interface NhAssistantSseEventMap {
   'approval.required': ApprovalRequiredEvent;
   'question.asked': QuestionAskedEvent;
   'question.answered': QuestionAnsweredEvent;
+  'client-tool.requested': ClientToolRequestedEvent;
   'elicitation.requested': ElicitationRequestedEvent;
   'elicitation.closed': ElicitationClosedEvent;
   'connection.required': ConnectionRequiredEvent;
@@ -124,6 +132,7 @@ export const NH_ASSISTANT_SSE_EVENT_TYPES: readonly NhAssistantSseEventType[] = 
   'approval.required',
   'question.asked',
   'question.answered',
+  'client-tool.requested',
   'elicitation.requested',
   'elicitation.closed',
   'connection.required',

@@ -997,6 +997,48 @@ size `MaxToolCallsPerTurn` for the work plus the questions it may need. A decisi
 approval still starts a new allowance: a person who decides a proposal approves real work, and each
 proposal costs the model a call that needs that decision.
 
+## Client tools in the person's browser
+
+Some work belongs in the application's own interface rather than on the server: opening a page, or
+opening the application's own create form so the person reviews and saves the change themselves.
+Declare such a tool on the server with `AddClientTool<TInput>(toolId, tool => tool.Describe(...)
+.RequirePolicy(...))` (SPM-400). The application owns its id, description, input (the JSON schema of
+`TInput`, bound with required constructor parameters and nullable annotations respected) and policies;
+a browser never declares a tool, so the model never reads text a browser wrote. The browser registers
+a handler per tool id and names the ids it can run with every request that carries a turn
+(`clientTools` on the message, decision, answer and client tool result requests); ids the application
+did not declare are ignored. A client tool is a governed read-only tool that only agents see: the
+agent's selectors select it, the invocation gate checks the person's policies, and the tool budget,
+`MaxToolCallsPerTurn` and the content-free audit count it. Mark a tool that opens a form for a change
+with `HandsOffChange()`: it is offered only where the agent's model is offered changes in a person's
+chat (execute autonomy), exactly where it could propose the same change, and its description tells the
+model to prefer the hand-off over a proposal while the person takes part. Keep proposals for runs,
+consultations and changes the person should approve rather than make.
+
+A turn offers a client tool only in a person's own chat whose browser declared its handler; agent
+threads, runs, rule turns, consultations, an application's channel (`INhAssistantConversationTurns`),
+follow-up turns, a step of a composition or script, and MCP clients never get one, and a call there
+ends at once as `not-executed` with `assistant-client-tool-unavailable`, without running anything.
+When the model calls it, the invoker authorizes and audits the call and the turn waits as for a
+question: the call is `awaiting-client`, the conversation `waiting-for-approval` with
+`pendingClientTool`, and only the stream of the person's own request receives `client-tool.requested`
+with the bound `arguments`; other sessions and participants see the waiting call without them. The
+person's browser runs the handler and posts the result to `POST
+conversations/{id}/client-tools/{invocationId}/result` (`NhAssistantClientToolResultRequest`): a
+`status` of `completed`, `declined`, `unavailable` or `failed`, a dash-case `outcome` such as `saved`,
+an optional `id` of what the person created, and `data` only for a tool that declares
+`Returns<TResult>()`, which is bound to `TResult` so undeclared properties never reach the model. Anyone
+else is refused with `403 assistant-client-tool-forbidden`, a call that no longer waits with
+`409 assistant-client-tool-not-pending` and a result out of bounds with `400
+assistant-client-tool-result-invalid`. The result resumes the turn as a stream with the report as the
+call's output, data from the browser and never instructions; the turn continues on the tool calls,
+tokens and consultations it has left. The wait ends after `NhAssistantLimits.ClientToolLifetime` (15
+minutes by default, one minute to one day) on the application's clock: a late result is refused with
+`409 assistant-client-tool-expired` and releases the conversation, as a new message does, and stopping
+the turn cancels the call. The audit records `ClientToolRequested`, `ClientToolCompleted` with the
+reported status and `ClientToolExpired`, never the arguments, the outcome, the id or the data. A
+client tool needs no storage of its own: it lives in its call and the message's `client-tool` part.
+
 ## Application messages
 
 The application posts its own messages into a conversation with
@@ -2078,7 +2120,7 @@ proposal, an exhausted daily budget, the tool-call limit, cancel and a disabled
 flag. For `AllowQuestions`, assert that a question waits, that its addressee's answer resumes the
 turn with the answer as the call's result, that another participant is refused, that a question
 expires on the application's clock and that a stopped turn cancels it, and that an agent without the
-opt-in offers no `ask_question`. Script a provider error inside the stream with
+opt-in offers no `ask_question`. For `AddClientTool`, assert that the call waits for the person's browser and resumes with its report, that only that person reports a bounded result, that the wait expires on the application's clock, that a browser without the handler is offered no tool and that a hand-off is offered only where the agent may change data. Script a provider error inside the stream with
 `RespondWithProviderError("server_is_overloaded")` and assert that one retry answers, that
 a repeated or non-transient error fails the turn with `assistant-model-unavailable`, and
 that the failed conversation accepts the next message. At the tool-call limit, assert a closing answer from a request with tool choice

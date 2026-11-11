@@ -5,7 +5,8 @@ namespace NewHeap.Platform.AI.Chat.Runtime;
 
 /// <summary>
 /// What a chat waits for and that passed its lifetime (CS9): a question nobody answered, an approval
-/// nobody decided, or a consultation's proposal its asker did not decide. Nothing closes them on time;
+/// nobody decided, a consultation's proposal its asker did not decide, or a client tool call whose result
+/// never came from the person's browser. Nothing closes them on time;
 /// the next answer or decision finds them expired, and so does the next message, which then starts its
 /// own turn instead of finding the chat busy. A read changes nothing.
 /// </summary>
@@ -52,6 +53,18 @@ internal sealed partial class NhAssistantTurnRunner
                 && now >= question.Part.ExpiresAt)
             {
                 await ExpireQuestionAsync(conversation, question.Invocation, question.Part, actorId, channel);
+            }
+
+            return;
+        }
+
+        var awaitingClient = await store.FindAwaitingClientToolAsync(conversation.Id, turnId, cancellationToken);
+        if (awaitingClient is not null)
+        {
+            if (await FindClientToolAsync(conversation, awaitingClient.Id, cancellationToken) is { } clientTool
+                && now >= clientTool.Part.ExpiresAt)
+            {
+                await ExpireClientToolAsync(conversation, clientTool.Invocation, actorId, channel);
             }
 
             return;
