@@ -71,7 +71,24 @@ public sealed record NhAiMcpImportOptions(
     /// a pair this list does not name still needs a registration.
     /// </summary>
     internal IReadOnlyList<NhAiMcpInvocationBinderRegistration> HostInvocationBinders { get; init; } = [];
+
+    /// <summary>
+    /// How the importing NewHeap host calls a remote tool after every invoker check, such as the
+    /// assistant's call as an MCP task where the server offers tasks; <see langword="null"/> calls
+    /// <see cref="McpClientTool.CallAsync"/>.
+    /// </summary>
+    internal NhAiMcpRemoteCall? RemoteCall { get; init; }
 }
+
+/// <summary>
+/// Calls one remote tool for a governed imported tool, within the invocation's cancellation, which
+/// carries the tool's timeout and the turn's budget.
+/// </summary>
+internal delegate ValueTask<CallToolResult> NhAiMcpRemoteCall(
+    McpClientTool remote,
+    IReadOnlyDictionary<string, object?> arguments,
+    RequestOptions? options,
+    CancellationToken cancellationToken);
 
 /// <summary>
 /// Stable result codes of imported MCP tools.
@@ -168,7 +185,8 @@ internal sealed partial class NhAiMcpClientToolImporter(
                 remote,
                 inputSchema,
                 outputSchema,
-                binder));
+                binder,
+                options.RemoteCall));
         }
 
         return new NhAiImportedMcpCatalog(options.ServerId, options.Namespace, imported);
@@ -348,7 +366,8 @@ internal sealed record NhAiImportedMcpTool(
     McpClientTool Remote,
     string InputSchema,
     string OutputSchema,
-    NhAiMcpInvocationBinderRegistration? Binder = null)
+    NhAiMcpInvocationBinderRegistration? Binder = null,
+    NhAiMcpRemoteCall? RemoteCall = null)
 {
     public NhAiToolDescriptor Descriptor { get; } = CreateDescriptor(
         ServerId,
@@ -516,11 +535,13 @@ internal sealed class NhAiGovernedMcpClientFunction(
                 CallToolResult result;
                 using (NhAiMcpCallContext.Enter(imported.ServerId, imported.Policy.RemoteName, imported.Descriptor, context))
                 {
-                    result = await imported.Remote.CallAsync(
-                        remoteArguments,
-                        progress: null,
-                        options: requestOptions,
-                        cancellationToken: invocationCancellationToken);
+                    result = imported.RemoteCall is { } remoteCall
+                        ? await remoteCall(imported.Remote, remoteArguments, requestOptions, invocationCancellationToken)
+                        : await imported.Remote.CallAsync(
+                            remoteArguments,
+                            progress: null,
+                            options: requestOptions,
+                            cancellationToken: invocationCancellationToken);
                 }
                 return result.IsError is true
                     ? TaskResult<CallToolResult>
