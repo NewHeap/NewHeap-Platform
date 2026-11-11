@@ -63,6 +63,8 @@ internal static class NhAssistantServiceRegistration
         services.TryAddSingleton<NhAssistantSeeder>();
         services.TryAddScoped<NhAssistantAdminStore>();
         services.TryAddScoped<NhAssistantMcpOAuthStore>();
+        // The MCP tasks of the host's MCP exposure, shared by every instance.
+        services.TryAddSingleton<NhAssistantMcpTaskStore>();
         services.TryAddScoped<NhAssistantAgentCatalog>();
         services.TryAddScoped<NhAssistantShadowModes>();
         // The run configuration defined as data and the snapshot that puts it into effect.

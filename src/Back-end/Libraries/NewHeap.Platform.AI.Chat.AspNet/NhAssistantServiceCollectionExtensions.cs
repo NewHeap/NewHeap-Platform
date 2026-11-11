@@ -49,6 +49,9 @@ public static class NhAssistantServiceCollectionExtensions
             services.AddNewHeapPlatformAIMcp();
             // The MCP exposure asks the application's composition switch for the MCP channel.
             services.Replace(ServiceDescriptor.Scoped<INhAiMcpCompositionGate, NhAssistantMcpCompositionGate>());
+            // The MCP exposure's tasks (UseTasks) live in the assistant's store, which every instance shares;
+            // an explicit UseInMemoryStore() of the exposure wins.
+            services.TryAddSingleton<INhAiMcpTaskRecords, NhAssistantMcpTaskRecords>();
             services.TryAddSingleton<NhAssistantMcpSecretProtector>();
             services.TryAddSingleton<NhAssistantMcpHostGuard>();
             services.TryAddSingleton<NhAssistantMcpContextBindings>();

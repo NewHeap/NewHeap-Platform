@@ -61,6 +61,8 @@ public sealed class NhAssistantDbContext : DbContext
 
     public DbSet<AssistantMcpConnectionNotice> McpConnectionNotices => Set<AssistantMcpConnectionNotice>();
 
+    public DbSet<AssistantMcpTask> McpTasks => Set<AssistantMcpTask>();
+
     public DbSet<AssistantUserPreference> UserPreferences => Set<AssistantUserPreference>();
 
     public DbSet<AssistantConversationParticipant> Participants => Set<AssistantConversationParticipant>();
@@ -1165,6 +1167,21 @@ public sealed class NhAssistantDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(item => item.ServerId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AssistantMcpTask>(task =>
+        {
+            task.ToTable("AssistantMcpTask");
+            task.HasKey(item => item.Id);
+            task.Property(item => item.Id).HasMaxLength(64);
+            task.Property(item => item.ToolName).HasMaxLength(128).IsRequired();
+            task.Property(item => item.ToolId).HasMaxLength(256).IsRequired();
+            task.Property(item => item.ActorId).HasMaxLength(256).IsRequired();
+            task.Property(item => item.TenantKey).HasMaxLength(128).IsRequired();
+            task.Property(item => item.DivisionKey).HasMaxLength(64).IsRequired();
+            task.Property(item => item.Status).HasMaxLength(16).IsRequired();
+            task.Property(item => item.StatusMessage).HasMaxLength(64);
+            task.HasIndex(item => item.ExpiresAt);
         });
 
         modelBuilder.Entity<AssistantMcpAuthorizationFlow>(flow =>
