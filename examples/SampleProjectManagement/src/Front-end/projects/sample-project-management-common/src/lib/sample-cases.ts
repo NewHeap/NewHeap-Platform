@@ -6638,7 +6638,7 @@ export const SAMPLE_CASES: readonly SampleCase[] = [
       "../../src/Back-end/Tools/NewHeap.Platform.DatabaseRead.Tool/Sql/SqlReadOnlyPolicy.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadMySqlProviderTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadMySqlPrincipalVerificationTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadMySqlServerWideGrantTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadMySqlGrantToEveryAccountTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadMySqlTestServer.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/DatabaseReadApplicationTests.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.DatabaseRead.Tool.Tests/MySqlGrantPolicyTests.cs",

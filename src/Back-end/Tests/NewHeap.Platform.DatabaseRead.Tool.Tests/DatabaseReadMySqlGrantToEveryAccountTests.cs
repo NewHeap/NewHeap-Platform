@@ -9,10 +9,15 @@ namespace NewHeap.Platform.DatabaseRead.Tool.Tests;
 /// to <c>PUBLIC</c> on MariaDB would reject the principals that other tests verify at the same
 /// moment.
 /// </summary>
+/// <remarks>
+/// No name here says <c>SqlServer</c>: <c>test:affected</c> runs every test whose display name does in
+/// its SQL Server process, which would then start a MySQL and a MariaDB server of its own next to those
+/// of the process that runs the other MySQL cases.
+/// </remarks>
 [CollectionDefinition(Name, DisableParallelization = true)]
-public sealed class DatabaseReadMySqlServerWideGrantCollection
+public sealed class DatabaseReadMySqlGrantToEveryAccountCollection
 {
-    public const string Name = "Database read MySQL server-wide grants";
+    public const string Name = "Database read MySQL grants to every account";
 }
 
 /// <summary>
@@ -20,8 +25,8 @@ public sealed class DatabaseReadMySqlServerWideGrantCollection
 /// <c>PUBLIC</c> on MariaDB applies to every account, so the verification covers both: each
 /// rejects a principal that passed before, until it is taken back.
 /// </summary>
-[Collection(DatabaseReadMySqlServerWideGrantCollection.Name)]
-public sealed class DatabaseReadMySqlServerWideGrantTests
+[Collection(DatabaseReadMySqlGrantToEveryAccountCollection.Name)]
+public sealed class DatabaseReadMySqlGrantToEveryAccountTests
 {
     private const string ReaderPassword = "Test-only-reader-Password-42";
 
