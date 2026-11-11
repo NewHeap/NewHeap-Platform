@@ -1807,6 +1807,7 @@
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectPortfolioAnalysisAiTools.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SamplePortfolioAnalysisToolsComposition.cs",
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/McpTaskSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/PortfolioAnalysisToolSamplesTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpTasks.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiMcpTaskRecords.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantMcpTaskStore.cs",
