@@ -189,6 +189,15 @@ readers as the server does; a scenario server with `readers` starts with its too
 OAuth reader the person has not connected shows the same connection card in the chat as the server's
 tools; after connecting, "Ask again" reads an attachment it refused, because the message kept it.
 
+The server editor also sets how long the server's requests for input wait for the person of a chat
+turn ("Wait for a person", SPM-251): whole minutes from 1 to 10, 5 for a new server, saved as
+`elicitationWaitMinutes` on `McpServerInput` and returned on `McpServer` (missing on older servers).
+The editor refuses an empty or out-of-range wait at the field before it saves and shows the server's
+`elicitationWaitMinutes` error there. The hint tells the administrator that the tool's own timeout
+stands still while the person answers and that the turn's own time limit still ends the wait; the
+`nh-assistant-elicitation-card` shows that end as the request's expiry. The mock API stores and
+bounds the wait as the server does.
+
 Route to `NhAssistantAdminComponent` from `@newheap/platform-ai-chat/admin` with a
 lazy route guarded by the host's admin permission (for example
 `app.assistant.admin`), and pass that route as `adminRoute` to

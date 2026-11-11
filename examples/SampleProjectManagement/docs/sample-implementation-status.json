@@ -2191,6 +2191,12 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantElicitations.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnElicitor.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpElicitationTests.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpElicitationWaitTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolCallTimeout.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleAssistantOperationsService.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantOperationsSamplesTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/admin/src/mcp/nh-assistant-admin-mcp-server-editor.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-admin-ui.spec.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/components/elicitation-card/nh-assistant-elicitation-card.component.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-elicitations.spec.ts"
     ],
