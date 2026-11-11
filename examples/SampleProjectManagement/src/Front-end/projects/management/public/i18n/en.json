@@ -385,6 +385,8 @@
     "assistant-prompt-list": "Tool call and table",
     "assistant-prompt-tools": "Several tool calls",
     "assistant-prompt-approval": "Approval",
+    "assistant-prompt-result-cards": "Result cards",
+    "assistant-result-search-label": "Projects the assistant found",
     "assistant-prompt-question": "Structured question",
     "assistant-prompt-legacy-approval": "Legacy approval",
     "assistant-prompt-forbidden": "Failed tool call",

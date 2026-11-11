@@ -388,6 +388,17 @@ working indicator shows the elapsed seconds, so a long turn never looks stalled.
 Custom layouts that render parts themselves should reuse the group component rather
 than listing every call card.
 
+A call that the server presented (`ToolCallPart.resultPresentation`, from the API's
+`INhAssistantToolResultPresenter`) keeps its card visible under the collapsed group as
+`nh-assistant-tool-result`: the default `nh-assistant-tool-result-card` shows the title, summary,
+fields and the link within the application, never the raw result. Give a tool a card of your own with
+`provideNhAssistantToolResultRenderers({ toolId, component })` next to `provideNhAssistant`; the
+standalone component injects `NhAssistantToolResult` and reads only its `presentation` signal, so it
+never sees the call's arguments or raw result, and follows live updates. Approval cards and the agent
+proposals list show a field of a change with `nh-assistant-presentation-fields`: what it holds now
+and what it gets, each labelled, with a badge that says in words whether it changes, gets a new
+value, is cleared or stays unchanged; reuse the component in your own renderers (SPM-248).
+
 A question the agent asked with `ask_question` (`QuestionPart`, server option `AllowQuestions`,
 SPM-334) renders as `nh-assistant-question-card`: the person it is addressed to gets one button per
 choice and a countdown to the end of its wait, everyone else sees the choices read-only with whom it

@@ -2053,7 +2053,11 @@
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantDurableManagerTests.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantPresentationCultures.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantPresentationCultures.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolResultPresenter.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolPresenter.en-US.resx",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantToolResultCardTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs"
     ],
     "SPM-247": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
@@ -2092,7 +2096,14 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-part-groups.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-markdown-libraries.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-markdown.spec.ts",
-      "src/Front-end/scripts/report-initial-bundle.mjs"
+      "src/Front-end/scripts/report-initial-bundle.mjs",
+      "src/Front-end/projects/management/src/app/assistant-playground/sample-project-search-result.component.ts",
+      "src/Front-end/projects/management/public/i18n/en.json",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/tool-result/nh-assistant-tool-result.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/tool-result/nh-assistant-tool-result-card.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/tool-result/nh-assistant-tool-result-renderers.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/presentation-fields/nh-assistant-presentation-fields.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/tool-result/nh-assistant-tool-result.spec.ts"
     ],
     "SPM-249": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantEndToEndSamplesTests.cs",
@@ -3803,7 +3814,8 @@
       "src/Back-end/Libraries/SampleProjectManagement.DAL/Entities/Project.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantToolPresentation.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolPresentationResolver.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantToolPresentationTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantToolPresentationTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantToolResultPresenter.cs"
     ],
     "SPM-348": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleApprovalReplyChannel.cs",

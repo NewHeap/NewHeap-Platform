@@ -8,10 +8,12 @@ import {
   NhAssistantConfig,
   NhAssistantIconName,
   NhAssistantPushConfig,
-  provideNhAssistant
+  provideNhAssistant,
+  provideNhAssistantToolResultRenderers
 } from '@newheap/platform-ai-chat';
 import { SampleAuthService } from 'sample-project-management-common';
 import { Observable, map } from 'rxjs';
+import { SampleProjectSearchResultComponent } from './sample-project-search-result.component';
 
 /** Application permission that grants the assistant, matching the API access policy. */
 export const SAMPLE_ASSISTANT_PERMISSION = 'app.assistant.access';
@@ -139,11 +141,14 @@ export const SAMPLE_ASSISTANT_PUSH: NhAssistantPushConfig = {
   alertsUrl: '/management/alerts'
 };
 
+/** The project search of the API, whose result card the portal renders itself. */
+export const SAMPLE_PROJECT_SEARCH_TOOL_ID = 'projects.search';
+
 /**
  * Registers the assistant for the management portal: the `/api/assistant` endpoints, the
  * NewHeap session token and active division, the page context, the permission-based access
  * policy, live updates over WebSockets through the `/hub/assistant` hub the server reports, Web
- * Push and the sample icons.
+ * Push, the sample icons and the portal's renderer of the project search's result card.
  */
 export function provideSampleAssistant(overrides: Partial<NhAssistantConfig> = {}): EnvironmentProviders {
   return makeEnvironmentProviders([
@@ -160,6 +165,9 @@ export function provideSampleAssistant(overrides: Partial<NhAssistantConfig> = {
       push: SAMPLE_ASSISTANT_PUSH,
       ...overrides
     }),
-    { provide: NH_ASSISTANT_ICONS, useValue: SAMPLE_ASSISTANT_ICONS }
+    { provide: NH_ASSISTANT_ICONS, useValue: SAMPLE_ASSISTANT_ICONS },
+    // SPM-248: the portal renders the result card of the project search with its own component; the
+    // cards of other tools, such as the project read, use the default card of the assistant.
+    provideNhAssistantToolResultRenderers({ toolId: SAMPLE_PROJECT_SEARCH_TOOL_ID, component: SampleProjectSearchResultComponent })
   ]);
 }
