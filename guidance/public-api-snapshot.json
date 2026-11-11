@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.126",
   "backEnd": {
-    "hash": "73522f7fd430c38cd3991f08d895b71f884fce147a8b5c8ab06d28d3d1a9d5f2",
-    "declarationCount": 14262,
+    "hash": "563c59644aa73d7ad353fbbacd06076be90600f130de32d66eb8e1ce62ca9518",
+    "declarationCount": 14263,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -37351,6 +37351,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
+        "declaration": "public bool ForwardsCallerToken { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolContracts.cs",
         "declaration": "public int MaxConcurrency { get; init; } = 1;"
       },
       {
@@ -62087,7 +62091,8 @@
       "McpTaskId",
       "UseTasks",
       "NhAiMcpTaskOptions",
-      "NhAiMcpTaskFailureCodes"
+      "NhAiMcpTaskFailureCodes",
+      "ForwardsCallerToken"
     ],
     "nh-ai-model-profiles": [
       "INhAiModelProfileRegistry",

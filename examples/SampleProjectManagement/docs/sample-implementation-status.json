@@ -1819,7 +1819,11 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Persistence/NhAssistantMcpTaskStore.cs",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpTaskRecords.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/NhAiMcpTaskTests.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpTaskStoreTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpTaskStoreTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AiBridgeSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Generators/NhAiToolGenerator.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Tests/NhAiToolTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Common/NhAiCallerCredentials.cs"
     ],
     "SPM-223": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Program.cs",
@@ -3818,7 +3822,9 @@
       "../../src/Front-end/projects/nh-ai-chat/admin/src/agents/nh-assistant-admin-agents.component.html",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-chat-only-agents.spec.ts",
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantShadowModes.cs",
-      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs"
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentControl.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServiceCollectionExtensions.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantBackgroundOperationsStartupTests.cs"
     ],
     "SPM-344": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAgentPackagesComposition.cs",

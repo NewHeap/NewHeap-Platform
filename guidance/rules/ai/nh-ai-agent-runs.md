@@ -889,7 +889,17 @@ attempts. `Retry` counts attempts that failed only:
 a run whose thread a person's turn holds, or whose agent already has `maxConcurrentRuns` runs
 going, gives way without spending a retry and tries again 15 or 30 seconds later on the
 application's clock, twice as long after every attempt that gave way, at most five minutes. Call
-`AddAssistantAgentRuns()` inside `WithBackgroundOperations`.
+`AddAssistantAgentRuns()` inside `WithBackgroundOperations`. Host start demands it, with
+`Agents configured with ConfigureAgent need background operations`, for every agent in code that can
+run: one a trigger or schedule starts, and one that works on the whole application, on a named object
+type, or on all object types, as an agent that does not say does, of a host that registers at least
+one. Such an agent is started by hand on an object's page and by a person's message in its thread, and
+the approved proposals in its threads execute as background operations. An agent that works on nothing
+the host registers never runs: a chat-only agent, and an agent without a statement on a host without
+object types. Its chat settings, such as `AllowQuestions` and `KeepPlan`, work in people's chats,
+which answer a question and decide an inline proposal in their own requests, so an assistant used for
+chats only, for example behind an AG-UI endpoint, starts without background operations. Say so with
+`ChatOnly()` once the host registers object types.
 
 Give agent runs capacity of their own when other background work can fill the global limit.
 `AddAssistantAgentRuns(runs => runs.Queue("agent-runs").MaxConcurrency(4))` places every operation of
