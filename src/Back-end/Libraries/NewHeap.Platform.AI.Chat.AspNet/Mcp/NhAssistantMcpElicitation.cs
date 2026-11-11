@@ -22,9 +22,10 @@ namespace NewHeap.Platform.AI.Chat.AspNet.Mcp;
 /// <para>
 /// A request waits the server's wait time (<see cref="NhAssistantMcpConnectionPlan.ElicitationWait"/>,
 /// five minutes unless an administrator or the application's code sets one to ten), not the tool's own
-/// timeout: the clock of the tool's timeout stands still while the person is asked, in either form and
-/// for a call the server refuses until a page was finished, and runs on with the time that was left
-/// once they answered. The turn's own timeout keeps running and ends the wait at the turn's deadline.
+/// timeout: the clock of the tool's timeout and the turn's stand still while the person is asked, in
+/// either form and for a call the server refuses until a page was finished, and run on with the time
+/// that was left once they answered; the call lets its concurrency slot go meanwhile. A turn stands still
+/// at most <see cref="NhAssistantMcpServerLimits.MaxTurnPauseMinutes"/> in all.
 /// </para>
 /// </summary>
 internal static class NhAssistantMcpElicitation

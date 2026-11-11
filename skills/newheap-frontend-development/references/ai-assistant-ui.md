@@ -196,8 +196,8 @@ turn ("Wait for a person", SPM-251): whole minutes from 1 to 10, 5 for a new ser
 `elicitationWaitMinutes` on `McpServerInput` and returned on `McpServer` (missing on older servers).
 The editor refuses an empty or out-of-range wait at the field before it saves and shows the server's
 `elicitationWaitMinutes` error there. The hint tells the administrator that the tool's own timeout
-stands still while the person answers and that the turn's own time limit still ends the wait; the
-`nh-assistant-elicitation-card` shows that end as the request's expiry. The mock API stores and
+and the turn's time limit stand still while the person answers, up to ten minutes per chat turn in
+all; the `nh-assistant-elicitation-card` shows the end of the wait as the request's expiry. The mock API stores and
 bounds the wait as the server does.
 
 Route to `NhAssistantAdminComponent` from `@newheap/platform-ai-chat/admin` with a

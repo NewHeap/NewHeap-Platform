@@ -310,8 +310,8 @@ internal static class NhAssistantElicitationScope
 /// <param name="ElicitationId">The request; the answer names it.</param>
 /// <param name="InvocationId">The tool call that waits for it.</param>
 /// <param name="AddresseeActorId">The person whose turn it is, who alone answers.</param>
-/// <param name="ExpiresAt">The end of the wait: the server's wait time after the request, never later
-/// than what is left of the turn's time for its person allows.</param>
+/// <param name="ExpiresAt">The end of the wait: the server's wait time after the request, or the end of
+/// the time the turn may still stand still for its person when that comes first.</param>
 /// <param name="Status">One of <see cref="NhAssistantElicitationStatuses"/>.</param>
 internal sealed record NhAssistantElicitationView(
     Guid ElicitationId,

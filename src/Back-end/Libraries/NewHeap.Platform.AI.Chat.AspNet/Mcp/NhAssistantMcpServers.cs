@@ -214,9 +214,10 @@ public sealed record NhAssistantMcpServerRequest(
     /// How long a request for input of the server waits for the person of a chat turn, in whole
     /// minutes from <see cref="NhAssistantMcpServerLimits.MinElicitationWaitMinutes"/> to
     /// <see cref="NhAssistantMcpServerLimits.MaxElicitationWaitMinutes"/>; another value is refused with
-    /// the field error <c>elicitationWaitMinutes: invalid</c>. The tool's own timeout stands still while
-    /// the person is asked; the turn's own timeout keeps running and ends the wait at the turn's
-    /// deadline. The answer reaches only the process that runs the turn.
+    /// the field error <c>elicitationWaitMinutes: invalid</c>. The tool's own timeout and the turn's stand
+    /// still while the person is asked, at most
+    /// <see cref="NhAssistantMcpServerLimits.MaxTurnPauseMinutes"/> per turn in all. The answer reaches
+    /// only the process that runs the turn.
     /// </summary>
     public int? ElicitationWaitMinutes { get; init; }
 }
