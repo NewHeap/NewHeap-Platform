@@ -104,7 +104,7 @@ let nextId = 0;
     button.link {
       border: 0;
       padding: 0;
-      color: var(--nha-accent, currentColor);
+      color: var(--nha-link, currentColor);
       background: none;
       font: inherit;
       text-decoration: underline;

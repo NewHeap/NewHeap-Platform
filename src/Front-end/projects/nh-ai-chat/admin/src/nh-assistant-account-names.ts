@@ -130,7 +130,7 @@ export class NhAssistantAccountNames {
     button.link {
       border: 0;
       padding: 0;
-      color: var(--nha-accent, currentColor);
+      color: var(--nha-link, currentColor);
       background: none;
       font: inherit;
       text-decoration: underline;
@@ -192,7 +192,7 @@ export class NhAssistantAccountNamesErrorComponent {
       cursor: pointer;
     }
     .copy-id:hover { color: var(--nha-text, currentColor); border-color: var(--nha-border, currentColor); }
-    .copy-id:focus-visible { outline: 2px solid var(--nha-accent, currentColor); outline-offset: 2px; }
+    .copy-id:focus-visible { outline: 2px solid var(--nha-focus, currentColor); outline-offset: 2px; }
     .visually-hidden {
       position: absolute;
       width: 1px;
