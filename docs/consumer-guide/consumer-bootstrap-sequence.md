@@ -22,6 +22,8 @@ Treat successful anonymous `dotnet restore`, the profile-relevant npm installati
 
 The bootstrap refuses to overwrite a different existing file. It may be rerun when its managed files are unchanged. Credentials never belong in the repository, package URL, manifest, lockfile or generated instructions.
 
+After the gate, a consumer that builds with the .NET 11 SDK may delay new third-party versions with `minPublishAgeHours="72"` on the nuget.org source of `src/Back-end/nuget.config`, together with a `minPublishAgeExceptions` section that exempts `NewHeap.*`, so NewHeap releases stay available on their release day. The age filters only automatic version selection by `dotnet package add` and `dotnet package update` and floating versions; pinned central versions restore unchanged, and older SDKs ignore both settings.
+
 ## Avoid
 
 - Running the bootstrap without an explicitly confirmed profile and persistence decision.
@@ -32,10 +34,12 @@ The bootstrap refuses to overwrite a different existing file. It may be rerun wh
 - Copying a token into `.npmrc`, `nuget.config`, a command committed to source control, or a URL.
 - Claiming setup is complete after file generation without a package restore, npm installation and final validation.
 - Replacing a conflicting existing file through a force flag during bootstrap.
+- A minimum publish age without a `NewHeap.*` exception, or a `minPublishAgeExceptions` section in a higher-priority configuration file that drops it; the nearest section replaces the inherited list.
+- Removing the minimum publish age or adding a broad exception to take a security fix; request the reviewed version explicitly instead.
 
 ## Verification
 
-Run the bootstrap without `--skip-install`, then run `inspect-newheap-consumer.mjs <consumer-root> --mode foundation`. Confirm the NewHeap NuGet restore produced the selected application host's `project.assets.json` and the `.slnx` is under `src/Back-end`. For a backend-only profile, confirm only the frontend placeholder exists. For a management portal or a public website, also confirm the frontend package exists under `node_modules` with its peers resolved and Angular workspace files are under `src/Front-end`. Run the profile's normal build and `--mode validate` as the final structural and integration audit.
+Run the bootstrap without `--skip-install`, then run `inspect-newheap-consumer.mjs <consumer-root> --mode foundation`. Confirm the NewHeap NuGet restore produced the selected application host's `project.assets.json` and the `.slnx` is under `src/Back-end`. For a backend-only profile, confirm only the frontend placeholder exists. For a management portal or a public website, also confirm the frontend package exists under `node_modules` with its peers resolved and Angular workspace files are under `src/Front-end`. Run the profile's normal build and `--mode validate` as the final structural and integration audit. When a minimum publish age is configured, run `dotnet package update --project <project>` with the .NET 11 SDK after a NewHeap release and confirm the new `NewHeap.*` version is selected while the command reports younger third-party versions as not yet eligible.
 
 ## Executable evidence
 
