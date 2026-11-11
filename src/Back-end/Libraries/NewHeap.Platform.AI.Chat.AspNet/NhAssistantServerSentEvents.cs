@@ -118,7 +118,10 @@ internal sealed class NhAssistantServerSentEventsResult(NhAssistantTurnHandle ha
                 new NhAssistantToolStartedDto(tool.InvocationId, tool.ToolId, tool.ToolVersion, tool.DisplayName, tool.ArgumentsPreview),
                 context.NhAssistantToolStartedDto)),
             NhAssistantToolCompletedEvent tool => ("tool.completed", Json(
-                new NhAssistantToolCompletedDto(tool.InvocationId, tool.Status, tool.ResultCode, tool.ResultPreview),
+                new NhAssistantToolCompletedDto(tool.InvocationId, tool.Status, tool.ResultCode, tool.ResultPreview)
+                {
+                    ResultPresentation = NhAssistantToolResultPresentationDto.From(tool.ResultPresentation)
+                },
                 context.NhAssistantToolCompletedDto)),
             NhAssistantApprovalRequiredEvent approval => ("approval.required", Json(
                 NhAssistantDtoMapper.ToDto(approval.Approval),
@@ -369,7 +372,8 @@ internal static class NhAssistantDtoMapper
                 tool.ResultCode)
             {
                 GrantSource = tool.GrantSource == NhAiGrantSource.None ? null : NhAssistantGrantSources.Name(tool.GrantSource),
-                Restricted = tool.Restricted
+                Restricted = tool.Restricted,
+                ResultPresentation = NhAssistantToolResultPresentationDto.From(tool.ResultPresentation)
             },
             NhAssistantApprovalView approval => new NhAssistantApprovalPartDto(
                 approval.ApprovalId,

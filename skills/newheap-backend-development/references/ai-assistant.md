@@ -368,6 +368,27 @@ localization, which NewHeap hosts fill from
 `NewHeap:PlatformAspNetCommon:Settings:SupportedCultures`, at most eight
 (`MaxCultures`), so each approver reads their own language (SPM-246).
 
+For an update, state what a field holds now so the approver sees what changes: create it with
+`NhAssistantPresentationField.Changing(label, currentValue, proposedValue)`, or set the init-only
+`CurrentValue` next to `Value`. `Change` (`NhAssistantPresentationFieldChange`) then reads
+`Unchanged`, `Added` (empty now), `Changed` or `Cleared` (an empty `Value`, allowed only with a current
+value), and the approval card, the agent proposals list and other clients show both values with the
+change in words. A field without `CurrentValue` stays a plain fact, and stored approvals of older
+versions read as before. The current value has the same cap as the value
+(`field-current-value-too-long`); read it again inside the authorized scope, as the sample's status
+change does (SPM-246).
+
+Use `AddToolResultPresenter<T>()` with an `INhAssistantToolResultPresenter` to show a trusted card of
+what a call returned instead of only the tool's name (generative UI). It receives the authorized
+`Data` of a call that succeeded (`ReadData<T>()`), the untrusted model `Arguments` and the culture, and
+returns a `NhAssistantToolResultPresentation`: a title of 160 characters, an optional summary, at most
+eight fields and an optional `NhAssistantPresentationLink` to a path within the application. The same
+caps, timeout, drop with a content-free warning and confidential exclusion apply; test it with
+`NhAssistantPresentationLimits.FindBrokenResultRule`. The card never reaches the model and never shows
+raw JSON. It is presented in every supported culture, sent on `tool.completed` as `resultPresentation`,
+stored with the conversation as a message part, so a reload and the live updates of other
+participants show it, and left out for a viewer from whom the result is shielded (SPM-246, SPM-248).
+
 The library replaces `INhAiBudgetManager`, `INhAiIdempotencyManager` and
 `INhAiApprovalEvidenceProvider` with durable implementations on its own tables.
 Budget and evidence requests outside an assistant turn are delegated to the

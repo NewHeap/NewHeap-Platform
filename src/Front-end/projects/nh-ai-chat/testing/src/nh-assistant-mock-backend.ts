@@ -756,7 +756,13 @@ export class NhAssistantMockBackend {
       if (decision === 'approve') {
         await emit({
           type: 'tool.completed',
-          data: { invocationId: pending.invocationId, status: 'succeeded', resultCode: null, resultPreview: pending.step.resultPreview ?? null }
+          data: {
+            invocationId: pending.invocationId,
+            status: 'succeeded',
+            resultCode: null,
+            resultPreview: pending.step.resultPreview ?? null,
+            ...(pending.step.resultPresentation ? { resultPresentation: pending.step.resultPresentation } : {})
+          }
         });
         await this.playSteps(conversation.id, pending.assistantMessageId, pending.step.approved, emit);
       } else if (decision === 'leave') {
@@ -932,7 +938,11 @@ export class NhAssistantMockBackend {
             invocationId,
             status: step.tool.status ?? 'succeeded',
             resultCode: step.tool.resultCode ?? null,
-            resultPreview: step.tool.resultPreview ?? null
+            resultPreview: step.tool.resultPreview ?? null,
+            // As the server, only a call that succeeded carries the application's card.
+            ...(step.tool.resultPresentation && (step.tool.status ?? 'succeeded') === 'succeeded'
+              ? { resultPresentation: step.tool.resultPresentation }
+              : {})
           }
         });
       } else if ('approval' in step) {

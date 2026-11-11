@@ -1,0 +1,99 @@
+@use '../../styles/tokens';
+
+@include tokens.tokens;
+
+:host {
+  display: block;
+}
+
+.fields {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.field {
+  display: grid;
+  grid-template-columns: minmax(90px, .4fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+dt {
+  color: var(--nha-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.value {
+  min-width: 0;
+}
+
+// The words say how the field changes; the color only supports them.
+.badge {
+  border-radius: 999px;
+  padding: 1px 8px;
+  color: var(--nha-text-muted);
+  background: var(--nha-surface-strong);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.field[data-change='changed'] .badge,
+.field[data-change='added'] .badge {
+  color: var(--nha-warning);
+  background: var(--nha-warning-soft);
+}
+
+.field[data-change='cleared'] .badge {
+  color: var(--nha-danger);
+  background: var(--nha-danger-soft);
+}
+
+.line {
+  display: flex;
+  flex-basis: 100%;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.line-label {
+  flex: none;
+  min-width: 72px;
+  color: var(--nha-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+del {
+  color: var(--nha-text-muted);
+  text-decoration-thickness: 1px;
+}
+
+ins {
+  color: var(--nha-text);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.empty {
+  color: var(--nha-text-muted);
+  font-style: italic;
+}
+
+.field[data-change='unchanged'] .value {
+  color: var(--nha-text-muted);
+}

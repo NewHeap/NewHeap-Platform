@@ -73,4 +73,15 @@
   <data name="AlertDeliverableDueText" xml:space="preserve"><value>Its deadline is {0}, and {1}.</value></data>
   <data name="AlertDeliverableWorkNotStarted" xml:space="preserve"><value>its work has not started</value></data>
   <data name="AlertDeliverableWorkInProgress" xml:space="preserve"><value>its work is in progress</value></data>
+  <data name="ApprovalFieldStatus" xml:space="preserve"><value>Status</value></data>
+  <data name="ResultFieldDeadline" xml:space="preserve"><value>Deadline</value></data>
+  <data name="ResultNoDeadline" xml:space="preserve"><value>No deadline</value></data>
+  <data name="ResultOpenProject" xml:space="preserve"><value>Open project</value></data>
+  <data name="ResultProjectsTitle" xml:space="preserve"><value>Projects found</value></data>
+  <data name="ResultProjectsNone" xml:space="preserve"><value>No project matches.</value></data>
+  <data name="ResultProjectsOne" xml:space="preserve"><value>1 project matches.</value></data>
+  <data name="ResultProjectsMany" xml:space="preserve"><value>{0} projects match.</value></data>
+  <data name="ResultProjectsShown" xml:space="preserve"><value>{0} projects match; the first {1} are shown.</value></data>
+  <data name="ResultOpenProjects" xml:space="preserve"><value>Open the project board</value></data>
+  <data name="ToolProjectGet" xml:space="preserve"><value>Read project</value></data>
 </root>

@@ -173,6 +173,10 @@
       "show-calls": "Show tool calls",
       "hide-calls": "Hide tool calls"
     },
+    "tool-result": {
+      "label": "Result of {{name}}",
+      "open-link": "Open"
+    },
     "approval": {
       "title": "Approval required",
       "fallback-summary": "Review this action before it runs.",
@@ -234,6 +238,25 @@
         },
         "moved-status": "Left for approvers",
         "moved": "It now waits for the approvers of {{subject}}."
+      }
+    },
+    "presentation": {
+      "current": "Now",
+      "proposed": "Proposed",
+      "before": "Before",
+      "after": "After",
+      "empty": "Empty",
+      "change": {
+        "unchanged": "Unchanged",
+        "added": "New value",
+        "changed": "Changes",
+        "cleared": "Cleared"
+      },
+      "change-result": {
+        "unchanged": "Unchanged",
+        "added": "Added",
+        "changed": "Changed",
+        "cleared": "Cleared"
       }
     },
     "question": {

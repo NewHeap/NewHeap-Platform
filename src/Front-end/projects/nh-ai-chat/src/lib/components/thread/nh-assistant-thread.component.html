@@ -74,6 +74,12 @@
         }
         @case ('tools') {
           <nh-assistant-tool-call-group class="part" [calls]="group.calls" />
+          <!-- The application's trusted cards of what the calls returned stay visible under the collapsed group. -->
+          @for (call of group.calls; track call.invocationId) {
+            @if (call.resultPresentation) {
+              <nh-assistant-tool-result class="part" [part]="call" />
+            }
+          }
         }
         @case ('files') {
           <ul class="files" [attr.aria-label]="'nh-assistant.thread.files' | translate">

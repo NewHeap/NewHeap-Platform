@@ -90,6 +90,20 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Adds an optional presenter of tool results: a trusted, localized card of what a call that
+    /// succeeded returned, which the chat shows next to the call (<see cref="INhAssistantToolResultPresenter"/>).
+    /// Cards never reach the model and cannot alter authorization, proposal evidence or approval
+    /// decisions. A class that presents approvals as well registers with <see cref="AddToolPresenter{TPresenter}"/> too.
+    /// </summary>
+    public NhAssistantBuilder AddToolResultPresenter<TPresenter>()
+        where TPresenter : class, INhAssistantToolResultPresenter
+    {
+        Services.TryAddEnumerable(
+            ServiceDescriptor.Scoped<INhAssistantToolResultPresenter, TPresenter>());
+        return this;
+    }
+
+    /// <summary>
     /// Replaces the default title generator, which uses the first line of the first message.
     /// </summary>
     public NhAssistantBuilder UseTitleGenerator<TGenerator>()

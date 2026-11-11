@@ -199,6 +199,9 @@ public static class SampleAssistantComposition
             .UseTimeZone("Europe/Amsterdam")
             .UseTurnContextProvider<SampleAssistantTurnContextProvider>()
             .AddToolPresenter<SampleAssistantToolPresenter>()
+            // The chat shows a card of what a project read or search returned, under the tool calls; the
+            // portal renders the search with its own component and the project with the default card.
+            .AddToolResultPresenter<SampleAssistantToolResultPresenter>()
             // SPM-349: the messaging app's chat may not propose to archive a project. Only the proposal
             // stage names the channel of the call that proposes, so the guard runs there alone.
             .AddProposalGuard<ProjectArchiveChannelProposalGuard>(
@@ -372,7 +375,9 @@ public static class SampleAssistantComposition
 /// inside the same authorized division. The technical descriptor remains model-facing metadata.
 /// SPM-246: a presentation keeps within <see cref="NhAssistantPresentationLimits"/> (at most eight
 /// fields, short texts); one that breaks a cap is dropped with a warning naming this presenter, the
-/// tool and the rule, and the approver reads the generic summary. Approvals are presented in every
+/// tool and the rule, and the approver reads the generic summary. The status field states the status the
+/// project has now (<see cref="NhAssistantPresentationField.Changing"/>), so the approval card shows the
+/// change from the current to the proposed status. Approvals are presented in every
 /// culture of <c>NewHeap:PlatformAspNetCommon:Settings:SupportedCultures</c> (nl-NL and en-US here),
 /// so each approver reads their own language.
 /// </summary>
@@ -389,6 +394,7 @@ public sealed class SampleAssistantToolPresenter(
         var name = context.Descriptor.Id switch
         {
             "projects.search" => localizer["ToolProjectsSearch"].Value,
+            ProjectOverviewAiTools.GetToolId => localizer["ToolProjectGet"].Value,
             "projects.change-status" => localizer["ToolProjectStatusChange"].Value,
             ProjectTaskAiTools.CompleteToolId => localizer["ToolProjectTaskComplete"].Value,
             _ => null
@@ -431,14 +437,15 @@ public sealed class SampleAssistantToolPresenter(
             localizer["ToolProjectStatusChange"].Value,
             localizer["ApprovalProjectStatusSummary", project.Key, project.Name, newStatus].Value,
             [
+                // A plain fact: which project the change concerns.
                 new NhAssistantPresentationField(
                     localizer["ApprovalFieldProject"].Value,
                     localizer["ApprovalProjectValue", project.Key, project.Name].Value),
-                new NhAssistantPresentationField(
-                    localizer["ApprovalFieldCurrentStatus"].Value,
-                    currentStatus),
-                new NhAssistantPresentationField(
-                    localizer["ApprovalFieldNewStatus"].Value,
+                // The field the change alters, with what it holds now, read in the authorized division,
+                // so the approver sees the status change from its current value to the proposed one.
+                NhAssistantPresentationField.Changing(
+                    localizer["ApprovalFieldStatus"].Value,
+                    currentStatus,
                     newStatus)
             ]);
     }

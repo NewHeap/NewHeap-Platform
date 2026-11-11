@@ -78,7 +78,9 @@ export function applyNhAssistantEvent(
         ...part,
         status: data.status,
         resultCode: data.resultCode,
-        resultPreview: data.resultPreview
+        resultPreview: data.resultPreview,
+        // The trusted card of the result; a live event without one keeps a card the snapshot had.
+        ...(data.resultPresentation ? { resultPresentation: data.resultPresentation } : {})
       }));
     }
 
