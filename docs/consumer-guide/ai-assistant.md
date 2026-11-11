@@ -1047,6 +1047,46 @@ the turn cancels the call. The audit records `ClientToolRequested`, `ClientToolC
 reported status and `ClientToolExpired`, never the arguments, the outcome, the id or the data. A
 client tool needs no storage of its own: it lives in its call and the message's `client-tool` part.
 
+## AG-UI clients
+
+To let AG-UI (Agent-User Interaction Protocol) clients such as CopilotKit, Blazor AI components or the
+.NET `AGUIChatClient` run a chat agent, add `NewHeap.Platform.AI.Chat.AGUI` and map one endpoint per
+agent next to `MapNewHeapAssistant` (SPM-245):
+
+```csharp
+endpoints.MapNewHeapAssistant("/api/assistant");
+endpoints.MapNewHeapAssistantAGUI("/api/assistant/agui/project-assistant", "project-assistant");
+```
+
+It is a second surface over the same assistant, as the MCP export is for tools: the turn runner, tool
+authorization, approvals, budget and audit stay the assistant's, and the endpoint requires the
+assistant access policy and the person's own authentication. The request never names a person or an
+agent. Its `threadId` names the person's conversation with the endpoint's agent: a GUID is the
+conversation id and the first message creates it, any other thread id names a conversation derived
+from the person, the tenant, the agent and that id, and another person's conversation, another agent's
+chat or an agent thread answers `404`. Only the newest message is read, a person's text; the history
+comes from the assistant's store, files go through the upload endpoint, and `tools` only selects
+client tools declared with `AddClientTool` by id, never with a description of the client. `state`,
+`context` and `forwardedProps` never reach the turn.
+
+The run streams `RUN_STARTED` and `RUN_FINISHED` (with usage), text as text messages, a server tool
+call as `TOOL_CALL_START`/`ARGS`/`END` with the arguments' preview and `TOOL_CALL_RESULT` with the
+completed call as `tool.completed` carries it, the trusted result card included and a shielded
+result never, a client tool as a frontend tool call with its bound arguments that the client runs
+and answers with a tool message (the semantics of the client tool result endpoint), and the plan as
+a `STATE_SNAPSHOT` of `{ plan: { turnId, messageId, steps, updatedAt } }`. A proposal or question the
+turn waits for ends the run with an interrupt (`tool_call` naming the proposing call, or
+`input_required` with the choices as a response schema); a `resume` entry decides the proposal with
+`approved` or `decision` (`approve`, `reject`, `leave`), bound to the proposal hash in the
+interrupt's id, or answers the question with `choice`, and the decide and answer endpoints' checks
+run unchanged; a cancelled entry stops the turn. An MCP server's request for input keeps its tool
+call open, so it arrives within the run as the `CUSTOM` event `newheap.elicitation.requested` with an
+interrupt object, and a resume entry of that id in a request of its own answers it while the run goes
+on. Approvals, answered questions, closed requests for input and connections to make also arrive as
+`CUSTOM` events (`NhAssistantAGUICustomEvents`). A failed turn ends with `RUN_ERROR` and the
+assistant's content-free code; a refused request answers with the status and error of the matching
+assistant endpoint.
+
 ## Application messages
 
 The application posts its own messages into a conversation with
@@ -1968,6 +2008,10 @@ calls in a consultation store nothing and are not listed.
 
 ## Avoid
 
+- Selecting the agent, the person or the history from an AG-UI request, or adding a client's tool
+  descriptions, state or context to a turn; map one `MapNewHeapAssistantAGUI` endpoint per agent and
+  let the assistant's store and declared client tools govern the run.
+
 - Exporting imported MCP tools by registering them as MCP-exposed catalogs or a second MCP client in
   the host; use `ExportImportedMcpTools`, which keeps the turn's credential, binding, bounds and audit.
   Do not allow a server that serves background runs with the organization's credential in the export
@@ -2128,7 +2172,7 @@ proposal, an exhausted daily budget, the tool-call limit, cancel and a disabled
 flag. For `AllowQuestions`, assert that a question waits, that its addressee's answer resumes the
 turn with the answer as the call's result, that another participant is refused, that a question
 expires on the application's clock and that a stopped turn cancels it, and that an agent without the
-opt-in offers no `ask_question`. For `AddClientTool`, assert that the call waits for the person's browser and resumes with its report, that only that person reports a bounded result, that the wait expires on the application's clock, that a browser without the handler is offered no tool and that a hand-off is offered only where the agent may change data. Script a provider error inside the stream with
+opt-in offers no `ask_question`. For `MapNewHeapAssistantAGUI`, drive the endpoint with `AGUIChatClient` and assert streamed text, a tool call with its result card, an approval interrupt resumed only with the matching proposal hash, a question interrupt, a client tool run by the client, the event names and that another person's thread answers `404`. For `AddClientTool`, assert that the call waits for the person's browser and resumes with its report, that only that person reports a bounded result, that the wait expires on the application's clock, that a browser without the handler is offered no tool and that a hand-off is offered only where the agent may change data. Script a provider error inside the stream with
 `RespondWithProviderError("server_is_overloaded")` and assert that one retry answers, that
 a repeated or non-transient error fails the turn with `assistant-model-unavailable`, and
 that the failed conversation accepts the next message. At the tool-call limit, assert a closing answer from a request with tool choice

@@ -357,6 +357,12 @@ that region next to `local`, and the assistant's profile gets a larger call budg
 Messages and the project data that tools read leave the machine, so use test data only; the
 [README](../README.md#a-real-model-for-the-assistant) lists the settings.
 
+AG-UI clients reach the project assistant at `/api/assistant/agui/sample-project-assistant`
+(`MapNewHeapAssistantAGUI`, SPM-245): the same agent, policies, approvals and audit as the assistant's
+own API. An AG-UI thread names the person's own conversation, the portal's client tools arrive as
+frontend tool calls, and proposals and questions end a run with an AG-UI interrupt that the next run
+resumes.
+
 The assistant reads files of the sample's media library (SPM-305). `ProjectMediaFileSource`
 implements the assistant's file source: a person attaches a PDF, an image, or a Word or Excel
 document in the chat panel, the upload endpoint checks it and the source stores it in a media

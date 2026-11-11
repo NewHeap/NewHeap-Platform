@@ -2054,7 +2054,13 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Common/NhAiToolArguments.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantToolArgumentTests.cs",
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantModel.cs",
-      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantModelSamplesTests.cs"
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantModelSamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAGUISamplesTests.cs",
+      "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantEndToEndSamplesTests.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIEndpointRouteBuilderExtensions.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIEndpoint.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIEventMapper.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAGUIEndpointTests.cs"
     ],
     "SPM-246": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",

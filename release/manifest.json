@@ -68,6 +68,10 @@
           "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NewHeap.Platform.AI.Chat.AspNet.csproj"
         },
         {
+          "packageId": "NewHeap.Platform.AI.Chat.AGUI",
+          "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NewHeap.Platform.AI.Chat.AGUI.csproj"
+        },
+        {
           "packageId": "NewHeap.Platform.AI.Scripting",
           "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Scripting/NewHeap.Platform.AI.Scripting.csproj"
         },

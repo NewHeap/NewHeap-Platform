@@ -6,9 +6,11 @@ namespace NewHeap.Platform.AI.Chat.Runtime;
 
 /// <summary>
 /// Internal event stream of one turn. The ASP.NET package translates these events to the
-/// server-sent events of the assistant contract.
+/// server-sent events of the assistant contract, and the AG-UI package to AG-UI events. The hierarchy is
+/// closed: every event is declared in this assembly, so the compiler checks that each translation covers
+/// every event.
 /// </summary>
-internal abstract record NhAssistantTurnEvent;
+internal closed record NhAssistantTurnEvent;
 
 internal sealed record NhAssistantTurnStartedEvent(
     Guid TurnId,
@@ -41,7 +43,15 @@ internal sealed record NhAssistantToolCompletedEvent(
 }
 
 internal sealed record NhAssistantApprovalRequiredEvent(
-    NhAssistantApprovalView Approval) : NhAssistantTurnEvent;
+    NhAssistantApprovalView Approval) : NhAssistantTurnEvent
+{
+    /// <summary>
+    /// The tool call of the turn that waits for the decision: the proposing call, or the consult call of a
+    /// proposal the person who asked decides. The assistant's own server-sent events leave it out; the
+    /// AG-UI endpoint names it as the interrupted tool call.
+    /// </summary>
+    public Guid? InvocationId { get; init; }
+}
 
 /// <summary>
 /// The agent asked a person of the conversation a question with <c>ask_question</c>; the turn waits
@@ -295,7 +305,11 @@ internal sealed record NhAssistantApplicationMessageView(
     }
 }
 
-internal abstract record NhAssistantPartView;
+/// <summary>
+/// A part of a message as the conversation shows it. The hierarchy is closed, so the compiler checks that
+/// the mapping to the API's parts covers every part.
+/// </summary>
+internal closed record NhAssistantPartView;
 
 internal sealed record NhAssistantTextPartView(string Text) : NhAssistantPartView;
 

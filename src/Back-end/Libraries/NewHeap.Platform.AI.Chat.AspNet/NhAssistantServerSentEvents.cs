@@ -156,8 +156,7 @@ internal sealed class NhAssistantServerSentEventsResult(NhAssistantTurnHandle ha
                 context.NhAssistantTurnCompletedDto)),
             NhAssistantErrorEvent error => ("error", Json(
                 new NhAssistantErrorDto(error.Code, error.MessageKey),
-                context.NhAssistantErrorDto)),
-            _ => throw new InvalidOperationException($"Unknown assistant turn event '{evt.GetType().Name}'.")
+                context.NhAssistantErrorDto))
         };
     }
 
@@ -480,8 +479,7 @@ internal static class NhAssistantDtoMapper
                         MovedToApprovalId = origin.MovedToApprovalId
                     }
                     : null
-            },
-            _ => throw new InvalidOperationException($"Unknown assistant message part '{part.GetType().Name}'.")
+            }
         };
     }
 }

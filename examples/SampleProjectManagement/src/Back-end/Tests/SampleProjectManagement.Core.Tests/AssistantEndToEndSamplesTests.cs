@@ -339,6 +339,8 @@ public sealed class AssistantEndToEndSamplesTests(AssistantEndToEndHost host) : 
         var paths = document.RootElement.GetProperty("paths").EnumerateObject().Select(path => path.Name).ToArray();
         Assert.Contains("/api/assistant/status", paths);
         Assert.Contains("/api/assistant/conversations", paths);
+        // SPM-245: the project assistant's AG-UI endpoint is listed with its RunAgentInput body.
+        Assert.Contains(SampleAssistantComposition.AGUIPath, paths);
         Assert.Contains("/projects", paths);
     }
 
