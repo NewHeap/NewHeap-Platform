@@ -151,7 +151,7 @@ const formatShapes: Readonly<Record<string, { required: readonly string[]; optio
     optional: [
       'delegateFromInitiator', 'allowGatewayReads', 'elevatedReads', 'approvalPolicy', 'retryCount', 'dailyToolCalls', 'dailyTokens',
       'maxConcurrentRuns', 'maxRunsPerSubjectPerDay', 'maxTokensPerRun', 'triageProfile', 'ruleHandler', 'acceptsFiles', 'maxFileBytes',
-      'maxFilePages', 'maxFilesPerTurn', 'maxFileTokensPerTurn', 'alertKinds'
+      'maxFilePages', 'maxFilesPerTurn', 'maxFileTokensPerTurn', 'alertKinds', 'keepsPlan'
     ]
   },
   skill: {
@@ -1498,7 +1498,9 @@ function runSettingsOf(settings: NonNullable<AgentRunConfiguration['runSettings'
     maxFilesPerTurn: settings.maxFilesPerTurn ?? null,
     maxFileTokensPerTurn: settings.maxFileTokensPerTurn ?? null,
     // Written only when there are any, so the hash of run settings without them stays as it was.
-    ...((settings.alertKinds ?? []).length > 0 ? { alertKinds: [...settings.alertKinds!] } : {})
+    ...((settings.alertKinds ?? []).length > 0 ? { alertKinds: [...settings.alertKinds!] } : {}),
+    // As the server, written only when the agent keeps a plan.
+    ...(settings.keepsPlan ? { keepsPlan: true } : {})
   };
 }
 
