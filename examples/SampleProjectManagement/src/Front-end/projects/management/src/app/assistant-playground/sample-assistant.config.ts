@@ -96,6 +96,15 @@ export function sampleAssistantStateScope(): string | null {
 }
 
 /**
+ * SPM-263: the session's changes, such as a renewed token. The API reports
+ * `collaboration.hubAuthenticationRefresh`, so the open live connection presents a renewed token of
+ * the same account instead of closing when its old one expires; an account switch restarts it.
+ */
+export function sampleAssistantAccessTokenChanges(): Observable<unknown> {
+  return inject(SampleAuthService).authSubject;
+}
+
+/**
  * What the user has open. Pages that show an entity set it while they are active, for
  * example a project page with `{ type: 'project', id: 'PRJ-ALPHA' }`, and clear it when
  * they close.
@@ -155,6 +164,7 @@ export function provideSampleAssistant(overrides: Partial<NhAssistantConfig> = {
     provideNhAssistant({
       apiBaseUrl: '/api/assistant',
       getAccessToken: sampleAssistantAccessToken,
+      accessTokenChanges: sampleAssistantAccessTokenChanges,
       getRequestHeaders: sampleAssistantRequestHeaders,
       getHubQueryParameters: sampleAssistantHubQueryParameters,
       getPageContext: sampleAssistantPageContext,

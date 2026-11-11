@@ -217,11 +217,16 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         // Checks the registration without constructing the application's directory.
         var directory = httpContext.RequestServices.GetService<IServiceProviderIsService>()
             ?.IsService(typeof(INhAssistantParticipantDirectory)) == true;
+        var hubPath = string.IsNullOrWhiteSpace(current.HubPath) ? null : current.HubPath;
         var collaboration = new NhAssistantCollaborationDto(
             directory,
-            string.IsNullOrWhiteSpace(current.HubPath) ? null : current.HubPath,
+            hubPath,
             current.Push.IsConfigured,
-            state.Limits.MaxParticipantsPerConversation);
+            state.Limits.MaxParticipantsPerConversation)
+        {
+            HubAuthenticationRefresh = hubPath is not null
+                && NhHubAuthenticationRefresh.IsMapped(current.HubAuthenticationRefresh)
+        };
         return Json(
             new NhAssistantStatusDto(
                 true,
