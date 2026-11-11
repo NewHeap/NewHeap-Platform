@@ -92,6 +92,31 @@ internal static class NhAssistantPlans
     }
 
     /// <summary>
+    /// The plan after an <c>update_plan</c> call of a turn that updated its plan
+    /// <paramref name="updates"/> times so far, or the result the model reads when the call changes
+    /// nothing: <see cref="NhAssistantErrorCodes.PlanUpdateLimitReached"/> once the turn used its
+    /// updates, <see cref="NhAssistantErrorCodes.PlanInvalid"/> for an update <see cref="Apply"/> refuses.
+    /// </summary>
+    public static (IReadOnlyList<NhAssistantPlanStep>? Plan, JsonElement? Refusal) Update(
+        AIFunctionArguments arguments,
+        IReadOnlyList<NhAssistantPlanStep>? current,
+        int updates)
+    {
+        ArgumentNullException.ThrowIfNull(arguments);
+        if (updates >= NhAssistantPlanLimits.MaxUpdatesPerTurn)
+        {
+            return (null, Refused(
+                NhAssistantErrorCodes.PlanUpdateLimitReached,
+                "The plan was not changed: this turn updated it as often as it may. Continue the work without updating it."));
+        }
+
+        var (plan, refusal) = Apply(arguments, current);
+        return plan is null
+            ? (null, Refused(NhAssistantErrorCodes.PlanInvalid, refusal!))
+            : (plan, null);
+    }
+
+    /// <summary>
     /// Checks an <c>update_plan</c> call against the plan of the turn so far
     /// (<paramref name="current"/>, <see langword="null"/> before the first update): either a whole
     /// list of steps within the bounds with at most one step in progress, or <c>advance</c> on a plan

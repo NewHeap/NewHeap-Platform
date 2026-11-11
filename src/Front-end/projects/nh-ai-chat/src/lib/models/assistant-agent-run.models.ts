@@ -1,4 +1,4 @@
-import { ApprovalPresentation, NhAssistantConsultationRoute, StaleKind } from './assistant-api.models';
+import { AgentPlan, ApprovalPresentation, NhAssistantConsultationRoute, StaleKind } from './assistant-api.models';
 
 /**
  * Contracts of the agent-run endpoints of `NewHeap.Platform.AI.Chat.AspNet`: threads about a
@@ -416,6 +416,12 @@ export interface AgentRunResult {
   artifacts: AgentArtifact[];
   /** Whether the caller may open the run's thread conversation. */
   canOpenConversation: boolean;
+  /**
+   * The plan the run's agent kept with `update_plan` (`run.KeepPlan()` on the server), as it stood after
+   * the run's last update: the agent's own statement, plain text. `null` without one; missing on older
+   * servers.
+   */
+  plan?: AgentPlan | null;
 }
 
 export interface StartAgentRequest {

@@ -54,17 +54,10 @@ internal sealed partial class NhAssistantTurnRunner
             state.PlanLoaded = true;
         }
 
-        if (state.PlanUpdates >= NhAssistantPlanLimits.MaxUpdatesPerTurn)
-        {
-            return NhAssistantPlans.Refused(
-                NhAssistantErrorCodes.PlanUpdateLimitReached,
-                "The plan was not changed: this turn updated it as often as it may. Continue the work without updating it.");
-        }
-
-        var (plan, refusal) = NhAssistantPlans.Apply(arguments, state.Plan);
+        var (plan, refusal) = NhAssistantPlans.Update(arguments, state.Plan, state.PlanUpdates);
         if (plan is null)
         {
-            return NhAssistantPlans.Refused(NhAssistantErrorCodes.PlanInvalid, refusal!);
+            return refusal;
         }
 
         state.Plan = plan;

@@ -267,7 +267,37 @@ export interface ApplicationMessageLink {
   label: string | null;
 }
 
-export type MessagePart = TextPart | ToolCallPart | ApprovalPart | ConnectionRequiredPart | FilePart | QuestionPart | ElicitationPart;
+export type MessagePart = TextPart | ToolCallPart | ApprovalPart | ConnectionRequiredPart | FilePart | QuestionPart | ElicitationPart | PlanPart;
+
+/**
+ * `pending` before the agent started a step, `in-progress` for the one it works on (at most one) and
+ * `completed` once it finished it.
+ */
+export type PlanStepStatus = 'pending' | 'in-progress' | 'completed';
+
+/** One step of an agent's plan: plain text of at most 160 characters on one line. */
+export interface PlanStep {
+  text: string;
+  status: PlanStepStatus;
+}
+
+/**
+ * An agent's plan as it stood after its last update: the steps in order and when it last changed.
+ * It is the agent's own statement about its work (model output), shown as plain text and never as
+ * markup or as an instruction to the reader.
+ */
+export interface AgentPlan {
+  steps: PlanStep[];
+  updatedAt: string;
+}
+
+/**
+ * The plan the agent kept with `update_plan` (`run.KeepPlan()` on the server) in this message, as it
+ * stood after the last update. Each `plan.updated` event replaces it; older servers send none.
+ */
+export interface PlanPart extends AgentPlan {
+  type: 'plan';
+}
 
 /**
  * `pending` while the tool call waits; `accepted` once the person answered or said they finished the
