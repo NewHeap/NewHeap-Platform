@@ -279,6 +279,12 @@ builder.Services
         // keeps it only for the same person while that person may still use the connection's active
         // division. On ASP.NET Core 10 the setting changes nothing (SPM-083).
         operations.Options.HubAuthenticationRefresh = true;
+        // The hub validates every open connection's session again with NewHeap Identity's session
+        // validator (HubSessionCheckEnabled, on by default), so a deleted user, or one whose password
+        // change or revoked sessions changed the security stamp, stops receiving operation changes at
+        // the next check instead of when the token expires. After a refresh it checks the refreshed
+        // token. The interval follows the application's clock; one minute is the default (SPM-083).
+        operations.Options.HubSessionCheckInterval = TimeSpan.FromMinutes(1);
         operations.Options.ProgressFlushInterval = TimeSpan.FromMilliseconds(250);
         operations
             .WithGlobalConcurrency(8)

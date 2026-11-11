@@ -32,3 +32,15 @@ the application's own create form prefilled; the turn waits for that browser's r
 |---|---|
 | `MessagePart` gains `PlanPart` (`type: 'plan'`) and `NhAssistantSseEventMap` gains `plan.updated`. | Code that switches over them exhaustively handles the new values. |
 | New translation keys `nh-assistant.plan.*`, `nh-assistant.errors.assistant-plan-invalid`, `nh-assistant.errors.assistant-plan-update-limit-reached` and `nh-assistant.admin.run-config.plan.*`. | An application that replaces the bundled translations adds the keys in each of its languages. |
+
+## NewHeap.Platform.AspNet.Common: background operation hub session check
+
+| Breaking change | Required action |
+|---|---|
+| `NhBackgroundOperationHub` now validates every open connection's session each `NhBackgroundOperationsOptions.HubSessionCheckInterval` (one minute, on the application's clock) with the registered `INhAuthenticationSessionValidator` and closes the connection of a deleted user or one whose security stamp changed, instead of sending it operation changes until its token expires (`HubSessionCheckEnabled`, on by default). | None with NewHeap Identity; expect one validator call per open connection per interval. Set `HubSessionCheckEnabled = false` to keep the previous behavior, or tune `HubSessionCheckInterval` (positive, at most a day). |
+
+## NewHeap.Platform.AI.Chat and NewHeap.Platform.AI.Chat.AspNet: hub session check clock
+
+| Breaking change | Required action |
+|---|---|
+| The assistant hub's one-minute session check now runs on the application's clock (a registered `TimeProvider`), as the background operation hub's does. | None with the system clock; a host that registers a test clock moves it to trigger the check. |
