@@ -37,4 +37,10 @@ internal sealed class NhAssistantTiming
     /// arrive together reach one turn. It is a debounce, so it runs on the application's clock.
     /// </summary>
     internal TimeSpan ChatFollowUpDelay { get; init; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// How often the assistant hub validates the session of an open connection again, on the
+    /// application's clock: every minute, as NewHeap's library hubs do.
+    /// </summary>
+    internal TimeSpan HubSessionCheckInterval { get; init; } = TimeSpan.FromMinutes(1);
 }

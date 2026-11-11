@@ -2,8 +2,10 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.DependencyInjection;
 using NewHeap.Platform.AspNet.Common;
 using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.Common.Actors;
@@ -15,6 +17,14 @@ public interface INhBackgroundOperationHubClient
     Task OperationChanged(NhBackgroundOperationChangedMessage message);
 }
 
+/// <summary>
+/// Live updates of background operations. A connection joins the group of its authenticated user and,
+/// when it names an active division the user may use, the group of that user in that division. It
+/// lasts as long as its session: it closes when the authentication it was opened with expires, and
+/// with <see cref="NhBackgroundOperationsOptions.HubSessionCheckEnabled"/> (on by default) at the next
+/// session check once the NewHeap session validator no longer accepts its principal, for example after
+/// the user was deleted or their sessions were revoked.
+/// </summary>
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme + ",Identity.Application")]
 public sealed class NhBackgroundOperationHub : Hub<INhBackgroundOperationHubClient>
 {
@@ -63,13 +73,16 @@ public sealed class NhBackgroundOperationHub : Hub<INhBackgroundOperationHubClie
                 Context.ConnectionAborted);
         }
 
+        // The connection lasts as long as its session: it closes when its authentication expires, and
+        // when the session validator no longer accepts its principal.
+        WatchSession(httpContext);
         // What the groups were joined for, so a refreshed authentication is checked against it.
         Context.Items[JoinedScopeKey] = new JoinedScope(userId, activeDivisionId);
 #if NET11_0_OR_GREATER
         // A refresh that completed while the connection opened found nothing to compare with yet.
         if (httpContext is not null
             && !ReferenceEquals(httpContext.User, principal)
-            && !await IsStillAuthorizedAsync(httpContext.User))
+            && !await KeepsRefreshedPrincipalAsync(httpContext.User))
         {
             Context.Abort();
             return;
@@ -78,15 +91,36 @@ public sealed class NhBackgroundOperationHub : Hub<INhBackgroundOperationHubClie
         await base.OnConnectedAsync();
     }
 
+    /// <summary>
+    /// Validates the connection's session again every
+    /// <see cref="NhBackgroundOperationsOptions.HubSessionCheckInterval"/> while
+    /// <see cref="NhBackgroundOperationsOptions.HubSessionCheckEnabled"/> is on.
+    /// </summary>
+    private void WatchSession(HttpContext? httpContext)
+    {
+        var services = httpContext?.RequestServices;
+        var options = services?.GetService<NhBackgroundOperationsOptions>();
+        if (services is null || options is not { HubSessionCheckEnabled: true })
+        {
+            return;
+        }
+
+        services.GetRequiredService<NhHubSessions>().Watch(
+            Context,
+            nameof(NhBackgroundOperationHub),
+            options.HubSessionCheckInterval);
+    }
+
 #if NET11_0_OR_GREATER
     /// <summary>
     /// Checks a connection whose authentication was refreshed
     /// (<see cref="NhBackgroundOperationsOptions.HubAuthenticationRefresh"/>) again, as when it opened:
     /// the refreshed principal must name the user the connection joined its groups for, and that user
-    /// must still have access to the active division the connection joined. Otherwise the connection
-    /// closes, so no group outlives the authorization that joined it; the client reconnects with its
-    /// current session and resynchronizes. A refresh that completes while the connection still opens is
-    /// checked once the connection joined its groups.
+    /// must still have access to the active division the connection joined. Then the connection keeps its
+    /// groups, and the session check validates the refreshed principal from now on. Otherwise the
+    /// connection closes, so no group outlives the authorization that joined it; the client reconnects
+    /// with its current session and resynchronizes. A refresh that completes while the connection still
+    /// opens is checked once the connection joined its groups.
     /// </summary>
     public override async Task OnAuthenticationRefreshedAsync()
     {
@@ -96,13 +130,28 @@ public sealed class NhBackgroundOperationHub : Hub<INhBackgroundOperationHubClie
             return;
         }
 
-        if (Context.User is not { } user || !await IsStillAuthorizedAsync(user))
+        if (Context.User is not { } user || !await KeepsRefreshedPrincipalAsync(user))
         {
             Context.Abort();
             return;
         }
 
         await base.OnAuthenticationRefreshedAsync();
+    }
+
+    /// <summary>
+    /// Whether the connection keeps its groups for <paramref name="user"/>, its refreshed principal; the
+    /// session check then validates that principal.
+    /// </summary>
+    private async Task<bool> KeepsRefreshedPrincipalAsync(ClaimsPrincipal user)
+    {
+        if (!await IsStillAuthorizedAsync(user))
+        {
+            return false;
+        }
+
+        Context.GetHttpContext()?.RequestServices.GetService<NhHubSessions>()?.Refreshed(Context, user);
+        return true;
     }
 
     private async Task<bool> IsStillAuthorizedAsync(ClaimsPrincipal user)
@@ -182,7 +231,9 @@ internal static class NhBackgroundOperationHubEndpoints
     /// <summary>
     /// Maps <see cref="NhBackgroundOperationHub"/> at <see cref="NhBackgroundOperationsOptions.HubPath"/>.
     /// A connection closes when the authentication it was opened with expires, over WebSockets as well,
-    /// instead of living on through keep-alives; the client reconnects with its current session. With
+    /// instead of living on through keep-alives, and with
+    /// <see cref="NhBackgroundOperationsOptions.HubSessionCheckEnabled"/> once its session ended
+    /// (<see cref="NhHubSessions"/>); the client reconnects with its current session. With
     /// <see cref="NhBackgroundOperationsOptions.HubAuthenticationRefresh"/> on ASP.NET Core 11 the client
     /// may refresh that authentication without reconnecting (<see cref="NhHubAuthenticationRefresh"/>).
     /// </summary>

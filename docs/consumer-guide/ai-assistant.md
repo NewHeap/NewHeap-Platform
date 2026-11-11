@@ -890,7 +890,7 @@ connections. A removed participant, a person whose role on the subject ended and
 agent permission was revoked therefore stop receiving updates within ten seconds without any
 client action, also while an old participant row still names them. A connection lasts as long
 as its session: the hub closes it when the token it was opened with expires
-(`CloseOnAuthenticationExpiration`), and every minute it validates the connection's principal
+(`CloseOnAuthenticationExpiration`), and every minute on the application's clock it validates the connection's principal
 again with `INhAuthenticationSessionValidator` and closes it once a password change or reset
 changed the security stamp, the user was deleted or an impersonation's origin session ended;
 the client reconnects with its current session. On ASP.NET Core 11 opt in with

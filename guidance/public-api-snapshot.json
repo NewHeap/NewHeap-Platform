@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.126",
   "backEnd": {
-    "hash": "36a0e067a5aef2a9764bad650c3cf04b56c55e537289274f90b21eb501524309",
-    "declarationCount": 14299,
+    "hash": "30efb8189a10e2dfec29a6f8e823ff6c3be2549562c050928ab519735269962d",
+    "declarationCount": 14301,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -7768,22 +7768,6 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHubPath.cs",
         "declaration": "public string? HubPath => options.Value.HubPath;"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHubSessions.cs",
-        "declaration": "public static readonly TimeSpan DefaultCheckInterval = TimeSpan.FromMinutes(1);"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHubSessions.cs",
-        "declaration": "public void Watch(HubCallerContext connection) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHubSessions.cs",
-        "declaration": "public void Refreshed(HubCallerContext connection, ClaimsPrincipal principal) {"
-      },
-      {
-        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Live/NhAssistantHubSessions.cs",
-        "declaration": "public ClaimsPrincipal Principal {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantImportedMcpToolExports.cs",
@@ -40738,6 +40722,22 @@
         "declaration": "public static bool Applies(HttpContext httpContext) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubSessions.cs",
+        "declaration": "public static readonly TimeSpan DefaultCheckInterval = TimeSpan.FromMinutes(1);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubSessions.cs",
+        "declaration": "public void Watch(HubCallerContext connection, string hub, TimeSpan checkInterval) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubSessions.cs",
+        "declaration": "public void Refreshed(HubCallerContext connection, ClaimsPrincipal principal) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubSessions.cs",
+        "declaration": "public ClaimsPrincipal Principal {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhImpersonateAuthenticationHandler.cs",
         "declaration": "public class NhImpersonateAuthenticationHandler : BaseNhAuthenticationEndpoint {"
       },
@@ -48188,6 +48188,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
         "declaration": "public bool HubAuthenticationRefresh { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public bool HubSessionCheckEnabled { get; set; } = true;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",
+        "declaration": "public TimeSpan HubSessionCheckInterval { get; set; } = TimeSpan.FromMinutes(1);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Services/BackgroundOperations/NhBackgroundOperationConfiguration.cs",

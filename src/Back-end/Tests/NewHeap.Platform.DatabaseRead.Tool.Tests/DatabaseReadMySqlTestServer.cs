@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using MySqlConnector;
+using NewHeap.Platform.Tests.Relational;
 using Testcontainers.MariaDb;
 using Testcontainers.MySql;
 
@@ -36,6 +37,31 @@ internal sealed partial class DatabaseReadMySqlTestServer
     public const string UnsupportedMySqlImage = "mysql:5.7";
 
     private const string RootCredential = "test-root-credential";
+
+    /// <summary>
+    /// How long the MySQL 5.7 server may take to accept authenticated TCP connections after its
+    /// container started. It initializes its data directory on a temporary server first and starts
+    /// the networked one after that; alone that takes seconds, but under the parallel load of the full
+    /// test matrix it took longer than the one minute it had before. The bound only matters when the
+    /// server never becomes ready.
+    /// </summary>
+    public static readonly TimeSpan ReadinessTimeout = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// How long the root's commands that prepare a test may run, such as creating its database,
+    /// tables, accounts and grants: <see cref="RelationalTestServer.PreparationCommandTimeout"/>, as
+    /// for SQL Server and PostgreSQL. Every DDL statement writes the server's data dictionary, and under
+    /// the parallel load of the full test matrix a batch of them ran into the driver's default of 30
+    /// seconds. Connections take up to <see cref="PreparationConnectionTimeout"/> to open. The bounds
+    /// only matter when the server hangs; the tool under test still applies its own limits.
+    /// </summary>
+    public static readonly TimeSpan PreparationCommandTimeout = RelationalTestServer.PreparationCommandTimeout;
+
+    /// <summary>
+    /// How long a test's own connection may take to open, instead of the driver's default of 15
+    /// seconds; see <see cref="PreparationCommandTimeout"/>.
+    /// </summary>
+    public static readonly TimeSpan PreparationConnectionTimeout = TimeSpan.FromMinutes(1);
 
     private static readonly DatabaseReadMySqlTestServer MySql = new(DatabaseReadMySqlFlavor.MySql, MySqlImage);
     private static readonly DatabaseReadMySqlTestServer MariaDb = new(DatabaseReadMySqlFlavor.MariaDb, MariaDbImage);
@@ -81,6 +107,8 @@ internal sealed partial class DatabaseReadMySqlTestServer
 
     /// <summary>
     /// The root connection string without a default database, which starts the server on first use.
+    /// Commands on it and on the connection strings derived from it may run for
+    /// <see cref="PreparationCommandTimeout"/>.
     /// </summary>
     public Task<string> GetConnectionStringAsync()
     {
@@ -144,7 +172,12 @@ internal sealed partial class DatabaseReadMySqlTestServer
     /// <summary>
     /// MySQL logs binary by default and then refuses a stored function without
     /// <c>log_bin_trust_function_creators</c>; the tests create functions to prove the routine and
-    /// DEFINER view checks.
+    /// DEFINER view checks. The servers flush their redo log, and MySQL its binary log, to disk once a
+    /// second instead of at every commit, as the PostgreSQL test server runs without <c>fsync</c> and
+    /// SQL Server test databases with delayed durability: the tests create a database, tables,
+    /// accounts and grants per test, and each of those commits waited for the disk while other test
+    /// processes wrote to it as well. Durability only matters when a server crashes, which ends the run
+    /// anyway; transactions, locks and privileges behave as before.
     /// </summary>
     private async Task<string> StartAsync()
     {
@@ -164,13 +197,13 @@ internal sealed partial class DatabaseReadMySqlTestServer
                         $"--password={RootCredential}",
                         "--execute=SELECT 1;"
                     ],
-                    wait => wait.WithTimeout(TimeSpan.FromMinutes(1))))
+                    wait => wait.WithTimeout(ReadinessTimeout)))
                 .Build();
             _container = unsupported;
             await unsupported.StartAsync();
             // This fixture proves version rejection, not TLS compatibility. The legacy server's
             // TLS handshake fails with current Linux clients before the provider can read its version.
-            return new MySqlConnectionStringBuilder(WithoutDatabase(unsupported.GetConnectionString()))
+            return new MySqlConnectionStringBuilder(PreparationConnectionString(unsupported.GetConnectionString()))
             {
                 SslMode = MySqlSslMode.None
             }.ConnectionString;
@@ -181,7 +214,11 @@ internal sealed partial class DatabaseReadMySqlTestServer
             var mySql = new MySqlBuilder(MySqlImage)
                 .WithUsername("root")
                 .WithPassword(RootCredential)
-                .WithCommand("--log-bin-trust-function-creators=1", "--max-connections=500")
+                .WithCommand(
+                    "--log-bin-trust-function-creators=1",
+                    "--max-connections=500",
+                    "--innodb-flush-log-at-trx-commit=2",
+                    "--sync-binlog=0")
                 .Build();
             _container = mySql;
             await mySql.StartAsync();
@@ -202,22 +239,30 @@ internal sealed partial class DatabaseReadMySqlTestServer
                 throw new InvalidOperationException("The MySQL test server could not grant PROXY to root: " + proxy.Stderr);
             }
 
-            return WithoutDatabase(mySql.GetConnectionString());
+            return PreparationConnectionString(mySql.GetConnectionString());
         }
 
         var mariaDb = new MariaDbBuilder(MariaDbImage)
             .WithUsername("root")
             .WithPassword(RootCredential)
-            .WithCommand("--max-connections=500")
+            .WithCommand("--max-connections=500", "--innodb-flush-log-at-trx-commit=2")
             .Build();
         _container = mariaDb;
         await mariaDb.StartAsync();
-        return WithoutDatabase(mariaDb.GetConnectionString());
+        return PreparationConnectionString(mariaDb.GetConnectionString());
     }
 
-    private static string WithoutDatabase(string connectionString)
+    /// <summary>
+    /// The root connection string of a started server without a default database, with the
+    /// preparation bounds for the test's own connections and commands.
+    /// </summary>
+    private static string PreparationConnectionString(string connectionString)
     {
-        var builder = new MySqlConnectionStringBuilder(connectionString);
+        var builder = new MySqlConnectionStringBuilder(connectionString)
+        {
+            ConnectionTimeout = (uint)PreparationConnectionTimeout.TotalSeconds,
+            DefaultCommandTimeout = (uint)PreparationCommandTimeout.TotalSeconds
+        };
         builder.Remove("Database");
 
         return builder.ConnectionString;

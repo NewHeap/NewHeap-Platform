@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
+using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.DAL;
 using NewHeap.Platform.AspNet.Common.DAL.Entities;
 using NewHeap.Platform.AspNet.Common.Services;
@@ -167,8 +168,10 @@ public static class NhPlatformModuleEndpointRouteBuilderExtensions
     /// <summary>
     /// Maps the background-operation hub when live updates are enabled. A hub connection closes when
     /// the authentication it was opened with expires, unless it refreshes it on ASP.NET Core 11 with
-    /// <see cref="NhBackgroundOperationsOptions.HubAuthenticationRefresh"/> on. The controllers are mapped
-    /// by <c>MapControllers</c>.
+    /// <see cref="NhBackgroundOperationsOptions.HubAuthenticationRefresh"/> on, and with
+    /// <see cref="NhBackgroundOperationsOptions.HubSessionCheckEnabled"/> once a registered
+    /// <c>INhAuthenticationSessionValidator</c> refuses its principal. The controllers are mapped by
+    /// <c>MapControllers</c>.
     /// </summary>
     public static IEndpointRouteBuilder MapNewHeapBackgroundOperations(this IEndpointRouteBuilder endpoints)
     {
@@ -303,6 +306,8 @@ internal static class NhBackgroundOperationRegistration
         {
             services.AddSignalR();
             services.TryAddSingleton<NhBackgroundOperationSignalRMarker>();
+            // Hub connections end with their session, not only when their authentication expires.
+            services.TryAddSingleton<NhHubSessions>();
             services.TryAddSingleton<INhBackgroundOperationLiveUpdatePublisher, NhSignalRBackgroundOperationLiveUpdatePublisher>();
         }
         else

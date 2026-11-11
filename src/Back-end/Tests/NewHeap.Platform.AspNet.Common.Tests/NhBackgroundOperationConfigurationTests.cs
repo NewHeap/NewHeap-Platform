@@ -366,8 +366,46 @@ public sealed class NhBackgroundOperationConfigurationTests
                     options.HubPath = "/Background-Operations";
                 },
                 "*HubPath must lie outside the background operations' API under /background-operations*"
+            },
+            {
+                options =>
+                {
+                    options.LiveUpdatesEnabled = true;
+                    options.HubSessionCheckInterval = TimeSpan.Zero;
+                },
+                "*HubSessionCheckInterval must be positive and at most one day*"
+            },
+            {
+                options =>
+                {
+                    options.LiveUpdatesEnabled = true;
+                    options.HubSessionCheckInterval = TimeSpan.FromDays(2);
+                },
+                "*HubSessionCheckInterval must be positive and at most one day*"
             }
         };
+    }
+
+    /// <summary>
+    /// The hub validates open sessions every minute by default; without the check, or without live
+    /// updates, the interval is not used and is not validated.
+    /// </summary>
+    [Fact]
+    public void The_hub_session_check_is_on_every_minute_by_default_and_its_interval_counts_only_while_it_is_on()
+    {
+        var defaults = new NhBackgroundOperationsOptions();
+        var withoutCheck = CreateOptions();
+        withoutCheck.LiveUpdatesEnabled = true;
+        withoutCheck.HubSessionCheckEnabled = false;
+        withoutCheck.HubSessionCheckInterval = TimeSpan.Zero;
+        var withoutLiveUpdates = CreateOptions();
+        withoutLiveUpdates.LiveUpdatesEnabled = false;
+        withoutLiveUpdates.HubSessionCheckInterval = TimeSpan.Zero;
+
+        defaults.HubSessionCheckEnabled.Should().BeTrue();
+        defaults.HubSessionCheckInterval.Should().Be(TimeSpan.FromMinutes(1));
+        withoutCheck.Validate();
+        withoutLiveUpdates.Validate();
     }
 
     /// <summary>
