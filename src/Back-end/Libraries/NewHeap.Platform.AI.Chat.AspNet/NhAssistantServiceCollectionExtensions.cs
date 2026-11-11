@@ -103,7 +103,7 @@ public static class NhAssistantServiceCollectionExtensions
             services.AddSignalR();
             services.Replace(ServiceDescriptor.Singleton<INhAssistantLiveUpdateTransport, NhAssistantSignalRLiveUpdateTransport>());
             // Hub connections end with their session, not only when their token expires.
-            services.TryAddSingleton<NhAssistantHubSessions>();
+            services.TryAddSingleton<NewHeap.Platform.AspNet.Common.Authentication.NhHubSessions>();
             // The NewHeap bearer setup reads the query token for the hub at its configured path (LS27).
             services.TryAddEnumerable(ServiceDescriptor.Singleton<NewHeap.Platform.AspNet.Common.Authentication.INhLibraryHubPath, NhAssistantHubPath>());
             services.TryAddSingleton<INhAssistantShareTokenProtector, NhAssistantShareTokenProtector>();

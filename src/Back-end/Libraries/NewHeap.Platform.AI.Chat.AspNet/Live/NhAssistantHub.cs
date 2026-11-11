@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Live;
+using NewHeap.Platform.AspNet.Common.Authentication;
 
 namespace NewHeap.Platform.AI.Chat.AspNet.Live;
 
@@ -89,7 +90,11 @@ public sealed class NhAssistantHub : Hub<INhAssistantHubClient>
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupFor(caller.Data.ActorId, caller.Data.TenantId), Context.ConnectionAborted);
         // The connection lasts as long as its session: it closes when its token expires, and when the
         // session validator no longer accepts its principal.
-        httpContext.RequestServices.GetRequiredService<NhAssistantHubSessions>().Watch(Context);
+        var timing = httpContext.RequestServices.GetService<NhAssistantTiming>() ?? NhAssistantTiming.Default;
+        httpContext.RequestServices.GetRequiredService<NhHubSessions>().Watch(
+            Context,
+            nameof(NhAssistantHub),
+            timing.HubSessionCheckInterval);
         // Whom the groups were joined for, so a refreshed authentication is checked against it.
         Context.Items[JoinedCallerKey] = new JoinedCaller(caller.Data.ActorId, caller.Data.TenantId);
 #if NET11_0_OR_GREATER
@@ -168,7 +173,7 @@ public sealed class NhAssistantHub : Hub<INhAssistantHubClient>
             return false;
         }
 
-        httpContext.RequestServices.GetRequiredService<NhAssistantHubSessions>().Refreshed(Context, user);
+        httpContext.RequestServices.GetRequiredService<NhHubSessions>().Refreshed(Context, user);
         return true;
     }
 #endif

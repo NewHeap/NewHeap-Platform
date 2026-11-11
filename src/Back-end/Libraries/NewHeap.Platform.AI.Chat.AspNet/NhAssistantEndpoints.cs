@@ -183,7 +183,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         {
             // A connection ends when the authentication it was opened with expires, unless the client
             // refreshes it (HubAuthenticationRefresh, ASP.NET Core 11); the hub also ends it when the
-            // session validator refuses its principal (NhAssistantHubSessions). The access policy
+            // session validator refuses its principal (NhHubSessions). The access policy
             // covers the refresh endpoint as well.
             var authenticationRefresh = options.HubAuthenticationRefresh;
             endpoints.MapHub<NhAssistantHub>(

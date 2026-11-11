@@ -60,6 +60,26 @@ public sealed class NhBackgroundOperationsOptions
     /// </summary>
     public bool HubAuthenticationRefresh { get; set; }
 
+    /// <summary>
+    /// Whether the live-update hub validates the session of every open connection again each
+    /// <see cref="HubSessionCheckInterval"/>, true by default. A connection then closes at the next
+    /// check once the NewHeap session validator (<c>INhAuthenticationSessionValidator</c>) no longer
+    /// accepts its principal: the user was deleted, a password change, reset or revocation of their
+    /// sessions changed their security stamp, or an impersonation's origin session ended. Without the
+    /// check such a connection keeps receiving its user's changes until the authentication it was opened
+    /// with expires. After an accepted refresh (<see cref="HubAuthenticationRefresh"/>) the check
+    /// validates the refreshed principal. Each check reads the user once through the validator; a host
+    /// without a registered validator, such as one with its own authentication, is not checked.
+    /// </summary>
+    public bool HubSessionCheckEnabled { get; set; } = true;
+
+    /// <summary>
+    /// How often the live-update hub validates the session of an open connection again while
+    /// <see cref="HubSessionCheckEnabled"/> is on: one minute by default, and at most one day. It follows
+    /// the application's clock (a registered <see cref="TimeProvider"/>, otherwise the system clock).
+    /// </summary>
+    public TimeSpan HubSessionCheckInterval { get; set; } = TimeSpan.FromMinutes(1);
+
     public bool UserNotificationProjectionEnabled { get; set; } = true;
     public string OperationUrlPrefix { get; set; } = "/background-operations";
     public TimeSpan DispatchInterval { get; set; } = TimeSpan.FromSeconds(1);
@@ -133,6 +153,13 @@ public sealed class NhBackgroundOperationsOptions
         if (LiveUpdatesEnabled)
         {
             ValidateHubPath();
+        }
+
+        if (LiveUpdatesEnabled
+            && HubSessionCheckEnabled
+            && (HubSessionCheckInterval <= TimeSpan.Zero || HubSessionCheckInterval > TimeSpan.FromDays(1)))
+        {
+            throw new InvalidOperationException("Background operation HubSessionCheckInterval must be positive and at most one day when the hub session check is enabled.");
         }
 
         if (UserNotificationProjectionEnabled
