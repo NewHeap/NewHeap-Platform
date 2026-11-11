@@ -94,6 +94,9 @@ internal static class NhAssistantServiceRegistration
         services.TryAddScoped<NhAssistantToolPresentationResolver>();
         services.TryAddScoped<INhAssistantMcpToolSource, NhAssistantNoMcpToolSource>();
         services.TryAddSingleton<NhAssistantTurnCancellationRegistry>();
+        // Requests for input of MCP servers that wait for the person of a chat turn in this process.
+        services.TryAddSingleton<NhAssistantElicitationRegistry>();
+        services.TryAddScoped<NhAssistantElicitationAnswerService>();
         services.TryAddScoped<INhAssistantTurnRunner, NhAssistantTurnRunner>();
         // The step runtime of compositions and scripts.
         services.TryAddScoped<INhAssistantToolSteps, NhAssistantToolSteps>();

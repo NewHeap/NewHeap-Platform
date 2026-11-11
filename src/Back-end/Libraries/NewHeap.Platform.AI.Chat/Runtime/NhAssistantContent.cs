@@ -24,9 +24,25 @@ internal sealed record NhAssistantStoredPart(
     string? AddresseeActorId = null,
     DateTimeOffset? ExpiresAt = null,
     string? SkillId = null,
-    int? SkillVersion = null)
+    int? SkillVersion = null,
+    Guid? ElicitationId = null,
+    string? Mode = null,
+    IReadOnlyList<NhAssistantElicitationField>? Fields = null,
+    string? Status = null,
+    DateTimeOffset? ClosedAt = null)
 {
     public const string TextType = "text";
+
+    /// <summary>
+    /// A request for input of an MCP server whose tool the turn ran: <see cref="ElicitationId"/> names
+    /// it and <see cref="InvocationId"/> the call that waited for it; <see cref="ServerId"/> and
+    /// <see cref="DisplayName"/> the server that asked, <see cref="Mode"/> <c>form</c> or <c>url</c>,
+    /// <see cref="Text"/> the server's message, <see cref="Fields"/> what a form asked for,
+    /// <see cref="LinkUrl"/> the page of a <c>url</c> request, <see cref="AddresseeActorId"/> the person
+    /// who answers, <see cref="ExpiresAt"/> the end of its wait, <see cref="Status"/> how it closed
+    /// (<see cref="NhAssistantElicitationStatuses"/>) and <see cref="ClosedAt"/> when. Never the answer.
+    /// </summary>
+    public const string ElicitationType = "elicitation";
 
     /// <summary>
     /// A question the agent asked with <c>ask_question</c> (LS21): <see cref="InvocationId"/> names its

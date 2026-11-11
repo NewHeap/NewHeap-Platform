@@ -1580,6 +1580,46 @@ public static class NhAssistantErrorCodes
     public const string QuestionAnswerInvalid = "assistant-question-answer-invalid";
 
     /// <summary>
+    /// The conversation has no request for input of an MCP server with that id.
+    /// </summary>
+    public const string ElicitationNotFound = "assistant-elicitation-not-found";
+
+    /// <summary>
+    /// The request for input of an MCP server no longer waits: it was answered, its wait ended, its turn
+    /// was stopped, or its tool call runs in another process of the application.
+    /// </summary>
+    public const string ElicitationNotPending = "assistant-elicitation-not-pending";
+
+    /// <summary>
+    /// Only the person whose turn the MCP server's tool runs in answers its request for input.
+    /// </summary>
+    public const string ElicitationForbidden = "assistant-elicitation-forbidden";
+
+    /// <summary>
+    /// The answer to an MCP server's request for input names no known action, or its values do not fit
+    /// the fields the server asked for.
+    /// </summary>
+    public const string ElicitationAnswerInvalid = "assistant-elicitation-answer-invalid";
+
+    /// <summary>
+    /// An MCP client's retry carried an approval request state that is not valid for its call: tampered
+    /// with, expired, of another caller or tool, or naming a proposal that was not made for the caller.
+    /// The tool did not run again.
+    /// </summary>
+    public const string McpApprovalStateInvalid = "assistant-mcp-approval-state-invalid";
+
+    /// <summary>
+    /// The proposal an MCP client's call left was rejected by a person; the change did not happen.
+    /// </summary>
+    public const string McpProposalRejected = "assistant-mcp-proposal-rejected";
+
+    /// <summary>
+    /// The proposal an MCP client's call left closed without being executed: it expired, was withdrawn,
+    /// became stale or its execution failed.
+    /// </summary>
+    public const string McpProposalClosed = "assistant-mcp-proposal-closed";
+
+    /// <summary>
     /// Creates the localization key for a code.
     /// </summary>
     public static string MessageKey(string code)

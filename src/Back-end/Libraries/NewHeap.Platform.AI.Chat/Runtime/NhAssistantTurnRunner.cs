@@ -3923,7 +3923,8 @@ internal sealed partial class NhAssistantTurnRunner(
             _applicationClock,
             services.GetService<NhAssistantTurnFiles>(),
             services.GetService<NhAssistantConsultationProposals>(),
-            registration);
+            registration,
+            services.GetService<NhAssistantElicitationRegistry>());
     }
 
     private async Task FinishWithErrorAsync(

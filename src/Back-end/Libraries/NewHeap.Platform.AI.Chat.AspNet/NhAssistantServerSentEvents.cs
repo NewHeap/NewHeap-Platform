@@ -129,6 +129,12 @@ internal sealed class NhAssistantServerSentEventsResult(NhAssistantTurnHandle ha
             NhAssistantQuestionAnsweredEvent answered => ("question.answered", Json(
                 NhAssistantDtoMapper.ToDto(answered.Question),
                 context.NhAssistantMessagePartDto)),
+            NhAssistantElicitationRequestedEvent requested => ("elicitation.requested", Json(
+                NhAssistantDtoMapper.ToDto(requested.Elicitation),
+                context.NhAssistantMessagePartDto)),
+            NhAssistantElicitationClosedEvent closed => ("elicitation.closed", Json(
+                NhAssistantDtoMapper.ToDto(closed.Elicitation),
+                context.NhAssistantMessagePartDto)),
             NhAssistantConnectionRequiredEvent connection => ("connection.required", Json(
                 new NhAssistantConnectionRequiredDto(connection.ServerId, connection.DisplayName, connection.Reason),
                 context.NhAssistantConnectionRequiredDto)),
@@ -347,6 +353,34 @@ internal static class NhAssistantDtoMapper
                 connection.DisplayName,
                 connection.Reason),
             NhAssistantFilePartView file => new NhAssistantFilePartDto(file.Name, file.MediaType, file.Size),
+            NhAssistantElicitationView elicitation => new NhAssistantElicitationPartDto(
+                elicitation.ElicitationId,
+                elicitation.InvocationId,
+                elicitation.ServerId,
+                elicitation.ServerName,
+                elicitation.Mode,
+                elicitation.Message,
+                elicitation.AddresseeActorId,
+                elicitation.ExpiresAt,
+                elicitation.Status,
+                elicitation.Fields
+                    .Select(field => new NhAssistantElicitationFieldDto(field.Name, field.Type, field.Title, field.Required)
+                    {
+                        Description = field.Description,
+                        MinLength = field.MinLength,
+                        MaxLength = field.MaxLength,
+                        Minimum = field.Minimum,
+                        Maximum = field.Maximum,
+                        Options = field.Options?
+                            .Select(option => new NhAssistantElicitationOptionDto(option.Value, option.Label))
+                            .ToArray()
+                    })
+                    .ToArray())
+            {
+                Url = elicitation.Url,
+                UrlHost = elicitation.UrlHost,
+                ClosedAt = elicitation.ClosedAt
+            },
             NhAssistantQuestionView question => new NhAssistantQuestionPartDto(
                 question.QuestionId,
                 question.Question,

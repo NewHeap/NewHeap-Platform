@@ -250,7 +250,23 @@ internal static class NhAiMcpRequestHandlers
         // The tool reads the call's request metadata as data the caller sent, never as identity.
         using (NhAiMcpInboundCall.Enter(request.Params?.Meta))
         {
-            return await tool.InvokeAsync(request, cancellationToken);
+            var descriptor = tool.Metadata.OfType<NhAiToolDescriptor>().FirstOrDefault();
+            var steps = services.GetServices<INhAiMcpCallStep>().ToArray();
+            if (descriptor is null || steps.Length == 0)
+            {
+                return await tool.InvokeAsync(request, cancellationToken);
+            }
+
+            // The steps a host registered run around the authorized call, in registration order.
+            var call = new NhAiMcpExportedCall(request, resolved.Data, descriptor);
+            Func<CancellationToken, ValueTask<CallToolResult>> next = token => tool.InvokeAsync(request, token);
+            for (var index = steps.Length - 1; index >= 0; index--)
+            {
+                var step = steps[index];
+                var inner = next;
+                next = token => step.InvokeAsync(call, inner, token);
+            }
+            return await next(cancellationToken);
         }
     }
 
@@ -291,6 +307,32 @@ internal static class NhAiMcpRequestHandlers
 }
 
 internal sealed record NhAiMcpError(string Code, string Message);
+
+/// <summary>
+/// One call of an exported NewHeap tool by an MCP client, after the caller was authenticated and the
+/// tool was found for them.
+/// </summary>
+/// <param name="Request">The MCP request, with its server, parameters, request state and input responses.</param>
+/// <param name="Invocation">The caller's invocation context, as the export resolved it for this request.</param>
+/// <param name="Descriptor">The tool.</param>
+internal sealed record NhAiMcpExportedCall(
+    RequestContext<CallToolRequestParams> Request,
+    NhAiInvocationContext Invocation,
+    NhAiToolDescriptor Descriptor);
+
+/// <summary>
+/// A step a NewHeap host runs around every call of an exported tool, such as the assistant's
+/// approval page for a call that left a proposal. A step calls <c>next</c> to run the governed tool,
+/// or answers without it, for example for a retry it recognizes; it never weakens the tool's own
+/// authorization, approval, budget or audit, which run inside <c>next</c>.
+/// </summary>
+internal interface INhAiMcpCallStep
+{
+    ValueTask<CallToolResult> InvokeAsync(
+        NhAiMcpExportedCall call,
+        Func<CancellationToken, ValueTask<CallToolResult>> next,
+        CancellationToken cancellationToken);
+}
 
 /// <summary>
 /// The request metadata (<c>_meta</c>) of the MCP tool call that the NewHeap export runs in this

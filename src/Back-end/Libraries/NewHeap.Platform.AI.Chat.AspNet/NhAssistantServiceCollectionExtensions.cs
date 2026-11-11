@@ -49,6 +49,9 @@ public static class NhAssistantServiceCollectionExtensions
             services.AddNewHeapPlatformAIMcp();
             // The MCP exposure asks the application's composition switch for the MCP channel.
             services.Replace(ServiceDescriptor.Scoped<INhAiMcpCompositionGate, NhAssistantMcpCompositionGate>());
+            // An exported call that left proposals may send the MCP client's person to the approval page
+            // (Mcp:ApprovalLinkTemplate); without the template it changes nothing.
+            services.TryAddEnumerable(ServiceDescriptor.Scoped<INhAiMcpCallStep, NhAssistantMcpApprovalElicitation>());
             services.TryAddSingleton<NhAssistantMcpSecretProtector>();
             services.TryAddSingleton<NhAssistantMcpHostGuard>();
             services.TryAddSingleton<NhAssistantMcpContextBindings>();

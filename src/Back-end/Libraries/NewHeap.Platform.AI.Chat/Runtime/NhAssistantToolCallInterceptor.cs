@@ -376,6 +376,22 @@ internal sealed class NhAssistantTurnState
         }
     }
 
+    /// <summary>
+    /// Replaces a part this turn added, such as a request for input that closed; a part that is gone
+    /// stays gone.
+    /// </summary>
+    public void ReplacePart(NhAssistantStoredPart part, NhAssistantStoredPart replacement)
+    {
+        lock (_sync)
+        {
+            var index = _parts.IndexOf(part);
+            if (index >= 0)
+            {
+                _parts[index] = replacement;
+            }
+        }
+    }
+
     public ValueTask EmitAsync(NhAssistantTurnEvent evt)
     {
         // The stream is unbounded; a disconnected client never blocks the turn.
@@ -424,7 +440,8 @@ internal sealed class NhAssistantToolCallInterceptor(
     TimeProvider? applicationClock = null,
     NhAssistantTurnFiles? turnFiles = null,
     NhAssistantConsultationProposals? consultationProposals = null,
-    NhAssistantRegistrationState? registration = null)
+    NhAssistantRegistrationState? registration = null,
+    NhAssistantElicitationRegistry? elicitations = null)
 {
     public const string ToolsDisabledCode = "assistant-tools-disabled";
     public const string ProposalRecordedCode = "assistant-proposal-recorded";
@@ -659,15 +676,20 @@ internal sealed class NhAssistantToolCallInterceptor(
                 RequireApprovalForEffects = true
             };
         }
-        var execution = await ExecuteAsync(
-            descriptor,
-            row,
-            null,
-            null,
-            token => InvokeInScopeAsync(targetScope, () => request.Invoke(token)),
-            cancellationToken,
-            logger,
-            this);
+        NhAssistantToolExecution execution;
+        // An MCP server that asks for input while its tool runs asks the person of this call, if any.
+        using (NhAssistantElicitationScope.Enter(CreateElicitor(row)))
+        {
+            execution = await ExecuteAsync(
+                descriptor,
+                row,
+                null,
+                null,
+                token => InvokeInScopeAsync(targetScope, () => request.Invoke(token)),
+                cancellationToken,
+                logger,
+                this);
+        }
         if (execution.Outcome.Kind == NhAssistantToolOutcomeKind.ApprovalMissing)
         {
             NhAssistantPlacedThread? placed = null;
@@ -883,6 +905,21 @@ internal sealed class NhAssistantToolCallInterceptor(
         return (
             execution with { Result = described },
             contents.Length > 0 ? new NhAiToolResultWithContent(described, contents) : described);
+    }
+
+    /// <summary>
+    /// The elicitor of one call of this turn: it asks the turn's person in a person's own chat turn and
+    /// declines for everyone else, such as a run, a consultation or a rule turn, where nobody answers.
+    /// </summary>
+    private INhAssistantElicitor CreateElicitor(AssistantToolInvocation row)
+    {
+        var person = state.AgentTurn is null
+            && state.Scope.Consultation is null
+            && !state.RuleTurn
+            && elicitations is not null
+                ? state.Scope.OwnerActorId
+                : null;
+        return new NhAssistantTurnElicitor(this, state, row, elicitations, person, _applicationClock);
     }
 
     /// <summary>

@@ -571,7 +571,7 @@ internal sealed class NhAssistantConsultationToolHandler(
 
         var requestPrincipal = await RequestPrincipalOfAsync(asker, cancellationToken);
         var inherited = await InheritedChainAsync(cancellationToken);
-        return await consultations.ConsultAsync(
+        var answered = await consultations.ConsultAsync(
             new NhAssistantConsultationRequest(
                 options,
                 request.SubjectId,
@@ -585,6 +585,17 @@ internal sealed class NhAssistantConsultationToolHandler(
                 Inherited = inherited
             },
             cancellationToken);
+        if (answered is { Success: true, Data: { Decision: NhAssistantConsultationDecisions.Subject } answer })
+        {
+            // Proposals that wait for the subject's approvers: an MCP client's call may send its person
+            // to the approval page.
+            foreach (var approvalId in answer.ApprovalIds)
+            {
+                Mcp.NhAssistantMcpCallProposals.Record(approvalId, asker);
+            }
+        }
+
+        return answered;
     }
 
     /// <summary>
