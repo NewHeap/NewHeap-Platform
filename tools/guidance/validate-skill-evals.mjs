@@ -1,7 +1,14 @@
-import { resolve } from 'node:path';
-import { consumerSkillBundleName, consumerSkillNames, loadRules, readJson, repositoryRoot } from './lib.mjs';
+import { relative } from 'node:path';
+import { consumerSkillBundleName, consumerSkillNames, loadRules, repositoryRoot } from './lib.mjs';
+import {
+  loadSkillEvaluations,
+  pluginEvals,
+  renderPluginEvalSuite,
+  stalePluginEvalSuiteFiles,
+  validateSkillEvalSuiteDefinition
+} from './skill-eval-suite.mjs';
 
-const evaluations = await readJson(resolve(repositoryRoot, 'skill-evals', 'evals.json'));
+const evaluations = await loadSkillEvaluations();
 const rules = await loadRules();
 const failures = [];
 if (evaluations.schemaVersion !== 1 || !Array.isArray(evaluations.evals)) failures.push('Invalid skill eval schema.');
@@ -13,6 +20,7 @@ const ids = new Set();
 
 for (const item of evaluations.evals ?? []) {
   if (!item.id || ids.has(item.id)) failures.push(`Invalid or duplicate eval id: ${item.id}`);
+  else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.id)) failures.push(`${item.id}: eval ids must be kebab-case, because they name the generated case directories`);
   ids.add(item.id);
   if (!knownSkills.has(item.skill)) failures.push(`${item.id}: unknown skill ${item.skill}`);
   if (!item.prompt || !item.expectedOutcome) failures.push(`${item.id}: prompt and expectedOutcome are required`);
@@ -29,5 +37,16 @@ for (const item of evaluations.evals ?? []) {
 for (const rule of knownRules) if (!coveredRules.has(rule)) failures.push(`No skill eval covers ${rule}`);
 for (const skill of knownSkills) if (!(evaluations.evals ?? []).some(item => item.skill === skill)) failures.push(`No eval targets ${skill}`);
 
+failures.push(...await validateSkillEvalSuiteDefinition(evaluations));
+let suiteFiles = 0;
+if (failures.length === 0) {
+  const suite = renderPluginEvalSuite(evaluations, rules);
+  suiteFiles = suite.size;
+  const stale = await stalePluginEvalSuiteFiles(suite);
+  if (stale.length > 0) {
+    failures.push(`The generated plugin eval suite is stale:\n${stale.map(path => `- ${relative(repositoryRoot, path).replaceAll('\\', '/')}`).join('\n')}\nRun npm run guidance:generate.`);
+  }
+}
+
 if (failures.length > 0) throw new Error(failures.join('\n'));
-console.log(`Validated ${evaluations.evals.length} skill evals covering ${knownRules.size} guidance rules.`);
+console.log(`Validated ${evaluations.evals.length} skill evals covering ${knownRules.size} guidance rules and the generated plugin eval suite of ${pluginEvals(evaluations).length} cases in ${suiteFiles} files.`);

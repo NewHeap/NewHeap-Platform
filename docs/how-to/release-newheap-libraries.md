@@ -118,3 +118,5 @@ npm run release:sql-scripts -- --out <directory>
 `release:sql-scripts` builds the assistant's provider projects and writes the scripts of the current `nuget-common` version into the directory; `--version` names another version in the file names and `--schema <name>` writes the scripts for another schema than `nhai`. It needs `dotnet-ef` (`dotnet tool install --global dotnet-ef --version <the output of --tool-version>`); generated scripts are release artifacts and are never committed.
 
 Local commands pack and validate only. Registry publication belongs to the protected GitHub workflow.
+
+Before a `newheap-platform-plugin` release that changes consumer skills, rules or the router description, also run the affected skill evals against a no-plugin baseline with `npm run skills:eval:run -- --tag <module> --baseline`. The runs call a model on your own Claude account and are not part of any workflow; the [skill evals reference](../../skills/newheap-library-maintenance/references/skill-evals.md) explains the selection, the costs and how to read the report.

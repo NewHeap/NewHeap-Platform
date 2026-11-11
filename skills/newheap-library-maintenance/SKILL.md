@@ -72,4 +72,6 @@ npm run plugin:validate
 
 Then complete the applicable commands in [release checklist](references/release-checklist.md), including both real relational providers for database behavior and both Angular sample builds for frontend behavior. Run the skill creator's `quick_validate.py` for both skill directories when their structure or metadata changes.
 
+`npm run skills:eval` only validates the eval definitions and the generated suite. Before releasing a changed consumer skill, rule or router description, measure the affected cases against a no-plugin baseline with `npm run skills:eval:run`, as [skill evals](references/skill-evals.md) describes; it calls a model on your own account and is not part of CI.
+
 The final handoff identifies changed public behavior, linked sample cases/evidence, generated guidance, compatibility impact, provider matrix and any explicit gap. Do not mark the work complete while generated artifacts or the API snapshot are stale.
