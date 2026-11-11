@@ -1967,7 +1967,7 @@ internal sealed class NhAssistantToolCallInterceptor(
             await FlushAsync(cancellationToken);
             if (!shadow)
             {
-                await state.EmitAsync(new NhAssistantApprovalRequiredEvent(view));
+                await state.EmitAsync(new NhAssistantApprovalRequiredEvent(view) { InvocationId = row.Id });
             }
         }
         await RecordBusinessEventAsync(
@@ -2641,7 +2641,7 @@ internal sealed class NhAssistantToolCallInterceptor(
         state.PendingApproval = view;
         state.AddPart(new NhAssistantStoredPart(NhAssistantStoredPart.ApprovalType, ApprovalId: approval.Id));
         await FlushAsync(cancellationToken);
-        await state.EmitAsync(new NhAssistantApprovalRequiredEvent(view));
+        await state.EmitAsync(new NhAssistantApprovalRequiredEvent(view) { InvocationId = row.Id });
         return execution.Result;
     }
 

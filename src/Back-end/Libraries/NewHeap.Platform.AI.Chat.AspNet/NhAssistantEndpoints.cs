@@ -194,7 +194,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         return group;
     }
 
-    private static async ValueTask<object?> RequireEnabledAsync(
+    internal static async ValueTask<object?> RequireEnabledAsync(
         EndpointFilterInvocationContext context,
         EndpointFilterDelegate next)
     {
@@ -629,15 +629,37 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             return resolved.Error;
         }
 
+        var started = await StartDecisionTurnAsync(httpContext, runner, id, approvalId, caller.Data, request);
+        return started.Error ?? new NhAssistantServerSentEventsResult(started.Handle!);
+    }
+
+    /// <summary>
+    /// Starts the turn that continues after the caller's decision of a proposal of a conversation whose access
+    /// <see cref="ResolveAccessAsync"/> resolved for this request: the semantics of
+    /// <c>approvals/{approvalId}/decide</c>, shared with the AG-UI endpoint's resume of an approval interrupt.
+    /// <paramref name="request"/> carries a decision of <c>approve</c>, <c>reject</c> or <c>leave</c> and the
+    /// expected proposal hash. Returns the turn's handle, or the error response of an expected failure.
+    /// </summary>
+    internal static async Task<(NhAssistantTurnHandle? Handle, IResult? Error)> StartDecisionTurnAsync(
+        HttpContext httpContext,
+        INhAssistantTurnRunner runner,
+        Guid id,
+        Guid approvalId,
+        NhAiInvocationContext caller,
+        NhAssistantDecideApprovalRequest request)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.Decision);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.ExpectedProposalHash);
+
         var threadAccess = ThreadAccessOf(httpContext);
-        var askerDecision = await AskerDecisionAsync(httpContext, id, approvalId, caller.Data.ActorId, request.Decision == "approve");
+        var askerDecision = await AskerDecisionAsync(httpContext, id, approvalId, caller.ActorId, request.Decision == "approve");
         if (askerDecision.Error is not null)
         {
-            return askerDecision.Error;
+            return (null, askerDecision.Error);
         }
         if (askerDecision.Approval is null && request.Decision == "leave")
         {
-            return Error(NhAssistantErrorCodes.ApprovalDecisionInvalid);
+            return (null, Error(NhAssistantErrorCodes.ApprovalDecisionInvalid));
         }
 
         NhAssistantAgentTurnContext? agentTurn = null;
@@ -650,12 +672,12 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                     id,
                     null,
                     NhAssistantConversationKinds.Chat,
-                    caller.Data.ActorId,
+                    caller.ActorId,
                     threadAccess.Thread.AccountableOwnerId,
                     httpContext.RequestAborted);
                 if (!created.Success)
                 {
-                    return FromFailure(created);
+                    return (null, FromFailure(created));
                 }
                 agentTurn = created.Data! with { IsRequestTurn = true };
             }
@@ -666,34 +688,34 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             var approval = await services.GetRequiredService<INhAssistantStore>().FindApprovalAsync(approvalId, httpContext.RequestAborted);
             if (approval is null || approval.ConversationId != id)
             {
-                return Error(NhAssistantErrorCodes.ApprovalNotFound);
+                return (null, Error(NhAssistantErrorCodes.ApprovalNotFound));
             }
             if (approval.RunId is not null)
             {
                 // A run's proposal is decided through approvals/{approvalId}/decisions.
-                return Error(NhAssistantErrorCodes.ApprovalDecisionInvalid);
+                return (null, Error(NhAssistantErrorCodes.ApprovalDecisionInvalid));
             }
             var check = await services.GetRequiredService<NhAssistantApproverCheck>().CheckAsync(
                 approval,
                 threadAccess.Thread,
-                caller.Data.ActorId,
+                caller.ActorId,
                 httpContext.User,
                 httpContext.RequestAborted);
             if (!check.Success)
             {
-                return Error(NhAssistantErrorCodes.ApprovalPolicyDenied);
+                return (null, Error(NhAssistantErrorCodes.ApprovalPolicyDenied));
             }
 
             var created = await services.GetRequiredService<NhAssistantAgentTurnFactory>().CreateAsync(
                 id,
                 null,
                 NhAssistantConversationKinds.Chat,
-                approval.InitiatorActorId ?? caller.Data.ActorId,
+                approval.InitiatorActorId ?? caller.ActorId,
                 threadAccess.Thread.AccountableOwnerId,
                 httpContext.RequestAborted);
             if (!created.Success)
             {
-                return FromFailure(created);
+                return (null, FromFailure(created));
             }
             agentTurn = created.Data! with { IsRequestTurn = true };
         }
@@ -702,7 +724,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         var started = await runner.StartDecisionTurnAsync(
             new NhAssistantDecisionTurnRequest(
                 id,
-                caller.Data,
+                caller,
                 approvalId,
                 request.Decision == "approve",
                 request.ExpectedProposalHash,
@@ -713,13 +735,13 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                 AgentTurn = agentTurn,
                 PolicyAuthorized = agentTurn is not null && askerDecision.Approval is null,
                 LeaveForApprovers = request.Decision == "leave",
-                Person = outlives ? NhAiPersonInvocations.FromRequest(httpContext, caller.Data) : null,
+                Person = PersonOf(httpContext, caller),
                 ClientTools = ClientToolsOf(httpContext, request.ClientTools)
             },
             httpContext.RequestAborted);
         return started.Success
-            ? new NhAssistantServerSentEventsResult(started.Data)
-            : FromFailure(started);
+            ? (started.Data, null)
+            : (null, FromFailure(started));
     }
 
     /// <summary>
@@ -827,7 +849,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
     /// <summary>
     /// The client tools the request's browser declares it can run, among those the application declared.
     /// </summary>
-    private static IReadOnlySet<string> ClientToolsOf(HttpContext httpContext, IReadOnlyList<string>? declared)
+    internal static IReadOnlySet<string> ClientToolsOf(HttpContext httpContext, IEnumerable<string?>? declared)
     {
         return httpContext.RequestServices.GetRequiredService<NhAssistantRegistrationState>().KnownClientTools(declared);
     }
@@ -1088,12 +1110,22 @@ public static class NhAssistantEndpointRouteBuilderExtensions
     /// Whether the turn this request starts keeps running after its client disconnected (LS18): it then
     /// does not follow the request's cancellation and authorizes the person captured now.
     /// </summary>
-    private static bool KeepsTurnAfterDisconnect(HttpContext httpContext)
+    internal static bool KeepsTurnAfterDisconnect(HttpContext httpContext)
     {
         return httpContext.RequestServices
             .GetRequiredService<IOptionsMonitor<NhAssistantOptions>>()
             .CurrentValue
             .KeepTurnsAfterDisconnect;
+    }
+
+    /// <summary>
+    /// The person a turn this request starts authorizes its tools with when it keeps running after its
+    /// client disconnected (<see cref="KeepsTurnAfterDisconnect"/>), captured now; otherwise
+    /// <see langword="null"/>, and the turn's tools authorize the request.
+    /// </summary>
+    internal static NhAiPersonInvocation? PersonOf(HttpContext httpContext, NhAiInvocationContext caller)
+    {
+        return KeepsTurnAfterDisconnect(httpContext) ? NhAiPersonInvocations.FromRequest(httpContext, caller) : null;
     }
 
     internal static async Task<TaskResult<NhAiInvocationContext>> ResolveCallerAsync(HttpContext httpContext)

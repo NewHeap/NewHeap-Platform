@@ -41,7 +41,15 @@ internal sealed record NhAssistantToolCompletedEvent(
 }
 
 internal sealed record NhAssistantApprovalRequiredEvent(
-    NhAssistantApprovalView Approval) : NhAssistantTurnEvent;
+    NhAssistantApprovalView Approval) : NhAssistantTurnEvent
+{
+    /// <summary>
+    /// The tool call of the turn that waits for the decision: the proposing call, or the consult call of a
+    /// proposal the person who asked decides. The assistant's own server-sent events leave it out; the
+    /// AG-UI endpoint names it as the interrupted tool call.
+    /// </summary>
+    public Guid? InvocationId { get; init; }
+}
 
 /// <summary>
 /// The agent asked a person of the conversation a question with <c>ask_question</c>; the turn waits
