@@ -16,7 +16,9 @@ namespace NewHeap.Platform.AI.Chat.AspNet.Live;
 /// bearer authentication applies to every request, and aborts a connection it refuses. A host without
 /// the validator, such as one with its own authentication, relies on the expiry alone. A check that
 /// fails is logged and ends the connection as well; the client reconnects with its current session and
-/// reloads its snapshots.
+/// reloads its snapshots. A connection whose authentication was refreshed
+/// (<see cref="NhAssistantOptions.HubAuthenticationRefresh"/>, ASP.NET Core 11) is validated with its
+/// refreshed principal from then on.
 /// </summary>
 internal sealed partial class NhAssistantHubSessions(
     IServiceScopeFactory scopes,
@@ -25,6 +27,8 @@ internal sealed partial class NhAssistantHubSessions(
 {
     /// <summary>How often an open connection's session is validated again by default.</summary>
     public static readonly TimeSpan DefaultCheckInterval = TimeSpan.FromMinutes(1);
+
+    private const string SessionKey = "nh-assistant-session";
 
     /// <summary>
     /// How often an open connection's session is validated again: <see cref="DefaultCheckInterval"/>,
@@ -45,17 +49,36 @@ internal sealed partial class NhAssistantHubSessions(
             return;
         }
 
-        _ = WatchAsync(connection, user);
+        var session = new WatchedSession(user);
+        connection.Items[SessionKey] = session;
+        _ = WatchAsync(connection, session);
     }
 
-    private async Task WatchAsync(HubCallerContext connection, ClaimsPrincipal user)
+#if NET11_0_OR_GREATER
+    /// <summary>
+    /// Validates the refreshed principal of <paramref name="connection"/> from now on, after the hub
+    /// accepted its authentication refresh.
+    /// </summary>
+    public void Refreshed(HubCallerContext connection)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        if (connection.User is { Identity.IsAuthenticated: true } user
+            && connection.Items.TryGetValue(SessionKey, out var value)
+            && value is WatchedSession session)
+        {
+            session.Principal = user;
+        }
+    }
+#endif
+
+    private async Task WatchAsync(HubCallerContext connection, WatchedSession session)
     {
         try
         {
             using var timer = new PeriodicTimer(CheckInterval);
             while (await timer.WaitForNextTickAsync(connection.ConnectionAborted))
             {
-                if (!await IsValidAsync(user, connection.ConnectionAborted))
+                if (!await IsValidAsync(session.Principal, connection.ConnectionAborted))
                 {
                     LogSessionEnded(logger);
                     connection.Abort();
@@ -82,6 +105,21 @@ internal sealed partial class NhAssistantHubSessions(
         {
             LogCheckFailed(logger, exception);
             return false;
+        }
+    }
+
+    /// <summary>
+    /// The principal a connection's session is validated with: the one it connected with, or the one
+    /// its last accepted authentication refresh brought.
+    /// </summary>
+    private sealed class WatchedSession(ClaimsPrincipal principal)
+    {
+        private ClaimsPrincipal _principal = principal;
+
+        public ClaimsPrincipal Principal
+        {
+            get => Volatile.Read(ref _principal);
+            set => Volatile.Write(ref _principal, value);
         }
     }
 

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.SignalR;
 using NewHeap.Platform.AspNet.Common;
+using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.Common.Actors;
 
 namespace NewHeap.Platform.AspNet.Common.Services.BackgroundOperations;
@@ -17,6 +18,8 @@ public interface INhBackgroundOperationHubClient
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme + ",Identity.Application")]
 public sealed class NhBackgroundOperationHub : Hub<INhBackgroundOperationHubClient>
 {
+    private const string JoinedScopeKey = "nh-background-operation-joined-scope";
+
     private readonly INhDivisionAccess _divisions;
 
     public NhBackgroundOperationHub(INhDivisionAccess divisions)
@@ -58,8 +61,64 @@ public sealed class NhBackgroundOperationHub : Hub<INhBackgroundOperationHubClie
                 Context.ConnectionAborted);
         }
 
+        // What the groups were joined for, so a refreshed authentication is checked against it.
+        Context.Items[JoinedScopeKey] = new JoinedScope(userId, activeDivisionId);
         await base.OnConnectedAsync();
     }
+
+#if NET11_0_OR_GREATER
+    /// <summary>
+    /// Checks a connection whose authentication was refreshed
+    /// (<see cref="NhBackgroundOperationsOptions.HubAuthenticationRefresh"/>) again, as when it opened:
+    /// the refreshed principal must name the user the connection joined its groups for, and that user
+    /// must still have access to the active division the connection joined. Otherwise the connection
+    /// closes, so no group outlives the authorization that joined it; the client reconnects with its
+    /// current session and resynchronizes.
+    /// </summary>
+    public override async Task OnAuthenticationRefreshedAsync()
+    {
+        if (!await IsStillAuthorizedAsync())
+        {
+            Context.Abort();
+            return;
+        }
+
+        await base.OnAuthenticationRefreshedAsync();
+    }
+
+    private async Task<bool> IsStillAuthorizedAsync()
+    {
+        if (!Context.Items.TryGetValue(JoinedScopeKey, out var value) || value is not JoinedScope joined)
+        {
+            return false;
+        }
+
+        var userIdValue = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdValue, out var userId) || userId != joined.UserId)
+        {
+            return false;
+        }
+
+        if (!joined.DivisionId.HasValue)
+        {
+            return true;
+        }
+
+        try
+        {
+            return await _divisions.HasAccessAsync(
+                NhActorRef.ForUser(userId),
+                joined.DivisionId.Value,
+                Context.ConnectionAborted);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            // A check that cannot be completed does not keep the division's group: the connection
+            // closes and the client reconnects, when the hub checks the division again.
+            return false;
+        }
+    }
+#endif
 
     internal static string GetUserGroup(Guid userId, Guid? divisionId)
     {
@@ -68,6 +127,9 @@ public sealed class NhBackgroundOperationHub : Hub<INhBackgroundOperationHubClie
             : "global";
         return $"nh-background-operation-user:{userId:N}:{scope}";
     }
+
+    /// <summary>The user and the active division a connection joined its groups for.</summary>
+    private sealed record JoinedScope(Guid UserId, Guid? DivisionId);
 }
 
 internal sealed class NhSignalRBackgroundOperationLiveUpdatePublisher : INhBackgroundOperationLiveUpdatePublisher
@@ -99,16 +161,19 @@ internal sealed class NhBackgroundOperationSignalRMarker
 internal static class NhBackgroundOperationHubEndpoints
 {
     /// <summary>
-    /// Maps <see cref="NhBackgroundOperationHub"/> at <paramref name="hubPath"/>. A connection closes when
-    /// the authentication it was opened with expires, over WebSockets as well, instead of living on
-    /// through keep-alives; the client reconnects with its current session.
+    /// Maps <see cref="NhBackgroundOperationHub"/> at <see cref="NhBackgroundOperationsOptions.HubPath"/>.
+    /// A connection closes when the authentication it was opened with expires, over WebSockets as well,
+    /// instead of living on through keep-alives; the client reconnects with its current session. With
+    /// <see cref="NhBackgroundOperationsOptions.HubAuthenticationRefresh"/> on ASP.NET Core 11 the client
+    /// may refresh that authentication without reconnecting (<see cref="NhHubAuthenticationRefresh"/>).
     /// </summary>
     internal static HubEndpointConventionBuilder MapNhBackgroundOperationHub(
         this IEndpointRouteBuilder endpoints,
-        string hubPath)
+        NhBackgroundOperationsOptions options)
     {
+        ArgumentNullException.ThrowIfNull(options);
         return endpoints.MapHub<NhBackgroundOperationHub>(
-            hubPath,
-            connection => connection.CloseOnAuthenticationExpiration = true);
+            options.HubPath,
+            connection => NhHubAuthenticationRefresh.Configure(connection, options.HubAuthenticationRefresh));
     }
 }

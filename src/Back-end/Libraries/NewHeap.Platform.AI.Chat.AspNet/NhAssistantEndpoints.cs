@@ -14,6 +14,7 @@ using NewHeap.Platform.AI.Chat.AspNet.AgentRuns;
 using NewHeap.Platform.AI.Chat.Persistence;
 using NewHeap.Platform.AI.Chat.Runs;
 using NewHeap.Platform.AI.Chat.Runtime;
+using NewHeap.Platform.AspNet.Common.Authentication;
 using NewHeap.Platform.AspNet.Common.Utilities;
 using NewHeap.Platform.Common.Models;
 
@@ -162,11 +163,14 @@ public static class NhAssistantEndpointRouteBuilderExtensions
 
         if (!string.IsNullOrWhiteSpace(options.HubPath))
         {
-            // A connection ends when the authentication it was opened with expires; the hub also ends
-            // it when the session validator refuses its principal (NhAssistantHubSessions).
+            // A connection ends when the authentication it was opened with expires, unless the client
+            // refreshes it (HubAuthenticationRefresh, ASP.NET Core 11); the hub also ends it when the
+            // session validator refuses its principal (NhAssistantHubSessions). The access policy
+            // covers the refresh endpoint as well.
+            var authenticationRefresh = options.HubAuthenticationRefresh;
             endpoints.MapHub<NhAssistantHub>(
                     options.HubPath,
-                    connection => connection.CloseOnAuthenticationExpiration = true)
+                    connection => NhHubAuthenticationRefresh.Configure(connection, authenticationRefresh))
                 .RequireAuthorization(accessPolicy);
         }
         return group;

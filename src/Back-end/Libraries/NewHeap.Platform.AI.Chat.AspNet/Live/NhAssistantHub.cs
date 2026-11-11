@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -50,11 +51,14 @@ public sealed record NhAssistantLiveWatchDto(int Watched, int RefreshAfterSecond
 /// client that shows its agents' work, such as the approval inbox or a board, asks to watch it with
 /// <see cref="WatchAgentWork"/>: the server joins the connection to the work it decides the person
 /// may read and leaves what the person may no longer read whenever the client renews the watch.
-/// Clients send nothing else to the hub.
+/// Clients send nothing else to the hub. With <see cref="NhAssistantOptions.HubAuthenticationRefresh"/>
+/// on ASP.NET Core 11 a client may refresh the connection's authentication instead of reconnecting
+/// when its token expires; the connection stays only while the refreshed principal is the same caller.
 /// </summary>
 public sealed class NhAssistantHub : Hub<INhAssistantHubClient>
 {
     private const string WatchedGroupsKey = "nh-assistant-agent-work";
+    private const string JoinedCallerKey = "nh-assistant-joined-caller";
 
     public override async Task OnConnectedAsync()
     {
@@ -80,11 +84,64 @@ public sealed class NhAssistantHub : Hub<INhAssistantHubClient>
         // the actor reaches a conversation of that tenant.
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupFor(caller.Data.ActorId), Context.ConnectionAborted);
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupFor(caller.Data.ActorId, caller.Data.TenantId), Context.ConnectionAborted);
+        // Whom the groups were joined for, so a refreshed authentication is checked against it.
+        Context.Items[JoinedCallerKey] = new JoinedCaller(caller.Data.ActorId, caller.Data.TenantId);
         // The connection lasts as long as its session: it closes when its token expires, and when the
         // session validator no longer accepts its principal.
         httpContext.RequestServices.GetRequiredService<NhAssistantHubSessions>().Watch(Context);
         await base.OnConnectedAsync();
     }
+
+#if NET11_0_OR_GREATER
+    /// <summary>
+    /// Checks a connection whose authentication was refreshed
+    /// (<see cref="NhAssistantOptions.HubAuthenticationRefresh"/>) again, as when it opened: the
+    /// assistant must be on and the refreshed principal must resolve to the caller the connection joined
+    /// its groups for, the same actor in the same tenant. Then the connection keeps its groups and its
+    /// watch, and the session check follows the refreshed principal. Otherwise the connection closes, so
+    /// no group outlives the authorization that joined it; the client reconnects with its current session
+    /// and reloads its snapshots.
+    /// </summary>
+    public override async Task OnAuthenticationRefreshedAsync()
+    {
+        var httpContext = Context.GetHttpContext();
+        if (httpContext is null || !await IsSameCallerAsync(httpContext))
+        {
+            Context.Abort();
+            return;
+        }
+
+        httpContext.RequestServices.GetRequiredService<NhAssistantHubSessions>().Refreshed(Context);
+        await base.OnAuthenticationRefreshedAsync();
+    }
+
+    private async Task<bool> IsSameCallerAsync(HttpContext httpContext)
+    {
+        var options = httpContext.RequestServices.GetRequiredService<IOptionsMonitor<NhAssistantOptions>>().CurrentValue;
+        if (!options.Enabled
+            || !Context.Items.TryGetValue(JoinedCallerKey, out var value)
+            || value is not JoinedCaller joined)
+        {
+            return false;
+        }
+
+        try
+        {
+            var caller = await httpContext.RequestServices
+                .GetRequiredService<INhAiAuthenticatedInvocationContextResolver>()
+                .ResolveAsync(httpContext, Context.ConnectionAborted);
+            return caller.Success
+                && string.Equals(caller.Data.ActorId, joined.ActorId, StringComparison.Ordinal)
+                && string.Equals(caller.Data.TenantId, joined.TenantId, StringComparison.Ordinal);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            // A caller that cannot be resolved keeps no group: the connection closes and the client
+            // reconnects, when the hub resolves the caller again.
+            return false;
+        }
+    }
+#endif
 
     /// <summary>
     /// Follows the work of agents for the whole application that the person may read: their runs and
@@ -187,6 +244,9 @@ public sealed class NhAssistantHub : Hub<INhAssistantHubClient>
         return "nh-assistant-agent-work:"
             + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(work.AgentId + "\n" + work.SubjectId)));
     }
+
+    /// <summary>The actor and the tenant a connection joined its groups for.</summary>
+    private sealed record JoinedCaller(string ActorId, string? TenantId);
 }
 
 /// <summary>
