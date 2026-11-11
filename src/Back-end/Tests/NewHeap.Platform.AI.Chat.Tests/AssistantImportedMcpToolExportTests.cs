@@ -47,8 +47,11 @@ public sealed class AssistantImportedMcpToolExportTests(AssistantDatabaseFixture
         await using var client = await ConnectAsync(host, Member);
         var listed = (await client.ListToolsAsync()).Where(tool => tool.Name.StartsWith("servicedesk_", StringComparison.Ordinal)).ToArray();
 
-        // The selector was asked only about the read-only tools; the mutating one never reaches it.
-        Assert.Equal(["my-work", "read-ticket"], selection.Asked.Select(tool => tool.RemoteName).Order(StringComparer.Ordinal));
+        // The selector sees every enabled tool with its reviewed effect; a change it does not declare
+        // confirmed by the person's client stays out.
+        Assert.Equal(
+            [("close-ticket", NhAssistantMcpToolEffects.Mutation), ("my-work", NhAssistantMcpToolEffects.ReadOnly), ("read-ticket", NhAssistantMcpToolEffects.ReadOnly)],
+            selection.Asked.Select(tool => (tool.RemoteName, tool.Effect)).OrderBy(tool => tool.RemoteName, StringComparer.Ordinal));
         Assert.Equal(["servicedesk_my_work", "servicedesk_read_ticket"], listed.Select(tool => tool.Name).Order(StringComparer.Ordinal));
         var myWork = Assert.Single(listed, tool => tool.Name == "servicedesk_my_work");
         // The reviewed description, not the remote text; the remote schema; honest hints.
@@ -75,6 +78,7 @@ public sealed class AssistantImportedMcpToolExportTests(AssistantDatabaseFixture
         Assert.Null(context["conversation"]);
         Assert.Null(context["snapshot"]);
         Assert.Null(context["chain"]);
+        Assert.Null(context["idempotencyKey"]);
         // The caller's own token never travels to the remote server.
         Assert.DoesNotContain(desk.AuthorizationHeaders, header => header?.Contains(Member, StringComparison.Ordinal) == true);
 
@@ -95,6 +99,82 @@ public sealed class AssistantImportedMcpToolExportTests(AssistantDatabaseFixture
 
         Assert.DoesNotContain(await client.ListToolsAsync(), tool => tool.Name.StartsWith("servicedesk_", StringComparison.Ordinal)
             || tool.Name.Contains("desk", StringComparison.Ordinal));
+        Assert.Empty(desk.Calls);
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    public async Task A_change_the_persons_client_confirms_runs_as_that_person_with_an_operation_key(AssistantTestProvider provider)
+    {
+        var desk = new DeskServer();
+        var selection = new Selection
+        {
+            Choose = tool => new NhAssistantImportedMcpToolExport(Selection.NameOf(tool)) { ClientConfirmationIsApproval = true }
+        };
+        var audit = new RecordingAuditSink();
+        await using var host = await StartAsync(desk, selection, audit, provider: provider, bindCloseTicket: true);
+        await ConnectDeskAsync(host);
+        await using var client = await ConnectAsync(host, Member);
+
+        var close = Assert.Single(await client.ListToolsAsync(), tool => tool.Name == "servicedesk_close_ticket");
+        // Offered as destructive, so the person's client asks before each call.
+        Assert.False(close.ProtocolTool.Annotations?.ReadOnlyHint);
+        Assert.True(close.ProtocolTool.Annotations?.DestructiveHint);
+        Assert.False(close.ProtocolTool.Annotations?.IdempotentHint);
+
+        var arguments = new Dictionary<string, object?> { ["ticketId"] = "T-17" };
+        var operation = new RequestOptions { Meta = new JsonObject { [NhAssistantMcpExportCall.IdempotencyKeyMetaKey] = "close-T-17:1" } };
+        Assert.NotEqual(true, (await close.CallAsync(arguments, options: operation)).IsError);
+        // The client's retry carries the same key; a call without a valid key gets one of its own.
+        Assert.NotEqual(true, (await close.CallAsync(arguments, options: operation)).IsError);
+        Assert.NotEqual(true, (await close.CallAsync(arguments, options: new RequestOptions
+        {
+            Meta = new JsonObject { [NhAssistantMcpExportCall.IdempotencyKeyMetaKey] = "not a key!" }
+        })).IsError);
+
+        var calls = desk.Calls;
+        Assert.Equal(3, calls.Count);
+        Assert.All(calls, call =>
+        {
+            Assert.Equal("close-ticket", call.Tool);
+            Assert.Equal(["ticketId"], call.Arguments.Keys);
+            Assert.Equal("mcp", call.Context!["channel"]!.GetValue<string>());
+            Assert.Equal(Member, call.Context["invocation"]!["accountableOwnerId"]!.GetValue<string>());
+            Assert.Null(call.Context["conversation"]);
+        });
+        var keys = calls.Select(call => call.Context!["idempotencyKey"]!.GetValue<string>()).ToArray();
+        Assert.Equal("close-T-17:1", keys[0]);
+        Assert.Equal("close-T-17:1", keys[1]);
+        Assert.Matches("^[0-9a-f]{32}$", keys[2]);
+
+        // The invoker records who approved: the person's client, not a NewHeap proposal.
+        var audited = audit.Records.Where(record => record.ToolId == "mcp.desk.close-ticket").ToArray();
+        Assert.Equal(3, audited.Length);
+        Assert.All(audited, record =>
+        {
+            Assert.Equal(Member, record.ActorId);
+            Assert.Equal(NhAiOutcomeKind.Succeeded, record.Outcome);
+            Assert.Equal("consumer-authoritative", record.ApprovalCode);
+        });
+    }
+
+    [Fact]
+    public async Task A_change_is_not_exported_without_a_context_binding_that_names_the_person()
+    {
+        var desk = new DeskServer();
+        var selection = new Selection
+        {
+            Choose = tool => new NhAssistantImportedMcpToolExport(Selection.NameOf(tool)) { ClientConfirmationIsApproval = true }
+        };
+        await using var host = await StartAsync(desk, selection, new RecordingAuditSink());
+        await ConnectDeskAsync(host);
+        await using var client = await ConnectAsync(host, Member);
+
+        var names = (await client.ListToolsAsync()).Select(tool => tool.Name).ToArray();
+
+        Assert.DoesNotContain("servicedesk_close_ticket", names);
+        Assert.Contains("servicedesk_read_ticket", names);
         Assert.Empty(desk.Calls);
     }
 
@@ -194,7 +274,8 @@ public sealed class AssistantImportedMcpToolExportTests(AssistantDatabaseFixture
         bool export = true,
         Func<NhAiToolDescriptor, NhAiInvocationContext, bool>? discovery = null,
         AssistantTestProvider provider = AssistantTestProvider.PostgreSql,
-        bool enabled = true)
+        bool enabled = true,
+        bool bindCloseTicket = false)
     {
         var servers = new InMemoryMcpServers();
         servers.Register(DeskUrl, desk.Handlers);
@@ -219,6 +300,10 @@ public sealed class AssistantImportedMcpToolExportTests(AssistantDatabaseFixture
             assistantBuilder: assistant =>
             {
                 assistant.AddMcpContextBinding(new NhAssistantMcpContextBinding("desk", DeskUrl, "my-work") { IncludeSnapshot = false });
+                if (bindCloseTicket)
+                {
+                    assistant.AddMcpContextBinding(new NhAssistantMcpContextBinding("desk", DeskUrl, "close-ticket") { IncludeSnapshot = false });
+                }
                 if (export)
                 {
                     assistant.ExportImportedMcpTools<TestSelector>();

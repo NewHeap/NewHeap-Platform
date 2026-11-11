@@ -38,7 +38,9 @@ public static class SampleImportedMcpToolExport
 
 /// <summary>
 /// Exports the tools of the research server that the composition reviewed, under its reviewed id and URL
-/// only, with their remote names. A copy of the same service under another id stays with the assistant.
+/// only, with their remote names. A copy of the same service under another id stays with the assistant. A
+/// tool that changes something, such as withdrawing a question, is exported because the person's AI app
+/// asks the person before each call: that confirmation is the approval.
 /// </summary>
 public sealed class SampleResearchToolExportSelector(IConfiguration configuration) : INhAssistantImportedMcpToolExportSelector
 {
@@ -52,6 +54,9 @@ public sealed class SampleResearchToolExportSelector(IConfiguration configuratio
         var export = tool.ServerId == SampleAssistantResearch.ServerId
                      && string.Equals(tool.ServerUrl, reviewedUrl, StringComparison.OrdinalIgnoreCase)
             ? new NhAssistantImportedMcpToolExport(tool.RemoteName)
+            {
+                ClientConfirmationIsApproval = tool.Effect == NhAssistantMcpToolEffects.Mutation
+            }
             : null;
         return ValueTask.FromResult(export);
     }

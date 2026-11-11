@@ -1617,8 +1617,8 @@ application stores" below.
 Imported MCP tools never reach an MCP client by default. When people should call a coupled
 application's read tools from their own AI app, without a turn of the assistant in between, opt in
 with `ExportImportedMcpTools<TSelector>()` next to `WithNewHeapPlatformAITools` (SPM-399). The
-scoped `INhAssistantImportedMcpToolExportSelector` is asked per request about each enabled,
-read-only tool (`NhAssistantExportableMcpTool`: server, remote name and the reviewed description)
+scoped `INhAssistantImportedMcpToolExportSelector` is asked per request about each enabled tool
+(`NhAssistantExportableMcpTool`: server, remote name, the reviewed description and effect)
 of an enabled server whose credential belongs to the organization and whose required policy, or
 else the assistant's access policy, the caller passes; it returns an `NhAssistantImportedMcpToolExport`
 with the export name, or `null`. A tool is then imported for the calling person exactly as in that
@@ -1634,7 +1634,18 @@ and `accountableOwnerId` and no conversation, snapshot or chain, so the remote b
 person itself. A server that serves background runs with the organization's credential
 (`headlessUse: organization`) acts for nobody in particular and is left out unless the selection sets
 `AllowOrganizationHeadlessServer`. An export name holds 1 to 64 letters, digits, underscores, dots or
-dashes; one that another tool of the export has fails the listing. Mutating tools are not exported.
+dashes; one that another tool of the export has fails the listing.
+
+A tool that changes something is exported only when the selection sets `ClientConfirmationIsApproval`:
+the host declares that the person's AI app asks the person before each call and that this confirmation
+is the approval. NewHeap offers it as destructive, so clients ask, and imports it with
+consumer-authoritative approval and idempotency (part of its contract), which the invoker records as
+`consumer-authoritative`; agents never get that contract. It needs a reviewed context binding, so the
+remote learns the person, and otherwise is left out with `assistant-mcp-context-binding-required`. The
+binding sends `idempotencyKey`: the key the client sent under `_meta` `com.newheap/idempotency-key`
+(`NhAssistantMcpExportCall.IdempotencyKeyMetaKey`, at most 128 letters, digits, dots, colons,
+underscores or dashes) so a retry carries the same key, or else one per call. The remote holds replays
+against it, as its guards would against a conversation.
 
 ## Consultation chains across applications
 
@@ -1847,6 +1858,8 @@ calls in a consultation store nothing and are not listed.
   the host; use `ExportImportedMcpTools`, which keeps the turn's credential, binding, bounds and audit.
   Do not allow a server that serves background runs with the organization's credential in the export
   unless that server binds each call to the person itself.
+- Setting `ClientConfirmationIsApproval` for a client that runs tools without asking the person, or
+  for a remote that ignores `idempotencyKey`; the confirmation is the only approval such a change gets.
 
 - Treating a chat about a subject as the agent's thread, or authorizing a tool on
   `ConversationSubject` alone: it names what the person asked about, and the tool still checks the
@@ -2187,6 +2200,9 @@ For reviewed imported MCP tools in the export, call the host's `/mcp` over Strea
 on SQL Server and PostgreSQL that only the read-only tools the selector names are listed, under its
 names with the reviewed description and the remote schema; that a call reaches the remote with the
 caller as actor and `accountableOwnerId`, `channel: mcp` and no conversation, and is audited; that a
+change is exported only with `ClientConfirmationIsApproval` and a context binding, offered as
+destructive, sends the client's operation key on a retry and a key of its own otherwise, and is audited
+as `consumer-authoritative`; that a
 changed remote schema leaves the tool out and disables it; that the server's required policy and the
 discovery policy decide per caller; that a server with organization background use is exported only
 when the selection allows it; that a duplicate export name fails the listing; and that without the
@@ -2384,7 +2400,7 @@ opt-in no imported tool is listed (SPM-399).
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantMcpCredentials.cs)
   - [../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs](../../examples/SampleProjectManagement/../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs)
   - [../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpConnectionSpeedTests.cs](../../examples/SampleProjectManagement/../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantMcpConnectionSpeedTests.cs)
-- SPM-399 — A person calls a reviewed tool of an imported MCP server from their own AI app
+- SPM-399 — A person calls and changes through reviewed tools of an imported MCP server from their own AI app
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleImportedMcpToolExport.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleImportedMcpToolExport.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs)

@@ -1,17 +1,21 @@
 using System.Net;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using NewHeap.Platform.AI.AspNet;
+using NewHeap.Platform.AI.Chat.AspNet;
 using SampleProjectManagement.Api.Composition;
 using Xunit;
 
 namespace SampleProjectManagement.Core.Tests;
 
 /// <summary>
-/// Executable evidence for SPM-399: with the opt-in, the API offers the reviewed research tool on its own
-/// /mcp to a person's AI app. The call reaches the research service as that person, with the assistant
-/// context of an exported call and no conversation, while the same service connected under another id
+/// Executable evidence for SPM-399: with the opt-in, the API offers the reviewed research tools on its own
+/// /mcp to a person's AI app. A question and its withdrawal, which the person's app confirms, reach the
+/// research service as that person, with the assistant context of an exported call and no conversation;
+/// the withdrawal carries the operation key the app sent. The same service connected under another id
 /// stays with the assistant.
 /// </summary>
 public sealed class ImportedMcpToolExportSamplesTests(ImportedMcpToolExportSampleHost host)
@@ -22,7 +26,7 @@ public sealed class ImportedMcpToolExportSamplesTests(ImportedMcpToolExportSampl
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         using var admin = host.CreateClient("spm-399-admin", admin: true);
-        await ConnectAsync(admin, SampleAssistantResearch.ServerId, host.Research.Url);
+        await ConnectAsync(admin, SampleAssistantResearch.ServerId, host.Research.Url, withdraw: true);
         await ConnectAsync(admin, "research-copy", host.Research.Url);
 
         var http = host.CreateClient("spm-399-user");
@@ -50,6 +54,7 @@ public sealed class ImportedMcpToolExportSamplesTests(ImportedMcpToolExportSampl
 
         Assert.NotEqual(true, answered.IsError);
         var call = Assert.Single(host.Research.Calls);
+        Assert.Equal(SampleAssistantResearch.ToolName, call.Tool);
         Assert.Equal(["question"], call.Arguments.Keys);
         var context = call.Context!;
         Assert.Equal("mcp", context["channel"]!.GetValue<string>());
@@ -58,9 +63,26 @@ public sealed class ImportedMcpToolExportSamplesTests(ImportedMcpToolExportSampl
         Assert.Equal("spm-399-user", context["invocation"]!["accountableOwnerId"]!.GetValue<string>());
         Assert.Null(context["conversation"]);
         Assert.Null(context["snapshot"]);
+
+        // Withdrawing changes something: offered as destructive, so the app asks the person first; that
+        // confirmation is the approval, and the research service holds replays against the app's key.
+        var withdraw = Assert.Single(
+            await client.ListToolsAsync(cancellationToken: cancellationToken),
+            tool => tool.Name == SampleAssistantResearch.WithdrawToolName);
+        Assert.True(withdraw.ProtocolTool.Annotations?.DestructiveHint);
+        var withdrawn = await withdraw.CallAsync(
+            new Dictionary<string, object?> { ["questionId"] = "Q-1" },
+            options: new RequestOptions { Meta = new JsonObject { [NhAssistantMcpExportCall.IdempotencyKeyMetaKey] = "withdraw-Q-1" } },
+            cancellationToken: cancellationToken);
+
+        Assert.NotEqual(true, withdrawn.IsError);
+        var change = host.Research.Calls.Last();
+        Assert.Equal(SampleAssistantResearch.WithdrawToolName, change.Tool);
+        Assert.Equal("withdraw-Q-1", change.Context!["idempotencyKey"]!.GetValue<string>());
+        Assert.Equal("spm-399-user", change.Context["invocation"]!["accountableOwnerId"]!.GetValue<string>());
     }
 
-    private static async Task ConnectAsync(HttpClient admin, string serverId, string url)
+    private static async Task ConnectAsync(HttpClient admin, string serverId, string url, bool withdraw = false)
     {
         using var server = await admin.PostAsync("/api/assistant/admin/mcp-servers", AssistantSampleHost.Json(new
         {
@@ -81,6 +103,14 @@ public sealed class ImportedMcpToolExportSamplesTests(ImportedMcpToolExportSampl
             AssistantSampleHost.Json(new { isEnabled = true, effect = "read-only", descriptionOverride = (string?)null }),
             TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, enable.StatusCode);
+        if (withdraw)
+        {
+            using var change = await admin.PutAsync(
+                $"/api/assistant/admin/mcp-servers/{serverId}/tools/{SampleAssistantResearch.WithdrawToolName}",
+                AssistantSampleHost.Json(new { isEnabled = true, effect = "mutation", descriptionOverride = (string?)null }),
+                TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, change.StatusCode);
+        }
     }
 }
 

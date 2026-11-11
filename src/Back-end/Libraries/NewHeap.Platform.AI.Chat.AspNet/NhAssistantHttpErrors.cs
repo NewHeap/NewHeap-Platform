@@ -148,6 +148,7 @@ internal static class NhAssistantHttpErrors
             NhAssistantAdminErrorCodes.McpHostBlocked,
             NhAssistantAdminErrorCodes.McpSchemaChanged,
             NhAssistantAdminErrorCodes.McpToolDisabled,
+            NhAssistantAdminErrorCodes.McpContextBindingRequired,
             NhAssistantAdminErrorCodes.McpSecretReferenceInvalid,
             NhAssistantAdminErrorCodes.McpCertificateReferenceInvalid,
             NhAssistantAdminErrorCodes.McpScopeNotAllowed,

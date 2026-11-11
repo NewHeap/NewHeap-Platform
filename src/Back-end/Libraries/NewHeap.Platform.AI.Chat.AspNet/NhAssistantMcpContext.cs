@@ -346,8 +346,9 @@ internal sealed class NhAssistantMcpContextBindings(IEnumerable<NhAssistantMcpCo
 /// Binds the assistant context to a reviewed MCP call. The snapshot provider verifies the call,
 /// the turn and the accountable actor's access, so a stale or foreign call fails before sending. A
 /// call of a tool the host exports to its own MCP clients (<see cref="NhAssistantImportedMcpToolExports"/>)
-/// runs in no turn: it names the calling person as accountable, carries <c>channel: mcp</c> and no
-/// conversation, snapshot or chain, and binds only when the invocation is the exported call's own. A
+/// runs in no turn: it names the calling person as accountable, carries <c>channel: mcp</c>, for a change
+/// the operation key as <c>idempotencyKey</c>, and no conversation, snapshot or chain, and binds only
+/// when the invocation is the exported call's own. A
 /// call from a consultation turn, which only a binding with the chain binds, is verified against the
 /// running call and carries no snapshot. A tool of an administrator-connected server that a stored
 /// binding bound when the turn imported it fails to bind once that binding is revoked.
@@ -422,6 +423,18 @@ internal sealed class NhAssistantMcpContextBinder(
             // A person who calls a tool from their own AI app answers for the call.
             invocation["accountableOwnerId"] ??= exportActor;
             json["channel"] = NhAssistantMcpExportCall.Channel;
+            if (context.Descriptor.Effect != NhAiToolEffect.ReadOnly)
+            {
+                // A change without a conversation: the remote server holds replays against this key.
+                if (NhAssistantMcpExportCall.IdempotencyKey is not { } operation)
+                {
+                    return TaskResult<NhAiMcpRequestMetadata>.Failed(
+                        NhAiMcpInvocationBindingCodes.BindingFailed,
+                        "An exported change has no operation key.");
+                }
+
+                json["idempotencyKey"] = operation;
+            }
             return TaskResult<NhAiMcpRequestMetadata>.Succeeded(
                 NhAiMcpRequestMetadata.Create(NhAssistantMcpContext.MetaKey, json));
         }

@@ -20,8 +20,9 @@ public sealed class ProjectAiToolDiscoveryPolicy : INhAiToolDiscoveryPolicy
 
     /// <summary>
     /// SPM-399: the tools of the reviewed research server (<c>mcp.research.&lt;tool&gt;</c>), which the API
-    /// exports to a person's own AI app when it opts in. The server's required policy, or else the
-    /// assistant's access policy, decides every call; they need no division.
+    /// exports to a person's own AI app when it opts in: reads, and changes the person confirms in that app.
+    /// The server's required policy, or else the assistant's access policy, decides every call; they need
+    /// no division.
     /// </summary>
     private const string ExportedResearchToolPrefix = "mcp.research.";
 
@@ -38,7 +39,9 @@ public sealed class ProjectAiToolDiscoveryPolicy : INhAiToolDiscoveryPolicy
 
         if (descriptor.Id.StartsWith(ExportedResearchToolPrefix, StringComparison.Ordinal))
         {
-            return ValueTask.FromResult(descriptor.RequiresAuthorization && descriptor.Effect == NhAiToolEffect.ReadOnly);
+            // A read, or a change whose approval is the person's confirmation in their own AI app.
+            return ValueTask.FromResult(descriptor.RequiresAuthorization
+                && (descriptor.Effect == NhAiToolEffect.ReadOnly || descriptor.Approval == NhAiApprovalRequirement.ConsumerAuthoritative));
         }
 
         var hasAuthorizedDivision = context.TryGetScopeValue(

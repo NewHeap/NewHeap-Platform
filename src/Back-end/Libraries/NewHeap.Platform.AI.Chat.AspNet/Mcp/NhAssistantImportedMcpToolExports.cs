@@ -18,8 +18,8 @@ namespace NewHeap.Platform.AI.Chat.AspNet;
 /// <summary>
 /// A reviewed tool of an MCP server the assistant imports, as a host's
 /// <see cref="INhAssistantImportedMcpToolExportSelector"/> sees it: the server, the tool's remote name
-/// and the description a turn offers, which an administrator reviewed. The remote server's own text never
-/// decides anything; it is data.
+/// the description a turn offers and the effect (<see cref="NhAssistantMcpToolEffects"/>), which an
+/// administrator reviewed. The remote server's own text never decides anything; it is data.
 /// </summary>
 public sealed record NhAssistantExportableMcpTool(
     string ServerId,
@@ -28,7 +28,8 @@ public sealed record NhAssistantExportableMcpTool(
     string AuthMode,
     string HeadlessUse,
     string RemoteName,
-    string Description);
+    string Description,
+    string Effect);
 
 /// <summary>
 /// The host's decision to export one imported tool to an MCP client, under
@@ -44,12 +45,21 @@ public sealed record NhAssistantImportedMcpToolExport(string ExportName)
     /// binds each call to the person itself.
     /// </summary>
     public bool AllowOrganizationHeadlessServer { get; init; }
+
+    /// <summary>
+    /// Required to export a tool that changes something: the host declares that the person's client asks
+    /// the person to confirm each call, and that this confirmation is the approval. NewHeap then records
+    /// the call as consumer-authoritatively approved, offers it as destructive so clients ask, and sends
+    /// the remote server the person and an operation key it can hold replays against. Without it a
+    /// mutating tool is not exported; a read-only tool ignores it.
+    /// </summary>
+    public bool ClientConfirmationIsApproval { get; init; }
 }
 
 /// <summary>
 /// Decides which reviewed imported MCP tools the host's MCP export offers to a caller, and under which
-/// name. Called per request for each enabled, read-only tool of an enabled server with the organization's
-/// credential that the caller may use; <see langword="null"/> leaves the tool out. It is a scoped service.
+/// name. Called per request for each enabled tool of an enabled server with the organization's credential
+/// that the caller may use; <see langword="null"/> leaves the tool out. It is a scoped service.
 /// </summary>
 public interface INhAssistantImportedMcpToolExportSelector
 {
@@ -73,8 +83,11 @@ public static class NhAssistantImportedMcpToolExports
     /// Offers the imported MCP tools that <typeparamref name="TSelector"/> selects to the callers of the
     /// host's MCP export. An exported tool runs through <see cref="INhAiToolInvoker"/> exactly as in a
     /// person's turn, with the server's own credential and as the calling person, and is audited as
-    /// such; the caller's own token is never passed on. Only read-only tools are exported; only servers
-    /// whose credential belongs to the organization; not a server that serves background runs with that
+    /// such; the caller's own token is never passed on. Read-only tools are exported as they are; a tool
+    /// that changes something only with <see cref="NhAssistantImportedMcpToolExport.ClientConfirmationIsApproval"/>
+    /// and a reviewed context binding, which sends the remote server the person and an operation key
+    /// (<see cref="NhAssistantMcpExportCall.IdempotencyKeyMetaKey"/> from the client, or else one per
+    /// call). Only servers whose credential belongs to the organization; not a server that serves background runs with that
     /// credential unless the selection allows it; and only when the caller passes the server's required
     /// policy and the host's <see cref="INhAiToolDiscoveryPolicy"/>. A reviewed tool whose schema changed
     /// is left out. An export name another tool of the export has fails the listing. Needs
@@ -102,26 +115,49 @@ public static class NhAssistantImportedMcpToolExports
 }
 
 /// <summary>
-/// The exported call in progress: the person the export authorized, so the assistant context binder can
-/// bind the call without a turn. Set only by an exported tool around its own invocation.
+/// An exported call of an imported MCP tool: the <c>channel</c> of its assistant context and the request
+/// metadata key a client names an operation with. Inside, the person the export authorized and, for a
+/// change, the operation key, set only by an exported tool around its own invocation, so the assistant
+/// context binder can bind the call without a turn.
 /// </summary>
-internal static class NhAssistantMcpExportCall
+public static class NhAssistantMcpExportCall
 {
     /// <summary>The <c>channel</c> of the assistant context of an exported call.</summary>
     public const string Channel = "mcp";
 
-    private static readonly AsyncLocal<string?> Current = new();
+    /// <summary>
+    /// The request metadata key under which an MCP client may name one operation of a mutating exported
+    /// tool, so a retry carries the same key: 1 to <see cref="MaxIdempotencyKeyLength"/> letters, digits,
+    /// dots, colons, underscores or dashes. Without a valid one each call gets a key of its own.
+    /// </summary>
+    public const string IdempotencyKeyMetaKey = "com.newheap/idempotency-key";
 
-    public static string? ActorId => Current.Value;
+    /// <summary>The longest operation key a client may send.</summary>
+    public const int MaxIdempotencyKeyLength = 128;
 
-    public static IDisposable Enter(string actorId)
+    private static readonly AsyncLocal<ExportCall?> Current = new();
+
+    internal static string? ActorId => Current.Value?.ActorId;
+
+    internal static string? IdempotencyKey => Current.Value?.IdempotencyKey;
+
+    internal static IDisposable Enter(string actorId, string? idempotencyKey)
     {
         var previous = Current.Value;
-        Current.Value = actorId;
+        Current.Value = new ExportCall(actorId, idempotencyKey);
         return new Scope(previous);
     }
 
-    private sealed class Scope(string? previous) : IDisposable
+    internal static bool IsIdempotencyKey(string? key)
+    {
+        return !string.IsNullOrEmpty(key)
+               && key.Length <= MaxIdempotencyKeyLength
+               && key.All(character => char.IsAsciiLetterOrDigit(character) || character is '.' or ':' or '_' or '-');
+    }
+
+    private sealed record ExportCall(string ActorId, string? IdempotencyKey);
+
+    private sealed class Scope(ExportCall? previous) : IDisposable
     {
         public void Dispose()
         {
@@ -166,6 +202,7 @@ internal sealed partial class NhAssistantImportedMcpToolExporter(
 
         var selected = new List<(AssistantMcpServer Server, IReadOnlyList<AssistantMcpTool> Tools)>();
         var exportNames = new Dictionary<string, string>(StringComparer.Ordinal);
+        var clientConfirmed = new HashSet<string>(StringComparer.Ordinal);
         foreach (var (server, _) in await store.ListMcpServersAsync(cancellationToken))
         {
             // A person's own connection, or a token forwarded from the caller, never serves the export.
@@ -182,10 +219,6 @@ internal sealed partial class NhAssistantImportedMcpToolExporter(
             var chosen = new List<AssistantMcpTool>();
             foreach (var tool in await store.ListEnabledMcpToolsAsync([server.Id], cancellationToken))
             {
-                if (tool.Effect != NhAssistantMcpToolEffects.ReadOnly)
-                {
-                    continue;
-                }
                 var export = await selector.SelectAsync(Describe(server, tool), caller, cancellationToken);
                 if (export is null)
                 {
@@ -201,8 +234,19 @@ internal sealed partial class NhAssistantImportedMcpToolExporter(
                     LogHeadlessServerRefused(server.Id);
                     continue;
                 }
+                var localId = NhAssistantMcpToolSource.LocalId(server.Id, tool.RemoteName);
+                if (tool.Effect != NhAssistantMcpToolEffects.ReadOnly)
+                {
+                    // A change needs the host's word that the person's client confirmation approves it.
+                    if (!export.ClientConfirmationIsApproval)
+                    {
+                        LogMutationNotConfirmed(server.Id);
+                        continue;
+                    }
+                    clientConfirmed.Add(localId);
+                }
                 chosen.Add(tool);
-                exportNames[NhAssistantMcpToolSource.LocalId(server.Id, tool.RemoteName)] = export.ExportName;
+                exportNames[localId] = export.ExportName;
             }
             if (chosen.Count > 0)
             {
@@ -214,13 +258,16 @@ internal sealed partial class NhAssistantImportedMcpToolExporter(
             return [];
         }
 
-        var set = await source.GetExportToolsAsync(selected, caller.ActorId, cancellationToken);
+        var set = await source.GetExportToolsAsync(selected, caller.ActorId, clientConfirmed, cancellationToken);
         _sets.Add(set);
         var tools = new List<McpServerTool>(set.Functions.Count);
         foreach (var function in set.Functions)
         {
+            // Only a read, or a change that the person's client confirms, ever leaves the export.
             if (function is not INhAiGovernedAIFunction governed
-                || governed.Descriptor.Effect != NhAiToolEffect.ReadOnly
+                || (governed.Descriptor.Effect != NhAiToolEffect.ReadOnly
+                    && !(clientConfirmed.Contains(governed.Descriptor.Id)
+                         && governed.Descriptor.Approval == NhAiApprovalRequirement.ConsumerAuthoritative))
                 || !exportNames.TryGetValue(governed.Descriptor.Id, out var exportName))
             {
                 continue;
@@ -255,24 +302,32 @@ internal sealed partial class NhAssistantImportedMcpToolExporter(
             server.AuthMode,
             server.HeadlessUse,
             tool.RemoteName,
-            NhAssistantMcpToolSource.ReviewedDescription(tool));
+            NhAssistantMcpToolSource.ReviewedDescription(tool),
+            tool.Effect);
     }
 
     [LoggerMessage(
         Level = LogLevel.Warning,
         Message = "A tool of assistant MCP server {ServerId} was not exported: the server serves background runs with the organization's credential and the selection does not allow that.")]
     private partial void LogHeadlessServerRefused(string serverId);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "A mutating tool of assistant MCP server {ServerId} was not exported: the selection does not declare the client's confirmation the approval.")]
+    private partial void LogMutationNotConfirmed(string serverId);
 }
 
 /// <summary>
-/// One exported imported tool: the governed function of the turn, offered under the host's export name
-/// with the reviewed description and the remote input schema, read-only and open-world. Its call runs as
-/// the exported call of the person the export authorized.
+/// One exported imported tool: the governed function, offered under the host's export name with the
+/// reviewed description and the remote input schema, open-world; a read as read-only, a change as
+/// destructive so the person's client asks before each call. Its call runs as the exported call of the
+/// person the export authorized, with the operation key a change sends to the remote server.
 /// </summary>
 internal sealed class NhAssistantExportedMcpTool : McpServerTool
 {
     private readonly McpServerTool _inner;
     private readonly string _actorId;
+    private readonly bool _mutation;
 
     public NhAssistantExportedMcpTool(
         Microsoft.Extensions.AI.AIFunction function,
@@ -281,15 +336,16 @@ internal sealed class NhAssistantExportedMcpTool : McpServerTool
         string actorId)
     {
         _actorId = actorId;
+        _mutation = descriptor.Effect != NhAiToolEffect.ReadOnly;
         _inner = new NhAiOutcomeAwareMcpServerTool(
             Create(function, new McpServerToolCreateOptions
             {
                 Name = exportName,
                 Description = descriptor.Description,
                 UseStructuredContent = true,
-                ReadOnly = true,
-                Destructive = false,
-                Idempotent = true,
+                ReadOnly = !_mutation,
+                Destructive = _mutation,
+                Idempotent = !_mutation,
                 OpenWorld = true
             }),
             descriptor);
@@ -303,7 +359,18 @@ internal sealed class NhAssistantExportedMcpTool : McpServerTool
         RequestContext<CallToolRequestParams> request,
         CancellationToken cancellationToken = default)
     {
-        using (NhAssistantMcpExportCall.Enter(_actorId))
+        string? idempotencyKey = null;
+        if (_mutation)
+        {
+            // A retry of the client carries its own operation key; otherwise every call is its own.
+            var sent = request.Params?.Meta?[NhAssistantMcpExportCall.IdempotencyKeyMetaKey] is System.Text.Json.Nodes.JsonValue value
+                       && value.TryGetValue<string>(out var text)
+                ? text
+                : null;
+            idempotencyKey = NhAssistantMcpExportCall.IsIdempotencyKey(sent) ? sent : Guid.NewGuid().ToString("N");
+        }
+
+        using (NhAssistantMcpExportCall.Enter(_actorId, idempotencyKey))
         {
             return await _inner.InvokeAsync(request, cancellationToken);
         }

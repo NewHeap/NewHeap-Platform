@@ -210,7 +210,7 @@ public sealed class SampleResearchMcpServer : IAsyncDisposable
 {
     private readonly WebApplication _app;
 
-    private SampleResearchMcpServer(WebApplication app, ConcurrentQueue<(JsonObject? Context, IReadOnlyDictionary<string, JsonElement> Arguments)> calls)
+    private SampleResearchMcpServer(WebApplication app, ConcurrentQueue<(string? Tool, JsonObject? Context, IReadOnlyDictionary<string, JsonElement> Arguments)> calls)
     {
         _app = app;
         Calls = calls;
@@ -219,11 +219,11 @@ public sealed class SampleResearchMcpServer : IAsyncDisposable
 
     public string Url { get; }
 
-    public ConcurrentQueue<(JsonObject? Context, IReadOnlyDictionary<string, JsonElement> Arguments)> Calls { get; }
+    public ConcurrentQueue<(string? Tool, JsonObject? Context, IReadOnlyDictionary<string, JsonElement> Arguments)> Calls { get; }
 
     public static async Task<SampleResearchMcpServer> StartAsync()
     {
-        var calls = new ConcurrentQueue<(JsonObject? Context, IReadOnlyDictionary<string, JsonElement> Arguments)>();
+        var calls = new ConcurrentQueue<(string? Tool, JsonObject? Context, IReadOnlyDictionary<string, JsonElement> Arguments)>();
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseUrls("http://127.0.0.1:0");
         builder.Logging.ClearProviders();
@@ -233,6 +233,17 @@ public sealed class SampleResearchMcpServer : IAsyncDisposable
             {
                 Tools =
                 [
+                    new Tool
+                    {
+                        Name = SampleAssistantResearch.WithdrawToolName,
+                        Description = "Withdraws a research question.",
+                        InputSchema = JsonSerializer.SerializeToElement(new
+                        {
+                            type = "object",
+                            properties = new { questionId = new { type = "string" } },
+                            required = new[] { "questionId" }
+                        })
+                    },
                     new Tool
                     {
                         Name = SampleAssistantResearch.ToolName,
@@ -250,6 +261,7 @@ public sealed class SampleResearchMcpServer : IAsyncDisposable
             .WithCallToolHandler((request, _) =>
             {
                 calls.Enqueue((
+                    request.Params?.Name,
                     request.Params?.Meta?[NhAssistantMcpContext.MetaKey]?.DeepClone() as JsonObject,
                     new Dictionary<string, JsonElement>(request.Params?.Arguments ?? new Dictionary<string, JsonElement>())));
                 return ValueTask.FromResult(new CallToolResult

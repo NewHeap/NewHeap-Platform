@@ -44,6 +44,14 @@ public sealed record NhAiMcpImportedToolPolicy(
     /// a tool that allows agent grants has a different contract hash than one that does not.
     /// </summary>
     public bool AllowAgentGrant { get; init; }
+
+    /// <summary>
+    /// Only for the assistant's export of a mutating imported tool to a person's own MCP client, where
+    /// the host declares that the client's confirmation is the approval: the tool declares
+    /// consumer-authoritative approval and idempotency, needs an invocation binder that names the person
+    /// and the operation to the remote server, and never serves an agent. Part of the contract hash.
+    /// </summary>
+    internal bool ClientConfirmationIsApproval { get; init; }
 }
 
 public sealed record NhAiMcpImportOptions(
@@ -186,19 +194,36 @@ internal sealed partial class NhAiMcpClientToolImporter(
             throw new InvalidOperationException(
                 $"MCP import policy for '{policy.RemoteName}' contains invalid local governance metadata.");
         }
-        if (policy.Effect != NhAiToolEffect.ReadOnly
+        if (policy.ClientConfirmationIsApproval)
+        {
+            // The person's client confirms each call; the remote server reconciles replays with the
+            // operation key the binder sends. Never for a read, a destructive tool or an agent.
+            if (policy.Effect is not (NhAiToolEffect.Mutation or NhAiToolEffect.IdempotentMutation)
+                || policy.Approval != NhAiApprovalRequirement.ConsumerAuthoritative
+                || policy.Idempotency != NhAiIdempotencySupport.ConsumerAuthoritative
+                || string.IsNullOrWhiteSpace(policy.InvocationBinderId)
+                || policy.AllowAgentGrant
+                || policy.Exposure != NhAiToolExposure.Agent)
+            {
+                throw new InvalidOperationException(
+                    $"Imported MCP mutation '{policy.RemoteName}' that a client's confirmation approves needs consumer-authoritative approval and idempotency, an invocation binder and no agent grant.");
+            }
+        }
+        else if (policy.Effect != NhAiToolEffect.ReadOnly
             && policy.Approval == NhAiApprovalRequirement.NotRequired)
         {
             throw new InvalidOperationException(
                 $"Imported MCP mutation '{policy.RemoteName}' cannot opt out of approval.");
         }
-        if (policy.Effect != NhAiToolEffect.ReadOnly
+        if (!policy.ClientConfirmationIsApproval
+            && policy.Effect != NhAiToolEffect.ReadOnly
             && policy.Idempotency != NhAiIdempotencySupport.Required)
         {
             throw new InvalidOperationException(
                 $"Imported MCP side effect '{policy.RemoteName}' must require idempotency.");
         }
-        if (policy.Effect is NhAiToolEffect.Mutation
+        if (!policy.ClientConfirmationIsApproval
+            && policy.Effect is NhAiToolEffect.Mutation
                 or NhAiToolEffect.ExternalSideEffect
                 or NhAiToolEffect.Destructive
             && policy.Approval != NhAiApprovalRequirement.Required)
@@ -376,6 +401,15 @@ internal sealed record NhAiImportedMcpTool(
             {
                 contractHash,
                 InvocationBinder = new { binding.BinderId, binding.Version }
+            });
+        }
+        if (policy.ClientConfirmationIsApproval)
+        {
+            // Who approves is part of the contract: a person's client, not a NewHeap proposal.
+            contractHash = NhAiCanonicalJson.ComputeHash(new
+            {
+                contractHash,
+                policy.ClientConfirmationIsApproval
             });
         }
         if (policy.AllowAgentGrant)

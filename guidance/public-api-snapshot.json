@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.125",
   "backEnd": {
-    "hash": "827e1c30512e5204b97942e1279fb2dddf0ae47ed51b1e686207c764cab41c95",
-    "declarationCount": 13835,
+    "hash": "4f07a6c831326ddd030c48ced498cb69b65a5a8c4d35feaf79d5a195409250c7",
+    "declarationCount": 13838,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -7391,7 +7391,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantImportedMcpToolExports.cs",
-        "declaration": "public sealed record NhAssistantExportableMcpTool( string ServerId, string ServerDisplayName, string ServerUrl, string AuthMode, string HeadlessUse, string RemoteName, string Description);"
+        "declaration": "public sealed record NhAssistantExportableMcpTool( string ServerId, string ServerDisplayName, string ServerUrl, string AuthMode, string HeadlessUse, string RemoteName, string Description, string Effect);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantImportedMcpToolExports.cs",
@@ -7400,6 +7400,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantImportedMcpToolExports.cs",
         "declaration": "public bool AllowOrganizationHeadlessServer { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantImportedMcpToolExports.cs",
+        "declaration": "public bool ClientConfirmationIsApproval { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantImportedMcpToolExports.cs",
@@ -7423,15 +7427,19 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantImportedMcpToolExports.cs",
+        "declaration": "public static class NhAssistantMcpExportCall {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantImportedMcpToolExports.cs",
         "declaration": "public const string Channel = \"mcp\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantImportedMcpToolExports.cs",
-        "declaration": "public static string? ActorId => Current.Value;"
+        "declaration": "public const string IdempotencyKeyMetaKey = \"com.newheap/idempotency-key\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantImportedMcpToolExports.cs",
-        "declaration": "public static IDisposable Enter(string actorId) {"
+        "declaration": "public const int MaxIdempotencyKeyLength = 128;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/Mcp/NhAssistantImportedMcpToolExports.cs",
@@ -24664,6 +24672,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string McpToolDisabled = \"assistant-mcp-tool-disabled\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string McpContextBindingRequired = \"assistant-mcp-context-binding-required\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
@@ -60250,7 +60262,8 @@
       "INhAssistantImportedMcpToolExportSelector",
       "NhAssistantExportableMcpTool",
       "NhAssistantImportedMcpToolExport",
-      "NhAssistantImportedMcpToolExports"
+      "NhAssistantImportedMcpToolExports",
+      "NhAssistantMcpExportCall"
     ],
     "nh-ai-context-retrieval": [
       "INhAiContextAuthorizationPolicy",

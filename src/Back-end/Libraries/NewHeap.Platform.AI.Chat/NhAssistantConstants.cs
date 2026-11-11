@@ -1902,6 +1902,12 @@ public static class NhAssistantAdminErrorCodes
     public const string McpToolDisabled = "assistant-mcp-tool-disabled";
 
     /// <summary>
+    /// A mutating MCP tool a host exports to a person's own client has no reviewed context binding, so
+    /// the remote server could not learn who acts; it is not exported.
+    /// </summary>
+    public const string McpContextBindingRequired = "assistant-mcp-context-binding-required";
+
+    /// <summary>
     /// A response of the MCP server, a JSON response or one event of its event stream, is longer than
     /// <see cref="NhAssistantMcpOptions.MaxResponseBytes"/>; the host stopped reading it.
     /// </summary>

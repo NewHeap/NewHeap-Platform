@@ -17,6 +17,12 @@ public static class SampleAssistantResearch
 {
     public const string ServerId = "research";
     public const string ToolName = "research_ask";
+
+    /// <summary>
+    /// SPM-399: the research tool that withdraws a question. It changes something, so it is bound too: an
+    /// exported call tells the research service who withdraws it and under which operation key.
+    /// </summary>
+    public const string WithdrawToolName = "research_withdraw";
     public const string UrlSetting = "Sample:Assistant:ResearchMcpUrl";
 
     public static NhAssistantBuilder AddSampleResearchContext(
@@ -31,6 +37,10 @@ public static class SampleAssistantResearch
             // Without a reviewed research server no MCP call carries the assistant context.
             return assistant;
         }
+        assistant.AddMcpContextBinding(new NhAssistantMcpContextBinding(ServerId, url, WithdrawToolName)
+        {
+            IncludeSnapshot = false
+        });
         return assistant.AddMcpContextBinding(new NhAssistantMcpContextBinding(ServerId, url, ToolName)
         {
             Snapshot = new NhAssistantConversationSnapshotRequest

@@ -860,6 +860,7 @@ internal sealed partial class NhAssistantMcpToolSource(
     internal async Task<NhAssistantMcpToolSet> GetExportToolsAsync(
         IReadOnlyList<(AssistantMcpServer Server, IReadOnlyList<AssistantMcpTool> Tools)> selected,
         string personActorId,
+        IReadOnlySet<string> clientConfirmed,
         CancellationToken cancellationToken)
     {
         var subject = new NhAssistantMcpCredentialSubject(false, personActorId, NhAiGrantSource.None, null);
@@ -894,7 +895,7 @@ internal sealed partial class NhAssistantMcpToolSource(
                 await RecordHealthAsync(server, null);
             }
             leases.Add(lease.Data);
-            functions.AddRange(await ImportAsync(server, plan, tools, lease.Data.Tools, skippedTools, cancellationToken));
+            functions.AddRange(await ImportAsync(server, plan, tools, lease.Data.Tools, skippedTools, cancellationToken, clientConfirmed));
         }
 
         return new NhAssistantMcpToolSet(OfferedOnce(functions, skippedTools), async () =>
@@ -1154,7 +1155,8 @@ internal sealed partial class NhAssistantMcpToolSource(
         IReadOnlyList<AssistantMcpTool> enabled,
         IList<McpClientTool> remoteTools,
         Dictionary<string, string> skippedTools,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlySet<string>? clientConfirmed = null)
     {
         var candidates = new List<(AssistantMcpTool Tool, McpClientTool Remote, string LocalName)>();
         foreach (var tool in enabled)
@@ -1229,6 +1231,33 @@ internal sealed partial class NhAssistantMcpToolSource(
             }
 
             var readOnly = tool.Effect == NhAssistantMcpToolEffects.ReadOnly;
+            if (!readOnly && clientConfirmed?.Contains(LocalId(server.Id, tool.RemoteName)) == true)
+            {
+                // Exported to a person's own client, whose confirmation the host declared the approval.
+                // The remote must learn who acts and which operation it is, so the tool needs a binding.
+                if (!bound)
+                {
+                    skippedTools[LocalId(server.Id, tool.RemoteName)] = NhAssistantAdminErrorCodes.McpContextBindingRequired;
+                    LogToolSkipped(server.Id, NhAssistantAdminErrorCodes.McpContextBindingRequired);
+                    continue;
+                }
+                policies.Add(new NhAiMcpImportedToolPolicy(
+                    tool.RemoteName,
+                    localName,
+                    ReviewedDescription(tool),
+                    NhAiToolEffect.Mutation,
+                    NhAiToolExposure.Agent,
+                    [server.RequiredPolicy ?? AccessPolicy()])
+                {
+                    Approval = NhAiApprovalRequirement.ConsumerAuthoritative,
+                    Idempotency = NhAiIdempotencySupport.ConsumerAuthoritative,
+                    DataClassification = NhAiDataClassification.Internal,
+                    InvocationBinderId = NhAssistantMcpContextBinder.BinderId,
+                    ClientConfirmationIsApproval = true
+                });
+                remotes.Add(remote);
+                continue;
+            }
             policies.Add(new NhAiMcpImportedToolPolicy(
                 tool.RemoteName,
                 localName,
