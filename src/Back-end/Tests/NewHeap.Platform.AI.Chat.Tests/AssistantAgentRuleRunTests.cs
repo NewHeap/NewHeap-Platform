@@ -103,7 +103,7 @@ public sealed class AssistantAgentRuleRunTests(AssistantDatabaseFixture database
         Assert.Equal("rule:" + AgentId, message.AuthorActorId);
         var text = NhAssistantContent.TextOf(NhAssistantContent.DeserializeParts(message.PartsJson));
         Assert.Contains("Proposed to activate the project.", text);
-        Assert.Contains("intake is compleet", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("intake is complete", text, StringComparison.OrdinalIgnoreCase);
         var culture = CultureInfo.CurrentUICulture;
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
         try

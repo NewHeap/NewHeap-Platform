@@ -115,6 +115,10 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
             ["NewHeap:AI:Assistant:Enabled"] = enabled ? "true" : "false"
         });
         var services = builder.Services;
+        services.Configure<RequestLocalizationOptions>(options => options
+            .SetDefaultCulture("en")
+            .AddSupportedCultures("en", "nl")
+            .AddSupportedUICultures("en", "nl"));
         services.AddAuthentication(TestAuthenticationHandler.Scheme)
             .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(TestAuthenticationHandler.Scheme, _ => { });
         services.AddAuthorization(options =>
@@ -174,6 +178,7 @@ internal sealed class AssistantWebApplication : IAsyncDisposable
             .AddPolicy(TestAuthenticationHandler.ManagerPolicy, policy => policy.RequireClaim("permission", "manager"));
 
         var app = builder.Build();
+        app.UseRequestLocalization();
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapNewHeapAssistant("/api/assistant");

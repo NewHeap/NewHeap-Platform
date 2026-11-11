@@ -141,6 +141,7 @@ assert.deepEqual(schemaScriptCommand(schemaScripts[0], { version: '32.0.0', outp
   arguments: ['ef', 'migrations', 'script', '--idempotent',
     '--project', sqlServerProject, '--startup-project', sqlServerProject,
     '--context', 'NhAssistantDbContext', '--configuration', 'Release',
+    '--framework', 'net10.0',
     '--output', resolve(scriptOutput, 'newheap-assistant-schema-sqlserver-32.0.0-app_ai.sql'),
     '--', '--schema', 'app_ai']
 });
@@ -438,7 +439,7 @@ for (const [component, unit] of Object.entries(manifest.units)) {
       const project = resolve(repositoryRoot, script.project);
       return ['ef', 'migrations', 'script', '--idempotent',
         '--project', project, '--startup-project', project,
-        '--context', script.context, '--configuration', 'Release', '--no-build',
+        '--context', script.context, '--configuration', 'Release', '--framework', 'net10.0', '--no-build',
         '--output', resolve(repositoryRoot, 'release-artifacts', schemaScriptFileName(script, unit.version))];
     }), `${component}: schema script commands`);
     assert.ok(scriptCommands.every(command => packaged.commands.indexOf(command) > lastPack), `${component}: scripts must follow the packs.`);

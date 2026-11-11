@@ -75,6 +75,8 @@ export function schemaScriptCommand(script, { version, outputDirectory, configur
       '--startup-project', project,
       '--context', script.context,
       '--configuration', configuration,
+      // The schema and EF tools stay on 10 while the provider projects target both runtimes.
+      '--framework', 'net10.0',
       ...(noBuild ? ['--no-build'] : []),
       '--output', resolve(outputDirectory, schemaScriptFileName(script, version, schema)),
       ...(schema ? ['--', '--schema', schema] : [])
