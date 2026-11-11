@@ -44,7 +44,7 @@
     "NewHeap.Platform.AI.Mcp": "38.0.0",
     "NewHeap.Platform.AI.Scripting": "38.0.0",
     "NewHeap.Platform.AI.Test": "38.0.0",
-    "NewHeap.Platform.AspNet.Caching": "0.1.4",
+    "NewHeap.Platform.AspNet.Caching": "1.0.0",
     "NewHeap.Platform.AspNet.Common": "38.0.0",
     "NewHeap.Platform.AspNet.Common.PostgreSql": "38.0.0",
     "NewHeap.Platform.AspNet.Common.SqlServer": "38.0.0",

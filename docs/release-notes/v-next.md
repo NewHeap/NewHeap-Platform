@@ -1,11 +1,5 @@
 # v-next
 
-## NewHeap.Platform.AspNet.Caching: .NET 10 and .NET 11
-
-| Breaking change | Required action |
-|---|---|
-| The caching package now ships separate .NET 10 and .NET 11 assets in a new major release. | Restore and rebuild consumers for `net10.0` or `net11.0` with the corresponding Microsoft dependency versions. |
-
 ## NewHeap.Platform.AspNet.Proxy, NewHeap.Platform.AspNet.Proxy.Sqlite: .NET 10 and .NET 11
 
 | Breaking change | Required action |
