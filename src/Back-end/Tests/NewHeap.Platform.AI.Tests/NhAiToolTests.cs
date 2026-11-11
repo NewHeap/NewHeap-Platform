@@ -338,6 +338,10 @@ public sealed class NhAiToolTests
         "NhAiToolEffect.IdempotentMutation",
         "Approval = NhAiApprovalRequirement.Required, Idempotency = NhAiIdempotencySupport.Required, AllowWithoutApproval = true",
         "NHAI019")]
+    [InlineData(
+        "NhAiToolEffect.ReadOnly",
+        "TaskSupport = NhAiToolTaskSupport.Optional",
+        "NHAI020")]
     public void Generator_rejects_unsafe_effects_bounds_and_verifier_ids(
         string effect,
         string namedArguments,

@@ -50,7 +50,7 @@ public static class NhAiAspNetMcpBuilderExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(configure);
         builder.WithNewHeapPlatformAITools();
-        configure(new NhAiMcpExposureBuilder(builder.Services));
+        configure(new NhAiMcpExposureBuilder(builder));
         return builder;
     }
 }
@@ -208,6 +208,14 @@ internal static class NhAiMcpRequestHandlers
         RequestContext<CallToolRequestParams> request,
         CancellationToken cancellationToken)
     {
+        if (NhAiMcpTaskCalls.Current is { TaskId: not null } taskCall
+            && string.Equals(taskCall.ToolName, request.Params?.Name, StringComparison.Ordinal))
+        {
+            // The call became an MCP task: it runs after its request may have ended, as the caller the
+            // request authorized.
+            return await NhAiMcpTaskCalls.InvokeAsync(request, taskCall, cancellationToken);
+        }
+
         var services = RequiredServices(request.Services);
         var httpContext = services.GetRequiredService<IHttpContextAccessor>().HttpContext;
         if (httpContext is null)
@@ -246,6 +254,11 @@ internal static class NhAiMcpRequestHandlers
                 ? Error(NhAiCompositionFeatures.ScriptingOffCode, "Scripts are off in this application.")
                 : Error(NhAiCompositionFeatures.CompositionOffCode, "Compositions are off in this application.");
         }
+        if (tool.Metadata.OfType<NhAiToolDescriptor>().FirstOrDefault()?.TaskSupport == NhAiToolTaskSupport.Required)
+        {
+            // A tool that requires tasks has no answer of its own for a caller without them.
+            throw NhAiMcpTasks.MissingTasksCapability();
+        }
 
         // The tool reads the call's request metadata as data the caller sent, never as identity.
         using (NhAiMcpInboundCall.Enter(request.Params?.Meta))
@@ -267,7 +280,7 @@ internal static class NhAiMcpRequestHandlers
             ?? "ai-tool-authorization-denied";
     }
 
-    private static CallToolResult Error(string code, string message)
+    internal static CallToolResult Error(string code, string message)
     {
         var meta = new System.Text.Json.Nodes.JsonObject
         {
