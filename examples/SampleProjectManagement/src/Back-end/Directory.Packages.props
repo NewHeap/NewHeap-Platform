@@ -29,4 +29,12 @@
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
   </ItemGroup>
+  <!-- Framework-aligned Microsoft packages; other packages retain their independent versions. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
+    <PackageVersion Update="Microsoft.AspNetCore.OpenApi" Version="11.0.0" />
+    <PackageVersion Update="Microsoft.AspNetCore.SignalR.Client" Version="11.0.0" />
+    <PackageVersion Update="Microsoft.Extensions.AI.OpenAI" Version="11.0.0" />
+    <PackageVersion Update="Microsoft.Extensions.Http.Resilience" Version="11.0.0" />
+    <PackageVersion Update="Microsoft.Extensions.ServiceDiscovery" Version="11.0.0" />
+  </ItemGroup>
 </Project>

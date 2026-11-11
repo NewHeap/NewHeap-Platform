@@ -702,7 +702,8 @@ public static class NhAiScriptSignatures
                     Error(path, "expected an ISO 8601 date-time string"),
                 "date" when !DateOnly.TryParseExact(text, DateFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out _) =>
                     Error(path, "expected a date string yyyy-MM-dd"),
-                "time" when !TimeOnly.TryParseExact(text, TimeFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out _) =>
+                "time" when text.StartsWith("24:", StringComparison.Ordinal)
+                    || !TimeOnly.TryParseExact(text, TimeFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out _) =>
                     Error(path, "expected a time string HH:mm[:ss[.fffffff]]"),
                 _ => null
             };

@@ -1,5 +1,7 @@
 ﻿using NeoSmart.Caching.Sqlite;
 using ZiggyCreatures.Caching.Fusion;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
 using ZiggyCreatures.Caching.Fusion.Serialization.NewtonsoftJson;
 
 // ReSharper disable once CheckNamespace

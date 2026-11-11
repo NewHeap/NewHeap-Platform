@@ -166,15 +166,17 @@ public sealed class AssistantScriptSamplesTests(AssistantScriptSampleHost host) 
             result.GetProperty("data").GetProperty("value").GetRawText());
     }
 
-    [Fact]
-    public async Task SPM_375_a_date_in_another_form_stops_the_script_at_the_field_before_the_tool_runs()
+    [Theory]
+    [InlineData("1 November 2026", null, "dueBy", "expected a date string yyyy-MM-dd")]
+    [InlineData("2026-11-01", "24:00", "before", "expected a time string HH:mm[:ss[.fffffff]]")]
+    public async Task SPM_375_an_invalid_date_or_time_stops_the_script_at_the_field_before_the_tool_runs(
+        string dueBy, string? before, string field, string error)
     {
-        const string script = """
-            return await tools.projects_due_by_v1({ dueBy: "1 November 2026", limit: 10 });
-            """;
+        var script = "return await tools.projects_due_by_v1("
+            + JsonSerializer.Serialize(new { dueBy, before, limit = 10 }) + ");";
         var model = new NhAiScriptedChatClient()
             .RespondWithFunctionCall(NhAiScriptTool.FunctionName, new { script })
-            .RespondWithText("I need the date as 2026-11-01.");
+            .RespondWithText("Please use the expected date and time formats.");
         await SwitchScriptsOnAsync();
         host.Model.Use(model);
         using var client = host.CreateClient("spm-375-invalid-user");
@@ -186,8 +188,8 @@ public sealed class AssistantScriptSamplesTests(AssistantScriptSampleHost host) 
         var result = JsonSerializer.SerializeToElement(Assert.Single(model.FunctionResults).Result);
         Assert.Equal(NhAiScriptCodes.CallInvalid, result.GetProperty("code").GetString());
         var stoppedAt = result.GetProperty("data").GetProperty("stoppedAt");
-        Assert.Equal("dueBy", stoppedAt.GetProperty("field").GetString());
-        Assert.Equal("expected a date string yyyy-MM-dd", stoppedAt.GetProperty("error").GetString());
+        Assert.Equal(field, stoppedAt.GetProperty("field").GetString());
+        Assert.Equal(error, stoppedAt.GetProperty("error").GetString());
         // The model sees the date and the time as strings with their format, never as objects.
         Assert.Equal(
             "projects_due_by_v1(input: { before?: string /* time */ | null; dueBy: string /* date */; limit: number }): "

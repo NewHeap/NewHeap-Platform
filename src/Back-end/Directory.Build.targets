@@ -6,6 +6,8 @@
   -->
   <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
     <ServerGarbageCollection>true</ServerGarbageCollection>
+    <!-- Keep framework runs sequential within the bounded test:affected project jobs. -->
+    <TestTfmsInParallel>false</TestTfmsInParallel>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(IsPackable)' != 'false'">

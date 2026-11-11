@@ -9,7 +9,7 @@
   Secure APIs, data access, identity, durable operations, polished product UI and governed AI—designed as one coherent platform surface.
 </p>
 
-NewHeap Platform is an opinionated set of reusable .NET 10 and Angular 20
+NewHeap Platform is an opinionated set of reusable .NET 10/11 and Angular 20
 libraries for long-lived business applications. Its goal is simple: let product
 teams spend their energy on their domain while the difficult cross-cutting
 behavior remains consistent, testable and operationally honest.
@@ -110,7 +110,7 @@ The complete maintenance contract lives in
 
 ## Start exploring
 
-Install .NET 10, Node.js 22 or later, npm and Docker. Follow the
+Install the .NET 10 and .NET 11 SDKs, Node.js 22 or later, npm and Docker. Follow the
 [sample setup](examples/SampleProjectManagement/README.md#run-the-sample) to run
 the complete Aspire environment.
 
@@ -123,7 +123,18 @@ repository root before merging:
 ```text
 dotnet test src/Back-end/NewHeap.Platform.sln
 dotnet test examples/SampleProjectManagement/src/Back-end/SampleProjectManagement.slnx
+dotnet test examples/SampleProjectManagement/src/Back-end/SampleProjectManagement.slnx -p:SampleTargetFramework=net11.0
 ```
+
+Runtime libraries and their regression tests target both `net10.0` and `net11.0`.
+The source generator retains `netstandard2.0`. Framework-aligned Microsoft/System
+NuGet packages use the existing 10.x versions for .NET 10 and 11.0.0 for .NET 11.
+EF Core and its directly dependent packages retain 10.x on both targets until a
+stable PostgreSQL provider supports EF 11. Independently versioned packages keep
+their own versions; Microsoft.OpenApi uses 3.11.0 on .NET 11 as required by ASP.NET.
+Sample applications default to .NET 10; pass `-p:SampleTargetFramework=net11.0`
+to build, run or test the sample on .NET 11. Standalone tools and benchmarks retain
+their .NET 10 application target.
 
 The main implementation areas are:
 

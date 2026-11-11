@@ -38,6 +38,13 @@ The main implementation paths are:
 
 ## Run the sample
 
+Install the .NET 10 and .NET 11 SDKs when building against the local Platform
+libraries. The sample defaults to .NET 10. Pass `-p:SampleTargetFramework=net11.0`
+to `dotnet build`, `dotnet run` or `dotnet test` to exercise the .NET 11 consumer
+path. Framework-aligned Microsoft/System packages use 10.x on .NET 10 and 11.x on
+.NET 11. Both paths temporarily retain EF Core 10, its directly dependent packages
+and matching database providers until a stable PostgreSQL provider supports EF 11.
+
 Set `SampleProjectManagement.AppHost` as the startup project and start Aspire.
 The AppHost starts PostgreSQL, RabbitMQ, the API, the proxy demo, and both Angular applications.
 Scalar is available from the API at `/scalar`; the OpenAPI document is at

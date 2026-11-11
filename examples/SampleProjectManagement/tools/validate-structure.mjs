@@ -82,7 +82,8 @@ assert.ok(existsSync(resolve(frontendRoot, 'angular.json')), 'Angular workspace 
 assert.ok(existsSync(resolve(frontendRoot, 'projects')), 'Angular projects must live in src/Front-end/projects.');
 
 const directoryBuildProps = readFileSync(resolve(backendRoot, 'Directory.Build.props'), 'utf8');
-assert.match(directoryBuildProps, /<TargetFramework>net10\.0<\/TargetFramework>/, 'Directory.Build.props must own the shared target framework.');
+assert.match(directoryBuildProps, /<SampleTargetFramework Condition="'\$\(SampleTargetFramework\)' == ''">net10\.0<\/SampleTargetFramework>/, 'The sample must default to .NET 10.');
+assert.match(directoryBuildProps, /<TargetFramework>\$\(SampleTargetFramework\)<\/TargetFramework>/, 'Directory.Build.props must own the selectable shared target framework.');
 assert.match(directoryBuildProps, /<Nullable>enable<\/Nullable>/, 'Directory.Build.props must enable nullable reference types.');
 assert.match(directoryBuildProps, /<IsPackable>false<\/IsPackable>/, 'Sample projects must be non-packable by default.');
 

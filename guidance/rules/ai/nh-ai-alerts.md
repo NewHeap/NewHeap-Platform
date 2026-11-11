@@ -341,7 +341,8 @@ ended, and when the application forgets the user.
 person's `subjectMutes` that have not ended. `PUT notifications` takes `digestTimes` (one to four `HH:mm`,
 `null` for the kind's; it replaces `digestTime`) and `quietHours` (`{ start, end }`, `null` for the kind's)
 per kind, and `liftSubjectMutes` with the ids of the person's own mutes; an id of anyone else's changes
-nothing. A value left out stays as it is. Times that are no times of day or more than four are refused
+nothing. A value left out stays as it is. Hours are 00 through 23 on both .NET 10 and .NET 11;
+`24:00` is refused rather than normalized to midnight. Times that are no times of day or more than four are refused
 with `assistant-notification-digest-time-invalid`, quiet hours that are none with
 `assistant-notification-quiet-hours-invalid`, and quiet hours a kind does not let the person choose with
 `assistant-notification-quiet-hours-not-allowed`. `nh-assistant-notification-preferences` edits the times

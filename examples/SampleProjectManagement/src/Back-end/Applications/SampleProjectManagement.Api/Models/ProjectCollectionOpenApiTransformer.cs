@@ -23,8 +23,11 @@ public sealed class ProjectCollectionOpenApiTransformer : IOpenApiOperationTrans
         var validation = await context.GetOrCreateSchemaAsync(typeof(ModelStateResponseType), cancellationToken: cancellationToken);
         var invalidSelection = await context.GetOrCreateSchemaAsync(typeof(TaskResult<NhSelectedCollectionResult>), cancellationToken: cancellationToken);
         var success = operation.Responses!["200"];
-        success.Content!["application/json"].Schema = new OpenApiSchema { OneOf = [legacy, selected] };
+        // ASP.NET generates inline media types; OpenAPI 3 exposes them through read-only interfaces.
+        var successMediaType = (OpenApiMediaType)success.Content!["application/json"];
+        successMediaType.Schema = new OpenApiSchema { OneOf = [legacy, selected] };
         success.Content["application/x-msgpack"] = new OpenApiMediaType { Schema = selected };
-        operation.Responses["400"].Content!["application/json"].Schema = new OpenApiSchema { OneOf = [validation, invalidSelection] };
+        var failureMediaType = (OpenApiMediaType)operation.Responses["400"].Content!["application/json"];
+        failureMediaType.Schema = new OpenApiSchema { OneOf = [validation, invalidSelection] };
     }
 }

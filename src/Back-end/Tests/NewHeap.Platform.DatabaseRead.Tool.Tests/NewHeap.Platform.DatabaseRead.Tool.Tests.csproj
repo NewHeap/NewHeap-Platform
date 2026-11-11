@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -25,5 +25,12 @@
     <ProjectReference Include="..\..\Tools\NewHeap.Platform.DatabaseRead.Tool\NewHeap.Platform.DatabaseRead.Tool.csproj" />
     <ProjectReference Include="..\NewHeap.Platform.Tests.Relational\NewHeap.Platform.Tests.Relational.csproj" />
   </ItemGroup>
+
+  <!-- The tool is copied into the test output alongside dependencies for the test's framework.
+       All subprocess tests must use that framework and dependency graph, as the sample does. -->
+  <Target Name="UseTestHostForCopiedTool" AfterTargets="Build" Condition="'$(TargetFramework)' != ''">
+    <Copy SourceFiles="$(TargetDir)$(AssemblyName).runtimeconfig.json;$(TargetDir)$(AssemblyName).deps.json"
+          DestinationFiles="$(TargetDir)NewHeap.Platform.DatabaseRead.Tool.runtimeconfig.json;$(TargetDir)NewHeap.Platform.DatabaseRead.Tool.deps.json" />
+  </Target>
 
 </Project>

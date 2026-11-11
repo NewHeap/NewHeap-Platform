@@ -1,4 +1,6 @@
 using System.Xml.Linq;
+using System.Reflection;
+using System.Runtime.Versioning;
 using Xunit;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -13,6 +15,25 @@ namespace SampleProjectManagement.Core.Tests;
 /// </summary>
 public sealed class RepositoryFoundationSamplesTests
 {
+    [Fact]
+    public void PlatformAssembliesMatchTheConsumerTargetFramework()
+    {
+        var framework = typeof(RepositoryFoundationSamplesTests).Assembly
+            .GetCustomAttribute<TargetFrameworkAttribute>()!.FrameworkName;
+
+        Assert.Contains(framework, new[] { ".NETCoreApp,Version=v10.0", ".NETCoreApp,Version=v11.0" });
+        Assert.Equal(framework, typeof(TaskResult).Assembly
+            .GetCustomAttribute<TargetFrameworkAttribute>()!.FrameworkName);
+        Assert.Equal(framework, typeof(NewHeapAspNetObservabilityExtensions).Assembly
+            .GetCustomAttribute<TargetFrameworkAttribute>()!.FrameworkName);
+
+        var major = Environment.Version.Major;
+        Assert.Equal(major, typeof(Microsoft.Extensions.AI.IChatClient).Assembly.GetName().Version!.Major);
+        Assert.Equal(major, typeof(Microsoft.AspNetCore.SignalR.Client.HubConnection).Assembly.GetName().Version!.Major);
+        // EF and its providers deliberately stay on 10 until a stable PostgreSQL provider supports EF 11.
+        Assert.Equal(10, typeof(Microsoft.EntityFrameworkCore.DbContext).Assembly.GetName().Version!.Major);
+    }
+
     [Fact]
     public async Task CommonConsoleRunsWithoutAspNetOrHangfireSqlStorage()
     {
@@ -76,7 +97,8 @@ public sealed class RepositoryFoundationSamplesTests
         var buildProps = XDocument.Load(Path.Combine(backendRoot, "Directory.Build.props"));
         var packageProps = XDocument.Load(Path.Combine(backendRoot, "Directory.Packages.props"));
 
-        Assert.Equal("net10.0", Property(buildProps, "TargetFramework"));
+        Assert.Equal("net10.0", Property(buildProps, "SampleTargetFramework"));
+        Assert.Equal("$(SampleTargetFramework)", Property(buildProps, "TargetFramework"));
         Assert.Equal("enable", Property(buildProps, "Nullable"));
         Assert.Equal("enable", Property(buildProps, "ImplicitUsings"));
         Assert.Equal("false", Property(buildProps, "IsPackable"));
@@ -84,7 +106,7 @@ public sealed class RepositoryFoundationSamplesTests
 
         var centralVersions = packageProps
             .Descendants()
-            .Where(element => element.Name.LocalName == "PackageVersion")
+            .Where(element => element.Name.LocalName == "PackageVersion" && element.Attribute("Include") is not null)
             .ToDictionary(
                 element => RequiredAttribute(element, "Include"),
                 element => RequiredAttribute(element, "Version"),

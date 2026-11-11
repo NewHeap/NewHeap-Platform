@@ -192,7 +192,9 @@ names and then by name. A call that does not match its signature stops the scrip
 `ai-script-call-invalid`, the exact signature and the field error, so the model corrects the script in
 one step. A string with a format is checked as the tool reads it: `uuid`, an ISO 8601 `date-time`, a
 `date` only as `yyyy-MM-dd` and a `time` only as `HH:mm[:ss[.fffffff]]` without an offset, which is
-what System.Text.Json reads for a `DateOnly` and a `TimeOnly`; the signature shows them as
+what System.Text.Json reads for a `DateOnly` and a `TimeOnly`. Hours must be 00 through 23:
+`24:00` and its seconds/fraction variants remain invalid on .NET 10 and .NET 11,
+even when the runtime parser accepts them as midnight. The signature shows them as
 `string /* date */` and `string /* time */`. Every other stop has a precise code in `NhAiScriptCodes`:
 a syntax error with its line and column, a limit, an unknown tool, a refused tool or a call the turn
 refused.

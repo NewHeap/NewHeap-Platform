@@ -1055,6 +1055,14 @@ console and demonstrates the ModelState adapter from
 `docs/how-to/migrate-common-aspnet-boundary.md` in the Platform repository for
 the migration from the former virtual TaskResult method.
 
+Run the same console or `RepositoryFoundationSamplesTests` with
+`-p:SampleTargetFramework=net11.0` to exercise the .NET 11 consumer path.
+The default remains .NET 10. The test verifies that Common and AspNet.Common
+load assemblies built for the selected framework and matching Microsoft AI/SignalR
+dependencies (10.x or 11.x). Both targets temporarily keep EF Core 10, its directly
+dependent packages and matching SQL Server/PostgreSQL providers until a stable
+PostgreSQL provider supports EF 11; no schema migration is needed.
+
 The consumer test project references `NewHeap.Platform.Common.Test` and
 `NewHeap.Platform.AspNet.Common.Test` for DI contexts, DbContext and repository
 registration, `TaskResult` assertions, and NSubstitute predicates. These are

@@ -429,7 +429,8 @@ internal sealed class NhAssistantAlertPreferences(
     /// </summary>
     internal static bool TryParseDigestTime(string value, out TimeOnly time)
     {
-        return TimeOnly.TryParseExact(value, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out time);
+        return TimeOnly.TryParseExact(value, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out time)
+            && !value.StartsWith("24:", StringComparison.Ordinal);
     }
 
     /// <summary>

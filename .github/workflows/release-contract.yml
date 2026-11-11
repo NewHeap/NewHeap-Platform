@@ -55,8 +55,8 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: |
-            9.0.x
             10.0.x
+            11.0.x
       - name: Verify automatic release request
         if: inputs.source_branch != ''
         env:
@@ -139,6 +139,15 @@ jobs:
         run: npm run sample:structure
       - name: Verify consumer bootstrap and Companist Linux compilation
         run: npm --prefix examples/SampleProjectManagement run test:consumer-bootstrap
+      - name: Verify consumer assets on .NET 10 and .NET 11
+        shell: bash
+        run: |
+          for framework in net10.0 net11.0; do
+            dotnet test examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests \
+              --configuration Release --filter RepositoryFoundationSamplesTests \
+              -p:SampleTargetFramework="$framework" \
+              -p:RestoreConfigFile="$GITHUB_WORKSPACE/release/nuget.public.config"
+          done
       - name: Verify platform-common on Angular 20, 21 and 22
         if: inputs.component == '' || inputs.component == 'all' || inputs.component == 'npm-platform-common' || inputs.component == 'npm-nh-toastr'
         run: |
@@ -187,8 +196,8 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: |
-            9.0.x
             10.0.x
+            11.0.x
       - name: Test the database read tool on ${{ matrix.flavor }}
         timeout-minutes: 15
         run: >-

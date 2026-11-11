@@ -67,6 +67,8 @@ public sealed class NhAiScriptDateTests
     public static TheoryData<string> InvalidTimes => new()
     {
         "24:00",
+        "24:00:00",
+        "24:00:00.0000000",
         "14:60",
         "14:30:60",
         "9:30",

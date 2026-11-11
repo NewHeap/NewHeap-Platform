@@ -16,6 +16,8 @@ Create `Directory.Build.props` and `Directory.Packages.props` at the nearest com
 
 Set `ManagePackageVersionsCentrally` to `true` in `Directory.Packages.props` and add one `PackageVersion` for every direct NuGet dependency. Keep `PackageReference` items in project files versionless. Pin NewHeap package versions alongside the consumer's other dependencies, and keep SQL Server and PostgreSQL provider packages aligned when both are supported. Inspect the consumer's SDK and existing package requirements instead of copying the Platform library's internal version catalog wholesale.
 
+NewHeap runtime libraries provide `net10.0` and `net11.0` assets; the source generator retains `netstandard2.0`. Use the .NET 11 SDK to build the Platform repository and install both runtimes to run its regression tests. Select framework-aligned Microsoft/System NuGet packages by `TargetFramework`: existing 10.x versions for `net10.0`, 11.0.0 for `net11.0`. Both targets temporarily retain EF Core 10, its directly dependent ASP.NET packages and matching SQL Server/PostgreSQL providers until a stable PostgreSQL provider supports EF 11. Keep independently versioned packages on their own versions; ASP.NET OpenAPI 11 requires Microsoft.OpenApi 3.x. Sample applications default to .NET 10 and accept `-p:SampleTargetFramework=net11.0` for a .NET 11 consumer build. Keep the shared C# version at 14 while both targets are supported.
+
 ## Avoid
 
 - Adding the ASP.NET shared framework to a domain or console project merely to consume `TaskResult` or other Common primitives.
@@ -33,6 +35,8 @@ Set `ManagePackageVersionsCentrally` to `true` in `Directory.Packages.props` and
 Restore and build the complete solution from a clean state. Confirm every project imports the intended `Directory.Build.props`, central package management is enabled, each direct `PackageReference` resolves to exactly one `PackageVersion`, and no project file carries an inline `Version` or `VersionOverride`. Run the consumer inspector and require an empty `projectFoundation.missingRecommendedFiles` result.
 
 Run `dotnet run --project examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.CommonConsole` from the Platform repository root. The SPM-216 console exercises result propagation and neutral queue helpers, and rejects ASP.NET framework or Hangfire ASP.NET/SQL Server dependencies in its runtime artifacts. `RepositoryFoundationSamplesTests` also launches this executable and exercises the HTTP adapter.
+
+Run `dotnet test examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests --filter RepositoryFoundationSamplesTests` on the default target, then repeat with `-p:SampleTargetFramework=net11.0`. The executable console and HTTP adapter must work on both runtimes, and the test verifies matching NewHeap target assets, framework-aligned AI/SignalR dependency assemblies and the intentional EF Core 10 exception.
 
 ## Common and HTTP boundaries
 
