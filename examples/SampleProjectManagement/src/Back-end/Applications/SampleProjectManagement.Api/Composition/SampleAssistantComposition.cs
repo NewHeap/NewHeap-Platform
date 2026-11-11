@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Localization;
 using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.Chat;
+using NewHeap.Platform.AI.Chat.AGUI;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.Mcp;
 using NewHeap.Platform.AI.Scripting;
@@ -48,6 +49,12 @@ public static class SampleAssistantComposition
     public const string InternalProfileName = "project-assistant-internal";
     public const string ModelKey = "project-assistant-chat-model";
     public const string AccessPolicy = "app.active-division.project.view";
+
+    /// <summary>
+    /// SPM-245: the AG-UI endpoint of the project assistant, which AG-UI clients such as CopilotKit or the
+    /// .NET <c>AGUIChatClient</c> run it through, next to the assistant's own API.
+    /// </summary>
+    public const string AGUIPath = "/api/assistant/agui/" + AgentId;
 
     /// <summary>
     /// Administrators (manage permission or the administrator role) manage agents, MCP servers and
@@ -382,6 +389,9 @@ public static class SampleAssistantComposition
         // outside the prefix. NewHeap's bearer setup reads the WebSocket's query token for that path,
         // also when the setting moves the hub out of /hub.
         endpoints.MapNewHeapAssistant("/api/assistant");
+        // SPM-245: the same agent for AG-UI clients, over the same turns, policies, approvals and audit. Only
+        // this agent is offered there; map one endpoint per agent that AG-UI clients may run.
+        endpoints.MapNewHeapAssistantAGUI(AGUIPath, AgentId);
         return endpoints;
     }
 }

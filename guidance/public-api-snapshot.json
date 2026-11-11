@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.125",
   "backEnd": {
-    "hash": "db98eb77d3691132858ecb2f0a8501a78cb5191ddd8660af900c393e1ed0923e",
-    "declarationCount": 14226,
+    "hash": "73522f7fd430c38cd3991f08d895b71f884fce147a8b5c8ab06d28d3d1a9d5f2",
+    "declarationCount": 14262,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -2496,6 +2496,146 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AspNet.Mvc/NhAiMvcBridgeToolCatalog.cs",
         "declaration": "public bool TryGetAction(NhAiToolDescriptor descriptor, out NhAiBridgeActionInfo action) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUICustomEvents.cs",
+        "declaration": "public static class NhAssistantAGUICustomEvents {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUICustomEvents.cs",
+        "declaration": "public const string ApprovalRequired = \"newheap.approval.required\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUICustomEvents.cs",
+        "declaration": "public const string QuestionAnswered = \"newheap.question.answered\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUICustomEvents.cs",
+        "declaration": "public const string ElicitationRequested = \"newheap.elicitation.requested\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUICustomEvents.cs",
+        "declaration": "public const string ElicitationClosed = \"newheap.elicitation.closed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUICustomEvents.cs",
+        "declaration": "public const string ConnectionRequired = \"newheap.connection.required\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIEndpoint.cs",
+        "declaration": "public const long MaxRequestBytes = 4 * 1024 * 1024;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIEndpoint.cs",
+        "declaration": "public const int MaxResumeEntries = 8;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIEndpoint.cs",
+        "declaration": "public string AgentId { get; } = agentId;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIEndpoint.cs",
+        "declaration": "public async Task<IResult> HandleAsync(HttpContext httpContext) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIEndpointRouteBuilderExtensions.cs",
+        "declaration": "public static class NhAssistantAGUIEndpointRouteBuilderExtensions {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIEndpointRouteBuilderExtensions.cs",
+        "declaration": "public static RouteHandlerBuilder MapNewHeapAssistantAGUI( this IEndpointRouteBuilder endpoints, string pattern, string agentId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIEventMapper.cs",
+        "declaration": "public Guid? ReportedClientTool { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIEventMapper.cs",
+        "declaration": "public Guid? DecidedCall { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIEventMapper.cs",
+        "declaration": "public bool IsFinished => _finished;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIEventMapper.cs",
+        "declaration": "public IReadOnlyList<BaseEvent> Map(NhAssistantTurnEvent evt) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIEventMapper.cs",
+        "declaration": "public IReadOnlyList<BaseEvent> Finish() {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIEventMapper.cs",
+        "declaration": "public IReadOnlyList<BaseEvent> Short(RunFinishedOutcome? outcome) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIEventStreamResult.cs",
+        "declaration": "public NhAssistantAGUIEventStreamResult(NhAssistantTurnHandle handle, NhAssistantAGUIEventMapper mapper) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIEventStreamResult.cs",
+        "declaration": "public NhAssistantAGUIEventStreamResult(NhAssistantAGUIEventMapper mapper, IReadOnlyList<BaseEvent> events) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIEventStreamResult.cs",
+        "declaration": "public async Task ExecuteAsync(HttpContext httpContext) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIInterrupts.cs",
+        "declaration": "public static string IdOf(NhAssistantApprovalView approval) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIInterrupts.cs",
+        "declaration": "public static string IdOf(NhAssistantQuestionView question) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIInterrupts.cs",
+        "declaration": "public static string IdOf(NhAssistantElicitationView elicitation) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIInterrupts.cs",
+        "declaration": "public static bool TryParse(string? interruptId, out NhAssistantAGUIInterruptRef reference) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIInterrupts.cs",
+        "declaration": "public static AGUIInterrupt Approval(NhAssistantApprovalView approval, string? toolCallId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIInterrupts.cs",
+        "declaration": "public static AGUIInterrupt Question(NhAssistantQuestionView question) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIInterrupts.cs",
+        "declaration": "public static AGUIInterrupt Elicitation(NhAssistantElicitationView elicitation) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIInterrupts.cs",
+        "declaration": "public static (string Decision, string? Reason)? DecisionOf(JsonElement? payload) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIInterrupts.cs",
+        "declaration": "public static int? ChoiceOf(JsonElement? payload) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIInterrupts.cs",
+        "declaration": "public static (string? Action, IReadOnlyDictionary<string, JsonElement>? Content) ElicitationAnswerOf(AGUIResume resume) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIThreads.cs",
+        "declaration": "public const int MaxThreadIdLength = 256;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIThreads.cs",
+        "declaration": "public const int MaxRunIdLength = 128;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIThreads.cs",
+        "declaration": "public static Guid? ConversationIdOf(string? threadId, NhAiInvocationContext caller, string agentId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AGUI/NhAssistantAGUIThreads.cs",
+        "declaration": "public static string? RunIdOf(string? runId) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentBuilder/NhAssistantAgentBuilder.cs",
@@ -33759,6 +33899,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
+        "declaration": "public Guid? InvocationId { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantTurnEvents.cs",
         "declaration": "public JsonElement? Arguments { get; init; }"
       },
       {
@@ -61849,7 +61993,9 @@
       "NhAssistantClientToolResultRequest",
       "ClientToolRequested",
       "ClientToolCompleted",
-      "ClientToolExpired"
+      "ClientToolExpired",
+      "MapNewHeapAssistantAGUI",
+      "NhAssistantAGUICustomEvents"
     ],
     "nh-ai-context-retrieval": [
       "INhAiContextAuthorizationPolicy",
