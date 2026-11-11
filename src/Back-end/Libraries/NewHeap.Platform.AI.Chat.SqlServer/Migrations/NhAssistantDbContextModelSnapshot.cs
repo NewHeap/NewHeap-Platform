@@ -2628,6 +2628,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int?>("ElicitationWaitMinutes")
+                        .HasColumnType("int");
+
                     b.Property<string>("HeaderName")
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
