@@ -56,17 +56,18 @@ internal sealed partial class NhAssistantHubSessions(
 
 #if NET11_0_OR_GREATER
     /// <summary>
-    /// Validates the refreshed principal of <paramref name="connection"/> from now on, after the hub
-    /// accepted its authentication refresh.
+    /// Validates <paramref name="principal"/>, the refreshed principal of <paramref name="connection"/>,
+    /// from now on, after the hub accepted its authentication refresh.
     /// </summary>
-    public void Refreshed(HubCallerContext connection)
+    public void Refreshed(HubCallerContext connection, ClaimsPrincipal principal)
     {
         ArgumentNullException.ThrowIfNull(connection);
-        if (connection.User is { Identity.IsAuthenticated: true } user
+        ArgumentNullException.ThrowIfNull(principal);
+        if (principal.Identity?.IsAuthenticated == true
             && connection.Items.TryGetValue(SessionKey, out var value)
             && value is WatchedSession session)
         {
-            session.Principal = user;
+            session.Principal = principal;
         }
     }
 #endif

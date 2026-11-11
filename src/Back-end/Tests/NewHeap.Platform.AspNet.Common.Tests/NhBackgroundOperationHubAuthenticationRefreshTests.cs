@@ -170,6 +170,28 @@ public sealed class NhBackgroundOperationHubAuthenticationRefreshTests
         refreshed.StatusCode.Should().Be(HttpStatusCode.OK);
         await connection.Connection.WaitForCloseAsync();
     }
+
+    [Fact]
+    public async Task A_refresh_right_after_the_handshake_keeps_the_connection_and_its_groups()
+    {
+        var divisions = new Divisions();
+        await using var app = await StartAsync(authenticationRefresh: true, divisions, new RemovedUsers());
+        var server = app.GetTestServer();
+        var alice = Guid.NewGuid();
+        var divisionId = Guid.NewGuid();
+        divisions.Grant(alice, divisionId);
+
+        // A client may refresh while the hub still joins its groups; the hub then checks the refreshed
+        // principal once it joined them.
+        using var connection = await ConnectAsync(server, CreateToken(alice), divisionId, waitUntilJoined: false);
+        using var refreshed = await RefreshAsync(server, connection.ConnectionToken, CreateToken(alice, TimeSpan.FromMinutes(20)));
+        await connection.Connection.SendAsync("""{"type":1,"invocationId":"joined","target":"NotAHubMethod","arguments":[]}""");
+        (await connection.Connection.ReceiveMessageAsync(type: 3)).GetProperty("invocationId").GetString().Should().Be("joined");
+
+        refreshed.StatusCode.Should().Be(HttpStatusCode.OK);
+        var inDivision = await PublishAsync(app, alice, divisionId);
+        (await NextOperationIdAsync(connection)).Should().Be(inDivision);
+    }
 #endif
 
     /// <summary>
@@ -206,9 +228,14 @@ public sealed class NhBackgroundOperationHubAuthenticationRefreshTests
 
     /// <summary>
     /// Negotiates and opens a WebSocket connection to the hub with a query token, as a browser does, and
-    /// waits until the hub handles its messages, so the connection is in its groups.
+    /// unless <paramref name="waitUntilJoined"/> is false waits until the hub handles its messages, so the
+    /// connection is in its groups.
     /// </summary>
-    private static async Task<HubSocketConnection> ConnectAsync(TestServer server, string token, Guid? divisionId = null)
+    private static async Task<HubSocketConnection> ConnectAsync(
+        TestServer server,
+        string token,
+        Guid? divisionId = null,
+        bool waitUntilJoined = true)
     {
         var division = divisionId.HasValue ? $"&{NhHubQueryTokens.DivisionParameter}={divisionId.Value}" : string.Empty;
         using var client = server.CreateClient();
@@ -223,8 +250,11 @@ public sealed class NhBackgroundOperationHubAuthenticationRefreshTests
         var connection = new JsonHubSocket(socket);
         await connection.SendAsync("""{"protocol":"json","version":1}""");
         (await connection.ReceiveAsync()).Should().Be("{}");
-        await connection.SendAsync("""{"type":1,"invocationId":"joined","target":"NotAHubMethod","arguments":[]}""");
-        (await connection.ReceiveMessageAsync(type: 3)).GetProperty("invocationId").GetString().Should().Be("joined");
+        if (waitUntilJoined)
+        {
+            await connection.SendAsync("""{"type":1,"invocationId":"joined","target":"NotAHubMethod","arguments":[]}""");
+            (await connection.ReceiveMessageAsync(type: 3)).GetProperty("invocationId").GetString().Should().Be("joined");
+        }
 
         return new HubSocketConnection(socket, connection, connectionToken);
     }

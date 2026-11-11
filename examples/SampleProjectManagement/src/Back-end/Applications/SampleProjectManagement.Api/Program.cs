@@ -274,6 +274,11 @@ builder.Services
         // client's hubUrlSuffix follows. HubPath may be any absolute application path outside the
         // operations' API under /background-operations, such as /hubs/background-operations; the
         // bearer token is read from the query string at that path (SPM-083).
+        // On ASP.NET Core 11 a connection may refresh its authentication at
+        // /hub/background-operations/refresh instead of reconnecting when its token expires; the hub
+        // keeps it only for the same person while that person may still use the connection's active
+        // division. On ASP.NET Core 10 the setting changes nothing (SPM-083).
+        operations.Options.HubAuthenticationRefresh = true;
         operations.Options.ProgressFlushInterval = TimeSpan.FromMilliseconds(250);
         operations
             .WithGlobalConcurrency(8)

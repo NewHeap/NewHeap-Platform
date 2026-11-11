@@ -291,6 +291,12 @@ public static class SampleAssistantComposition
                 limits.MaxConsultationsPerTurn = 2;
             }));
 
+        // SPM-263: on ASP.NET Core 11 a live-update connection may refresh its authentication at
+        // /hub/assistant/refresh instead of reconnecting when its token expires. The hub keeps it only
+        // for the same caller in the same tenant; another person's token is refused and a token of
+        // another tenant closes the connection. On ASP.NET Core 10 the setting changes nothing.
+        services.Configure<NhAssistantOptions>(options => options.HubAuthenticationRefresh = true);
+
         // SPM-373, SPM-374: the project assistant's scripts make at most four calls, as its turns do, and at
         // most one call that changes data; that call gets the sample's approval as it does on its own, so a
         // status change in a person's chat stops the script until the person decides.

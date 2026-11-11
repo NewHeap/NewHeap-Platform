@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http.Connections;
+using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
@@ -83,6 +85,40 @@ public sealed class AssistantCollaborationSamplesTests(AssistantCollaborationSam
         Assert.Contains(audit, evt => evt.Kind == NewHeap.Platform.AI.Chat.NhAssistantAuditEventKind.ConversationShareLinkCreated);
         Assert.Contains(audit, evt => evt.Kind == NewHeap.Platform.AI.Chat.NhAssistantAuditEventKind.ConversationParticipantJoined
             && evt.ObjectId == host.ColleagueId.ToString());
+    }
+
+    [Fact]
+    public async Task SPM_263_a_live_update_connection_refreshes_its_authentication_without_reconnecting()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+#if NET11_0_OR_GREATER
+        // The sample turns HubAuthenticationRefresh on: a client refreshes its connection when its token
+        // renews instead of reconnecting. The browser client needs @microsoft/signalr 11 for it; the
+        // .NET client shows the call.
+        await using var connection = new HubConnectionBuilder()
+            .WithUrl(new Uri(host.BaseAddress, "/hub/assistant"), options =>
+            {
+                options.Transports = HttpTransportType.WebSockets;
+                options.Headers[SampleTestAuthenticationHandler.UserHeader] = host.OwnerId.ToString();
+            })
+            // Refreshed here by hand; by default the client refreshes before the token expires.
+            .WithAuthenticationRefresh(options => options.EnableAutoRefresh = false)
+            .Build();
+        await connection.StartAsync(cancellationToken);
+
+        await connection.RefreshAuthenticationAsync(cancellationToken);
+
+        // The same connection serves the person with the refreshed principal.
+        var watch = await connection.InvokeAsync<JsonElement>("WatchAgentWork", cancellationToken);
+        Assert.True(watch.GetProperty("refreshAfterSeconds").GetInt32() > 0);
+        Assert.Equal(HubConnectionState.Connected, connection.State);
+#else
+        // ASP.NET Core 10 maps no refresh endpoint: a connection closes when its token expires and the
+        // client reconnects with its current session.
+        using var client = host.CreateClient(host.OwnerId.ToString());
+        using var refresh = await client.PostAsync("/hub/assistant/refresh", null, cancellationToken);
+        Assert.Equal(HttpStatusCode.NotFound, refresh.StatusCode);
+#endif
     }
 
     [Fact]

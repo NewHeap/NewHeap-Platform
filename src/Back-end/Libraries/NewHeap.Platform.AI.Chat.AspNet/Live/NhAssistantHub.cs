@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -70,6 +71,8 @@ public sealed class NhAssistantHub : Hub<INhAssistantHubClient>
             throw new HubException("The assistant is not available.");
         }
 
+        // The principal the caller is resolved from; an authentication refresh replaces it.
+        var principal = httpContext.User;
         var caller = await httpContext.RequestServices
             .GetRequiredService<INhAiAuthenticatedInvocationContextResolver>()
             .ResolveAsync(httpContext, Context.ConnectionAborted);
@@ -84,11 +87,19 @@ public sealed class NhAssistantHub : Hub<INhAssistantHubClient>
         // the actor reaches a conversation of that tenant.
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupFor(caller.Data.ActorId), Context.ConnectionAborted);
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupFor(caller.Data.ActorId, caller.Data.TenantId), Context.ConnectionAborted);
-        // Whom the groups were joined for, so a refreshed authentication is checked against it.
-        Context.Items[JoinedCallerKey] = new JoinedCaller(caller.Data.ActorId, caller.Data.TenantId);
         // The connection lasts as long as its session: it closes when its token expires, and when the
         // session validator no longer accepts its principal.
         httpContext.RequestServices.GetRequiredService<NhAssistantHubSessions>().Watch(Context);
+        // Whom the groups were joined for, so a refreshed authentication is checked against it.
+        Context.Items[JoinedCallerKey] = new JoinedCaller(caller.Data.ActorId, caller.Data.TenantId);
+#if NET11_0_OR_GREATER
+        // A refresh that completed while the connection opened found nothing to compare with yet.
+        if (!ReferenceEquals(httpContext.User, principal) && !await KeepsRefreshedCallerAsync(httpContext, httpContext.User))
+        {
+            Context.Abort();
+            return;
+        }
+#endif
         await base.OnConnectedAsync();
     }
 
@@ -100,22 +111,34 @@ public sealed class NhAssistantHub : Hub<INhAssistantHubClient>
     /// its groups for, the same actor in the same tenant. Then the connection keeps its groups and its
     /// watch, and the session check follows the refreshed principal. Otherwise the connection closes, so
     /// no group outlives the authorization that joined it; the client reconnects with its current session
-    /// and reloads its snapshots.
+    /// and reloads its snapshots. A refresh that completes while the connection still opens is checked
+    /// once the connection joined its groups.
     /// </summary>
     public override async Task OnAuthenticationRefreshedAsync()
     {
+        if (!Context.Items.ContainsKey(JoinedCallerKey))
+        {
+            // Still opening: OnConnectedAsync checks the refreshed principal after joining.
+            return;
+        }
+
         var httpContext = Context.GetHttpContext();
-        if (httpContext is null || !await IsSameCallerAsync(httpContext))
+        if (httpContext is null
+            || Context.User is not { } user
+            || !await KeepsRefreshedCallerAsync(httpContext, user))
         {
             Context.Abort();
             return;
         }
 
-        httpContext.RequestServices.GetRequiredService<NhAssistantHubSessions>().Refreshed(Context);
         await base.OnAuthenticationRefreshedAsync();
     }
 
-    private async Task<bool> IsSameCallerAsync(HttpContext httpContext)
+    /// <summary>
+    /// Whether the connection keeps its groups for <paramref name="user"/>, its refreshed principal; the
+    /// session check then validates that principal.
+    /// </summary>
+    private async Task<bool> KeepsRefreshedCallerAsync(HttpContext httpContext, ClaimsPrincipal user)
     {
         var options = httpContext.RequestServices.GetRequiredService<IOptionsMonitor<NhAssistantOptions>>().CurrentValue;
         if (!options.Enabled
@@ -127,12 +150,16 @@ public sealed class NhAssistantHub : Hub<INhAssistantHubClient>
 
         try
         {
+            // The resolver reads the request's principal, which the refresh replaced with this one.
             var caller = await httpContext.RequestServices
                 .GetRequiredService<INhAiAuthenticatedInvocationContextResolver>()
                 .ResolveAsync(httpContext, Context.ConnectionAborted);
-            return caller.Success
-                && string.Equals(caller.Data.ActorId, joined.ActorId, StringComparison.Ordinal)
-                && string.Equals(caller.Data.TenantId, joined.TenantId, StringComparison.Ordinal);
+            if (!caller.Success
+                || !string.Equals(caller.Data.ActorId, joined.ActorId, StringComparison.Ordinal)
+                || !string.Equals(caller.Data.TenantId, joined.TenantId, StringComparison.Ordinal))
+            {
+                return false;
+            }
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
@@ -140,6 +167,9 @@ public sealed class NhAssistantHub : Hub<INhAssistantHubClient>
             // reconnects, when the hub resolves the caller again.
             return false;
         }
+
+        httpContext.RequestServices.GetRequiredService<NhAssistantHubSessions>().Refreshed(Context, user);
+        return true;
     }
 #endif
 

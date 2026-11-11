@@ -37,6 +37,8 @@ public sealed class NhBackgroundOperationHub : Hub<INhBackgroundOperationHubClie
         }
 
         var httpContext = Context.GetHttpContext();
+        // The principal the groups are joined for; an authentication refresh replaces it.
+        var principal = httpContext?.User;
         var activeDivisionId = httpContext?.GetActiveDivisionId();
         if (activeDivisionId.HasValue
             && (httpContext is null
@@ -63,6 +65,16 @@ public sealed class NhBackgroundOperationHub : Hub<INhBackgroundOperationHubClie
 
         // What the groups were joined for, so a refreshed authentication is checked against it.
         Context.Items[JoinedScopeKey] = new JoinedScope(userId, activeDivisionId);
+#if NET11_0_OR_GREATER
+        // A refresh that completed while the connection opened found nothing to compare with yet.
+        if (httpContext is not null
+            && !ReferenceEquals(httpContext.User, principal)
+            && !await IsStillAuthorizedAsync(httpContext.User))
+        {
+            Context.Abort();
+            return;
+        }
+#endif
         await base.OnConnectedAsync();
     }
 
@@ -73,11 +85,18 @@ public sealed class NhBackgroundOperationHub : Hub<INhBackgroundOperationHubClie
     /// the refreshed principal must name the user the connection joined its groups for, and that user
     /// must still have access to the active division the connection joined. Otherwise the connection
     /// closes, so no group outlives the authorization that joined it; the client reconnects with its
-    /// current session and resynchronizes.
+    /// current session and resynchronizes. A refresh that completes while the connection still opens is
+    /// checked once the connection joined its groups.
     /// </summary>
     public override async Task OnAuthenticationRefreshedAsync()
     {
-        if (!await IsStillAuthorizedAsync())
+        if (!Context.Items.ContainsKey(JoinedScopeKey))
+        {
+            // Still opening: OnConnectedAsync checks the refreshed principal after joining.
+            return;
+        }
+
+        if (Context.User is not { } user || !await IsStillAuthorizedAsync(user))
         {
             Context.Abort();
             return;
@@ -86,14 +105,14 @@ public sealed class NhBackgroundOperationHub : Hub<INhBackgroundOperationHubClie
         await base.OnAuthenticationRefreshedAsync();
     }
 
-    private async Task<bool> IsStillAuthorizedAsync()
+    private async Task<bool> IsStillAuthorizedAsync(ClaimsPrincipal user)
     {
         if (!Context.Items.TryGetValue(JoinedScopeKey, out var value) || value is not JoinedScope joined)
         {
             return false;
         }
 
-        var userIdValue = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        var userIdValue = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(userIdValue, out var userId) || userId != joined.UserId)
         {
             return false;
