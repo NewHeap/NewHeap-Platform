@@ -4,7 +4,8 @@ import {
   AdminAgent,
   NhAssistantPanelComponent,
   NhAssistantStore,
-  ɵNhAssistantIconComponent as NhAssistantIconComponent
+  ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective
 } from '@newheap/platform-ai-chat';
 import { agentDisplayName } from '../agent-texts';
 import { startNhAssistantAdminTranslations } from '../../i18n/nh-assistant-admin-translations';
@@ -32,6 +33,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-agent-builder-chat',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantIconComponent, NhAssistantPanelComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-builder-chat.component.html',

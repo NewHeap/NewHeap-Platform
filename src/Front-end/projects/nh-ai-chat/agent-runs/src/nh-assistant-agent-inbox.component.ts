@@ -29,6 +29,7 @@ import {
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵnhAssistantWatchAgentWork as nhAssistantWatchAgentWork,
   ɵtoNhAssistantError as toNhAssistantError
@@ -71,6 +72,7 @@ import { NhAssistantAgentProposalsComponent, NhAssistantProposalDensity } from '
 @Component({
   selector: 'nh-assistant-agent-inbox',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [DatePipe, TranslatePipe, NhAssistantIconComponent, NhAssistantTranslatePipe, NhAssistantAgentProposalsComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-inbox.component.html',

@@ -32,6 +32,7 @@ import {
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵNhAssistantSubjectLinkComponent as NhAssistantSubjectLinkComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
@@ -143,6 +144,7 @@ interface NhAssistantFeedbackRequest {
 @Component({
   selector: 'nh-assistant-agent-proposals',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     DatePipe,
     NgTemplateOutlet,

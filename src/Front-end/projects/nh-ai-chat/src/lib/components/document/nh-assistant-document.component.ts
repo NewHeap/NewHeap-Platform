@@ -19,6 +19,7 @@ import {
   NhAssistantDocumentLinkEvent
 } from '../../models/assistant-document.models';
 import { NhAssistantDocumentDiagramComponent } from './nh-assistant-document-diagram.component';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 let nextDocumentId = 0;
 
@@ -52,6 +53,7 @@ function decoded(value: string, decode: (text: string) => string): string {
 @Component({
   selector: 'nh-assistant-document',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [NhAssistantDocumentDiagramComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-document.component.html',

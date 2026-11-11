@@ -75,6 +75,9 @@ export {
 export { provideNhAssistantSelect as ɵprovideNhAssistantSelect } from './lib/internal/nh-assistant-select';
 export { NhAssistantSubjectLinkComponent as ɵNhAssistantSubjectLinkComponent } from './lib/internal/nh-assistant-subject-link.component';
 export { NhAssistantMarkdownPipe as ɵNhAssistantMarkdownPipe } from './lib/internal/nh-assistant-markdown.pipe';
+// The theme tokens that every component of the administration and the agent pages applies as a host
+// directive; the main entry point delivers their stylesheet once per application.
+export { NhAssistantTokensDirective as ɵNhAssistantTokensDirective } from './lib/internal/nh-assistant-tokens';
 // The merge of bundled texts, shared with the administration, which brings its own texts.
 export { nhAssistantMergeTranslations as ɵnhAssistantMergeTranslations } from './lib/i18n/nh-assistant-translations';
 // The upload media type rule, shared with the mock API of the testing entry point.

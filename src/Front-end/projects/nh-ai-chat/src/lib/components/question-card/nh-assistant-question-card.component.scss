@@ -1,7 +1,5 @@
 @use '../../styles/tokens';
 
-@include tokens.tokens;
-
 :host {
   display: block;
   // A pending question's color is also its header and status text, so it reads as text.

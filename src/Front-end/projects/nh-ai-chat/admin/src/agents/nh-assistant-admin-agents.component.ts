@@ -27,7 +27,8 @@ import {
   ɵtoNhAssistantError as toNhAssistantError,
   RunCatalog,
   ShadowVariantPromotion,
-  ToolCatalogEntry
+  ToolCatalogEntry,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAccountNames, NhAssistantAccountNamesErrorComponent } from '../nh-assistant-account-names';
 import { NhAssistantAgentTab } from '../nh-assistant-admin-location';
@@ -88,6 +89,7 @@ export interface NhAssistantAgentsLocation {
 @Component({
   selector: 'nh-assistant-admin-agents',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     TranslatePipe,
     NhAssistantTranslatePipe,

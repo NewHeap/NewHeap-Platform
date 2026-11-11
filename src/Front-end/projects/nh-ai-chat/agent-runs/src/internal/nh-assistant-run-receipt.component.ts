@@ -3,6 +3,7 @@ import {
   AgentTriggerOutcome,
   AgentTriggerReceipt,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
 
@@ -34,6 +35,7 @@ export function nhAssistantRunReceiptTone(outcome: AgentTriggerOutcome): NhAssis
 @Component({
   selector: 'nh-assistant-run-receipt',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [NhAssistantTranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `

@@ -590,6 +590,10 @@ admin policy, reports only the caller's scopes and audits the export, which hold
 ## Theme
 
 The components define light and dark defaults and follow `prefers-color-scheme`.
+They bring these defaults themselves: the first assistant component adds one small
+stylesheet to the document, so the application adds nothing to `angular.json` for
+them. Set the properties on `:root`, on an ancestor or on a component element; the
+closest value wins, also for a component in a CDK overlay.
 Map them onto the host's design tokens with custom properties:
 
 ```scss

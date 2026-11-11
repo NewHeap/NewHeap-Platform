@@ -20,7 +20,8 @@ import {
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError,
-  ɵprovideNhAssistantSelect as provideNhAssistantSelect
+  ɵprovideNhAssistantSelect as provideNhAssistantSelect,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective
 } from '@newheap/platform-ai-chat';
 import { NhComboboxComponent, NhSelectOption } from '@newheap/platform-common/select';
 
@@ -62,6 +63,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-subject-picker',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantTranslatePipe, NhComboboxComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [provideNhAssistantSelect()],

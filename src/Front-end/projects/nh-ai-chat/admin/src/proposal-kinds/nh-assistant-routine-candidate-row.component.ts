@@ -1,7 +1,11 @@
 import { DatePipe, PercentPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { RoutineCandidate, RoutineCandidateThresholds } from '@newheap/platform-ai-chat';
+import {
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
+  RoutineCandidate,
+  RoutineCandidateThresholds
+} from '@newheap/platform-ai-chat';
 import { agentDisplayName } from '../agents/agent-texts';
 import { startNhAssistantAdminTranslations } from '../i18n/nh-assistant-admin-translations';
 import { nhAssistantDurationText } from './nh-assistant-decision-time';
@@ -17,6 +21,7 @@ import { nhAssistantDurationText } from './nh-assistant-decision-time';
 @Component({
   selector: 'tr[nhAssistantRoutineCandidateRow]',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [DatePipe, PercentPipe, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {

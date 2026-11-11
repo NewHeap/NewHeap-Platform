@@ -1,0 +1,7 @@
+@use 'tokens';
+
+// The one stylesheet of the theme tokens. `NhAssistantTokensDirective` marks every component host,
+// and the drawer that the panel renders in the CDK overlay container, with this attribute and adds
+// the stylesheet to the document once. Each marked element resolves the tokens itself, so a host's
+// `--nh-assistant-*` on `:root`, on any ancestor or on the element still wins.
+@include tokens.tokens('[data-nh-assistant-tokens]');

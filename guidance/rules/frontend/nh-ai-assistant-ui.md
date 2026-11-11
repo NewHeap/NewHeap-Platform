@@ -310,6 +310,10 @@ the accent onto a dark brand color also maps the link color onto a color with at
 on the assistant's background and surfaces in both schemes, as SampleProjectManagement's management
 portal maps it onto its informational blue (SPM-248); a host that switches schemes with a class sets
 it per scheme. A host's own result renderer uses `--nh-assistant-link` for its links as well. The
+components bring their light and dark defaults themselves: the first assistant component adds one
+stylesheet with them to the document, so the host adds no stylesheet for the assistant's theme, and
+the closest `--nh-assistant-*` value wins, whether the host sets it on `:root`, on an ancestor or on
+a component element, also for a component in a CDK overlay. The
 plan, the request for input of an MCP server, the default result card and the presentation fields
 load on first use, in chunks of their own, so an application's initial bundle stays without them;
 until a card has arrived, and on the server, an empty box of about its height holds its place.

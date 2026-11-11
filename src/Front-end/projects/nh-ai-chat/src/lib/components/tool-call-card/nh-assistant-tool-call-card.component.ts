@@ -3,6 +3,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { ToolCallPart } from '../../models/assistant-api.models';
 import { NhAssistantIconComponent, NhAssistantIconName } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 let nextId = 0;
 
@@ -24,6 +25,7 @@ const statusIcons: Record<ToolCallPart['status'], NhAssistantIconName> = {
 @Component({
   selector: 'nh-assistant-tool-call-card',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-tool-call-card.component.html',

@@ -15,7 +15,8 @@ import { Subscription } from 'rxjs';
 import {
   AgentRunHistoryItem,
   NhAssistantAgentRunApiService,
-  ɵNhAssistantIconComponent as NhAssistantIconComponent
+  ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective
 } from '@newheap/platform-ai-chat';
 import { NhAssistantRunResultComponent } from '../nh-assistant-run-result.component';
 
@@ -33,6 +34,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-board-history',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [DatePipe, TranslatePipe, NhAssistantIconComponent, NhAssistantRunResultComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `

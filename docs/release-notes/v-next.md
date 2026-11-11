@@ -50,6 +50,12 @@ the clock of the tool's own timeout stands still; the turn's own timeout keeps r
 |---|---|
 | New translation keys `nh-assistant.admin.server-editor.elicitation-wait`, `nh-assistant.admin.server-editor.elicitation-wait-hint` and `nh-assistant.admin.server-editor.elicitation-wait-invalid`. | An application that replaces the bundled translations adds the keys in each of its languages. |
 
+## @newheap/platform-ai-chat: theme defaults once per application
+
+| Breaking change | Required action |
+|---|---|
+| The components take their light and dark theme defaults from one stylesheet that the first assistant component adds to the document and that stays while the application runs, instead of each from its own styles; every component element and the panel's drawer carry the attribute `data-nh-assistant-tokens`. | None: `--nh-assistant-*` values on `:root`, an ancestor or a component element still win. A test that compares a component element's exact attributes or counts style elements expects the attribute and the one stylesheet. |
+
 ## NewHeap.Platform.AspNet.Common: background operation hub session check
 
 | Breaking change | Required action |

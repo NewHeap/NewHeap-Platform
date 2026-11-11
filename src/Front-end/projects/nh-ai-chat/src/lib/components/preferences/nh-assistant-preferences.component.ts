@@ -15,6 +15,7 @@ import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.
 import { NhAssistantApiService } from '../../services/nh-assistant-api.service';
 import { NhAssistantPushService } from '../../services/nh-assistant-push.service';
 import { NhAssistantError } from '../../services/nh-assistant.store';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 /** Maximum length of the user's own instructions. */
 export const NH_ASSISTANT_MAX_CUSTOM_INSTRUCTIONS = 1_000;
@@ -31,6 +32,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-preferences',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantMcpConnectionsComponent, NhAssistantPushSwitchComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-preferences.component.html',

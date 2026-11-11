@@ -8,6 +8,7 @@ import {
   NhAssistantAdminApiService,
   RunCatalog,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
@@ -51,6 +52,7 @@ const defaults = { retries: '3', concurrent: '4', perSubject: '10' };
 @Component({
   selector: 'nh-assistant-run-settings-form',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     TranslatePipe,
     NhAssistantTranslatePipe,

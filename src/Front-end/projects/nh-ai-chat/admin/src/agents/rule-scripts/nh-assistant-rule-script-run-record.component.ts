@@ -4,6 +4,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import {
   RuleScriptRunRecord,
   RuleScriptSubjectRun,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAccountNames } from '../../nh-assistant-account-names';
@@ -19,6 +20,7 @@ import { ruleScriptCodeKeys, ruleScriptRunCompleted, ruleScriptRunTone } from '.
 @Component({
   selector: 'nh-assistant-rule-script-run-record',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [DatePipe, KeyValuePipe, TranslatePipe, NhAssistantTranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-rule-script-run-record.component.html',

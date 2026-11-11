@@ -4,6 +4,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { ConversationSummary } from '../../models/assistant-api.models';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { nhAssistantIsUnread } from '../../services/nh-assistant.store';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 /**
  * The user's own and shared conversations with loading and empty states; selecting one opens it.
@@ -13,6 +14,7 @@ import { nhAssistantIsUnread } from '../../services/nh-assistant.store';
 @Component({
   selector: 'nh-assistant-conversation-list',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [DatePipe, TranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-conversation-list.component.html',

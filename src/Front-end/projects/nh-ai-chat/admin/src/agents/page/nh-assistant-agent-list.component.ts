@@ -5,6 +5,7 @@ import { map, startWith } from 'rxjs';
 import {
   AdminAgent,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
 import { agentDisplayName, codeTextKeys } from '../agent-texts';
@@ -37,6 +38,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-agent-list',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-list.component.html',

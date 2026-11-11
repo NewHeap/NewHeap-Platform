@@ -28,6 +28,7 @@ import {
   ɵNhAssistantMarkdownPipe as NhAssistantMarkdownPipe,
   ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
   ɵNhAssistantSubjectLinkComponent as NhAssistantSubjectLinkComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
@@ -60,6 +61,7 @@ interface RunDuration {
 @Component({
   selector: 'nh-assistant-run-result',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     DatePipe,
     TranslatePipe,

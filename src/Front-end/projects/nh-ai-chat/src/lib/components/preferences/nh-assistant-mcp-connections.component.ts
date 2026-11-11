@@ -9,6 +9,7 @@ import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.
 import { NhAssistantApiService } from '../../services/nh-assistant-api.service';
 import { NhAssistantMcpConnectService } from '../../services/nh-assistant-mcp-connect.service';
 import { NhAssistantError, NhAssistantStore } from '../../services/nh-assistant.store';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 let nextId = 0;
 
@@ -21,6 +22,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-mcp-connections',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [DatePipe, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-mcp-connections.component.html',
