@@ -70,7 +70,10 @@ public interface IProjectPortfolioAnalyses
 /// client without tasks gets the tool's own answer as before: the analysis it started under its request
 /// id, which it polls with <c>projects.portfolio-analysis-status</c> until it finished. The tool tells the
 /// two apart by <see cref="NhAiInvocationContext.McpTaskId"/>; both run with the caller's rights in the
-/// authorized division.
+/// authorized division. A task runs on after its request ended and without the caller's token, so the
+/// tools work with the caller of their <see cref="NhAiInvocationContext"/> only: a tool set that takes
+/// <c>INhAiCallerCredentialAccessor</c> or <c>IHttpContextAccessor</c> cannot declare task support
+/// (<c>NHAI021</c>), and the API bridge's tools, which pass the caller's token on, stay plain calls.
 /// </summary>
 [Authorize]
 [NhAiToolSet("projects")]

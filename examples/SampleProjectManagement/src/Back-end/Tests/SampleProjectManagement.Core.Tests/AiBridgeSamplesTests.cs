@@ -30,7 +30,8 @@ namespace SampleProjectManagement.Core.Tests;
 /// <summary>
 /// Executable evidence for the API bridge sample (SPM-242, SPM-243, SPM-244, SPM-255): the project and
 /// project-task controllers become governed tools that are discovered per user from the
-/// controllers' own policies and execute through the API's HTTP pipeline as that user.
+/// controllers' own policies and execute through the API's HTTP pipeline as that user. They call the API
+/// with the caller's token, so none of them runs as an MCP task of an exposure with tasks (SPM-222).
 /// </summary>
 public sealed class AiBridgeSamplesTests
 {
@@ -302,6 +303,23 @@ public sealed class AiBridgeSamplesTests
         });
     }
 
+    [Fact]
+    public async Task SPM_222_bridge_tools_pass_the_callers_token_on_and_stay_plain_calls_of_an_exposure_with_tasks()
+    {
+        // As in Program.cs, the bridge shares the MCP exposure that enables tasks; the host starts
+        // because no tool that passes the caller's token on declares task support.
+        await using var sample = await BridgeSample.StartAsync(withTasks: true);
+
+        await sample.AsViewerAsync(services =>
+        {
+            var descriptors = services.GetRequiredService<NhAiMvcBridgeToolCatalog>().Descriptors;
+            Assert.All(descriptors, descriptor => Assert.Equal(NhAiToolTaskSupport.None, descriptor.TaskSupport));
+            Assert.True(descriptors.Single(descriptor => descriptor.ExportName == "sample-api_project_get_v1").ForwardsCallerToken);
+            Assert.True(descriptors.Single(descriptor => descriptor.ExportName == "sample-api-gateway_query_v1").ForwardsCallerToken);
+            return Task.FromResult(true);
+        });
+    }
+
     /// <summary>
     /// A runtime catalog that claims attestation but hands out plain functions that bypass
     /// <see cref="INhAiToolInvoker"/>; the attestation must reject it before export.
@@ -339,7 +357,9 @@ public sealed class AiBridgeSamplesTests
 
         public IReadOnlyList<HttpRequestMessage> Requests => _handler.Requests;
 
-        public static async Task<BridgeSample> StartAsync()
+        /// <param name="withTasks">Enables MCP tasks on the exposure with the in-memory store, as Program.cs
+        /// enables them with the assistant's store.</param>
+        public static async Task<BridgeSample> StartAsync(bool withTasks = false)
         {
             var handler = new RecordingHandler();
             var services = new ServiceCollection();
@@ -373,8 +393,15 @@ public sealed class AiBridgeSamplesTests
             services.AddSampleAiBridge();
             services.AddHttpClient(NhAiMvcBridgeDefaults.HttpClientName)
                 .ConfigurePrimaryHttpMessageHandler(() => handler);
-            services.AddMcpServer(options => options.ScopeRequests = false)
-                .WithNewHeapPlatformAITools();
+            var server = services.AddMcpServer(options => options.ScopeRequests = false);
+            if (withTasks)
+            {
+                server.WithNewHeapPlatformAITools(exposure => exposure.UseTasks(tasks => tasks.UseInMemoryStore()));
+            }
+            else
+            {
+                server.WithNewHeapPlatformAITools();
+            }
 
             var provider = services.BuildServiceProvider();
             foreach (var hostedService in provider.GetServices<IHostedService>())
