@@ -521,6 +521,31 @@
       }
     </div>
 
+    <div class="field">
+      <label [for]="id + '-elicitation-wait'">{{ 'nh-assistant.admin.server-editor.elicitation-wait' | translate }}</label>
+      <input
+        type="number"
+        inputmode="numeric"
+        step="1"
+        data-elicitation-wait
+        [id]="id + '-elicitation-wait'"
+        [min]="elicitationWait.min"
+        [max]="elicitationWait.max"
+        [value]="elicitationWaitMinutes()"
+        [attr.aria-describedby]="describedBy(id + '-elicitation-wait-hint', 'elicitationWaitMinutes')"
+        [attr.aria-invalid]="(submitted() && elicitationWaitInvalid()) || serverInvalid('elicitationWaitMinutes') ? true : null"
+        (input)="elicitationWaitMinutes.set(value($event)); touch('elicitationWaitMinutes')" />
+      <p class="hint" [id]="id + '-elicitation-wait-hint'">
+        <span [class.error-text]="submitted() && elicitationWaitInvalid()">
+          {{ (submitted() && elicitationWaitInvalid() ? 'nh-assistant.admin.server-editor.elicitation-wait-invalid' : 'nh-assistant.admin.server-editor.elicitation-wait-hint')
+            | translate: { min: elicitationWait.min, max: elicitationWait.max } }}
+        </span>
+      </p>
+      @if (serverInvalid('elicitationWaitMinutes')) {
+        <p class="field-error" [id]="errorId('elicitationWaitMinutes')"><nh-assistant-icon name="warning" />{{ serverErrorKeys('elicitationWaitMinutes') | nhAssistantTranslate }}</p>
+      }
+    </div>
+
     @if (!isNew()) {
       <fieldset class="field readers">
         <legend>{{ 'nh-assistant.admin.server-editor.reader.title' | translate }}</legend>

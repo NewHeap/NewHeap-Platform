@@ -82,6 +82,7 @@ const serverFields = [
   'oauth.confirmAuthorization',
   'requiredPolicy',
   'headlessUse',
+  'elicitationWaitMinutes',
   'readers',
   // The server's refusal of any change by a person without the agent rights policy; the form's error says it.
   'mcpServer'
@@ -119,6 +120,11 @@ const maxReaderMediaTypes = 16;
 const maxReaders = 16;
 /** The priorities a reader can have; a higher one is asked first. */
 const readerPriority = { min: -1000, max: 1000 } as const;
+/**
+ * How long a server's request for input waits for the person of a chat turn, in whole minutes, and
+ * the wait of a server that sets none.
+ */
+const elicitationWait = { min: 1, max: 10, default: 5 } as const;
 
 /**
  * One reader as the editor shows it: the tool, the media types as typed (separated by commas, spaces
@@ -157,7 +163,8 @@ function urlOrigin(url: string | null | undefined): string | null {
 /**
  * Creates or edits one MCP server: the authentication with a write-only secret or a reference to
  * one, OAuth with discovery the administrator confirms, an optional client certificate, the
- * transport, the use in background runs and, for a server that exists, its readers: per reader the
+ * transport, the use in background runs, how many minutes the server's requests for input wait for
+ * the person of a chat turn (1 to 10, 5 for a new server) and, for a server that exists, its readers: per reader the
  * synced tool that turns files into text, the media types it reads, the highest classification that
  * may be sent to it and its priority, with readers to add and remove. Every field stops at the length
  * the server accepts; a refused save shows each of the server's field errors at its field, those of a
@@ -214,6 +221,9 @@ export class NhAssistantAdminMcpServerEditorComponent {
   readonly requiredPolicy = signal('');
   readonly isEnabled = signal(true);
   readonly headlessUse = signal<McpHeadlessUse>('never');
+  /** The minutes a request for input of the server waits for the person, as typed. */
+  readonly elicitationWaitMinutes = signal(String(elicitationWait.default));
+  readonly elicitationWait = elicitationWait;
   readonly userName = signal('');
   readonly secretSource = signal<NhAssistantSecretSource>('stored');
   readonly secretReference = signal('');
@@ -345,6 +355,8 @@ export class NhAssistantAdminMcpServerEditorComponent {
   });
   readonly oauthInvalid = computed(() => this.isOAuth() && (this.confirmMissing() || this.pkceMissing() || this.scopesInvalid() ||
     this.clientIdMissing() || this.labelMissing() || this.oauthReferenceInvalid()));
+  /** The wait is not a whole number of minutes from 1 to 10. */
+  readonly elicitationWaitInvalid = computed(() => parseElicitationWait(this.elicitationWaitMinutes()) === null);
   readonly headerNameInvalid = computed(() => {
     const header = this.headerName().trim();
     return this.authMode() === 'api-key' && header.length > 0 && !headerNamePattern.test(header);
@@ -382,7 +394,7 @@ export class NhAssistantAdminMcpServerEditorComponent {
     problems.types || problems.tool || problems.duplicate || problems.classification || problems.priority));
   readonly valid = computed(() => !this.idInvalid() && !this.nameMissing() && !this.urlInvalid() && !this.headerNameInvalid() &&
     !this.userNameInvalid() && !this.secretMissing() && !this.secretReferenceInvalid() && !this.certificateInvalid() && !this.oauthInvalid() &&
-    !this.readerInvalid());
+    !this.readerInvalid() && !this.elicitationWaitInvalid());
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
   /** The server's first error per field of the refused save, until the administrator changes the field. */
   readonly serverErrors = computed<Readonly<Record<string, string>>>(() => {
@@ -581,6 +593,7 @@ export class NhAssistantAdminMcpServerEditorComponent {
       requiredPolicy: policy.length > 0 ? policy : null,
       isEnabled: this.isEnabled(),
       headlessUse: this.effectiveHeadlessUse(),
+      elicitationWaitMinutes: parseElicitationWait(this.elicitationWaitMinutes()),
       transport: this.transport(),
       // "" clears the certificate; the server ignores the user name outside basic authentication.
       clientCertificateReference: this.clientCertificateReference().trim(),
@@ -681,6 +694,7 @@ export class NhAssistantAdminMcpServerEditorComponent {
     this.requiredPolicy.set(server?.requiredPolicy ?? '');
     this.isEnabled.set(server?.isEnabled ?? true);
     this.headlessUse.set(server?.headlessUse ?? 'never');
+    this.elicitationWaitMinutes.set(String(server?.elicitationWaitMinutes ?? elicitationWait.default));
     this.userName.set(server?.userName ?? '');
     this.secretSource.set(server?.secretReference ? 'reference' : 'stored');
     this.secretReference.set(server?.secretReference ?? '');
@@ -774,6 +788,19 @@ function parsePriority(value: string): number | null {
   }
   const priority = Number(trimmed);
   return Number.isInteger(priority) && priority >= readerPriority.min && priority <= readerPriority.max ? priority : null;
+}
+
+/**
+ * The minutes a request for input waits as typed: a whole number from 1 to 10, or `null` when the
+ * server would refuse it.
+ */
+function parseElicitationWait(value: string): number | null {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+  const minutes = Number(trimmed);
+  return Number.isInteger(minutes) && minutes >= elicitationWait.min && minutes <= elicitationWait.max ? minutes : null;
 }
 
 /** Whether a value is a media type the server accepts: `type/subtype`, optionally with parameters. */
