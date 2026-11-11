@@ -1844,7 +1844,7 @@ describe('NhAssistantAdminMcpServersComponent', () => {
     expect(wait.value).toBe('5');
     expect([wait.min, wait.max]).toEqual(['1', '10']);
     expect(element.textContent).toContain('the chat waits this many minutes, from 1 to 10, for the answer');
-    expect(element.textContent).toContain("The tool's own timeout stands still meanwhile");
+    expect(element.textContent).toContain("The tool's own timeout and the turn's time limit stand still meanwhile");
 
     // More than ten minutes is out of the field's range, so the form is not sent.
     type(element, 'input[data-elicitation-wait]', '11');
