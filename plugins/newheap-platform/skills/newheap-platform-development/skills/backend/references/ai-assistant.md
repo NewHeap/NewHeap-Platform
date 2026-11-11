@@ -1673,6 +1673,38 @@ binding sends `idempotencyKey`: the key the client sent under `_meta` `com.newhe
 underscores or dashes) so a retry carries the same key, or else one per call. The remote holds replays
 against it, as its guards would against a conversation.
 
+## Requests for input of MCP servers and approval pages for MCP clients
+
+An administrator-connected MCP server may ask for input while its tool runs (MCP elicitation, SPM-251):
+as a multi round-trip `input_required` result, as an `elicitation/create` request on the call's stream
+of an older protocol revision, or by refusing the call with `URL_ELICITATION_REQUIRED` until a person
+finished a page of its own. The assistant's client declares both modes and asks the person of the
+governed call in a person's chat turn; nothing needs configuring. The chat shows the server's message
+as the server's (`elicitation` part, `elicitation.requested` and `elicitation.closed` events,
+`NhAssistantElicitationPartDto`), never to the model, with a form of strings, numbers, integers,
+booleans and single choices (`NhAssistantElicitationFieldDto`) or an https link with its host that the
+person opens themselves. Only that person answers, through
+`POST conversations/{id}/elicitations/{elicitationId}/answer` (`NhAssistantAnswerElicitationRequest`);
+the answer goes straight back to the waiting call, is checked against the fields and is never stored.
+A finished page lets a refused call run again within the same governed execution; a cancelled one fails
+it with `ai-mcp-url-elicitation-required`. The wait follows the tool's own timeout. Requests without a
+person (a run, a consultation, a rule turn, a call of an exported tool), with nested or multiple-choice
+values, more than eight fields, a message over 1,000 characters or a link that is not https are declined
+without asking anyone. The audit records `McpElicitationRequested` and `McpElicitationClosed` with the
+server, the call, the mode and the outcome, never the message or the answer.
+
+Set `NewHeap:AI:Assistant:Mcp:ApprovalLinkTemplate` (`NhAssistantMcpOptions.ApprovalLinkTemplate`, an
+absolute https page with one `{approvalId}`, http only on a loopback name) to send an MCP client of
+`WithNewHeapPlatformAITools` to the application's approval page when its call left proposals for a
+person to decide, through `INhAssistantProposals.ProposeForAsync` or a consultation whose proposals
+wait for the subject's approvers (SPM-364, SPM-370). A client that supports multi round-trip requests
+and link requests receives `input_required` with a URL elicitation and a protected request state that
+names only the proposals, the caller and the tool; its retry never runs the tool again, is checked for
+the caller and returns the decision: approved and executed (`_meta` `newheap/approvals`), rejected
+(`assistant-mcp-proposal-rejected`), closed (`assistant-mcp-proposal-closed`) or still pending
+(`ai-tool-approval-required`), at most three rounds. A forged or foreign state fails with
+`assistant-mcp-approval-state-invalid`. The decision stays on the page with the proposal's hash.
+
 ## Consultation chains across applications
 
 When cooperating applications consult each other's agents over MCP, let them keep one
@@ -1886,6 +1918,9 @@ calls in a consultation store nothing and are not listed.
   unless that server binds each call to the person itself.
 - Setting `ClientConfirmationIsApproval` for a client that runs tools without asking the person, or
   for a remote that ignores `idempotencyKey`; the confirmation is the only approval such a change gets.
+- Treating an MCP server's request for input as the assistant's or the model's text, opening its link
+  for the person, storing the answer, or treating an MCP client's accepted elicitation as an approval;
+  a proposal is decided on the application's page with its hash.
 
 - Treating a chat about a subject as the agent's thread, or authorizing a tool on
   `ConversationSubject` alone: it names what the person asked about, and the tool still checks the

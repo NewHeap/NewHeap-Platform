@@ -187,6 +187,11 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-question-expired',
   'assistant-question-cancelled',
   'assistant-question-answer-invalid',
+  // Requests for input of MCP servers whose tools a person's turn runs
+  'assistant-elicitation-not-found',
+  'assistant-elicitation-not-pending',
+  'assistant-elicitation-forbidden',
+  'assistant-elicitation-answer-invalid',
   // Consultations of other agents
   'assistant-consult-subject-unavailable',
   'assistant-consult-agent-unavailable',

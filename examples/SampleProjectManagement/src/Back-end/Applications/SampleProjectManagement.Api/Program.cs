@@ -383,6 +383,9 @@ builder.Services.AddSampleProjectOverview();
 builder.Services.AddSamplePlanningMilestones(builder.Configuration);
 // SPM-375: a project tool with a due date and a time of day, which a script passes as strings.
 builder.Services.AddSampleProjectDeadlines();
+// SPM-364 and SPM-370: the project page's status request as an MCP tool. Its proposal sends an MCP client
+// that supports links to the portal's intake reviews (NewHeap:AI:Assistant:Mcp:ApprovalLinkTemplate).
+builder.Services.AddSampleProjectStatusRequestTool();
 // SPM-392: the deadline watch's rules warn people about a project due today, as an alert of a kind in code.
 builder.Services.AddSampleDeadlineAlerts();
 // SPM-393: the document check's rules are a rule script an administrator writes, dry-runs and sets live.

@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace NewHeap.Platform.AI.Mcp;
 
 /// <summary>
@@ -10,6 +12,12 @@ namespace NewHeap.Platform.AI.Mcp;
 public sealed class NhAiMcpCallContext
 {
     private static readonly AsyncLocal<NhAiMcpCallContext?> CurrentContext = new();
+
+    /// <summary>
+    /// The calls in progress in this process, for a request of a server that its client handles outside
+    /// the asynchronous flow of the call it belongs to.
+    /// </summary>
+    private static readonly ConcurrentDictionary<NhAiMcpCallContext, byte> InProgress = new();
 
     private NhAiMcpCallContext(
         string serverId,
@@ -46,6 +54,38 @@ public sealed class NhAiMcpCallContext
     /// </summary>
     public NhAiInvocationContext Invocation { get; }
 
+    /// <summary>
+    /// The asynchronous flow of the call, captured when it began, for a request of its server that
+    /// the client handles outside that flow.
+    /// </summary>
+    internal ExecutionContext? Flow { get; private set; }
+
+    /// <summary>
+    /// The only governed call of <paramref name="serverId"/> in progress in this process, for a request
+    /// of that server that its client handles outside the call's own flow, such as a request for input
+    /// of an older protocol revision on the call's stream; <see langword="null"/> when no call or more
+    /// than one is in progress, because the request could then belong to someone else's call.
+    /// </summary>
+    internal static NhAiMcpCallContext? SoleCallOf(string serverId)
+    {
+        NhAiMcpCallContext? found = null;
+        foreach (var call in InProgress.Keys)
+        {
+            if (!string.Equals(call.ServerId, serverId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+            if (found is not null)
+            {
+                return null;
+            }
+
+            found = call;
+        }
+
+        return found;
+    }
+
     internal static IDisposable Enter(
         string serverId,
         string remoteName,
@@ -53,11 +93,14 @@ public sealed class NhAiMcpCallContext
         NhAiInvocationContext invocation)
     {
         var previous = CurrentContext.Value;
-        CurrentContext.Value = new NhAiMcpCallContext(serverId, remoteName, descriptor, invocation);
-        return new Scope(previous);
+        var context = new NhAiMcpCallContext(serverId, remoteName, descriptor, invocation);
+        CurrentContext.Value = context;
+        context.Flow = ExecutionContext.Capture();
+        InProgress.TryAdd(context, 0);
+        return new Scope(previous, context);
     }
 
-    private sealed class Scope(NhAiMcpCallContext? previous) : IDisposable
+    private sealed class Scope(NhAiMcpCallContext? previous, NhAiMcpCallContext context) : IDisposable
     {
         private bool _disposed;
 
@@ -68,6 +111,7 @@ public sealed class NhAiMcpCallContext
                 return;
             }
             _disposed = true;
+            InProgress.TryRemove(context, out _);
             CurrentContext.Value = previous;
         }
     }

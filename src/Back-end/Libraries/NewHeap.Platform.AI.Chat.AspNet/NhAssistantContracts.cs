@@ -619,6 +619,7 @@ public sealed record NhAssistantLiveEventDto(
 [JsonDerivedType(typeof(NhAssistantConnectionRequiredPartDto), "connection-required")]
 [JsonDerivedType(typeof(NhAssistantFilePartDto), "file")]
 [JsonDerivedType(typeof(NhAssistantQuestionPartDto), "question")]
+[JsonDerivedType(typeof(NhAssistantElicitationPartDto), "elicitation")]
 public abstract record NhAssistantMessagePartDto;
 
 /// <summary>
@@ -673,6 +674,94 @@ public sealed record NhAssistantConnectionRequiredPartDto(string ServerId, strin
 
 /// <summary>The data of the <c>connection.required</c> event of a turn.</summary>
 public sealed record NhAssistantConnectionRequiredDto(string ServerId, string DisplayName, string Reason);
+
+/// <summary>
+/// An administrator-connected MCP server asked the person of the turn for input while its tool ran
+/// (MCP elicitation), and the tool call waits for the answer. <paramref name="Message"/> is the
+/// server's own text: show it as the server's, never as the assistant's. Only the
+/// <paramref name="AddresseeActorId"/> answers, with
+/// <c>POST conversations/{id}/elicitations/{elicitationId}/answer</c>; the answer goes to the server that
+/// asked and is never stored. The turn's stream carries <c>elicitation.requested</c> and
+/// <c>elicitation.closed</c> with this part.
+/// </summary>
+/// <param name="ElicitationId">The request; the answer names it.</param>
+/// <param name="InvocationId">The tool call that waits for it.</param>
+/// <param name="ServerId">The server that asks.</param>
+/// <param name="ServerName">The server's display name, who receives the answer.</param>
+/// <param name="Mode"><c>form</c>: the person enters <paramref name="Fields"/>; <c>url</c>: the person
+/// opens <see cref="Url"/> themselves and says when they are done.</param>
+/// <param name="Message">The server's message, at most 1,000 characters.</param>
+/// <param name="AddresseeActorId">The person whose turn it is, who alone answers.</param>
+/// <param name="ExpiresAt">The end of the wait, never later than the tool call's own timeout.</param>
+/// <param name="Status"><c>pending</c>, <c>accepted</c>, <c>declined</c>, <c>cancelled</c> or
+/// <c>expired</c>.</param>
+/// <param name="Fields">What a form asks for; empty for <c>url</c>.</param>
+public sealed record NhAssistantElicitationPartDto(
+    Guid ElicitationId,
+    Guid InvocationId,
+    string ServerId,
+    string ServerName,
+    string Mode,
+    string Message,
+    string AddresseeActorId,
+    DateTimeOffset ExpiresAt,
+    string Status,
+    IReadOnlyList<NhAssistantElicitationFieldDto> Fields) : NhAssistantMessagePartDto
+{
+    /// <summary>
+    /// The https page of a <c>url</c> request. Never open it automatically: show it with
+    /// <see cref="UrlHost"/> and let the person open it.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Url { get; init; }
+
+    /// <summary>The host of <see cref="Url"/>, which the person checks before opening it.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? UrlHost { get; init; }
+
+    /// <summary>When it was answered, declined, cancelled or expired; only sent then.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? ClosedAt { get; init; }
+}
+
+/// <summary>
+/// One value a form of an MCP server asks for.
+/// </summary>
+/// <param name="Name">The property name the server receives the value under.</param>
+/// <param name="Type"><c>string</c>, <c>number</c>, <c>integer</c>, <c>boolean</c> or <c>enum</c>.</param>
+/// <param name="Title">The field's label, the server's text.</param>
+public sealed record NhAssistantElicitationFieldDto(string Name, string Type, string Title, bool Required)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MinLength { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxLength { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Minimum { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Maximum { get; init; }
+
+    /// <summary>The values of an <c>enum</c> field, in order.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<NhAssistantElicitationOptionDto>? Options { get; init; }
+}
+
+/// <summary>One value of an <c>enum</c> field: what the server receives and what the person reads.</summary>
+public sealed record NhAssistantElicitationOptionDto(string Value, string Label);
+
+/// <summary>
+/// Body of <c>POST conversations/{id}/elicitations/{elicitationId}/answer</c>.
+/// </summary>
+/// <param name="Action"><c>accept</c>, <c>decline</c> or <c>cancel</c>. For <c>url</c>, <c>accept</c>
+/// says the person finished the server's page.</param>
+/// <param name="Content">The values of an accepted form, by field name; nothing for any other answer.</param>
+public sealed record NhAssistantAnswerElicitationRequest(string? Action, IReadOnlyDictionary<string, JsonElement>? Content);
 
 public sealed record NhAssistantTextPartDto(string Text) : NhAssistantMessagePartDto;
 
@@ -1019,6 +1108,7 @@ public sealed record NhAssistantTurnCompletedDto(
 [JsonSerializable(typeof(NhAssistantClientContextDto))]
 [JsonSerializable(typeof(NhAssistantDecideApprovalRequest))]
 [JsonSerializable(typeof(NhAssistantAnswerQuestionRequest))]
+[JsonSerializable(typeof(NhAssistantAnswerElicitationRequest))]
 [JsonSerializable(typeof(NhAssistantErrorDto))]
 [JsonSerializable(typeof(NhAssistantTurnStartedDto))]
 [JsonSerializable(typeof(NhAssistantMessageDeltaDto))]

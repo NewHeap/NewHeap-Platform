@@ -277,6 +277,36 @@
       "expired": "Nobody answered in time.",
       "cancelled": "The question was withdrawn when the task was stopped."
     },
+    "elicitation": {
+      "title": "Request from {{server}}",
+      "status": {
+        "pending": "Waiting for you",
+        "accepted": "Answered",
+        "declined": "Declined",
+        "cancelled": "Cancelled",
+        "expired": "Expired"
+      },
+      "from": "{{server}} asks, not the assistant:",
+      "host": "Opens a page on {{host}}",
+      "open": "Open {{host}}",
+      "choose": "Choose",
+      "invalid": "Fill in this field as asked.",
+      "asked": "Asked for",
+      "recipient": "Your answer goes to {{server}} only. It is not stored and the assistant does not read it.",
+      "submit": "Send to {{server}}",
+      "decline": "Decline",
+      "cancel": "Cancel",
+      "done": "I am done",
+      "expires-in": "Answer within {{time}}",
+      "answering": "Sending your answer",
+      "waiting": "Waiting for the person whose turn it is.",
+      "outcome": {
+        "accepted": "{{server}} received the answer.",
+        "declined": "The request of {{server}} was declined.",
+        "cancelled": "The request of {{server}} was cancelled.",
+        "expired": "Nobody answered {{server}} in time."
+      }
+    },
     "proposal-feedback": {
       "legend": "What was wrong? (optional)",
       "bulk": "Applies to the {{count}} proposals you rejected.",
@@ -590,6 +620,10 @@
       "assistant-question-expired": "Nobody answered this question in time. Send your message again to continue.",
       "assistant-question-cancelled": "The question was withdrawn when the task was stopped.",
       "assistant-question-answer-invalid": "Choose one of the answers of the question.",
+      "assistant-elicitation-not-found": "The request for input was not found.",
+      "assistant-elicitation-not-pending": "The request for input no longer waits for an answer.",
+      "assistant-elicitation-forbidden": "Only the person whose turn it is answers this request.",
+      "assistant-elicitation-answer-invalid": "The answer does not fit the request. Check the fields and try again.",
       "assistant-step-tool-unavailable": "A step named a tool that is not available here.",
       "assistant-step-limit-reached": "The call ran as many steps as it may.",
       "assistant-step-mutation-limit-reached": "The call ran as many changing steps as it may.",

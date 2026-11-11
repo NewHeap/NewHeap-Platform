@@ -126,6 +126,14 @@ internal sealed class NhAssistantConversationReader(
                         when part is { ServerId: { } serverId, DisplayName: { } serverName, Reason: { } reason }:
                         parts.Add(new NhAssistantConnectionRequiredPartView(serverId, serverName, reason));
                         break;
+                    // A server's request for input waits only while its turn runs; once the turn ended
+                    // without closing it, it reads as expired.
+                    case NhAssistantStoredPart.ElicitationType
+                        when NhAssistantElicitationView.From(
+                            part,
+                            conversation.Status == NhAssistantConversationStatuses.Running ? now : DateTimeOffset.MaxValue) is { } elicitation:
+                        parts.Add(elicitation);
+                        break;
                     // A person's attachments show by name, type and size; the files a tool returned
                     // stay named in that call's result, which follows the viewer's rights to it.
                     case NhAssistantStoredPart.FileType

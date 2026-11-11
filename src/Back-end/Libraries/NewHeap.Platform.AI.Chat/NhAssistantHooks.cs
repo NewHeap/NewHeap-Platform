@@ -631,7 +631,27 @@ public enum NhAssistantAuditEventKind
     /// proposal and <c>ResultCode</c> <c>assistant-proposal-withdrawn-by-administrator</c>; the reason is
     /// stored with the proposal and never recorded here.
     /// </summary>
-    AdminProposalWithdrawn = 138
+    AdminProposalWithdrawn = 138,
+
+    /// <summary>
+    /// An administrator-connected MCP server asked the person of a chat turn for input while its tool ran
+    /// (MCP elicitation), and the tool call waits for the answer. <see cref="NhAssistantAuditEvent.ObjectId"/>
+    /// is the server, <see cref="NhAssistantAuditEvent.ToolId"/> and <see cref="NhAssistantAuditEvent.InvocationId"/>
+    /// the call, <see cref="NhAssistantAuditEvent.ActorId"/> the person who is asked and
+    /// <see cref="NhAssistantAuditEvent.ResultCode"/> the mode, <c>form</c> or <c>url</c>. Never the server's
+    /// message, the fields or the link.
+    /// </summary>
+    McpElicitationRequested = 160,
+
+    /// <summary>
+    /// A request for input of an MCP server closed, with the server, call and person of
+    /// <see cref="McpElicitationRequested"/>; <see cref="NhAssistantAuditEvent.ResultCode"/> is
+    /// <c>&lt;mode&gt;-&lt;outcome&gt;</c>, such as <c>form-accepted</c>, <c>url-cancelled</c> or
+    /// <c>form-expired</c>, and <c>form-unanswerable</c> or <c>url-unsupported</c> for a request that was
+    /// declined without asking anyone because no person can answer or the chat cannot show it. Never the
+    /// answer.
+    /// </summary>
+    McpElicitationClosed = 161
 }
 
 /// <summary>

@@ -1,5 +1,5 @@
 import { Pipe, PipeTransform } from '@angular/core';
-import { ApprovalPart, ConnectionRequiredPart, FilePart, MessagePart, QuestionPart, TextPart, ToolCallPart } from '../models/assistant-api.models';
+import { ApprovalPart, ConnectionRequiredPart, ElicitationPart, FilePart, MessagePart, QuestionPart, TextPart, ToolCallPart } from '../models/assistant-api.models';
 
 /**
  * A message part as the thread renders it: consecutive tool calls form one group, and so do
@@ -9,6 +9,7 @@ export type NhAssistantPartGroup =
   | { kind: 'text'; key: string; part: TextPart }
   | { kind: 'approval'; key: string; part: ApprovalPart }
   | { kind: 'question'; key: string; part: QuestionPart }
+  | { kind: 'elicitation'; key: string; part: ElicitationPart }
   | { kind: 'connection'; key: string; part: ConnectionRequiredPart }
   | { kind: 'tools'; key: string; calls: ToolCallPart[] }
   | { kind: 'files'; key: string; files: FilePart[] };
@@ -49,6 +50,8 @@ export function groupNhAssistantParts(parts: readonly MessagePart[]): NhAssistan
       groups.push({ kind: 'approval', key: `approval:${part.approvalId}`, part });
     } else if (part.type === 'question') {
       groups.push({ kind: 'question', key: `question:${part.questionId}`, part });
+    } else if (part.type === 'elicitation') {
+      groups.push({ kind: 'elicitation', key: `elicitation:${part.elicitationId}`, part });
     } else if (part.type === 'connection-required') {
       groups.push({ kind: 'connection', key: `connection:${part.serverId}:${index}`, part });
     } else {

@@ -1,5 +1,5 @@
 import { AgentTriggerReceipt } from './assistant-agent-run.models';
-import { ApprovalPart, ConnectionRequiredReason, QuestionPart, ToolResultPresentation } from './assistant-api.models';
+import { ApprovalPart, ConnectionRequiredReason, ElicitationPart, QuestionPart, ToolResultPresentation } from './assistant-api.models';
 
 /*
  * Server-sent events of an assistant turn.
@@ -47,6 +47,12 @@ export type QuestionAskedEvent = QuestionPart;
 /** The addressee answered the question; the turn continues with the answer. */
 export type QuestionAnsweredEvent = QuestionPart;
 
+/** An MCP server asked the person of the turn for input while its tool runs; the call waits. */
+export type ElicitationRequestedEvent = ElicitationPart;
+
+/** The request for input was answered, declined, cancelled or expired; the call continues. */
+export type ElicitationClosedEvent = ElicitationPart;
+
 /** The person who asked has to connect an MCP server before the agent can use it. */
 export interface ConnectionRequiredEvent {
   serverId: string;
@@ -90,6 +96,8 @@ export interface NhAssistantSseEventMap {
   'approval.required': ApprovalRequiredEvent;
   'question.asked': QuestionAskedEvent;
   'question.answered': QuestionAnsweredEvent;
+  'elicitation.requested': ElicitationRequestedEvent;
+  'elicitation.closed': ElicitationClosedEvent;
   'connection.required': ConnectionRequiredEvent;
   'turn.completed': TurnCompletedEvent;
   'error': AssistantErrorEvent;
@@ -116,6 +124,8 @@ export const NH_ASSISTANT_SSE_EVENT_TYPES: readonly NhAssistantSseEventType[] = 
   'approval.required',
   'question.asked',
   'question.answered',
+  'elicitation.requested',
+  'elicitation.closed',
   'connection.required',
   'turn.completed',
   'error'

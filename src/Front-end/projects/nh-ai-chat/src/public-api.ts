@@ -46,6 +46,7 @@ export * from './lib/components/tool-result/nh-assistant-tool-result-renderers';
 export * from './lib/components/tool-result/nh-assistant-tool-result-card.component';
 export * from './lib/components/tool-result/nh-assistant-tool-result.component';
 export * from './lib/components/question-card/nh-assistant-question-card.component';
+export * from './lib/components/elicitation-card/nh-assistant-elicitation-card.component';
 export * from './lib/components/proposal-feedback/nh-assistant-proposal-feedback.component';
 export * from './lib/components/agent-picker/nh-assistant-agent-picker.component';
 export * from './lib/components/preferences/nh-assistant-preferences.component';

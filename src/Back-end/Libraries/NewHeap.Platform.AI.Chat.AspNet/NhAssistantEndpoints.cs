@@ -134,6 +134,15 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        enabled.MapPost("conversations/{id:guid}/elicitations/{elicitationId:guid}/answer", AnswerElicitationAsync)
+            .WithName("NhAssistantAnswerElicitation")
+            .WithSummary("Answer an MCP server's request for input")
+            .WithDescription("Answers the request for input (MCP elicitation) of an administrator-connected MCP server whose tool the caller's running turn calls: action accept with the form's values in content, decline or cancel; for a url request, accept says the caller finished the server's page, which the client never opens by itself. The answer goes to the server that asked, through the waiting tool call, and is never stored; the turn's own stream continues. Only the person whose turn it is answers (403 assistant-elicitation-forbidden). Values that do not fit the fields, or an unknown action, answer 400 assistant-elicitation-answer-invalid. A request that was answered, whose wait ended, whose turn was stopped or whose call runs in another process of the application answers 409 assistant-elicitation-not-pending.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         enabled.MapPost("conversations/{id:guid}/cancel", CancelAsync)
             .WithName("NhAssistantCancelTurn")
             .WithSummary("Cancel a turn")
@@ -743,6 +752,43 @@ public static class NhAssistantEndpointRouteBuilderExtensions
         return started.Success
             ? new NhAssistantServerSentEventsResult(started.Data)
             : FromFailure(started);
+    }
+
+    /// <summary>
+    /// Hands the caller's answer to the MCP server's request for input that their running turn waits
+    /// for; the answer is never stored.
+    /// </summary>
+    private static async Task<IResult> AnswerElicitationAsync(
+        Guid id,
+        Guid elicitationId,
+        HttpContext httpContext,
+        NhAssistantElicitationAnswerService answers)
+    {
+        var caller = await ResolveCallerAsync(httpContext);
+        if (!caller.Success)
+        {
+            return ContextUnavailable();
+        }
+        var request = await ReadBodyAsync(httpContext, NhAssistantJsonSerializerContext.Default.NhAssistantAnswerElicitationRequest);
+        if (request is null)
+        {
+            return Error(NhAssistantErrorCodes.ElicitationAnswerInvalid);
+        }
+        var resolved = await ResolveAccessAsync(httpContext, id, caller.Data, NhAssistantAgentCheck.Everyone);
+        if (resolved.Error is not null)
+        {
+            return resolved.Error;
+        }
+
+        var answered = await answers.AnswerAsync(
+            id,
+            elicitationId,
+            caller.Data.ActorId,
+            caller.Data.TenantId,
+            request.Action,
+            request.Content,
+            httpContext.RequestAborted);
+        return answered.Success ? Results.NoContent() : FromFailure(answered);
     }
 
     /// <summary>
