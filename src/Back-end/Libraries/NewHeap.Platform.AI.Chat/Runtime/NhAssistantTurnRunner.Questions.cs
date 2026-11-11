@@ -212,6 +212,7 @@ internal sealed partial class NhAssistantTurnRunner
         var clientContext = NhAssistantClientContext.FromStorage(userMessage?.ClientContextJson);
         var speakers = await LoadSpeakersAsync(conversation, access.ActorId, request.Language);
         var state = await CreateStateAsync(conversation, effectiveAgent, invocation.TurnId, userMessageId, request.CallerContext, request.Language, clientContext, speakers, events, channel: request.Channel, chatSubject: chatSubject);
+        state.ClientTools = request.ClientTools;
         var interceptor = CreateInterceptor(state);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(invocation.TurnId, userMessageId, state.AssistantMessageId));
 

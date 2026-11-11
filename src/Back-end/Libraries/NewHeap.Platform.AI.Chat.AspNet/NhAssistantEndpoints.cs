@@ -133,6 +133,15 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
+        enabled.MapPost("conversations/{id:guid}/client-tools/{invocationId:guid}/result", ReportClientToolAsync)
+            .WithName("NhAssistantReportClientTool")
+            .WithSummary("Report a client tool's result")
+            .WithDescription("Reports what the browser's handler of a client tool (AddClientTool) did, after the client-tool.requested event of the caller's own turn, and streams the resumed turn: the report is the result of the agent's call, data from the browser, and the turn continues with the caller's rights. Only the person whose turn called the tool reports (403 assistant-client-tool-forbidden for another person of the conversation). A call that already has its result or whose turn was stopped answers 409 assistant-client-tool-not-pending; one whose wait (ClientToolLifetime) ended answers 409 assistant-client-tool-expired and releases the conversation; a status other than completed, declined, unavailable and failed, an outcome or id out of bounds, or data the tool does not declare answers 400 assistant-client-tool-result-invalid. Agent threads call no client tools.")
+            .Produces(StatusCodes.Status200OK, contentType: "text/event-stream")
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound)
+            .Produces<NhAssistantErrorDto>(StatusCodes.Status409Conflict);
         enabled.MapPost("conversations/{id:guid}/cancel", CancelAsync)
             .WithName("NhAssistantCancelTurn")
             .WithSummary("Cancel a turn")
@@ -448,7 +457,8 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             {
                 AgentTurn = agentTurn,
                 Files = files,
-                Person = outlives ? NhAiPersonInvocations.FromRequest(httpContext, caller.Data) : null
+                Person = outlives ? NhAiPersonInvocations.FromRequest(httpContext, caller.Data) : null,
+                ClientTools = ClientToolsOf(httpContext, request.ClientTools)
             },
             httpContext.RequestAborted);
         if (!started.Success
@@ -685,7 +695,8 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                 AgentTurn = agentTurn,
                 PolicyAuthorized = agentTurn is not null && askerDecision.Approval is null,
                 LeaveForApprovers = request.Decision == "leave",
-                Person = outlives ? NhAiPersonInvocations.FromRequest(httpContext, caller.Data) : null
+                Person = outlives ? NhAiPersonInvocations.FromRequest(httpContext, caller.Data) : null,
+                ClientTools = ClientToolsOf(httpContext, request.ClientTools)
             },
             httpContext.RequestAborted);
         return started.Success
@@ -733,12 +744,74 @@ public static class NhAssistantEndpointRouteBuilderExtensions
                 outlives ? CancellationToken.None : httpContext.RequestAborted,
                 RequestLanguage(httpContext))
             {
-                Person = outlives ? NhAiPersonInvocations.FromRequest(httpContext, caller.Data) : null
+                Person = outlives ? NhAiPersonInvocations.FromRequest(httpContext, caller.Data) : null,
+                ClientTools = ClientToolsOf(httpContext, request.ClientTools)
             },
             httpContext.RequestAborted);
         return started.Success
             ? new NhAssistantServerSentEventsResult(started.Data)
             : FromFailure(started);
+    }
+
+    /// <summary>
+    /// Reports what the browser of the person whose turn called a client tool did and streams the resumed
+    /// turn.
+    /// </summary>
+    private static async Task<IResult> ReportClientToolAsync(
+        Guid id,
+        Guid invocationId,
+        HttpContext httpContext,
+        INhAssistantTurnRunner runner)
+    {
+        var caller = await ResolveCallerAsync(httpContext);
+        if (!caller.Success)
+        {
+            return ContextUnavailable();
+        }
+        var request = await ReadBodyAsync(httpContext, NhAssistantJsonSerializerContext.Default.NhAssistantClientToolResultRequest);
+        if (request is null)
+        {
+            return Error(NhAssistantErrorCodes.ClientToolResultInvalid);
+        }
+        var resolved = await ResolveAccessAsync(httpContext, id, caller.Data, NhAssistantAgentCheck.Everyone);
+        if (resolved.Error is not null)
+        {
+            return resolved.Error;
+        }
+        if (ThreadAccessOf(httpContext) is not null)
+        {
+            // Client tools run in people's chats only.
+            return Error(NhAssistantErrorCodes.ClientToolNotFound);
+        }
+
+        var outlives = KeepsTurnAfterDisconnect(httpContext);
+        var started = await runner.StartClientToolResultTurnAsync(
+            new NhAssistantClientToolResultTurnRequest(
+                id,
+                caller.Data,
+                invocationId,
+                request.Status,
+                request.Outcome,
+                request.Id,
+                request.Data,
+                outlives ? CancellationToken.None : httpContext.RequestAborted,
+                RequestLanguage(httpContext))
+            {
+                Person = outlives ? NhAiPersonInvocations.FromRequest(httpContext, caller.Data) : null,
+                ClientTools = ClientToolsOf(httpContext, request.ClientTools)
+            },
+            httpContext.RequestAborted);
+        return started.Success
+            ? new NhAssistantServerSentEventsResult(started.Data)
+            : FromFailure(started);
+    }
+
+    /// <summary>
+    /// The client tools the request's browser declares it can run, among those the application declared.
+    /// </summary>
+    private static IReadOnlySet<string> ClientToolsOf(HttpContext httpContext, IReadOnlyList<string>? declared)
+    {
+        return httpContext.RequestServices.GetRequiredService<NhAssistantRegistrationState>().KnownClientTools(declared);
     }
 
     /// <summary>

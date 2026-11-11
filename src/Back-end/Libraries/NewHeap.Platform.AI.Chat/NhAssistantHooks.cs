@@ -631,7 +631,29 @@ public enum NhAssistantAuditEventKind
     /// proposal and <c>ResultCode</c> <c>assistant-proposal-withdrawn-by-administrator</c>; the reason is
     /// stored with the proposal and never recorded here.
     /// </summary>
-    AdminProposalWithdrawn = 138
+    AdminProposalWithdrawn = 138,
+
+    /// <summary>
+    /// The agent called a client tool in a person's chat and the turn waits for that person's browser to
+    /// run it in the application's own interface. <see cref="NhAssistantAuditEvent.ToolId"/> is the tool,
+    /// <see cref="NhAssistantAuditEvent.InvocationId"/> the call and <see cref="NhAssistantAuditEvent.ObjectId"/>
+    /// the person whose browser runs it. Never the arguments.
+    /// </summary>
+    ClientToolRequested = 139,
+
+    /// <summary>
+    /// The browser reported the result of a client tool and the turn continued.
+    /// <see cref="NhAssistantAuditEvent.ActorId"/> is the person, <see cref="NhAssistantAuditEvent.InvocationId"/>
+    /// the call and <see cref="NhAssistantAuditEvent.ResultCode"/> the reported status: <c>completed</c>,
+    /// <c>declined</c>, <c>unavailable</c> or <c>failed</c>. Never the outcome, the id or the data.
+    /// </summary>
+    ClientToolCompleted = 140,
+
+    /// <summary>
+    /// A client tool call expired without a result, found when the browser reported too late or a new
+    /// message came. <see cref="NhAssistantAuditEvent.ResultCode"/> is <c>assistant-client-tool-expired</c>.
+    /// </summary>
+    ClientToolExpired = 141
 }
 
 /// <summary>

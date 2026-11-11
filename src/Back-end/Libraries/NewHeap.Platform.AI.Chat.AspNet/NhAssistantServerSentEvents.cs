@@ -129,6 +129,9 @@ internal sealed class NhAssistantServerSentEventsResult(NhAssistantTurnHandle ha
             NhAssistantQuestionAnsweredEvent answered => ("question.answered", Json(
                 NhAssistantDtoMapper.ToDto(answered.Question),
                 context.NhAssistantMessagePartDto)),
+            NhAssistantClientToolRequestedEvent requested => ("client-tool.requested", Json(
+                NhAssistantDtoMapper.ToDto(requested.ClientTool) with { Arguments = requested.Arguments },
+                context.NhAssistantClientToolDto)),
             NhAssistantConnectionRequiredEvent connection => ("connection.required", Json(
                 new NhAssistantConnectionRequiredDto(connection.ServerId, connection.DisplayName, connection.Reason),
                 context.NhAssistantConnectionRequiredDto)),
@@ -277,7 +280,25 @@ internal static class NhAssistantDtoMapper
             thread)
         {
             PendingQuestion = view.PendingQuestion is null ? null : ToDto(view.PendingQuestion),
+            PendingClientTool = view.PendingClientTool is null ? null : ToDto(view.PendingClientTool),
             Subject = ToDto(view.Subject)
+        };
+    }
+
+    /// <summary>
+    /// A client tool call without its arguments, which only the stream of its person's own request carries.
+    /// </summary>
+    public static NhAssistantClientToolDto ToDto(NhAssistantClientToolView clientTool)
+    {
+        ArgumentNullException.ThrowIfNull(clientTool);
+        return new NhAssistantClientToolDto(
+            clientTool.InvocationId,
+            clientTool.ToolId,
+            clientTool.ActorId,
+            clientTool.ExpiresAt,
+            clientTool.Status)
+        {
+            ClosedAt = clientTool.ClosedAt
         };
     }
 

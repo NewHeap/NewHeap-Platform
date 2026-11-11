@@ -438,9 +438,10 @@ internal sealed partial class NhAssistantTurnRunner(
         if (pending is null)
         {
             // Cancelling rejects the proposal of a consultation the person would decide here, and
-            // closes the question the turn waits for (LS21).
+            // closes the question (LS21) or the client tool call the turn waits for.
             await RejectAskerDecisionAsync(conversation, access.ActorId, cancellationToken);
             await CancelWaitingQuestionAsync(conversation, cancellationToken);
+            await CancelWaitingClientToolAsync(conversation, cancellationToken);
         }
         if (pending is not null
             && await store.TryDecideApprovalAsync(
@@ -1991,6 +1992,7 @@ internal sealed partial class NhAssistantTurnRunner(
 
         var speakers = await LoadSpeakersAsync(conversation, access.ActorId, request.Language);
         var state = await CreateStateAsync(conversation, effectiveAgent, turnId, userMessage.Id, request.CallerContext, request.Language, request.ClientContext, speakers, events, request.AgentTurn, channel: request.Channel, chatSubject: chatSubject, clock: clock);
+        state.ClientTools = request.ClientTools;
         await state.EmitAsync(new NhAssistantTurnStartedEvent(turnId, userMessage.Id, state.AssistantMessageId));
 
         var toolCallsToday = await store.GetToolCallsAsync(
@@ -2179,6 +2181,7 @@ internal sealed partial class NhAssistantTurnRunner(
             : request.CallerContext;
         var speakers = await LoadSpeakersAsync(conversation, callerContext.ActorId, request.Language);
         var state = await CreateStateAsync(conversation, effectiveAgent, approval.TurnId, userMessageId, callerContext, request.Language, clientContext, speakers, events, request.AgentTurn, channel: request.Channel, chatSubject: chatSubject);
+        state.ClientTools = request.ClientTools;
         var interceptor = CreateInterceptor(state);
         await state.EmitAsync(new NhAssistantTurnStartedEvent(approval.TurnId, userMessageId, state.AssistantMessageId));
 
@@ -3524,6 +3527,7 @@ internal sealed partial class NhAssistantTurnRunner(
             // A consultation's selection only narrows the agent's tools, consultation tools included.
             .Where(descriptor => consultation is null || IsSelectedInConsultation(consultation, descriptor))
             .Where(descriptor => descriptor.Effect == NhAiToolEffect.ReadOnly || offersEffects)
+            .Where(descriptor => !NhAssistantClientToolCatalog.IsClientTool(descriptor) || OffersClientTool(state, descriptor, offersEffects))
             .Where(descriptor => IsOfferedInConsultation(descriptor, consultation))
             // An agent never consults itself.
             .Where(descriptor => !string.Equals(
@@ -3554,6 +3558,21 @@ internal sealed partial class NhAssistantTurnRunner(
             .Order(StringComparer.Ordinal)
             .ToArray();
         return (selected, withheld);
+    }
+
+    /// <summary>
+    /// Whether the turn offers a client tool: only where its person's browser can run it
+    /// (<see cref="NhAssistantTurnState.AcceptsClientTool"/>), and a tool that hands a change to the person
+    /// only where the agent's model is offered changes, as it would be offered the proposal of that change.
+    /// </summary>
+    private bool OffersClientTool(NhAssistantTurnState state, NhAiToolDescriptor descriptor, bool offersEffects)
+    {
+        if (!state.AcceptsClientTool(descriptor.Id) || !registration.TryGetClientTool(descriptor.Id, out var tool))
+        {
+            return false;
+        }
+
+        return !tool.HandsOffChange || offersEffects;
     }
 
     /// <summary>

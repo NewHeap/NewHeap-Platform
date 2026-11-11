@@ -134,9 +134,36 @@ internal sealed class NhAssistantTurnState
     public NhAssistantAskedQuestion? AskedQuestion { get; set; }
 
     /// <summary>
-    /// Whether the turn waits for a person: an inline approval or a question.
+    /// The client tool call this turn waits for, which its person's browser runs; set once the call was
+    /// recorded.
     /// </summary>
-    public bool WaitsForPerson => PendingApproval is not null || PendingQuestion is not null;
+    public NhAssistantClientToolView? PendingClientTool { get; set; }
+
+    /// <summary>
+    /// The client tools the browser of the request that carries the turn can run, among those the
+    /// application declared (<see cref="NhAssistantBuilder.AddClientTool{TInput}"/>); empty for a turn no
+    /// browser carries.
+    /// </summary>
+    public IReadOnlySet<string> ClientTools { get; set; } = new HashSet<string>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Whether the turn may hand <paramref name="toolId"/> to its person's browser: a person's own chat
+    /// turn, not an agent's thread, a rule turn, a consultation or a turn of an application's channel,
+    /// whose browser declared the tool's handler.
+    /// </summary>
+    public bool AcceptsClientTool(string toolId)
+    {
+        return AgentTurn is null
+            && Scope.Consultation is null
+            && !RuleTurn
+            && Scope.Channel is null
+            && ClientTools.Contains(toolId);
+    }
+
+    /// <summary>
+    /// Whether the turn waits for a person: an inline approval, a question or a client tool.
+    /// </summary>
+    public bool WaitsForPerson => PendingApproval is not null || PendingQuestion is not null || PendingClientTool is not null;
 
     /// <summary>
     /// The run settings of the agent in a person's chat that offers its skills or questions
@@ -382,6 +409,16 @@ internal sealed class NhAssistantTurnState
         Events.TryWrite(evt);
         return Broadcast?.Invoke(evt) ?? ValueTask.CompletedTask;
     }
+
+    /// <summary>
+    /// Writes <paramref name="own"/> to the stream of the request that carries the turn only, and shares
+    /// <paramref name="shared"/> with the other sessions and participants instead.
+    /// </summary>
+    public ValueTask EmitAsync(NhAssistantTurnEvent own, NhAssistantTurnEvent shared)
+    {
+        Events.TryWrite(own);
+        return Broadcast?.Invoke(shared) ?? ValueTask.CompletedTask;
+    }
 }
 
 /// <summary>
@@ -575,8 +612,10 @@ internal sealed class NhAssistantToolCallInterceptor(
     {
         var descriptor = request.Descriptor;
         var step = request.Step;
-        if (state.ToolsDisabled)
+        if (state.ToolsDisabled || state.PendingClientTool is not null)
         {
+            // Once the turn waits for its person's browser, no further call of the same answer runs: the
+            // turn continues with the browser's report.
             return NhAssistantCallOutcome.Refused(Refusal(ToolsDisabledCode), ToolsDisabledCode, terminate: true);
         }
         if (state.TokenAllowanceUsed)
@@ -630,6 +669,12 @@ internal sealed class NhAssistantToolCallInterceptor(
             displayName,
             cancellationToken,
             step);
+        if (NhAssistantClientToolCatalog.IsClientTool(descriptor))
+        {
+            // A client tool runs in the person's browser: the turn hands it over and waits, or it is not
+            // available here at all.
+            return await CallClientToolAsync(descriptor, row, request, cancellationToken);
+        }
 
         // A run's call that names another object than the run's own is checked against that object
         // before it runs, and runs in that object's scope (K11, K12).
@@ -2460,6 +2505,143 @@ internal sealed class NhAssistantToolCallInterceptor(
             },
             cancellationToken);
         return NhAssistantQuestions.WaitingResult();
+    }
+
+    /// <summary>
+    /// Runs a client tool call (<see cref="NhAssistantBuilder.AddClientTool{TInput}"/>). Where the turn cannot
+    /// hand it to its person's browser, the call ends at once as not executed with
+    /// <see cref="NhAssistantErrorCodes.ClientToolUnavailable"/>, without running the governed function:
+    /// in a step of a composition or script, in a turn that is not a person's own chat in the browser, for a
+    /// browser without the tool's handler, and while the turn already waits for the person. Otherwise the
+    /// governed function runs through the shared invoker, which authorizes, budgets and audits it as any
+    /// read, and only a call it allowed waits for the browser.
+    /// </summary>
+    private async Task<NhAssistantCallOutcome> CallClientToolAsync(
+        NhAiToolDescriptor descriptor,
+        AssistantToolInvocation row,
+        NhAssistantCallRequest request,
+        CancellationToken cancellationToken)
+    {
+        var handsOffChange = registration?.TryGetClientTool(descriptor.Id, out var tool) == true && tool.HandsOffChange;
+        var unavailable = request.Step is not null
+            ? "Client tools do not run as a step of a composition or script."
+            : !state.AcceptsClientTool(descriptor.Id)
+                || (handsOffChange && !NhAssistantTurnRunner.OffersEffects(state.Scope.Agent, state.Scope.Consultation))
+                ? "This tool is not available in this client: it runs only in a person's own chat, in a browser that can run it."
+                : state.WaitsForPerson
+                    ? "The turn already waits for the person."
+                    : null;
+        if (unavailable is not null)
+        {
+            var refused = NhAssistantClientTools.Unavailable(unavailable);
+            row.Status = NhAssistantToolCallStatuses.NotExecuted;
+            row.ResultCode = NhAssistantErrorCodes.ClientToolUnavailable;
+            row.ResultJson = NhAssistantContent.SerializeResult(refused);
+            row.CompletedAt = DateTimeOffset.UtcNow;
+            if (state.Scope.Consultation is null)
+            {
+                await store.UpdateToolInvocationAsync(row, cancellationToken);
+                await EmitCompletedAsync(row, NhAssistantContent.ResultPreview(row.ResultJson, row.DataClassification));
+            }
+
+            return NhAssistantCallOutcome.Failed(refused, NhAssistantErrorCodes.ClientToolUnavailable, row.Id);
+        }
+
+        var execution = await ExecuteAsync(
+            descriptor,
+            row,
+            null,
+            null,
+            request.Invoke,
+            cancellationToken,
+            logger,
+            this);
+        if (execution.Outcome.Kind == NhAssistantToolOutcomeKind.Succeeded
+            && NhAssistantClientTools.ArgumentsOf(execution.Result) is { } arguments)
+        {
+            return new NhAssistantCallOutcome(
+                await AwaitClientAsync(row, execution, arguments, cancellationToken),
+                NhAssistantToolStepStatus.AwaitingApproval)
+            {
+                Terminate = true,
+                InvocationId = row.Id
+            };
+        }
+
+        // The gate, the budget or the input refused it: the call ends as any refused call. A client tool
+        // never becomes a proposal, so an application policy that asks for an approval refuses it.
+        var failed = execution.Outcome.Kind == NhAssistantToolOutcomeKind.Failed
+            ? execution
+            : execution with
+            {
+                Result = NhAiToolResult.Failed(NhAssistantErrorCodes.ClientToolUnavailable, null),
+                Outcome = new NhAssistantToolOutcome(NhAssistantToolOutcomeKind.Failed, NhAssistantErrorCodes.ClientToolUnavailable)
+            };
+        await CompleteToolCallAsync(row, failed, cancellationToken);
+        if (state.Scope.BudgetExhausted)
+        {
+            state.ToolBudgetExhausted = true;
+        }
+
+        return new NhAssistantCallOutcome(failed.Result, NhAssistantToolStepStatus.Failed)
+        {
+            Terminate = state.Scope.BudgetExhausted,
+            Code = failed.Outcome.Code,
+            InvocationId = row.Id
+        };
+    }
+
+    /// <summary>
+    /// Lets the turn wait for its person's browser to run the client tool: the call waits as
+    /// <c>awaiting-client</c>, the agent's message keeps whose browser runs it and the end of its wait on the
+    /// application's clock, the stream of the person's own request receives the bound arguments, the other
+    /// sessions and participants see that the person's app runs it, and the audit records it without the
+    /// arguments.
+    /// </summary>
+    private async Task<object?> AwaitClientAsync(
+        AssistantToolInvocation row,
+        NhAssistantToolExecution execution,
+        JsonElement arguments,
+        CancellationToken cancellationToken)
+    {
+        var now = _applicationClock.GetUtcNow();
+        row.Status = NhAssistantToolCallStatuses.AwaitingClient;
+        row.ResultCode = null;
+        row.ResultJson = null;
+        if (execution.Call.AuditRecords.Count > 0 && execution.Call.AuditRecords[^1].GrantSource != NhAiGrantSource.None)
+        {
+            row.GrantSource = execution.Call.AuditRecords[^1].GrantSource;
+        }
+        await store.UpdateToolInvocationAsync(row, cancellationToken);
+
+        var actorId = state.Scope.OwnerActorId;
+        var part = NhAssistantClientTools.PartOf(row.Id, actorId, now.Add(state.Scope.Limits.ClientToolLifetime));
+        var view = NhAssistantClientTools.ViewOf(part, row, now)
+            ?? throw new InvalidOperationException("A recorded client tool call has no view.");
+        state.PendingClientTool = view;
+        state.AddPart(part);
+        await FlushAsync(cancellationToken);
+        await state.EmitAsync(
+            new NhAssistantClientToolRequestedEvent(view) { Arguments = arguments },
+            new NhAssistantClientToolRequestedEvent(view));
+        await RecordBusinessEventAsync(
+            new NhAssistantAuditEvent(
+                NhAssistantAuditEventKind.ClientToolRequested,
+                state.Conversation.Id,
+                state.Scope.TurnId,
+                actorId,
+                state.Scope.Agent.Id,
+                state.Scope.Agent.Version,
+                DateTimeOffset.UtcNow)
+            {
+                ToolId = row.ToolId,
+                ToolVersion = row.ToolVersion,
+                InvocationId = row.Id,
+                ObjectId = actorId,
+                StartedAt = row.StartedAt
+            },
+            cancellationToken);
+        return NhAssistantClientTools.WaitingResult();
     }
 
     /// <summary>

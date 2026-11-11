@@ -159,10 +159,12 @@ internal sealed class NhAssistantCompositionToolCatalog : INhAiAttestedToolCatal
             }
 
             var tool = matches[0];
-            if (tool.CompositionFeature != NhAiCompositionFeature.None || NhAssistantConsultationTools.IsConsultationTool(tool.Id))
+            if (tool.CompositionFeature != NhAiCompositionFeature.None
+                || NhAssistantConsultationTools.IsConsultationTool(tool.Id)
+                || NhAssistantClientToolCatalog.IsClientTool(tool))
             {
                 throw new InvalidOperationException(
-                    $"The step '{step.Name}' of composition '{definition.Id}' calls '{step.ToolId}', a composition, script or consultation tool, which no step calls.");
+                    $"The step '{step.Name}' of composition '{definition.Id}' calls '{step.ToolId}', a composition, script, consultation or client tool, which no step calls.");
             }
             if (tool.Effect == NhAiToolEffect.Destructive)
             {

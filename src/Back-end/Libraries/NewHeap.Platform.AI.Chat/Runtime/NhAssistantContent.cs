@@ -65,6 +65,14 @@ internal sealed record NhAssistantStoredPart(
     /// never its content; a later turn opens the file again through the application's file source.
     /// </summary>
     public const string FileType = "file";
+
+    /// <summary>
+    /// A client tool call that waits for, or waited for, the browser of the person whose turn called it:
+    /// <see cref="InvocationId"/> names the call, which says whether it waits and how it ended,
+    /// <see cref="AddresseeActorId"/> the person whose browser runs it and <see cref="ExpiresAt"/> the end
+    /// of its wait on the application's clock.
+    /// </summary>
+    public const string ClientToolType = "client-tool";
 }
 
 /// <summary>

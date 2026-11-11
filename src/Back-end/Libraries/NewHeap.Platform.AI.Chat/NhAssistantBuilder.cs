@@ -899,6 +899,50 @@ public sealed class NhAssistantBuilder
     }
 
     /// <summary>
+    /// Declares a client tool: a tool the agent calls that runs in the browser of the person whose turn it
+    /// is, in the application's own interface, instead of on the server, such as navigating to a page of
+    /// the application or opening its own create form prefilled, which the person reviews and saves through
+    /// the application's normal API and authorization. The application declares the tool here, on the
+    /// server, with its description, input and policies; a browser never declares a tool, it registers a
+    /// handler per tool id (<c>provideNhAssistantClientTools</c> of <c>@newheap/platform-ai-chat</c>) and
+    /// says with each request which tools it can run.
+    /// <para>
+    /// A client tool is a governed read-only tool that agents see: an agent's tool selectors select it like
+    /// any other tool, the invocation gate authorizes the person's policies
+    /// (<see cref="NhAssistantClientToolBuilder{TInput}.RequirePolicy"/>), and the tool budget, the tool calls
+    /// of a turn and the content-free audit count it. A turn offers it only in a person's own chat whose
+    /// browser declared its handler; an agent run, a rule, a consultation, an application's channel, a step
+    /// of a composition or script and a browser without the handler get
+    /// <see cref="NhAssistantErrorCodes.ClientToolUnavailable"/> at once. When the model calls it, the call
+    /// waits as <see cref="NhAssistantToolCallStatuses.AwaitingClient"/>, the person's browser receives the
+    /// bound arguments in a <c>client-tool.requested</c> event of its own stream and reports the result with
+    /// <c>POST conversations/{id}/client-tools/{invocationId}/result</c>, which continues the turn with that
+    /// result as the call's output. Nothing comes back within <see cref="NhAssistantLimits.ClientToolLifetime"/>
+    /// ends the wait.
+    /// </para>
+    /// </summary>
+    /// <param name="toolId">The tool's id, such as <c>projects.open</c>; no selector.</param>
+    /// <param name="configure">Declares the tool's description, policies and result.</param>
+    /// <typeparam name="TInput">The arguments the model passes and the browser receives.</typeparam>
+    public NhAssistantBuilder AddClientTool<TInput>(
+        string toolId,
+        Action<NhAssistantClientToolBuilder<TInput>> configure)
+        where TInput : class
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        if (!NhAssistantAgentDefinition.IsValidSelector(toolId) || toolId.Contains('*', StringComparison.Ordinal))
+        {
+            throw new ArgumentException("A client tool is named by an exact tool id, without a selector.", nameof(toolId));
+        }
+
+        var builder = new NhAssistantClientToolBuilder<TInput>(toolId);
+        configure(builder);
+        _state.AddClientTool(builder.Build());
+        Services.TryAddEnumerable(ServiceDescriptor.Singleton<INhAiToolCatalog, NhAssistantClientToolCatalog>());
+        return this;
+    }
+
+    /// <summary>
     /// Declares that the application executes the approved deferred proposals of tool
     /// <paramref name="toolId"/> itself, outside the tool's function, and reports their outcome within
     /// <paramref name="reportWithin"/>. Once such a proposal is approved, by any path, the assistant hands
@@ -1354,6 +1398,7 @@ internal sealed class NhAssistantRegistrationState
     private readonly Dictionary<string, NhAssistantApplicationExecution> _applicationExecutions = new(StringComparer.Ordinal);
     private readonly Dictionary<string, NhAssistantCompositionDefinition> _compositions = new(StringComparer.Ordinal);
     private readonly Dictionary<string, NhAssistantAlertKind> _alertKinds = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, NhAssistantClientToolDefinition> _clientTools = new(StringComparer.Ordinal);
 
     /// <summary>
     /// The compositions the application declared with <see cref="NhAssistantBuilder.AddComposition{TInput}"/>.
@@ -1366,6 +1411,48 @@ internal sealed class NhAssistantRegistrationState
         {
             throw new InvalidOperationException($"The composition '{composition.Id}' is registered more than once.");
         }
+    }
+
+    /// <summary>
+    /// The client tools the application declared with <see cref="NhAssistantBuilder.AddClientTool{TInput}"/>.
+    /// </summary>
+    public IReadOnlyCollection<NhAssistantClientToolDefinition> ClientTools => _clientTools.Values;
+
+    public void AddClientTool(NhAssistantClientToolDefinition tool)
+    {
+        ArgumentNullException.ThrowIfNull(tool);
+        if (!_clientTools.TryAdd(tool.Id, tool))
+        {
+            throw new InvalidOperationException($"The client tool '{tool.Id}' is registered more than once.");
+        }
+    }
+
+    /// <summary>
+    /// The client tool the application declared with <paramref name="toolId"/>.
+    /// </summary>
+    public bool TryGetClientTool(string toolId, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out NhAssistantClientToolDefinition? tool)
+    {
+        ArgumentNullException.ThrowIfNull(toolId);
+        return _clientTools.TryGetValue(toolId, out tool);
+    }
+
+    /// <summary>
+    /// The client tool ids among <paramref name="declared"/>, the ids a browser says it can run, that the
+    /// application declared; at most <see cref="NhAssistantClientToolLimits.MaxDeclaredTools"/>, and nothing
+    /// else a browser names. A browser only narrows what the application declared.
+    /// </summary>
+    public IReadOnlySet<string> KnownClientTools(IEnumerable<string?>? declared)
+    {
+        if (declared is null || _clientTools.Count == 0)
+        {
+            return new HashSet<string>(StringComparer.Ordinal);
+        }
+
+        return declared
+            .Take(NhAssistantClientToolLimits.MaxDeclaredTools)
+            .OfType<string>()
+            .Where(_clientTools.ContainsKey)
+            .ToHashSet(StringComparer.Ordinal);
     }
 
     /// <summary>
