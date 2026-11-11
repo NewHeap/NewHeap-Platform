@@ -105,7 +105,10 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
             new[] { "en-US", "nl-NL" }.Select(culture =>
                 resources.GetString("ToolProjectStatusChange", CultureInfo.GetCultureInfo(culture))));
         Assert.DoesNotContain("ApprovalProjectStatusSummary", presentation.Summary);
-        Assert.Equal(3, presentation.Fields.Count);
+        // The project, and its status from the current to the proposed value.
+        Assert.Equal(2, presentation.Fields.Count);
+        Assert.NotNull(presentation.Fields[1].CurrentValue);
+        Assert.NotNull(presentation.Fields[1].Change);
         // The proposal is recorded during the run's turn; the run ends after the model's answer.
         var run = Assert.Single(await WaitForRunCountAsync(owner, conversationId, 1));
         Assert.Equal(NhAssistantRunStatuses.Completed, run.Status);

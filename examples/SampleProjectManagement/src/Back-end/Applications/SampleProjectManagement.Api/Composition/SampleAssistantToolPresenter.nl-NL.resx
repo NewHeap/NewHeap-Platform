@@ -73,4 +73,15 @@
   <data name="AlertDeliverableDueText" xml:space="preserve"><value>De deadline is {0}, en {1}.</value></data>
   <data name="AlertDeliverableWorkNotStarted" xml:space="preserve"><value>het werk is nog niet begonnen</value></data>
   <data name="AlertDeliverableWorkInProgress" xml:space="preserve"><value>het werk is bezig</value></data>
+  <data name="ApprovalFieldStatus" xml:space="preserve"><value>Status</value></data>
+  <data name="ResultFieldDeadline" xml:space="preserve"><value>Deadline</value></data>
+  <data name="ResultNoDeadline" xml:space="preserve"><value>Geen deadline</value></data>
+  <data name="ResultOpenProject" xml:space="preserve"><value>Project openen</value></data>
+  <data name="ResultProjectsTitle" xml:space="preserve"><value>Gevonden projecten</value></data>
+  <data name="ResultProjectsNone" xml:space="preserve"><value>Geen project gevonden.</value></data>
+  <data name="ResultProjectsOne" xml:space="preserve"><value>1 project gevonden.</value></data>
+  <data name="ResultProjectsMany" xml:space="preserve"><value>{0} projecten gevonden.</value></data>
+  <data name="ResultProjectsShown" xml:space="preserve"><value>{0} projecten gevonden; de eerste {1} staan hier.</value></data>
+  <data name="ResultOpenProjects" xml:space="preserve"><value>Projectbord openen</value></data>
+  <data name="ToolProjectGet" xml:space="preserve"><value>Project lezen</value></data>
 </root>
