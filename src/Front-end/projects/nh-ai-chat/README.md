@@ -189,6 +189,11 @@ reads it with whom it waits for. The turn waits for the answer as for an approva
 calls `NhAssistantStore.answerQuestion`, which streams the resumed turn. An agent message of a chat
 with `run.SkillsInChat()` names the skill it worked in (`message.skillId`).
 
+The plan an agent keeps with `update_plan` (`run.KeepPlan()` on the server) shows in its message as
+`nh-assistant-plan`: a checklist with the current step marked and completed steps struck through,
+every step as plain text. `plan.updated` replaces it with each snapshot, also from live updates, and
+`nh-assistant-run-result` shows a run's last plan (`AgentRunResult.plan`).
+
 A tool call whose agent proposal closed without running no longer waits: it ends as
 `rejected`, as `not-executed` when the proposal expired, was withdrawn or became stale, or as
 `failed` when its execution failed before it started, with the result code

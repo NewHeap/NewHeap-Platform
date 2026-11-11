@@ -386,6 +386,7 @@
     "assistant-prompt-tools": "Several tool calls",
     "assistant-prompt-approval": "Approval",
     "assistant-prompt-result-cards": "Result cards",
+    "assistant-prompt-plan": "Visible plan",
     "assistant-result-search-label": "Projects the assistant found",
     "assistant-prompt-question": "Structured question",
     "assistant-prompt-legacy-approval": "Legacy approval",

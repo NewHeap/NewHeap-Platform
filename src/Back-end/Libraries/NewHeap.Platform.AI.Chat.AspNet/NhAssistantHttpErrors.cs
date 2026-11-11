@@ -146,6 +146,9 @@ internal static class NhAssistantHttpErrors
             NhAssistantErrorCodes.ClientToolResultInvalid,
             NhAssistantErrorCodes.ElicitationAnswerInvalid,
             NhAssistantErrorCodes.McpApprovalStateInvalid,
+            // A plan update the model's call breaks reaches only the model; never an HTTP response.
+            NhAssistantErrorCodes.PlanInvalid,
+            NhAssistantErrorCodes.PlanUpdateLimitReached,
             NhAssistantErrorCodes.TriggerFilterNotFound,
             NhAssistantAdminErrorCodes.ValidationFailed,
             NhAssistantAdminErrorCodes.McpHostBlocked,

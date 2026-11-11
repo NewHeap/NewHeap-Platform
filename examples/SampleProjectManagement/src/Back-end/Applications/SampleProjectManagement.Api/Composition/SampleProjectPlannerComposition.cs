@@ -48,6 +48,11 @@ namespace SampleProjectManagement.Api.Composition;
 /// the model, and the model loads the task follow-up or the deadline risk skill with <c>use_skill</c>,
 /// without triage. The skill's instructions and tools then apply with the person's own rights, and the
 /// planner's message of the turn names the skill.
+/// SPM-333 and SPM-304: the planner keeps a short visible plan of its work (<c>KeepPlan()</c>): once a
+/// chat turn chose its skill, and in every run, its model may set its steps with <c>update_plan</c> and
+/// advance them. The chat shows the plan as a checklist in the planner's message, live to every person
+/// of the conversation, and a run's result shows the run's last plan. It is the planner's statement
+/// about its own work, plain text that no later turn reads.
 /// SPM-361: other assistants may ask the planner to look at a project in a run of its own, never
 /// consult it for an answer now (<c>RequestsOnly()</c>): its rules and skills do the work, and a
 /// consultation's own turn has nothing to offer them. Only <c>assistant.request.sample-project-planner.project</c>
@@ -137,6 +142,8 @@ public static class SampleProjectPlannerComposition
                 // SPM-333: the skills also serve people's chats with the planner, which start by choosing
                 // one; triage stays with runs.
                 .SkillsInChat(routesFirst: true)
+                // SPM-333 and SPM-304: a short visible plan of its work, in chats and runs.
+                .KeepPlan()
                 .Skill(TaskFollowUpSkill, skill => skill
                     .Description("Follows up completed tasks by rule: says how many tasks are left and which comes next.")
                     .UseRuleHandler<ProjectTaskFollowUpRules>()

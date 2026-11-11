@@ -120,6 +120,12 @@
             [answering]="deciding()"
             (answer)="answerQuestion(group.part, $event)" />
         }
+        @case ('plan') {
+          <!-- The agent's plan; a later message of the same turn that holds a newer plan replaces it. -->
+          @if (!supersededPlans().has(message.id)) {
+            <nh-assistant-plan class="part" [plan]="group.part" />
+          }
+        }
         @case ('elicitation') {
           <nh-assistant-elicitation-card
             class="part"

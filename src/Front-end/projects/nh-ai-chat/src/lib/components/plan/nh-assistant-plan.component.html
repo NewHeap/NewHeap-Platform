@@ -1,0 +1,21 @@
+<section class="plan" [attr.aria-labelledby]="titleId">
+  <header class="header">
+    <nh-assistant-icon class="header-icon" name="list" />
+    <p class="title" [id]="titleId">{{ 'nh-assistant.plan.title' | translate }}</p>
+    <p class="progress">{{ 'nh-assistant.plan.progress' | translate: { completed: completed(), total: total() } }}</p>
+  </header>
+  <ol class="steps">
+    @for (step of plan().steps; track $index) {
+      <li class="step" [attr.data-status]="step.status" [attr.aria-current]="step.status === 'in-progress' ? 'step' : null">
+        @if (step.status === 'completed') {
+          <nh-assistant-icon class="marker done" name="check" />
+        } @else {
+          <span class="marker" aria-hidden="true"></span>
+        }
+        <!-- Model output: interpolated as text, never rendered as markup. -->
+        <span class="text">{{ step.text }}</span>
+        <span class="visually-hidden">{{ statusKey(step.status) | translate }}</span>
+      </li>
+    }
+  </ol>
+</section>

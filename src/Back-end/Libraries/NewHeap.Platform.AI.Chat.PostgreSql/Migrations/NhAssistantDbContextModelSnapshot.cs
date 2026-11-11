@@ -747,6 +747,9 @@ namespace NewHeap.Platform.AI.Chat.PostgreSql.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
+                    b.Property<bool>("KeepsPlan")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("MaxConcurrentRuns")
                         .HasColumnType("integer");
 

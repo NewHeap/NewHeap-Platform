@@ -185,7 +185,9 @@ internal sealed partial class NhAssistantAgentBuilderToolHandler
             PickInt(input, "maxFileTokensPerTurn", current?.MaxFileTokensPerTurn))
         {
             // The kinds the agent's rules and model may raise (FB93): left out keeps the stored list.
-            AlertKinds = input.Texts("alertKinds")
+            AlertKinds = input.Texts("alertKinds"),
+            // The plan setting is the administrator's: the builder keeps what is stored.
+            KeepsPlan = current?.KeepsPlan ?? false
         };
         var saved = await Configuration.SaveRunSettingsAsync(agentId, request, call.Person, cancellationToken);
         return Outcome(saved, data => new { agentId, runSettings = data });

@@ -955,6 +955,17 @@ export class NhAssistantMockBackend {
         usage.toolCalls++;
         await emit({ type: 'turn.completed', data: { turnId: this.nextId(), status: 'waiting-for-approval', usage, errorCode: null } });
         return;
+      } else if ('plan' in step) {
+        // update_plan counts as a call of the turn and shows as the plan.
+        usage.toolCalls++;
+        await emit({
+          type: 'plan.updated',
+          data: {
+            turnId: this.nextId(),
+            messageId: assistantMessageId,
+            plan: { steps: step.plan.steps.map(item => ({ ...item })), updatedAt: new Date().toISOString() }
+          }
+        });
       } else if ('error' in step) {
         await emit({ type: 'error', data: step.error });
         // The mock keeps the conversation usable after a failed turn.

@@ -358,7 +358,12 @@ public sealed class SampleRuntimeAgentSeeder(IServiceScopeFactory scopes, ILogge
                     // The weekly tick and a few runs by hand a day for the whole application.
                     MaxRunsPerSubjectPerDay: 10,
                     RuleHandler: SampleProjectStarterComposition.FollowUpRoutingRules,
-                    Reason: Reason),
+                    Reason: Reason)
+                {
+                    // SPM-298: switched on in the administration, the follow-up keeps a visible plan of
+                    // its work when its rules hand a run to the model, as KeepPlan() does in code.
+                    KeepsPlan = true
+                },
                 actorId,
                 cancellationToken),
             // SPM-302: the skill counts the open projects and proposes to complete the finished ones;

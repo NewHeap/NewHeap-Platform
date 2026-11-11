@@ -21,6 +21,7 @@ const contractFields: Record<NhAssistantMessageEvent['type'], string[]> = {
   'client-tool.requested': ['actorId', 'arguments', 'expiresAt', 'invocationId', 'status', 'toolId'],
   'elicitation.requested': ['addresseeActorId', 'elicitationId', 'expiresAt', 'fields', 'invocationId', 'message', 'mode', 'serverId', 'serverName', 'status', 'type'],
   'elicitation.closed': ['addresseeActorId', 'closedAt', 'elicitationId', 'expiresAt', 'fields', 'invocationId', 'message', 'mode', 'serverId', 'serverName', 'status', 'type'],
+  'plan.updated': ['messageId', 'plan', 'turnId'],
   'connection.required': ['displayName', 'reason', 'serverId'],
   'turn.completed': ['errorCode', 'status', 'turnId', 'usage'],
   'error': ['code', 'messageKey'],

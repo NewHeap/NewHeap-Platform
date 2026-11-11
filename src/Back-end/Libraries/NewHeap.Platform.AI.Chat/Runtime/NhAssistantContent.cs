@@ -31,7 +31,10 @@ internal sealed record NhAssistantStoredPart(
     string? Mode = null,
     IReadOnlyList<NhAssistantElicitationField>? Fields = null,
     string? Status = null,
-    DateTimeOffset? ClosedAt = null)
+    DateTimeOffset? ClosedAt = null,
+    IReadOnlyList<NhAssistantPlanStep>? Steps = null,
+    Guid? RunId = null,
+    DateTimeOffset? UpdatedAt = null)
 {
     public const string TextType = "text";
 
@@ -45,6 +48,15 @@ internal sealed record NhAssistantStoredPart(
     /// (<see cref="NhAssistantElicitationStatuses"/>) and <see cref="ClosedAt"/> when. Never the answer.
     /// </summary>
     public const string ElicitationType = "elicitation";
+
+    /// <summary>
+    /// The plan the agent keeps with <c>update_plan</c> (<c>run.KeepPlan()</c>), as it stood after the
+    /// turn's last update in this message: its <see cref="Steps"/>, when it was last changed
+    /// (<see cref="UpdatedAt"/>) and, in a headless run, the <see cref="RunId"/> whose plan it is. A
+    /// message holds at most one; each update replaces it. It is the agent's own statement, never
+    /// replayed to a later turn.
+    /// </summary>
+    public const string PlanType = "plan";
 
     /// <summary>
     /// A question the agent asked with <c>ask_question</c> (LS21): <see cref="InvocationId"/> names its
@@ -101,6 +113,12 @@ internal sealed record NhAssistantStoredPart(
     /// </summary>
     public const string ClientToolType = "client-tool";
 }
+
+/// <summary>
+/// One step of an agent's plan: plain text of at most <see cref="NhAssistantPlanLimits.MaxStepLength"/>
+/// characters and one of <see cref="NhAssistantPlanStepStatuses"/>.
+/// </summary>
+internal sealed record NhAssistantPlanStep(string Text, string Status);
 
 /// <summary>
 /// The reference of a file in a stored message: the application's id, name, media type, size and

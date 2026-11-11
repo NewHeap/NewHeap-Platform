@@ -166,6 +166,23 @@ internal sealed class NhAssistantTurnState
     public bool WaitsForPerson => PendingApproval is not null || PendingQuestion is not null || PendingClientTool is not null;
 
     /// <summary>
+    /// The plan the agent keeps with <c>update_plan</c> in this turn (<c>run.KeepPlan()</c>), also across
+    /// the parts of a turn that waited and continued; <see langword="null"/> before the first update.
+    /// </summary>
+    public IReadOnlyList<NhAssistantPlanStep>? Plan { get; set; }
+
+    /// <summary>
+    /// How often the turn updated its plan, bounded by <see cref="NhAssistantPlanLimits.MaxUpdatesPerTurn"/>.
+    /// </summary>
+    public int PlanUpdates { get; set; }
+
+    /// <summary>
+    /// Whether <see cref="Plan"/> and <see cref="PlanUpdates"/> were read back from the earlier parts of
+    /// the turn, which happens once, at its first update.
+    /// </summary>
+    public bool PlanLoaded { get; set; }
+
+    /// <summary>
     /// The run settings of the agent in a person's chat that offers its skills or questions
     /// (<c>SkillsInChat</c>, <c>AllowQuestions</c>); <see langword="null"/> in any other chat and
     /// outside chats, where <see cref="AgentTurn"/> carries the run settings.
@@ -423,6 +440,26 @@ internal sealed class NhAssistantTurnState
             {
                 _parts[index] = replacement;
             }
+        }
+    }
+
+    /// <summary>
+    /// Puts the plan into the turn's message: in place of the plan the message holds, so it keeps its
+    /// position, or after the parts so far for the message's first plan.
+    /// </summary>
+    public void SetPlanPart(NhAssistantStoredPart part)
+    {
+        ArgumentNullException.ThrowIfNull(part);
+        lock (_sync)
+        {
+            var index = _parts.FindIndex(item => item.Type == NhAssistantStoredPart.PlanType);
+            if (index >= 0)
+            {
+                _parts[index] = part;
+                return;
+            }
+
+            _parts.Add(part);
         }
     }
 
@@ -1194,6 +1231,12 @@ internal sealed class NhAssistantToolCallInterceptor(
             // A step belongs to the call that ran it; the activity finds it by its call id.
             return row;
         }
+        if (NhAssistantPlans.IsPlanCall(descriptor.Id))
+        {
+            // update_plan shows as the plan it keeps, never as a tool call of its own, and no later
+            // turn's summary of tool work replays it; it still counts as a call of the turn.
+            return row;
+        }
 
         state.AddPart(new NhAssistantStoredPart(NhAssistantStoredPart.ToolCallType, InvocationId: row.Id));
         await FlushAsync(cancellationToken);
@@ -1250,8 +1293,9 @@ internal sealed class NhAssistantToolCallInterceptor(
         }
 
         await store.UpdateToolInvocationAsync(row, cancellationToken);
-        if (!emit)
+        if (!emit || NhAssistantPlans.IsPlanCall(row.ToolId))
         {
+            // The plan's own event (plan.updated) reports what update_plan changed.
             return;
         }
 

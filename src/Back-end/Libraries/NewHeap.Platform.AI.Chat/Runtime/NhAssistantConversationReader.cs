@@ -107,6 +107,10 @@ internal sealed class NhAssistantConversationReader(
                         parts.Add(question);
                         questions.Add(question);
                         break;
+                    case NhAssistantStoredPart.PlanType when NhAssistantPlans.ViewOf(part) is { } plan:
+                        // The agent's plan as it stood after the last update in this message.
+                        parts.Add(plan);
+                        break;
                     // A client tool call shows as its tool call; the conversation names the one it waits for.
                     case NhAssistantStoredPart.ClientToolType
                         when part.InvocationId is { } clientInvocationId

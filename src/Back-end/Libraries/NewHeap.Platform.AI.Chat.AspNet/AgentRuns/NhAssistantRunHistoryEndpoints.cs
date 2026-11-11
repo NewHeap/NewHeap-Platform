@@ -26,7 +26,7 @@ internal static class NhAssistantRunHistoryEndpoints
         group.MapGet("runs/{runId:guid}", GetAsync)
             .WithName("NhAssistantGetRunResult")
             .WithSummary("Read one agent run with its result")
-            .WithDescription("Returns one run with its whole answer as Markdown (at most 20,000 characters, model output to render only with a safe Markdown renderer), the summary it ended with, its proposals in its own thread and those it placed at objects the caller may read, how many it placed elsewhere, and the files it saved. People see a run as GET runs decides; administrators every run. A run the caller may not see answers 404 like an unknown one.")
+            .WithDescription("Returns one run with its whole answer as Markdown (at most 20,000 characters, model output to render only with a safe Markdown renderer), the summary it ended with, the plan its agent kept with update_plan as plain text (run.KeepPlan(); null without one), its proposals in its own thread and those it placed at objects the caller may read, how many it placed elsewhere, and the files it saved. People see a run as GET runs decides; administrators every run. A run the caller may not see answers 404 like an unknown one.")
             .Produces<NhAssistantRunResultDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);

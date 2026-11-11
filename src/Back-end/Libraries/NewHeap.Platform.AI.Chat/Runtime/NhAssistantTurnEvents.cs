@@ -57,6 +57,16 @@ internal sealed record NhAssistantQuestionAnsweredEvent(
     NhAssistantQuestionView Question) : NhAssistantTurnEvent;
 
 /// <summary>
+/// The agent set or advanced its plan with <c>update_plan</c> (<c>run.KeepPlan()</c>): the whole plan as
+/// it now stands, in the message <paramref name="MessageId"/> of the turn. A snapshot, never a delta, so
+/// a client that missed an update shows the right plan with the next.
+/// </summary>
+internal sealed record NhAssistantPlanUpdatedEvent(
+    Guid TurnId,
+    Guid MessageId,
+    NhAssistantPlanPartView Plan) : NhAssistantTurnEvent;
+
+/// <summary>
 /// The agent called a client tool; the turn waits for the browser of <see cref="NhAssistantClientToolView.ActorId"/>
 /// to run it. Only the stream of that person's own request carries <see cref="Arguments"/>, the bound
 /// arguments the browser's handler receives; what the other sessions and participants receive leaves them
@@ -288,6 +298,14 @@ internal sealed record NhAssistantApplicationMessageView(
 internal abstract record NhAssistantPartView;
 
 internal sealed record NhAssistantTextPartView(string Text) : NhAssistantPartView;
+
+/// <summary>
+/// The plan the agent kept with <c>update_plan</c>, as it stood after the last update in its message:
+/// the agent's own statement about its work, plain text people see as the agent's.
+/// </summary>
+internal sealed record NhAssistantPlanPartView(
+    IReadOnlyList<NhAssistantPlanStep> Steps,
+    DateTimeOffset UpdatedAt) : NhAssistantPartView;
 
 /// <summary>A server the turn's person had to connect before the agent could use it.</summary>
 internal sealed record NhAssistantConnectionRequiredPartView(string ServerId, string DisplayName, string Reason) : NhAssistantPartView;

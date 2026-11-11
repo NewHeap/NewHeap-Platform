@@ -181,6 +181,8 @@ export const NH_ASSISTANT_SERVER_ERROR_CODES: readonly string[] = [
   'assistant-feedback-not-accepted',
   // Questions an agent asks with ask_question in a person's chat
   'assistant-question-invalid',
+  'assistant-plan-invalid',
+  'assistant-plan-update-limit-reached',
   'assistant-question-not-found',
   'assistant-question-not-pending',
   'assistant-question-forbidden',

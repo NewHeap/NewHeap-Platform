@@ -21,10 +21,11 @@ import { nhAssistantFileTypeLabel, nhAssistantFormatFileSize } from '../../inter
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantMarkdownPipe } from '../../internal/nh-assistant-markdown.pipe';
 import { NhAssistantMessageLinkComponent } from '../../internal/nh-assistant-message-link.component';
-import { NhAssistantPartGroupsPipe } from '../../internal/nh-assistant-part-groups';
+import { NhAssistantPartGroupsPipe, nhAssistantSupersededPlans } from '../../internal/nh-assistant-part-groups';
 import { NhAssistantApprovalCardComponent } from '../approval-card/nh-assistant-approval-card.component';
 import { NhAssistantConnectionRequiredComponent } from '../connection-required/nh-assistant-connection-required.component';
 import { NhAssistantElicitationAnswer, NhAssistantElicitationCardComponent } from '../elicitation-card/nh-assistant-elicitation-card.component';
+import { NhAssistantPlanComponent } from '../plan/nh-assistant-plan.component';
 import { NhAssistantQuestionCardComponent } from '../question-card/nh-assistant-question-card.component';
 import { NhAssistantToolCallGroupComponent } from '../tool-call-group/nh-assistant-tool-call-group.component';
 import { NhAssistantToolResultComponent } from '../tool-result/nh-assistant-tool-result.component';
@@ -87,7 +88,8 @@ const stickToBottomDistance = 120;
     NhAssistantConnectionRequiredComponent,
     NhAssistantQuestionCardComponent,
     NhAssistantToolResultComponent,
-    NhAssistantElicitationCardComponent
+    NhAssistantElicitationCardComponent,
+    NhAssistantPlanComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-thread.component.html',
@@ -173,6 +175,12 @@ export class NhAssistantThreadComponent {
       return;
     }
   }
+
+  /**
+   * The agent messages whose plan a later agent message of the same turn replaced: a turn that waited
+   * for a person continues in a new message, which carries the plan on. Each turn shows its newest plan.
+   */
+  readonly supersededPlans = computed(() => nhAssistantSupersededPlans(this.messages()));
 
   readonly virtualThreshold = NH_ASSISTANT_VIRTUAL_SCROLL_THRESHOLD;
   readonly virtual = computed(() => this.messages().length > NH_ASSISTANT_VIRTUAL_SCROLL_THRESHOLD);
@@ -349,3 +357,4 @@ export class NhAssistantThreadComponent {
     }
   }
 }
+

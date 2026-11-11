@@ -228,6 +228,9 @@ internal sealed class NhAssistantRunHistory(
 
         // A result the run's rules wrote per culture reads in the reader's culture.
         var (result, truncated) = NhAssistantRunResults.ResultOf(run, CultureInfo.CurrentUICulture);
+        // The run's plan is the agent's statement about its work, which whoever sees the run sees as its
+        // answer is seen.
+        var plan = await runs.FindRunPlanAsync(run, cancellationToken);
         return TaskResult<NhAssistantRunResultDto>.Succeeded(new NhAssistantRunResultDto(
             (await ToDtosAsync([row], cancellationToken))[0],
             result,
@@ -236,7 +239,10 @@ internal sealed class NhAssistantRunHistory(
             proposals,
             hidden,
             files,
-            await visibility.MayOpenThreadAsync(thread, cancellationToken)));
+            await visibility.MayOpenThreadAsync(thread, cancellationToken))
+        {
+            Plan = plan is null ? null : NhAssistantDtoMapper.ToPlanDto(plan)
+        });
     }
 
     /// <summary>

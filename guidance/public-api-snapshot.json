@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.125",
   "backEnd": {
-    "hash": "d223803cbb2983f7e6aba2ae119d0f891a0b37db168fc3cdc637fd831227f845",
-    "declarationCount": 14176,
+    "hash": "db98eb77d3691132858ecb2f0a8501a78cb5191ddd8660af900c393e1ed0923e",
+    "declarationCount": 14226,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -3939,6 +3939,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool KeepsPlan { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public bool UsesMemory { get; init; }"
       },
       {
@@ -4015,6 +4019,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool KeepsPlan { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public NhAssistantPackagePartLinkDto? Package { get; init; }"
       },
       {
@@ -4024,6 +4032,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
         "declaration": "public IReadOnlyList<string>? AlertKinds { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
+        "declaration": "public bool KeepsPlan { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentConfiguration.cs",
@@ -4820,6 +4832,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
         "declaration": "public IReadOnlyList<string>? AlertKinds { get; init; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
+        "declaration": "public bool? KeepsPlan { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentPackageContracts.cs",
@@ -5799,7 +5815,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
-        "declaration": "public sealed record NhAssistantRunResultDto( NhAssistantRunHistoryDto Run, string? Result, bool ResultTruncated, string? Summary, IReadOnlyList<NhAssistantProposalDto> Proposals, int HiddenProposals, IReadOnlyList<NhAssistantArtifactDto> Artifacts, bool CanOpenConversation);"
+        "declaration": "public sealed record NhAssistantRunResultDto( NhAssistantRunHistoryDto Run, string? Result, bool ResultTruncated, string? Summary, IReadOnlyList<NhAssistantProposalDto> Proposals, int HiddenProposals, IReadOnlyList<NhAssistantArtifactDto> Artifacts, bool CanOpenConversation) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public NhAssistantPlanDto? Plan { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
@@ -9567,7 +9587,23 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "[JsonPolymorphic(TypeDiscriminatorPropertyName = \"type\")] [JsonDerivedType(typeof(NhAssistantTextPartDto), \"text\")] [JsonDerivedType(typeof(NhAssistantToolCallPartDto), \"tool-call\")] [JsonDerivedType(typeof(NhAssistantApprovalPartDto), \"approval\")] [JsonDerivedType(typeof(NhAssistantConnectionRequiredPartDto), \"connection-required\")] [JsonDerivedType(typeof(NhAssistantFilePartDto), \"file\")] [JsonDerivedType(typeof(NhAssistantQuestionPartDto), \"question\")] [JsonDerivedType(typeof(NhAssistantElicitationPartDto), \"elicitation\")] public abstract record NhAssistantMessagePartDto;"
+        "declaration": "[JsonPolymorphic(TypeDiscriminatorPropertyName = \"type\")] [JsonDerivedType(typeof(NhAssistantTextPartDto), \"text\")] [JsonDerivedType(typeof(NhAssistantToolCallPartDto), \"tool-call\")] [JsonDerivedType(typeof(NhAssistantApprovalPartDto), \"approval\")] [JsonDerivedType(typeof(NhAssistantConnectionRequiredPartDto), \"connection-required\")] [JsonDerivedType(typeof(NhAssistantFilePartDto), \"file\")] [JsonDerivedType(typeof(NhAssistantQuestionPartDto), \"question\")] [JsonDerivedType(typeof(NhAssistantElicitationPartDto), \"elicitation\")] [JsonDerivedType(typeof(NhAssistantPlanPartDto), \"plan\")] public abstract record NhAssistantMessagePartDto;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantPlanPartDto( IReadOnlyList<NhAssistantPlanStepDto> Steps, DateTimeOffset UpdatedAt) : NhAssistantMessagePartDto;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantPlanStepDto(string Text, string Status);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantPlanDto( IReadOnlyList<NhAssistantPlanStepDto> Steps, DateTimeOffset UpdatedAt);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public sealed record NhAssistantPlanUpdatedDto( Guid TurnId, Guid MessageId, NhAssistantPlanDto Plan);"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -9819,7 +9855,7 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
-        "declaration": "[JsonSerializable(typeof(NhAssistantStatusDto))] [JsonSerializable(typeof(NhAssistantAgentSummaryDto[]))] [JsonSerializable(typeof(NhAssistantConversationListDto))] [JsonSerializable(typeof(NhAssistantConversationDto))] [JsonSerializable(typeof(NhAssistantMessagePartDto))] [JsonSerializable(typeof(NhAssistantCreateConversationRequest))] [JsonSerializable(typeof(NhAssistantSendMessageRequest))] [JsonSerializable(typeof(NhAssistantClientContextDto))] [JsonSerializable(typeof(NhAssistantDecideApprovalRequest))] [JsonSerializable(typeof(NhAssistantAnswerQuestionRequest))] [JsonSerializable(typeof(NhAssistantClientToolResultRequest))] [JsonSerializable(typeof(NhAssistantClientToolDto))] [JsonSerializable(typeof(NhAssistantAnswerElicitationRequest))] [JsonSerializable(typeof(NhAssistantErrorDto))] [JsonSerializable(typeof(NhAssistantTurnStartedDto))] [JsonSerializable(typeof(NhAssistantMessageDeltaDto))] [JsonSerializable(typeof(NhAssistantToolStartedDto))] [JsonSerializable(typeof(NhAssistantToolCompletedDto))] [JsonSerializable(typeof(NhAssistantTurnCompletedDto))] [JsonSerializable(typeof(NhAssistantMessageDto))] [JsonSerializable(typeof(NhAssistantMarkReadRequest))] [JsonSerializable(typeof(NhAssistantShareLinkDto))] [JsonSerializable(typeof(NhAssistantJoinConversationRequest))] [JsonSerializable(typeof(NhAssistantInviteParticipantRequest))] [JsonSerializable(typeof(NhAssistantDirectoryEntryDto[]))] [JsonSerializable(typeof(NhAssistantNotificationSettingsDto))] [JsonSerializable(typeof(NhAssistantUpdateNotificationSettingsRequest))] [JsonSerializable(typeof(NhAssistantAlertKindPreferenceDto))] [JsonSerializable(typeof(NhAssistantAlertKindPreferenceUpdateDto))] [JsonSerializable(typeof(NhAssistantPushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantRemovePushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantLiveConversationDto))] [JsonSerializable(typeof(NhAssistantLiveReadDto))] [JsonSerializable(typeof(NhAssistantLiveRemovedDto))] [JsonSerializable(typeof(NhAssistantLiveAgentWorkDto))] [JsonSerializable(typeof(NhAssistantLiveEventDto))] [JsonSerializable(typeof(NhAssistantPreferencesDto))] [JsonSerializable(typeof(NhAssistantApplicationContextDto))] [JsonSerializable(typeof(NhAssistantApplicationContextVersionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateContextRequest))] [JsonSerializable(typeof(NhAssistantToolCatalogEntryDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentDto))] [JsonSerializable(typeof(NhAssistantAdminAgentDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentInputDto))] [JsonSerializable(typeof(NhAssistantShadowVariantPromotionInputDto))] [JsonSerializable(typeof(NhAssistantShadowVariantPromotedDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto[]))] [JsonSerializable(typeof(NhAssistantMcpAuthModeDto[]))] [JsonSerializable(typeof(NhAssistantMcpServerInputDto))] [JsonSerializable(typeof(NhAssistantMcpServerTestResultDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpToolRequest))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpConnectionRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoverRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoveryDto))] [JsonSerializable(typeof(NhAssistantMcpAuthorizeRequest))] [JsonSerializable(typeof(NhAssistantMcpAuthorizationStartDto))] [JsonSerializable(typeof(NhAssistantMcpCompleteRequest))] [JsonSerializable(typeof(NhAssistantMcpCompletionDto))] [JsonSerializable(typeof(NhAssistantMcpOrganizationConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionsSummaryDto))] [JsonSerializable(typeof(NhAssistantConnectionRequiredDto))] [JsonSerializable(typeof(NhAiFileReference))] [JsonSerializable(typeof(NhAssistantCompositionStatusDto))] public sealed partial class NhAssistantJsonSerializerContext : JsonSerializerContext;"
+        "declaration": "[JsonSerializable(typeof(NhAssistantStatusDto))] [JsonSerializable(typeof(NhAssistantAgentSummaryDto[]))] [JsonSerializable(typeof(NhAssistantConversationListDto))] [JsonSerializable(typeof(NhAssistantConversationDto))] [JsonSerializable(typeof(NhAssistantMessagePartDto))] [JsonSerializable(typeof(NhAssistantCreateConversationRequest))] [JsonSerializable(typeof(NhAssistantSendMessageRequest))] [JsonSerializable(typeof(NhAssistantClientContextDto))] [JsonSerializable(typeof(NhAssistantDecideApprovalRequest))] [JsonSerializable(typeof(NhAssistantAnswerQuestionRequest))] [JsonSerializable(typeof(NhAssistantClientToolResultRequest))] [JsonSerializable(typeof(NhAssistantClientToolDto))] [JsonSerializable(typeof(NhAssistantAnswerElicitationRequest))] [JsonSerializable(typeof(NhAssistantErrorDto))] [JsonSerializable(typeof(NhAssistantTurnStartedDto))] [JsonSerializable(typeof(NhAssistantMessageDeltaDto))] [JsonSerializable(typeof(NhAssistantToolStartedDto))] [JsonSerializable(typeof(NhAssistantToolCompletedDto))] [JsonSerializable(typeof(NhAssistantPlanUpdatedDto))] [JsonSerializable(typeof(NhAssistantTurnCompletedDto))] [JsonSerializable(typeof(NhAssistantMessageDto))] [JsonSerializable(typeof(NhAssistantMarkReadRequest))] [JsonSerializable(typeof(NhAssistantShareLinkDto))] [JsonSerializable(typeof(NhAssistantJoinConversationRequest))] [JsonSerializable(typeof(NhAssistantInviteParticipantRequest))] [JsonSerializable(typeof(NhAssistantDirectoryEntryDto[]))] [JsonSerializable(typeof(NhAssistantNotificationSettingsDto))] [JsonSerializable(typeof(NhAssistantUpdateNotificationSettingsRequest))] [JsonSerializable(typeof(NhAssistantAlertKindPreferenceDto))] [JsonSerializable(typeof(NhAssistantAlertKindPreferenceUpdateDto))] [JsonSerializable(typeof(NhAssistantPushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantRemovePushSubscriptionRequest))] [JsonSerializable(typeof(NhAssistantLiveConversationDto))] [JsonSerializable(typeof(NhAssistantLiveReadDto))] [JsonSerializable(typeof(NhAssistantLiveRemovedDto))] [JsonSerializable(typeof(NhAssistantLiveAgentWorkDto))] [JsonSerializable(typeof(NhAssistantLiveEventDto))] [JsonSerializable(typeof(NhAssistantPreferencesDto))] [JsonSerializable(typeof(NhAssistantApplicationContextDto))] [JsonSerializable(typeof(NhAssistantApplicationContextVersionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateContextRequest))] [JsonSerializable(typeof(NhAssistantToolCatalogEntryDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentDto))] [JsonSerializable(typeof(NhAssistantAdminAgentDto[]))] [JsonSerializable(typeof(NhAssistantAdminAgentInputDto))] [JsonSerializable(typeof(NhAssistantShadowVariantPromotionInputDto))] [JsonSerializable(typeof(NhAssistantShadowVariantPromotedDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto))] [JsonSerializable(typeof(NhAssistantMcpServerDto[]))] [JsonSerializable(typeof(NhAssistantMcpAuthModeDto[]))] [JsonSerializable(typeof(NhAssistantMcpServerInputDto))] [JsonSerializable(typeof(NhAssistantMcpServerTestResultDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto))] [JsonSerializable(typeof(NhAssistantMcpToolDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpToolRequest))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionDto[]))] [JsonSerializable(typeof(NhAssistantUpdateMcpConnectionRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoverRequest))] [JsonSerializable(typeof(NhAssistantMcpDiscoveryDto))] [JsonSerializable(typeof(NhAssistantMcpAuthorizeRequest))] [JsonSerializable(typeof(NhAssistantMcpAuthorizationStartDto))] [JsonSerializable(typeof(NhAssistantMcpCompleteRequest))] [JsonSerializable(typeof(NhAssistantMcpCompletionDto))] [JsonSerializable(typeof(NhAssistantMcpOrganizationConnectionDto))] [JsonSerializable(typeof(NhAssistantMcpConnectionsSummaryDto))] [JsonSerializable(typeof(NhAssistantConnectionRequiredDto))] [JsonSerializable(typeof(NhAiFileReference))] [JsonSerializable(typeof(NhAssistantCompositionStatusDto))] public sealed partial class NhAssistantJsonSerializerContext : JsonSerializerContext;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -10864,6 +10900,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
         "declaration": "public static NhAssistantMessagePartDto ToDto(NhAssistantPartView part) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
+        "declaration": "public static NhAssistantPlanDto ToPlanDto(NhAssistantPlanPartView plan) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantServerSentEvents.cs",
@@ -12242,6 +12282,22 @@
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261111133744_AgentRunSettingsKeepsPlan.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261111133744_AgentRunSettingsKeepsPlan.cs",
+        "declaration": "public partial class AgentRunSettingsKeepsPlan : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261111133744_AgentRunSettingsKeepsPlan.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/20261111133744_AgentRunSettingsKeepsPlan.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.PostgreSql/Migrations/NhAssistantDbContextModelSnapshot.cs",
         "declaration": "protected override void BuildModel(ModelBuilder modelBuilder) {"
       },
@@ -13331,6 +13387,22 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261111125726_McpTasks.cs",
+        "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261111133733_AgentRunSettingsKeepsPlan.Designer.cs",
+        "declaration": "protected override void BuildTargetModel(ModelBuilder modelBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261111133733_AgentRunSettingsKeepsPlan.cs",
+        "declaration": "public partial class AgentRunSettingsKeepsPlan : Migration {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261111133733_AgentRunSettingsKeepsPlan.cs",
+        "declaration": "protected override void Up(MigrationBuilder migrationBuilder) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.SqlServer/Migrations/20261111133733_AgentRunSettingsKeepsPlan.cs",
         "declaration": "protected override void Down(MigrationBuilder migrationBuilder) {"
       },
       {
@@ -14847,6 +14919,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public bool KeepsPlan { get; internal set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public bool ActWithAccountableRights { get; internal set; }"
       },
       {
@@ -14960,6 +15036,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
         "declaration": "public NhAssistantAgentRunBuilder AllowQuestions(bool enabled = true)"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
+        "declaration": "public NhAssistantAgentRunBuilder KeepPlan(bool enabled = true)"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Agents/NhAssistantAgentRuns.cs",
@@ -22279,6 +22359,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
+        "declaration": "public bool KeepsPlan { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Entities/AssistantRunConfigurationEntities.cs",
         "declaration": "public DateTimeOffset CreatedAt { get; set; }"
       },
       {
@@ -24043,6 +24127,42 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public static class NhAssistantPlanLimits {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const int MaxSteps = 10;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const int MaxStepLength = 160;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const int MaxUpdatesPerTurn = 20;"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public static class NhAssistantPlanStepStatuses {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string Pending = \"pending\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string InProgress = \"in-progress\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string Completed = \"completed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public static bool IsKnown(string? status) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public static class NhAssistantStaleKinds {"
       },
       {
@@ -25108,6 +25228,14 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
         "declaration": "public const string McpProposalClosed = \"assistant-mcp-proposal-closed\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string PlanInvalid = \"assistant-plan-invalid\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
+        "declaration": "public const string PlanUpdateLimitReached = \"assistant-plan-update-limit-reached\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantConstants.cs",
@@ -31615,6 +31743,10 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjectMemory.cs",
+        "declaration": "public static NhAiToolDescriptor PlanDescriptor { get; } = Create( \"assistant.plan\", \"update_plan\", \"Keeps the plan the agent shows of its work.\", NhAiToolEffect.ReadOnly);"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runs/NhAssistantSubjectMemory.cs",
         "declaration": "public NhAiToolDescriptor Descriptor { get; } = descriptor;"
       },
       {
@@ -32100,6 +32232,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantContent.cs",
         "declaration": "public const string ElicitationType = \"elicitation\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantContent.cs",
+        "declaration": "public const string PlanType = \"plan\";"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantContent.cs",
@@ -32758,6 +32894,54 @@
         "declaration": "public static bool Allows(AssistantMcpConnection? connection, AssistantMcpServer server) {"
       },
       {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantPlans.cs",
+        "declaration": "public const string UpdatedCode = \"plan-updated\";"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantPlans.cs",
+        "declaration": "public static string Description { get; } ="
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantPlans.cs",
+        "declaration": "public static string Schema { get; } = JsonSerializer.Serialize(new Dictionary<string, object> { [\"type\"] = \"object\", [\"properties\"] = new Dictionary<string, object> { [\"steps\"] = new Dictionary<string, object> { [\"type\"] = \"array\", [\"minItems\"] = 1, [\"maxItems\"] = NhAssistantPlanLimits.MaxSteps, [\"description\"] = \"The whole plan, in order; replaces the plan.\", [\"items\"] = new Dictionary<string, object> { [\"type\"] = \"object\", [\"properties\"] = new Dictionary<string, object> { [\"text\"] = new Dictionary<string, object> { [\"type\"] = \"string\", [\"description\"] = \"The step as a short plain-text phrase.\" }, [\"status\"] = new Dictionary<string, object> { [\"type\"] = \"string\", [\"enum\"] = new[] { \"pending\", ModelInProgress, \"completed\" } } }, [\"required\"] = new[] { \"text\", \"status\" } } }, [\"advance\"] = new Dictionary<string, object>"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantPlans.cs",
+        "declaration": "public static bool IsPlanCall(string toolId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantPlans.cs",
+        "declaration": "public static (IReadOnlyList<NhAssistantPlanStep>? Plan, JsonElement? Refusal) Update( AIFunctionArguments arguments, IReadOnlyList<NhAssistantPlanStep>? current, int updates) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantPlans.cs",
+        "declaration": "public static (IReadOnlyList<NhAssistantPlanStep>? Plan, string? Refusal) Apply( AIFunctionArguments arguments, IReadOnlyList<NhAssistantPlanStep>? current) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantPlans.cs",
+        "declaration": "public static NhAssistantStoredPart PartOf(IReadOnlyList<NhAssistantPlanStep> steps, Guid? runId, DateTimeOffset updatedAt) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantPlans.cs",
+        "declaration": "public static NhAssistantPlanPartView? ViewOf(NhAssistantStoredPart part) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantPlans.cs",
+        "declaration": "public static NhAssistantPlanPartView? LatestOfRun(IEnumerable<string> messages, Guid runId) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantPlans.cs",
+        "declaration": "public static (IReadOnlyList<NhAssistantPlanStep>? Plan, int Updates) OfTurn(IReadOnlyList<NhAssistantTurnToolResult> calls) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantPlans.cs",
+        "declaration": "public static JsonElement Updated(IReadOnlyList<NhAssistantPlanStep> steps) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantPlans.cs",
+        "declaration": "public static JsonElement Refused(string code, string message) {"
+      },
+      {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantPromptFit.cs",
         "declaration": "public bool LeftDataOut => DroppedPassages > 0 || ApplicationMapDropped || TurnDataDropped;"
       },
@@ -32991,6 +33175,18 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public IReadOnlyList<NhAssistantPlanStep>? Plan { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public int PlanUpdates { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public bool PlanLoaded { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public NhAssistantAgentRunOptions? ChatOptions { get; set; }"
       },
       {
@@ -33176,6 +33372,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
         "declaration": "public void ReplacePart(NhAssistantStoredPart part, NhAssistantStoredPart replacement) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
+        "declaration": "public void SetPlanPart(NhAssistantStoredPart part) {"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/Runtime/NhAssistantToolCallInterceptor.cs",
@@ -61094,7 +61294,15 @@
       "INhAssistantTurnToolResults",
       "NhAssistantToolResultSearch",
       "NhAssistantToolResultMatch",
-      "NhAssistantToolResultCodes"
+      "NhAssistantToolResultCodes",
+      "KeepPlan",
+      "KeepsPlan",
+      "NhAssistantPlanLimits",
+      "NhAssistantPlanStepStatuses",
+      "NhAssistantPlanDto",
+      "NhAssistantPlanStepDto",
+      "NhAssistantPlanPartDto",
+      "NhAssistantPlanUpdatedDto"
     ],
     "nh-ai-alerts": [
       "AddAlertKind",
@@ -62623,7 +62831,14 @@
       "ClientToolResultRequest",
       "reportClientTool",
       "nhAssistantNavigateTool",
-      "nhAssistantModalTool"
+      "nhAssistantModalTool",
+      "NhAssistantPlanComponent",
+      "PlanPart",
+      "AgentPlan",
+      "PlanStep",
+      "PlanStepStatus",
+      "PlanUpdatedEvent",
+      "NhAssistantMockPlanStep"
     ],
     "nh-background-operation-suspension": [
       "INhBackgroundOperationSuspensionContext",

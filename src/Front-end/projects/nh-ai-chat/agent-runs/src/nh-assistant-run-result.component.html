@@ -80,6 +80,11 @@
       }
     </dl>
 
+    <!-- The plan the agent kept of its work: model output, shown as plain text and as the agent's. -->
+    @if (current.plan; as plan) {
+      <nh-assistant-plan class="result-plan" data-run-plan [plan]="plan" />
+    }
+
     <!-- The answer is model output: the safe Markdown rendering shows inline HTML as text. -->
     <div class="result-body">
       <h5>{{ 'nh-assistant.agent-runs.result.answer' | translate }}</h5>

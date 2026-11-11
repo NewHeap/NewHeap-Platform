@@ -58,13 +58,63 @@ public sealed class AssistantChatSkillQuestionSamplesTests(AssistantAgentRunSamp
         Assert.Equal(["use_skill"], ToolNames(model.Requests[0]));
         var inSkill = model.Requests[1];
         Assert.Contains("## Skill: " + SampleProjectPlannerComposition.TaskFollowUpSkill, inSkill.Options!.Instructions);
-        // The follow-up skill selects only the status tool; use_skill still offers the deadline risk skill.
-        Assert.Equal(["projects_change_status_v1", "use_skill"], ToolNames(inSkill).Order(StringComparer.Ordinal).ToArray());
+        // The follow-up skill selects only the status tool; use_skill still offers the deadline risk skill,
+        // and once a skill is chosen the planner may keep its plan (KeepPlan()).
+        Assert.Equal(["projects_change_status_v1", "update_plan", "use_skill"], ToolNames(inSkill).Order(StringComparer.Ordinal).ToArray());
 
         var conversation = await host.GetJsonAsync(client, $"/api/assistant/conversations/{conversationId}");
         var answer = conversation.GetProperty("messages").EnumerateArray().Last();
         Assert.Equal("assistant", answer.GetProperty("role").GetString());
         Assert.Equal(SampleProjectPlannerComposition.TaskFollowUpSkill, answer.GetProperty("skillId").GetString());
+    }
+
+    [Fact]
+    public async Task SPM_333_the_planner_keeps_a_visible_plan_of_its_work_in_the_chat()
+    {
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall(
+                "use_skill",
+                new { skill = SampleProjectPlannerComposition.TaskFollowUpSkill, reason = "The person asks which task comes next." },
+                "call-skill")
+            .RespondWithFunctionCall(
+                "update_plan",
+                new
+                {
+                    steps = new[]
+                    {
+                        new { text = "Find the open tasks of the launch project", status = "in_progress" },
+                        new { text = "Name the task that comes next", status = "pending" }
+                    }
+                },
+                "call-plan")
+            .RespondWithFunctionCall("update_plan", new { advance = true }, "call-advance")
+            .RespondWithText("The design review comes next.");
+        host.Model.Use(model);
+        using var client = host.CreateClient(host.OwnerId.ToString());
+        var conversationId = await CreateConversationAsync(client, SampleProjectPlannerComposition.AgentId);
+
+        var events = await host.SendAsync(client, conversationId, "Which task of the launch project comes next?");
+
+        // The planner keeps no plan before it chose a skill, and may once it did (KeepPlan()).
+        Assert.DoesNotContain("update_plan", ToolNames(model.Requests[0]));
+        Assert.Contains("update_plan", ToolNames(model.Requests[1]));
+        // Every update streams the whole plan as plan.updated, never as a tool call of its own.
+        var plans = events.Where(evt => evt.Name == "plan.updated").Select(evt => evt.Data).ToArray();
+        Assert.Equal(2, plans.Length);
+        Assert.All(plans, plan => Assert.True(plan.TryGetProperty("turnId", out _) && plan.TryGetProperty("messageId", out _)));
+        Assert.Equal(
+            ["completed", "in-progress"],
+            plans[1].GetProperty("plan").GetProperty("steps").EnumerateArray().Select(step => step.GetProperty("status").GetString()));
+        Assert.DoesNotContain(events, evt => evt.Name == "tool.started" && evt.Data.GetProperty("toolId").GetString() == "assistant.plan");
+
+        // A reloaded conversation shows the plan as it ended in the planner's message.
+        var conversation = await host.GetJsonAsync(client, $"/api/assistant/conversations/{conversationId}");
+        var plan = conversation.GetProperty("messages").EnumerateArray().Last()
+            .GetProperty("parts").EnumerateArray()
+            .Single(part => part.GetProperty("type").GetString() == "plan");
+        Assert.Equal(
+            [("Find the open tasks of the launch project", "completed"), ("Name the task that comes next", "in-progress")],
+            plan.GetProperty("steps").EnumerateArray().Select(step => (step.GetProperty("text").GetString(), step.GetProperty("status").GetString())));
     }
 
     [Fact]

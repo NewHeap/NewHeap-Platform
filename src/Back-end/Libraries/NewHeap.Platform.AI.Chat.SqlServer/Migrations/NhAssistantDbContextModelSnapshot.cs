@@ -747,6 +747,9 @@ namespace NewHeap.Platform.AI.Chat.SqlServer.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
 
+                    b.Property<bool>("KeepsPlan")
+                        .HasColumnType("bit");
+
                     b.Property<int>("MaxConcurrentRuns")
                         .HasColumnType("int");
 

@@ -309,6 +309,15 @@
         "expired": "Niemand heeft {{server}} op tijd geantwoord."
       }
     },
+    "plan": {
+      "title": "Plan van de agent",
+      "progress": "{{completed}} van {{total}} klaar",
+      "status": {
+        "pending": "Niet begonnen",
+        "in-progress": "Bezig",
+        "completed": "Klaar"
+      }
+    },
     "proposal-feedback": {
       "legend": "Wat klopte er niet? (optioneel)",
       "bulk": "Geldt voor de {{count}} voorstellen die je hebt afgewezen.",
@@ -616,6 +625,8 @@
       "assistant-package-not-linked": "Deze agent, of dit onderdeel ervan, is niet aan een agentpakket gekoppeld.",
       "assistant-package-not-found": "Deze host heeft nooit een agentpakket met deze id geïmporteerd.",
       "assistant-question-invalid": "De assistent kon deze vraag niet stellen; hij gaat verder zonder.",
+      "assistant-plan-invalid": "De agent kon zijn plan niet bijwerken; hij gaat verder zonder de wijziging.",
+      "assistant-plan-update-limit-reached": "De agent heeft zijn plan in dit antwoord zo vaak bijgewerkt als mag.",
       "assistant-question-not-found": "Deze vraag is niet gevonden.",
       "assistant-question-not-pending": "Deze vraag wacht niet meer op een antwoord.",
       "assistant-question-forbidden": "Deze vraag is aan iemand anders gesteld.",

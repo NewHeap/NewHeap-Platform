@@ -749,6 +749,10 @@
         "replay-progress": "{{replayed}} van hoogstens {{max}} runs herhaald, {{skipped}} overgeslagen"
       },
       "run-config": {
+        "plan": {
+          "label": "Houdt een zichtbaar plan bij",
+          "agent-hint": "De agent toont een korte checklist van zijn werk in chats en runs, die mensen zien als het plan van de agent. Uit tot je dit aanzet."
+        },
         "files": {
           "label": "Neemt bestanden aan",
           "agent-hint": "Berichten van mensen en de tools van de agent mogen hem documenten geven, zoals pdf's, binnen de limieten van de applicatie. Een nieuwe agent neemt er geen aan totdat je dit aanzet.",

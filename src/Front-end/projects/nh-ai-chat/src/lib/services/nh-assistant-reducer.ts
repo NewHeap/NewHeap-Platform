@@ -7,6 +7,7 @@ import {
   ElicitationPart,
   Message,
   MessagePart,
+  PlanPart,
   QuestionPart,
   ToolCallPart
 } from '../models/assistant-api.models';
@@ -137,6 +138,17 @@ export function applyNhAssistantEvent(
       return hasElicitation(conversation, elicitation.elicitationId)
         ? replaceElicitation(conversation, elicitation)
         : appendToCurrentAssistantMessage(conversation, elicitation);
+    }
+
+    case 'plan.updated': {
+      // A snapshot of the whole plan: it replaces the plan of its message, so a repeated or late event
+      // never shows an older plan twice.
+      const plan: PlanPart = { type: 'plan', steps: event.data.plan.steps, updatedAt: event.data.plan.updatedAt };
+      const messages = ensureMessage(conversation.messages, event.data.messageId);
+      return {
+        ...conversation,
+        messages: messages.map(message => message.id === event.data.messageId ? withPlan(message, plan) : message)
+      };
     }
 
     case 'connection.required': {
@@ -396,6 +408,23 @@ function appendToCurrentAssistantMessage(conversation: Conversation, part: Messa
   };
 }
 
+/**
+ * The message with `plan` in place of the plan it holds, or after its parts for its first plan. A plan
+ * older than the one the message holds, as a late live event may carry, changes nothing.
+ */
+function withPlan(message: Message, plan: PlanPart): Message {
+  const index = message.parts.findIndex(part => part.type === 'plan');
+  if (index < 0) {
+    return { ...message, parts: [...message.parts, plan] };
+  }
+
+  const current = message.parts[index] as PlanPart;
+  if (Date.parse(current.updatedAt) > Date.parse(plan.updatedAt)) {
+    return message;
+  }
+  return { ...message, parts: message.parts.map((part, position) => position === index ? plan : part) };
+}
+
 function partKey(part: MessagePart): string {
   if (part.type === 'tool-call') {
     return part.invocationId;
@@ -411,6 +440,9 @@ function partKey(part: MessagePart): string {
   }
   if (part.type === 'elicitation') {
     return `elicitation-${part.elicitationId}`;
+  }
+  if (part.type === 'plan') {
+    return 'plan';
   }
 
   return 'text';

@@ -556,6 +556,7 @@ describe('The mock API for the flow view', () => {
       chatOnly: false,
       skillsInChat: false,
       allowQuestions: false,
+      keepsPlan: false,
       usesMemory: false,
       triageProfile: null,
       retryCount: 3,

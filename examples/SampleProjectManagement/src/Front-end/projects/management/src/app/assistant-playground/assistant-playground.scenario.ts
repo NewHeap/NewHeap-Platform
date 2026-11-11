@@ -162,6 +162,7 @@ export const ASSISTANT_PLAYGROUND_PROMPTS = [
   { key: 'tools', text: 'Compare the open work across all projects.' },
   { key: 'approval', text: 'Put project Alpha migration on hold.' },
   { key: 'result-cards', text: 'Show the projects as result cards.' },
+  { key: 'plan', text: 'Review the active projects step by step.' },
   { key: 'question', text: 'Ask me which status project Beta onboarding should get.' },
   { key: 'legacy-approval', text: 'Show a legacy approval fallback.' },
   { key: 'forbidden', text: 'Delete the archived projects.' },
@@ -446,6 +447,14 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       createdAt: '2026-10-12T05:00:00Z',
       durationSeconds: 3,
       result: '3 open projects; with three or fewer there is nothing to follow up.',
+      // SPM-304: the plan the run's agent kept of its work, which the run's result shows.
+      plan: {
+        steps: [
+          { text: 'Count the open projects', status: 'completed' },
+          { text: 'Decide whether any project needs a follow-up', status: 'completed' }
+        ],
+        updatedAt: '2026-10-12T05:00:03Z'
+      },
       // SPM-251: the run left the team calendar out; the person it acted for had not allowed its
       // use in background runs and was told in the inbox.
       mcpConnectionSkips: [
@@ -1097,6 +1106,57 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
           }
         },
         { text: 'I found **2** projects. Alpha migration is active and due on Friday 4 December.' }
+      ]
+    },
+    {
+      // SPM-333 and SPM-304: the agent keeps a visible plan of its work (KeepPlan() on the server):
+      // each update replaces the checklist in its message, the current step marked.
+      match: /step by step/i,
+      steps: [
+        {
+          plan: {
+            steps: [
+              { text: 'Find the active projects', status: 'in-progress' },
+              { text: 'Read the project that is due first', status: 'pending' },
+              { text: 'Summarize what needs attention', status: 'pending' }
+            ]
+          }
+        },
+        {
+          tool: {
+            toolId: 'projects.search',
+            displayName: 'Search projects',
+            argumentsPreview: '{"input":{"query":"active","limit":5}}',
+            resultPreview: '[{"key":"PRJ-ALPHA","name":"Alpha migration"},{"key":"PRJ-GAMMA","name":"Gamma analytics"}]'
+          }
+        },
+        {
+          plan: {
+            steps: [
+              { text: 'Find the active projects', status: 'completed' },
+              { text: 'Read the project that is due first', status: 'in-progress' },
+              { text: 'Summarize what needs attention', status: 'pending' }
+            ]
+          }
+        },
+        {
+          tool: {
+            toolId: 'projects.get',
+            displayName: 'Read project',
+            argumentsPreview: '{"input":{"projectId":"alpha"}}',
+            resultPreview: '{"key":"PRJ-ALPHA","name":"Alpha migration","status":"Active","deadline":"2026-12-04T00:00:00+00:00"}'
+          }
+        },
+        {
+          plan: {
+            steps: [
+              { text: 'Find the active projects', status: 'completed' },
+              { text: 'Read the project that is due first', status: 'completed' },
+              { text: 'Summarize what needs attention', status: 'completed' }
+            ]
+          }
+        },
+        { text: 'Two projects are active. **Alpha migration** is due first, on Friday 4 December, and is on schedule.' }
       ]
     },
     {
