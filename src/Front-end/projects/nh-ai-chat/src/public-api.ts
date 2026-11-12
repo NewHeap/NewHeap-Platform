@@ -22,8 +22,9 @@ export * from './lib/services/nh-assistant-admin-api.service';
 export * from './lib/services/nh-assistant-agent-run-api.service';
 export * from './lib/services/nh-assistant-reducer';
 export * from './lib/services/nh-assistant-page-context';
+export * from './lib/services/nh-assistant-client-tools';
 export * from './lib/services/nh-assistant.store';
-export { NhAssistantLiveService, NhAssistantLiveState } from './lib/services/nh-assistant-live.service';
+export { NhAssistantLiveConnectOptions, NhAssistantLiveService, NhAssistantLiveState } from './lib/services/nh-assistant-live.service';
 export { NhAssistantAlertNotificationClick, NhAssistantPushService, NhAssistantPushState } from './lib/services/nh-assistant-push.service';
 export * from './lib/services/nh-assistant-panel.service';
 export * from './lib/services/nh-assistant-subject-summary.service';
@@ -41,7 +42,13 @@ export * from './lib/components/composer/nh-assistant-composer.component';
 export * from './lib/components/tool-call-card/nh-assistant-tool-call-card.component';
 export * from './lib/components/tool-call-group/nh-assistant-tool-call-group.component';
 export * from './lib/components/approval-card/nh-assistant-approval-card.component';
+export * from './lib/components/presentation-fields/nh-assistant-presentation-fields.component';
+export * from './lib/components/tool-result/nh-assistant-tool-result-renderers';
+export * from './lib/components/tool-result/nh-assistant-tool-result-card.component';
+export * from './lib/components/tool-result/nh-assistant-tool-result.component';
 export * from './lib/components/question-card/nh-assistant-question-card.component';
+export * from './lib/components/elicitation-card/nh-assistant-elicitation-card.component';
+export * from './lib/components/plan/nh-assistant-plan.component';
 export * from './lib/components/proposal-feedback/nh-assistant-proposal-feedback.component';
 export * from './lib/components/agent-picker/nh-assistant-agent-picker.component';
 export * from './lib/components/preferences/nh-assistant-preferences.component';
@@ -68,6 +75,9 @@ export {
 export { provideNhAssistantSelect as ɵprovideNhAssistantSelect } from './lib/internal/nh-assistant-select';
 export { NhAssistantSubjectLinkComponent as ɵNhAssistantSubjectLinkComponent } from './lib/internal/nh-assistant-subject-link.component';
 export { NhAssistantMarkdownPipe as ɵNhAssistantMarkdownPipe } from './lib/internal/nh-assistant-markdown.pipe';
+// The theme tokens that every component of the administration and the agent pages applies as a host
+// directive; the main entry point delivers their stylesheet once per application.
+export { NhAssistantTokensDirective as ɵNhAssistantTokensDirective } from './lib/internal/nh-assistant-tokens';
 // The merge of bundled texts, shared with the administration, which brings its own texts.
 export { nhAssistantMergeTranslations as ɵnhAssistantMergeTranslations } from './lib/i18n/nh-assistant-translations';
 // The upload media type rule, shared with the mock API of the testing entry point.

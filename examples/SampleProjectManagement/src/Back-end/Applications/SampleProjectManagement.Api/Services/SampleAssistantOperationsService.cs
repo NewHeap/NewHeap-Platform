@@ -33,6 +33,15 @@ public sealed class SampleAssistantOperationsService(
     public const string NextMilestoneTool = "next_milestone";
 
     /// <summary>
+    /// SPM-251: how many minutes a request for input of the milestones server waits for the person of
+    /// a chat turn, instead of the five minutes a server waits by default (1 to 10). The lookup's own
+    /// timeout and the turn's stand still while the person answers, so the person gets all three minutes
+    /// although a turn of the sample has one (<see cref="SampleAssistantComposition.TurnTimeout"/>), and
+    /// another person's lookup runs meanwhile.
+    /// </summary>
+    public const int MilestonesElicitationWaitMinutes = 3;
+
+    /// <summary>
     /// SPM-346: the description the operations code reviewed for the lookup before any sync saw it.
     /// </summary>
     public const string NextMilestoneDescription = "Finds the next milestone of one project.";
@@ -226,7 +235,8 @@ public sealed class SampleAssistantOperationsService(
     }
 
     /// <summary>
-    /// The milestones server with its API key, which Data Protection keeps.
+    /// The milestones server with its API key, which Data Protection keeps, and the wait of its
+    /// requests for input (SPM-251).
     /// </summary>
     private static NhAssistantMcpServerRequest MilestonesServer(string url, string apiKey)
     {
@@ -238,7 +248,10 @@ public sealed class SampleAssistantOperationsService(
             null,
             apiKey,
             null,
-            true);
+            true)
+        {
+            ElicitationWaitMinutes = MilestonesElicitationWaitMinutes
+        };
     }
 
     private static bool IsServerMissing(TaskResult result)

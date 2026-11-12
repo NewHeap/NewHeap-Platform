@@ -8,7 +8,8 @@ internal sealed class NhAssistantToolPresentationResolver(
     IEnumerable<INhAssistantToolPresenter> presenters,
     ILogger<NhAssistantToolPresentationResolver> logger,
     INhAssistantPresentationCultures? presentationCultures = null,
-    TimeSpan? requiredPresenterTimeout = null)
+    TimeSpan? requiredPresenterTimeout = null,
+    IEnumerable<INhAssistantToolResultPresenter>? resultPresenters = null)
 {
     public const int MaxDisplayNameLength = NhAssistantPresentationLimits.MaxDisplayNameLength;
     public const int MaxSummaryLength = NhAssistantPresentationLimits.MaxSummaryLength;
@@ -26,6 +27,7 @@ internal sealed class NhAssistantToolPresentationResolver(
     public const int MaxLocalizedSerializedLength = MaxLocalizedCultures * (MaxSerializedLength + 64);
 
     private readonly IReadOnlyList<INhAssistantToolPresenter> _presenters = presenters.ToArray();
+    private readonly IReadOnlyList<INhAssistantToolResultPresenter> _resultPresenters = resultPresenters?.ToArray() ?? [];
 
     public async Task<string> ResolveDisplayNameAsync(
         NhAiToolDescriptor descriptor,
@@ -131,11 +133,7 @@ internal sealed class NhAssistantToolPresentationResolver(
         CultureInfo culture,
         CancellationToken cancellationToken)
     {
-        var others = (presentationCultures?.GetCultures() ?? [])
-            .Where(other => !string.Equals(other.Name, culture.Name, StringComparison.OrdinalIgnoreCase))
-            .DistinctBy(other => other.Name, StringComparer.OrdinalIgnoreCase)
-            .Take(MaxLocalizedCultures - 1)
-            .ToArray();
+        var others = OtherCultures(culture);
         if (_presenters.OfType<INhAssistantRequiredToolPresenter>().FirstOrDefault(item => item.Requires(descriptor)) is { } required)
         {
             return await ResolveRequiredAsync(required, descriptor, arguments, invocationContext, [culture, .. others], cancellationToken);
@@ -174,27 +172,177 @@ internal sealed class NhAssistantToolPresentationResolver(
         string? presentationsJson,
         CultureInfo culture)
     {
-        if (DeserializeLocalized(presentationsJson) is { Count: > 0 } localized)
-        {
-            for (var candidate = culture; !string.IsNullOrEmpty(candidate.Name); candidate = candidate.Parent)
-            {
-                if (localized.TryGetValue(candidate.Name, out var exact) && IsValid(exact))
-                {
-                    return exact;
-                }
-            }
+        return PickLocalized(DeserializeLocalized(presentationsJson), culture, IsValid)
+            ?? Deserialize(presentationJson);
+    }
 
-            var sameLanguage = localized
-                .Where(entry => SameLanguage(entry.Key, culture) && IsValid(entry.Value))
-                .Select(entry => entry.Value)
-                .FirstOrDefault();
-            if (sameLanguage is not null)
+    /// <summary>
+    /// Presents what a call that succeeded returned in <paramref name="culture"/> and, when a result
+    /// presenter presents it and the application supports more UI cultures, in each of them, so every
+    /// viewer later reads it in their own language; <see langword="null"/> without a card. A tool
+    /// classified <see cref="NhAiDataClassification.Confidential"/> or above is never presented.
+    /// </summary>
+    public async Task<NhAssistantLocalizedResultPresentation?> ResolveResultInCulturesAsync(
+        NhAiToolDescriptor descriptor,
+        JsonElement data,
+        JsonElement? arguments,
+        CultureInfo culture,
+        CancellationToken cancellationToken)
+    {
+        if (_resultPresenters.Count == 0 || descriptor.DataClassification >= NhAiDataClassification.Confidential)
+        {
+            return null;
+        }
+
+        var presentation = await ResolveResultAsync(descriptor, data, arguments, culture, cancellationToken);
+        if (presentation is null)
+        {
+            return null;
+        }
+
+        var others = OtherCultures(culture);
+        if (others.Length == 0)
+        {
+            return new NhAssistantLocalizedResultPresentation(presentation, null);
+        }
+
+        var localized = new Dictionary<string, NhAssistantToolResultPresentation>(StringComparer.OrdinalIgnoreCase)
+        {
+            [culture.Name] = presentation
+        };
+        foreach (var other in others)
+        {
+            var translated = await InCultureAsync(
+                other,
+                () => ResolveResultAsync(descriptor, data, arguments, other, cancellationToken));
+            if (translated is not null)
             {
-                return sameLanguage;
+                localized[other.Name] = translated;
             }
         }
 
-        return Deserialize(presentationJson);
+        return new NhAssistantLocalizedResultPresentation(presentation, localized.Count > 1 ? localized : null);
+    }
+
+    /// <summary>
+    /// The first result card a presenter returns for the call within the limits, or <see langword="null"/>.
+    /// A card that breaks a limit is dropped with a warning, and the next presenter is asked.
+    /// </summary>
+    public async Task<NhAssistantToolResultPresentation?> ResolveResultAsync(
+        NhAiToolDescriptor descriptor,
+        JsonElement data,
+        JsonElement? arguments,
+        CultureInfo culture,
+        CancellationToken cancellationToken)
+    {
+        if (descriptor.DataClassification >= NhAiDataClassification.Confidential)
+        {
+            return null;
+        }
+
+        foreach (var presenter in _resultPresenters)
+        {
+            var result = await TryInvokeAsync(
+                presenter,
+                token => presenter.PresentResultAsync(
+                    new NhAssistantToolResultPresentationContext(descriptor, data, culture) { Arguments = arguments },
+                    token),
+                descriptor.Id,
+                cancellationToken);
+            if (result is null)
+            {
+                continue;
+            }
+            if (NhAssistantPresentationLimits.FindBrokenResultRule(result) is not { } rule)
+            {
+                return result;
+            }
+
+            // The presenter is the application's to fix; the chat shows the call without a card.
+            LogDropped(presenter, descriptor.Id, culture, rule, "result presentation");
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The result card for a viewer in <paramref name="culture"/>, by the same order as an approval's:
+    /// the exact culture, its parents, any culture of the same language, and otherwise the card in the
+    /// culture of the turn. A stored card that no longer keeps within the limits is not shown.
+    /// </summary>
+    public static NhAssistantToolResultPresentation? PickResult(
+        NhAssistantToolResultPresentation? presentation,
+        IReadOnlyDictionary<string, NhAssistantToolResultPresentation>? localized,
+        CultureInfo culture)
+    {
+        var lookup = localized is null
+            ? null
+            : new Dictionary<string, NhAssistantToolResultPresentation>(localized, StringComparer.OrdinalIgnoreCase);
+        return PickLocalized(lookup, culture, IsValid)
+            ?? (IsValid(presentation) ? presentation : null);
+    }
+
+    private static T? PickLocalized<T>(
+        Dictionary<string, T>? localized,
+        CultureInfo culture,
+        Func<T?, bool> isValid)
+        where T : class
+    {
+        if (localized is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        for (var candidate = culture; !string.IsNullOrEmpty(candidate.Name); candidate = candidate.Parent)
+        {
+            if (localized.TryGetValue(candidate.Name, out var exact) && isValid(exact))
+            {
+                return exact;
+            }
+        }
+
+        return localized
+            .Where(entry => SameLanguage(entry.Key, culture) && isValid(entry.Value))
+            .Select(entry => entry.Value)
+            .FirstOrDefault();
+    }
+
+    /// <summary>
+    /// The application's other UI cultures, at most <see cref="MaxLocalizedCultures"/> with <paramref name="culture"/>.
+    /// </summary>
+    private CultureInfo[] OtherCultures(CultureInfo culture)
+    {
+        return (presentationCultures?.GetCultures() ?? [])
+            .Where(other => !string.Equals(other.Name, culture.Name, StringComparison.OrdinalIgnoreCase))
+            .DistinctBy(other => other.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(MaxLocalizedCultures - 1)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Runs <paramref name="present"/> with the current culture set to <paramref name="culture"/>:
+    /// presenters often read resources through it. The change stays inside this asynchronous call.
+    /// </summary>
+    private static async Task<T?> InCultureAsync<T>(CultureInfo culture, Func<Task<T?>> present)
+        where T : class
+    {
+        var (previousCulture, previousUiCulture) = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
+        CultureInfo.CurrentCulture = culture;
+        CultureInfo.CurrentUICulture = culture;
+        try
+        {
+            return await present();
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+            CultureInfo.CurrentUICulture = previousUiCulture;
+        }
+    }
+
+    private static bool IsValid(NhAssistantToolResultPresentation? presentation)
+    {
+        return presentation is not null && NhAssistantPresentationLimits.FindBrokenResultRule(presentation) is null;
     }
 
     public static string? Serialize(NhAssistantApprovalPresentation? presentation)
@@ -326,7 +474,7 @@ internal sealed class NhAssistantToolPresentationResolver(
             }
             if (NhAssistantPresentationLimits.FindBrokenRule(card) is { } rule)
             {
-                LogDropped((INhAssistantToolPresenter)presenter, descriptor.Id, culture, rule, "required approval presentation");
+                LogDropped(presenter, descriptor.Id, culture, rule, "required approval presentation");
                 return Refused(NhAssistantRequiredPresentation.Failed);
             }
             localized.TryAdd(culture.Name, card);
@@ -378,7 +526,7 @@ internal sealed class NhAssistantToolPresentationResolver(
     /// Logs that a presenter's result was dropped: its type, the tool, the culture and the broken rule,
     /// never the text it returned.
     /// </summary>
-    private void LogDropped(INhAssistantToolPresenter presenter, string toolId, CultureInfo culture, string rule, string what)
+    private void LogDropped(object presenter, string toolId, CultureInfo culture, string rule, string what)
     {
         logger.LogWarning(
             "Assistant tool presenter {PresenterType} returned a {PresentationKind} for tool {ToolId} in culture {Culture} that breaks rule {PresentationRule}; it is dropped and the fallback is shown.",
@@ -390,7 +538,7 @@ internal sealed class NhAssistantToolPresentationResolver(
     }
 
     private async Task<T?> TryInvokeAsync<T>(
-        INhAssistantToolPresenter presenter,
+        object presenter,
         Func<CancellationToken, ValueTask<T?>> invoke,
         string toolId,
         CancellationToken cancellationToken)
@@ -436,6 +584,14 @@ internal sealed record NhAssistantLocalizedApprovalPresentation(
     /// </summary>
     public string? Refusal { get; init; }
 }
+
+/// <summary>
+/// The result card of a call in the culture of its turn and, when the application supports more UI
+/// cultures, by culture name in each culture it was presented in.
+/// </summary>
+internal sealed record NhAssistantLocalizedResultPresentation(
+    NhAssistantToolResultPresentation Presentation,
+    IReadOnlyDictionary<string, NhAssistantToolResultPresentation>? Localized);
 
 /// <summary>
 /// A presenter whose own card a tool's proposal needs, such as the agent builder's for its writes: the

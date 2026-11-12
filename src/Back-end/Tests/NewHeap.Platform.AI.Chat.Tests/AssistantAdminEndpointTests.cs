@@ -460,8 +460,9 @@ public sealed class AssistantAdminEndpointTests(AssistantDatabaseFixture databas
         AssertNames(server, "id", "displayName", "url", "authMode", "headerName", "hasSecret", "requiredPolicy", "isEnabled",
             "lastSyncAt", "lastSyncStatus", "assignedAgentIds", "headlessUse", "lastConnectAt", "lastConnectCode",
             "userName", "secretReference", "clientCertificateReference", "transport", "connectionScope", "oauth", "authorization",
-            "organizationConnection", "readers");
+            "organizationConnection", "readers", "elicitationWaitMinutes");
         Assert.Empty(server.GetProperty("readers").EnumerateArray());
+        Assert.Equal(NhAssistantMcpServerLimits.DefaultElicitationWaitMinutes, server.GetProperty("elicitationWaitMinutes").GetInt32());
         Assert.Equal("streamable-http", server.GetProperty("transport").GetString());
         Assert.True(server.GetProperty("hasSecret").GetBoolean());
         Assert.Equal("never", server.GetProperty("headlessUse").GetString());

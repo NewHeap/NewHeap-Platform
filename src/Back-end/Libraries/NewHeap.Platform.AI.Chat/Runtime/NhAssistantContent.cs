@@ -24,9 +24,39 @@ internal sealed record NhAssistantStoredPart(
     string? AddresseeActorId = null,
     DateTimeOffset? ExpiresAt = null,
     string? SkillId = null,
-    int? SkillVersion = null)
+    int? SkillVersion = null,
+    NhAssistantToolResultPresentation? ResultPresentation = null,
+    IReadOnlyDictionary<string, NhAssistantToolResultPresentation>? ResultPresentations = null,
+    Guid? ElicitationId = null,
+    string? Mode = null,
+    IReadOnlyList<NhAssistantElicitationField>? Fields = null,
+    string? Status = null,
+    DateTimeOffset? ClosedAt = null,
+    IReadOnlyList<NhAssistantPlanStep>? Steps = null,
+    Guid? RunId = null,
+    DateTimeOffset? UpdatedAt = null)
 {
     public const string TextType = "text";
+
+    /// <summary>
+    /// A request for input of an MCP server whose tool the turn ran: <see cref="ElicitationId"/> names
+    /// it and <see cref="InvocationId"/> the call that waited for it; <see cref="ServerId"/> and
+    /// <see cref="DisplayName"/> the server that asked, <see cref="Mode"/> <c>form</c> or <c>url</c>,
+    /// <see cref="Text"/> the server's message, <see cref="Fields"/> what a form asked for,
+    /// <see cref="LinkUrl"/> the page of a <c>url</c> request, <see cref="AddresseeActorId"/> the person
+    /// who answers, <see cref="ExpiresAt"/> the end of its wait, <see cref="Status"/> how it closed
+    /// (<see cref="NhAssistantElicitationStatuses"/>) and <see cref="ClosedAt"/> when. Never the answer.
+    /// </summary>
+    public const string ElicitationType = "elicitation";
+
+    /// <summary>
+    /// The plan the agent keeps with <c>update_plan</c> (<c>run.KeepPlan()</c>), as it stood after the
+    /// turn's last update in this message: its <see cref="Steps"/>, when it was last changed
+    /// (<see cref="UpdatedAt"/>) and, in a headless run, the <see cref="RunId"/> whose plan it is. A
+    /// message holds at most one; each update replaces it. It is the agent's own statement, never
+    /// replayed to a later turn.
+    /// </summary>
+    public const string PlanType = "plan";
 
     /// <summary>
     /// A question the agent asked with <c>ask_question</c> (LS21): <see cref="InvocationId"/> names its
@@ -51,6 +81,15 @@ internal sealed record NhAssistantStoredPart(
     /// </summary>
     public const string ApplicationType = "application";
     public const string ToolCallType = "tool-call";
+
+    /// <summary>
+    /// The trusted card of what a call returned (<see cref="INhAssistantToolResultPresenter"/>):
+    /// <see cref="InvocationId"/> names the call, whose part may be in an earlier message, such as the
+    /// one a turn paused in for an approval; <see cref="ResultPresentation"/> is the card in the culture
+    /// of the turn and <see cref="ResultPresentations"/> the card by culture name when the application
+    /// supports more UI cultures. The conversation shows it on the call, never as a part of its own.
+    /// </summary>
+    public const string ToolResultType = "tool-result";
     public const string ApprovalType = "approval";
 
     /// <summary>
@@ -65,7 +104,21 @@ internal sealed record NhAssistantStoredPart(
     /// never its content; a later turn opens the file again through the application's file source.
     /// </summary>
     public const string FileType = "file";
+
+    /// <summary>
+    /// A client tool call that waits for, or waited for, the browser of the person whose turn called it:
+    /// <see cref="InvocationId"/> names the call, which says whether it waits and how it ended,
+    /// <see cref="AddresseeActorId"/> the person whose browser runs it and <see cref="ExpiresAt"/> the end
+    /// of its wait on the application's clock.
+    /// </summary>
+    public const string ClientToolType = "client-tool";
 }
+
+/// <summary>
+/// One step of an agent's plan: plain text of at most <see cref="NhAssistantPlanLimits.MaxStepLength"/>
+/// characters and one of <see cref="NhAssistantPlanStepStatuses"/>.
+/// </summary>
+internal sealed record NhAssistantPlanStep(string Text, string Status);
 
 /// <summary>
 /// The reference of a file in a stored message: the application's id, name, media type, size and

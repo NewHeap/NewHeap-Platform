@@ -22,6 +22,7 @@ import {
   ApprovalStatus,
   AssistantStatus,
   ClientContext,
+  ClientToolRequest,
   Conversation,
   ConversationMember,
   ConversationStatus,
@@ -29,6 +30,7 @@ import {
   ConversationSubjectRef,
   ConversationSummary,
   DirectoryEntry,
+  ElicitationAction,
   FileReference,
   Message,
   MessagePart
@@ -50,6 +52,7 @@ import { NhAssistantLiveService } from './nh-assistant-live.service';
 import { NhAssistantPushService } from './nh-assistant-push.service';
 import {
   applyNhAssistantApprovalDecision,
+  applyNhAssistantClientToolReport,
   applyNhAssistantConversationChange,
   applyNhAssistantEvent,
   applyNhAssistantLiveEvent,
@@ -57,6 +60,7 @@ import {
   nhAssistantLatestTurnHasText
 } from './nh-assistant-reducer';
 import { normalizeNhAssistantClientContext } from './nh-assistant-page-context';
+import { NhAssistantClientToolResult, NhAssistantClientTools } from './nh-assistant-client-tools';
 import { NhAssistantUiState } from './nh-assistant-ui-state';
 
 /** A user-facing assistant failure: a stable code and a translation key, never raw server text. */
@@ -256,12 +260,14 @@ function waitExpired(conversation: Conversation | null | undefined, now: number)
   return expiresAt !== null && expiresAt <= now;
 }
 
-/** The end of the wait of a chat that waits for a question or an approval; `null` otherwise. */
+/** The end of the wait of a chat that waits for a question, an approval or a client tool; `null` otherwise. */
 function waitExpiresAt(conversation: Conversation | null | undefined): number | null {
   if (!conversation || conversation.status !== 'waiting-for-approval' || conversation.kind === 'thread') {
     return null;
   }
-  const value = conversation.pendingQuestion?.expiresAt ?? conversation.pendingApproval?.expiresAt;
+  const value = conversation.pendingQuestion?.expiresAt
+    ?? conversation.pendingClientTool?.expiresAt
+    ?? conversation.pendingApproval?.expiresAt;
   const expiresAt = value ? Date.parse(value) : Number.NaN;
   return Number.isFinite(expiresAt) ? expiresAt : null;
 }
@@ -324,6 +330,7 @@ export class NhAssistantStore {
   private readonly sessionsState = signal<ReadonlyMap<string, NhAssistantSession>>(new Map());
   private readonly activeIdState = signal<string | null>(null);
   private readonly conversationLoadingState = signal(false);
+  private readonly answeringElicitationState = signal<string | null>(null);
   /** The conversation a message is being prepared for; `''` while a new conversation is created. */
   private readonly sendingState = signal<string | null>(null);
   private readonly draftErrorState = signal<NhAssistantError | null>(null);
@@ -367,6 +374,13 @@ export class NhAssistantStore {
   private attachmentConversation: Promise<Conversation | null> | null = null;
 
   private readonly streams = new Map<string, Subscription>();
+  /** The client tool handlers of this scope, whose ids each request that carries a turn names. */
+  private readonly clientTools = inject(NhAssistantClientTools, { optional: true });
+  /**
+   * The client tool call that the person's own stream of a conversation handed to this browser, with its
+   * arguments; its handler runs once that stream ended.
+   */
+  private readonly clientToolRequests = new Map<string, ClientToolRequest>();
   private readonly cancelTimers = new Map<string, ReturnType<typeof setTimeout>>();
   /** Pending reloads of agent threads after live agent-work updates, per conversation. */
   private readonly agentWorkTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -628,6 +642,8 @@ export class NhAssistantStore {
     const question = conversation?.pendingQuestion;
     return !!question && question.status === 'pending' && question.addresseeActorId === conversation?.currentActorId;
   });
+  /** The request for input of an MCP server whose answer this tab sends now; `null` otherwise. */
+  readonly answeringElicitationId = this.answeringElicitationState.asReadonly();
   /** The member a pending question of the open conversation is addressed to, when it is someone else. */
   readonly questionAddressee = computed<ConversationMember | null>(() => {
     const conversation = this.activeConversation();
@@ -1227,7 +1243,8 @@ export class NhAssistantStore {
         ...(this.config.screenshots === true && !queued && this.uploads()?.acceptedMediaTypes.includes('image/png')
           ? { pageScreenshotAvailable: true } : {}),
         ...(clientContext === undefined ? {} : { clientContext }),
-        ...(files.length > 0 ? { files: [...files] } : {})
+        ...(files.length > 0 ? { files: [...files] } : {}),
+        ...this.clientToolIds()
       }), {
         next: event => {
           if (event.type === 'message.queued') {
@@ -1322,7 +1339,7 @@ export class NhAssistantStore {
 
     let accepted = false;
     let failed = false;
-    const request = { decision, expectedProposalHash: approval.proposalHash, ...(reason ? { reason } : {}) };
+    const request = { decision, expectedProposalHash: approval.proposalHash, ...(reason ? { reason } : {}), ...this.clientToolIds() };
 
     this.runStream(conversationId, this.api.decideApproval(conversationId, approval.approvalId, request), {
       next: event => {
@@ -1373,7 +1390,7 @@ export class NhAssistantStore {
 
     let accepted = false;
     let failed = false;
-    this.runStream(conversationId, this.api.answerQuestion(conversationId, questionId, { choice }), {
+    this.runStream(conversationId, this.api.answerQuestion(conversationId, questionId, { choice, ...this.clientToolIds() }), {
       next: event => {
         if (!accepted && event.type !== 'error') {
           accepted = true;
@@ -1398,6 +1415,50 @@ export class NhAssistantStore {
         this.afterTurn(conversationId, failed);
       }
     });
+  }
+
+  /**
+   * Answers the request for input of an MCP server that the open chat's running turn waits for:
+   * `accept` with the form's values, or for a link that the person finished the server's page,
+   * `decline` or `cancel`. The answer goes to the server through the waiting tool call, and the
+   * turn's own stream continues. Ignores a request that no longer waits, one for another person and a
+   * second answer while one is sent; a refused answer shows its error.
+   */
+  async answerElicitation(
+    elicitationId: string,
+    action: ElicitationAction,
+    content?: Record<string, string | number | boolean> | null
+  ): Promise<void> {
+    const conversation = this.activeSession()?.conversation;
+    const part = conversation?.messages
+      .flatMap(message => message.parts)
+      .find(item => item.type === 'elicitation' && item.elicitationId === elicitationId);
+    if (!conversation
+      || part?.type !== 'elicitation'
+      || part.status !== 'pending'
+      || part.addresseeActorId !== conversation.currentActorId
+      || this.answeringElicitationState() !== null) {
+      return;
+    }
+
+    const conversationId = conversation.id;
+    const revision = this.accountRevision;
+    this.answeringElicitationState.set(elicitationId);
+    this.patchSession(conversationId, current => ({ ...current, error: null }));
+    try {
+      await firstValueFrom(
+        this.api.answerElicitation(conversationId, elicitationId, {
+          action,
+          ...(action === 'accept' && content ? { content } : {})
+        }),
+        { defaultValue: undefined });
+    } catch (error) {
+      if (revision === this.accountRevision) {
+        this.setError(conversationId, error);
+      }
+    } finally {
+      this.answeringElicitationState.set(null);
+    }
   }
 
   /**
@@ -2072,13 +2133,14 @@ export class NhAssistantStore {
   /** Connects live updates and notifications once per account and server configuration. */
   private startCollaboration(status: AssistantStatus): void {
     const collaboration = status.collaboration ?? null;
-    const key = `${this.accountRevision}|${collaboration?.hubPath ?? ''}|${collaboration?.push === true}`;
+    const authenticationRefresh = collaboration?.hubAuthenticationRefresh === true;
+    const key = `${this.accountRevision}|${collaboration?.hubPath ?? ''}|${collaboration?.push === true}|${authenticationRefresh}`;
     if (key === this.collaborationKey) {
       return;
     }
     const accountChanged = this.collaborationKey?.split('|')[0] !== String(this.accountRevision);
     this.collaborationKey = key;
-    void this.live.connect(collaboration?.hubPath ?? null, accountChanged);
+    void this.live.connect(collaboration?.hubPath ?? null, accountChanged, { authenticationRefresh });
     this.pushActivated = true;
     void this.push.activate(collaboration?.push === true);
   }
@@ -2191,6 +2253,7 @@ export class NhAssistantStore {
     handlers: { next: (event: TEvent) => void; complete: () => void }
   ): void {
     this.streams.get(conversationId)?.unsubscribe();
+    this.clientToolRequests.delete(conversationId);
     this.patchSession(conversationId, session => ({ ...session, streaming: true, writingMessageId: null }));
 
     const finish = () => {
@@ -2199,10 +2262,22 @@ export class NhAssistantStore {
       this.streams.delete(conversationId);
       this.patchSession(conversationId, session => ({ ...session, streaming: false, writingMessageId: null }));
       handlers.complete();
+      // The turn waits for this browser now: the handler runs and its result resumes the turn.
+      const request = this.clientToolRequests.get(conversationId);
+      this.clientToolRequests.delete(conversationId);
+      if (request) {
+        void this.runClientTool(conversationId, request);
+      }
     };
 
     const subscription = stream.subscribe({
-      next: event => handlers.next(event),
+      next: event => {
+        if (event.type === 'client-tool.requested' && event.data.arguments) {
+          // Only the person's own stream carries the arguments; live updates never run a handler.
+          this.clientToolRequests.set(conversationId, event.data);
+        }
+        handlers.next(event);
+      },
       error: () => {
         this.patchSession(conversationId, session => ({ ...session, error: clientError(NhAssistantClientErrorCodes.network) }));
         finish();
@@ -2212,6 +2287,89 @@ export class NhAssistantStore {
     if (!subscription.closed) {
       this.streams.set(conversationId, subscription);
     }
+  }
+
+  /** The client tools this browser can run, as the body of a request that carries a turn names them. */
+  private clientToolIds(): { clientTools?: string[] } {
+    const ids = this.clientTools?.ids() ?? [];
+    return ids.length > 0 ? { clientTools: ids } : {};
+  }
+
+  /**
+   * Runs the handler of the client tool call that the person's own turn handed to this browser, once its
+   * stream ended, and reports the result. Nothing runs when the conversation no longer waits for that
+   * call or when it is another person's; a browser without the handler reports `unavailable`.
+   */
+  private async runClientTool(conversationId: string, request: ClientToolRequest): Promise<void> {
+    const conversation = this.sessionsState().get(conversationId)?.conversation;
+    if (!this.waitsForClientTool(conversation, request)) {
+      return;
+    }
+
+    const revision = this.accountRevision;
+    const result: NhAssistantClientToolResult = this.clientTools
+      ? await this.clientTools.run({
+        invocationId: request.invocationId,
+        toolId: request.toolId,
+        conversationId,
+        arguments: request.arguments ?? {},
+        expiresAt: request.expiresAt
+      })
+      : { status: 'unavailable', outcome: 'no-handler' };
+    // The person may have stopped the turn, or signed out, while the handler ran.
+    if (revision !== this.accountRevision || this.destroyed
+      || !this.waitsForClientTool(this.sessionsState().get(conversationId)?.conversation, request)) {
+      return;
+    }
+
+    this.reportClientTool(conversationId, request.invocationId, result);
+  }
+
+  private waitsForClientTool(conversation: Conversation | null | undefined, request: ClientToolRequest): boolean {
+    return !!conversation
+      && conversation.status === 'waiting-for-approval'
+      && conversation.pendingClientTool?.invocationId === request.invocationId
+      && (!conversation.currentActorId || conversation.currentActorId === request.actorId);
+  }
+
+  /**
+   * Reports what the handler of a client tool did and streams the resumed turn, as an answer does. A
+   * refused report, such as one whose wait ended, shows its error and reads the conversation again.
+   */
+  private reportClientTool(conversationId: string, invocationId: string, result: NhAssistantClientToolResult): void {
+    const session = this.sessionsState().get(conversationId);
+    if (!session || session.deciding || session.streaming) {
+      return;
+    }
+
+    this.patchSession(conversationId, current => ({ ...current, deciding: true, error: null, notice: null }));
+    let accepted = false;
+    let failed = false;
+    this.runStream(conversationId, this.api.reportClientTool(conversationId, invocationId, { ...result, ...this.clientToolIds() }), {
+      next: event => {
+        if (!accepted && event.type !== 'error') {
+          accepted = true;
+          this.patchSession(conversationId, current => ({
+            ...current,
+            conversation: applyNhAssistantClientToolReport(current.conversation, invocationId)
+          }));
+        }
+        if (event.type === 'error') {
+          failed = true;
+          if (!accepted) {
+            this.patchSession(conversationId, current => ({ ...current, error: event.data }));
+            return;
+          }
+        }
+
+        this.applyEvent(conversationId, event);
+      },
+      complete: () => {
+        this.patchSession(conversationId, current => ({ ...current, deciding: false }));
+        // An expired call released the conversation; reading it again shows that.
+        this.afterTurn(conversationId, failed);
+      }
+    });
   }
 
   private stopAllTurns(): void {

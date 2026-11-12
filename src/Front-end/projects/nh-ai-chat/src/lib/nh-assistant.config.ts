@@ -17,6 +17,18 @@ export interface NhAssistantConfig {
    */
   getAccessToken: () => string | null | Promise<string | null>;
   /**
+   * Emits when the token `getAccessToken` returns may have changed, for example when the session
+   * renewed it: `() => inject(MyAuthService).authSubject`. Runs once in the assistant's injection
+   * context. While the server's hub accepts authentication refresh (`GET status` reports
+   * `collaboration.hubAuthenticationRefresh`, ASP.NET Core 11 with
+   * `NewHeap:AI:Assistant:HubAuthenticationRefresh`) and `@microsoft/signalr` 11 is installed, the open
+   * live connection then presents the new token instead of closing when its old one expires. It skips
+   * a token of another state scope (`getStateScope`), such as after an account switch, which restarts
+   * the connection as before; a refresh the server refuses restarts the connection and reloads
+   * snapshots. Default: none, so the connection closes on expiry and reconnects.
+   */
+  accessTokenChanges?: () => Observable<unknown>;
+  /**
    * Returns extra headers for every assistant request, for example the NewHeap active division:
    * `() => ({ 'X-NH-ActiveDivisionId': inject(MyAuthService).getAuthorization()?.activeDivision?.id ?? '' })`.
    * Runs in the assistant's injection context before every request, like `getAccessToken`, and

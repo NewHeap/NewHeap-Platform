@@ -892,6 +892,12 @@ export interface McpServerInput {
    * names the field of a reader with its index, such as `readers[0].toolName`.
    */
   readers?: McpReaderInput[] | null;
+  /**
+   * How long a request for input of the server waits for the person of a chat turn, in whole minutes
+   * from 1 to 10 (`elicitationWaitMinutes: invalid` otherwise). Omit to keep the stored value; a new
+   * server waits 5 minutes.
+   */
+  elicitationWaitMinutes?: number | null;
 }
 
 /**
@@ -952,6 +958,13 @@ export interface McpServer {
   organizationConnection: McpOrganizationConnection | null;
   /** The readers of the server, by priority, highest first; empty when it reads no files. */
   readers: McpReader[];
+  /**
+   * How long a request for input of the server waits for the person of a chat turn, in minutes: from
+   * 1 to 10, 5 unless an administrator or the application's code set another. The tool's own timeout
+   * and the turn's time limit stand still meanwhile, up to ten minutes per chat turn in all. Missing on
+   * older servers, whose requests wait within the tool's own timeout.
+   */
+  elicitationWaitMinutes?: number;
 }
 
 export interface McpServerTestResult {
@@ -1897,6 +1910,11 @@ export interface AgentRunSettings extends LowerFileLimits {
    */
   acceptsFiles?: boolean;
   /**
+   * The agent keeps a short visible plan of its work with `update_plan`, in its runs, its threads and
+   * people's chats with it; missing on older servers. Off for a new agent.
+   */
+  keepsPlan?: boolean;
+  /**
    * The kinds of alert the agent's rules, rule scripts and model may raise, ordered by id (FB93); missing on
    * older servers. A kind the code no longer registers stays listed with a problem of kind `alert-kind`.
    */
@@ -1936,6 +1954,8 @@ export interface AgentRunSettingsRequest extends LowerFileLimits {
   reason?: string | null;
   /** People's messages and the agent's tools may give it files; `false` by default. */
   acceptsFiles?: boolean;
+  /** The agent keeps a short visible plan of its work with `update_plan`; `false` by default. */
+  keepsPlan?: boolean;
   /**
    * The kinds of alert the agent may raise, out of the run catalog's `alertKinds`: at most
    * `NH_ASSISTANT_MAX_RUN_ALERT_KINDS` distinct ids. An empty list lists none; `null` or left out keeps
@@ -1999,6 +2019,8 @@ export interface CodeRunSettings {
   chatRoutesFirst?: boolean;
   /** The agent may ask the person in a chat a question with choices (`AllowQuestions()`); missing on older servers. */
   allowQuestions?: boolean;
+  /** The agent keeps a short visible plan of its work with `update_plan` (`KeepPlan()`); missing on older servers. */
+  keepsPlan?: boolean;
   /** The agent keeps a working memory per subject (`Memory<TMemory>()`); missing on older servers. */
   usesMemory?: boolean;
   /** The profile that triages runs no trigger or rule routed (`Triage()`); `null` without triage; missing on older servers. */

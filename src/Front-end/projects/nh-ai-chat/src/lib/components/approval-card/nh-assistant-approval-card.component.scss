@@ -1,7 +1,5 @@
 @use '../../styles/tokens';
 
-@include tokens.tokens;
-
 :host {
   display: block;
   --nha-status-color: var(--nha-warning);
@@ -58,28 +56,7 @@ h3 {
 }
 
 .presentation-fields {
-  display: grid;
-  gap: 6px;
   margin: 10px 0 0;
-
-  div {
-    display: grid;
-    grid-template-columns: minmax(90px, .4fr) minmax(0, 1fr);
-    gap: 8px;
-  }
-
-  dt {
-    color: var(--nha-text-muted);
-    font-size: 12px;
-    font-weight: 700;
-    overflow-wrap: anywhere;
-  }
-
-  dd {
-    margin: 0;
-    overflow-wrap: anywhere;
-    font-size: 13px;
-  }
 }
 
 .notice {

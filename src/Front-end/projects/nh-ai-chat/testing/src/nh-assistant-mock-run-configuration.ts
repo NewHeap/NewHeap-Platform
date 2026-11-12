@@ -331,6 +331,7 @@ export class NhAssistantMockRunConfiguration {
       chatOnly: given.chatOnly ?? agent.chatOnly === true,
       skillsInChat: given.skillsInChat ?? false,
       allowQuestions: given.allowQuestions ?? false,
+      keepsPlan: given.keepsPlan ?? false,
       usesMemory: given.usesMemory ?? false,
       triageProfile: given.triageProfile ?? null,
       // The platform's defaults, as an agent in code that sets none has them.
@@ -465,7 +466,8 @@ export class NhAssistantMockRunConfiguration {
       problem: null,
       acceptsFiles: request.acceptsFiles ?? false,
       ...storedFileLimits(request),
-      alertKinds: alertKinds ? alertKinds.sort() : [...(current?.alertKinds ?? [])]
+      alertKinds: alertKinds ? alertKinds.sort() : [...(current?.alertKinds ?? [])],
+      keepsPlan: request.keepsPlan ?? false
     };
     const rightsRefused = this.rights.refusal(mockRunSettingsRights(current ?? null, saved));
     if (rightsRefused) {

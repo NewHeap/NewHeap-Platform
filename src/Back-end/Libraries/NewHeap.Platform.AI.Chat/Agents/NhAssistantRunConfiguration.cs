@@ -1719,7 +1719,8 @@ internal sealed partial class NhAssistantRunConfigurations(
             // and the lower ones stored with it; a turn takes the lowest of them.
             FileLimits = settings.AcceptsFiles
                 ? FileLimitsOf(settings.MaxFileBytes, settings.MaxFilePages, settings.MaxFilesPerTurn, settings.MaxFileTokensPerTurn)
-                : null
+                : null,
+            KeepsPlan = settings.KeepsPlan
         };
     }
 

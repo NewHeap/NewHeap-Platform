@@ -5,8 +5,6 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Logging.Abstractions;
 using NewHeap.Platform.AI.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.Live;
 using NewHeap.Platform.AI.Chat.Tests.Infrastructure;
@@ -83,13 +81,7 @@ public sealed class AssistantHubSessionTests(AssistantDatabaseFixture database) 
                 services.AddNewHeapPlatformAIAspNet(ai => ai.UseAuthenticatedClaims(AssistantTenantBindingTests.Issuer));
                 services.AddSingleton<INhAuthenticationSessionValidator>(sessions);
                 // The hub validates open sessions every minute; this host does so at once.
-                services.Replace(ServiceDescriptor.Singleton(provider => new NhAssistantHubSessions(
-                    provider.GetRequiredService<IServiceScopeFactory>(),
-                    provider.GetRequiredService<IServiceProviderIsService>(),
-                    NullLogger<NhAssistantHubSessions>.Instance)
-                {
-                    CheckInterval = TimeSpan.FromMilliseconds(100)
-                }));
+                services.AddSingleton(new NhAssistantTiming { HubSessionCheckInterval = TimeSpan.FromMilliseconds(100) });
             },
             provider: provider);
     }

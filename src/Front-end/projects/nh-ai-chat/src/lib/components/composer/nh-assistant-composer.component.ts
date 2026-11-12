@@ -26,6 +26,7 @@ import type {
   NhAssistantComposerDraft,
   NhAssistantUnsentMessage
 } from '../../services/nh-assistant.store';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 let nextId = 0;
 
@@ -42,6 +43,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-composer',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantIconComponent, NhAssistantTranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-composer.component.html',

@@ -215,6 +215,15 @@ readers as the server does; a scenario server with `readers` starts with its too
 OAuth reader the person has not connected shows the same connection card in the chat as the server's
 tools; after connecting, "Ask again" reads an attachment it refused, because the message kept it.
 
+The server editor also sets how long the server's requests for input wait for the person of a chat
+turn ("Wait for a person", SPM-251): whole minutes from 1 to 10, 5 for a new server, saved as
+`elicitationWaitMinutes` on `McpServerInput` and returned on `McpServer` (missing on older servers).
+The editor refuses an empty or out-of-range wait at the field before it saves and shows the server's
+`elicitationWaitMinutes` error there. The hint tells the administrator that the tool's own timeout
+and the turn's time limit stand still while the person answers, up to ten minutes per chat turn in
+all; the `nh-assistant-elicitation-card` shows the end of the wait as the request's expiry. The mock API stores and
+bounds the wait as the server does.
+
 Route to `NhAssistantAdminComponent` from `@newheap/platform-ai-chat/admin` with a
 lazy route guarded by the host's admin permission (for example
 `app.assistant.admin`), and pass that route as `adminRoute` to
@@ -319,7 +328,24 @@ package names it. Translate the server's `assistant-model-region-denied` and the
 texts from `NH_ASSISTANT_ADMIN_TRANSLATIONS` or `@newheap/platform-ai-chat/admin/i18n/en.json` and
 `nl.json` next to `NH_ASSISTANT_TRANSLATIONS` or `@newheap/platform-ai-chat/i18n/*.json`. Theme the panel through the `--nh-assistant-*` custom
 properties mapped onto the host's tokens, and pass the host icon library through
-`NH_ASSISTANT_ICONS`. A host that maps every `NhAssistantIconName`, as SampleProjectManagement's
+`NH_ASSISTANT_ICONS`. `--nh-assistant-accent` fills buttons, borders and markers;
+`--nh-assistant-link` colors links and other accent-colored text (message and card links, subject
+links on hover, inline link buttons, the header of a pending question or request for input). It
+defaults to the accent in the light scheme and to a light blue in the dark scheme. A host that maps
+the accent onto a dark brand color also maps the link color onto a color with at least 4.5:1 contrast
+on the assistant's background and surfaces in both schemes, as SampleProjectManagement's management
+portal maps it onto its informational blue (SPM-248); a host that switches schemes with a class sets
+it per scheme. A host's own result renderer uses `--nh-assistant-link` for its links as well. The
+components bring their light and dark defaults themselves: the first assistant component adds one
+stylesheet with them to the document, so the host adds no stylesheet for the assistant's theme, and
+the closest `--nh-assistant-*` value wins, whether the host sets it on `:root`, on an ancestor or on
+a component element, also for a component in a CDK overlay. The
+plan, the request for input of an MCP server, the default result card and the presentation fields
+load on first use, in chunks of their own, so an application's initial bundle stays without them;
+until a card has arrived, and on the server, an empty box of about its height holds its place.
+Tests that read such a card render its defer block first (`fixture.getDeferBlocks()`, then
+`render(DeferBlockState.Complete)`), or wait with `fixture.whenStable()` when nothing else keeps the
+fixture busy. A host that maps every `NhAssistantIconName`, as SampleProjectManagement's
 management portal does, maps a new name when the library adds one, such as `attach` and `file` for
 attachments (SPM-305).
 
@@ -412,6 +438,17 @@ working indicator shows the elapsed seconds, so a long turn never looks stalled.
 Custom layouts that render parts themselves should reuse the group component rather
 than listing every call card.
 
+A call that the server presented (`ToolCallPart.resultPresentation`, from the API's
+`INhAssistantToolResultPresenter`) keeps its card visible under the collapsed group as
+`nh-assistant-tool-result`: the default `nh-assistant-tool-result-card` shows the title, summary,
+fields and the link within the application, never the raw result. Give a tool a card of your own with
+`provideNhAssistantToolResultRenderers({ toolId, component })` next to `provideNhAssistant`; the
+standalone component injects `NhAssistantToolResult` and reads only its `presentation` signal, so it
+never sees the call's arguments or raw result, and follows live updates. Approval cards and the agent
+proposals list show a field of a change with `nh-assistant-presentation-fields`: what it holds now
+and what it gets, each labelled, with a badge that says in words whether it changes, gets a new
+value, is cleared or stays unchanged; reuse the component in your own renderers (SPM-248).
+
 A question the agent asked with `ask_question` (`QuestionPart`, server option `AllowQuestions`,
 SPM-334) renders as `nh-assistant-question-card`: the person it is addressed to gets one button per
 choice and a countdown to the end of its wait, everyone else sees the choices read-only with whom it
@@ -426,6 +463,18 @@ expired question, shows its localized error and reads the conversation again. Th
 `question` step and answers as the server does, and a message after an expired question or approval
 closes it there too. An agent message of a chat with `SkillsInChat` names
 the skill it worked in (`Message.skillId`, SPM-333) for applications that show or count it.
+
+The plan an agent keeps of its work (`PlanPart`, server option `KeepPlan()`, SPM-333) renders in the
+thread as `nh-assistant-plan` (`NhAssistantPlanComponent`): a compact checklist under a label that
+says it is the agent's plan, with how many steps are done, the step in progress marked as the current
+one (`aria-current="step"`), completed steps checked and struck through, every step as plain text and
+never as markup or a link, and a pulse only when the person allows motion. The reducer follows
+`plan.updated` (`PlanUpdatedEvent`), a snapshot that replaces the plan of its message, also from live
+updates, and ignores an older one; the thread shows each turn's newest plan when a turn that waited
+continued in a new message. `nh-assistant-run-result` shows a run's plan (`AgentRunResult.plan`,
+SPM-304), the administration's run settings switch `keepsPlan` for an agent it defines and show an
+agent in code's `keepsPlan` read-only (SPM-298), and the mock API plays a `plan` step
+(`NhAssistantMockPlanStep`) and a run's `plan`.
 
 Render `approval.presentation` as the primary explanation. When it is absent, use the
 bundled localized fallback instead of `summary` or a tool descriptor. Keep tool ids,
@@ -1055,6 +1104,25 @@ and reads it again after a save. The mock API answers it from the scenario's `ad
 or `scripts: not-allowed`, as the server does. The sample's assistant settings page does it with its
 own table (SPM-371).
 
+Client tools (SPM-400) run in the person's own browser when the server declares them with
+`AddClientTool` (`nh-ai-assistant`). Register one handler per declared tool id with
+`provideNhAssistantClientTools(...)` next to `provideNhAssistant` in the same providers; the store names
+those ids with each request that carries a turn, runs a handler only for a `client-tool.requested`
+event of the person's own stream once that stream ended, never for a live update or a reloaded page,
+and reports the result with `NhAssistantApiService.reportClientTool`, which streams the resumed turn.
+A handler (`NhAssistantClientToolHandler`) starts in the assistant's injection context and returns a
+`completed`, `declined`, `unavailable` or `failed` result with a dash-case `outcome`; a tool without a
+handler reports `unavailable`, a handler that throws `failed`, and an outcome or id out of bounds is
+left out. Treat the arguments as untrusted values: check them before they build a route or a form.
+Prefer the built-ins of `@newheap/platform-ai-chat/client-tools`: `nhAssistantNavigateTool` navigates
+to the route its `route` builds from checked arguments, or reports `route-not-allowed` for `null`, so
+the model never names a URL; `nhAssistantModalTool` opens the application's own
+`NhModalMutateBaseComponent` content (`component`, or `loadComponent` to keep it out of the initial
+bundle) prefilled through `inputs`, refuses what `accepts` does not, and reports `saved` with the id
+`resultId` chooses to return, `cancelled` when the person used the form's own close and `closed`
+otherwise. The person saves through the application's normal API with their own rights, so the hand-off
+needs no proposal. The tool call shows `awaiting-client` (`Running in the app`) while it waits.
+
 ## Avoid
 - Building a generic JSON form for agent metadata, or editing it inside the agent editor's form; render
   the application's own editor in the entry's slot.
@@ -1631,3 +1699,8 @@ shows its source with the reason (SPM-336).
   - [src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Services/SampleRuntimeAgentSeeder.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
   - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)
+- SPM-400 — The project assistant opens a project and hands a new task to the person's portal with client tools
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleClientToolsComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleClientToolsComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs)

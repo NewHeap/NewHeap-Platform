@@ -8,6 +8,7 @@ import {
   NhAssistantAdminApiService,
   RunCatalog,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
@@ -51,6 +52,7 @@ const defaults = { retries: '3', concurrent: '4', perSubject: '10' };
 @Component({
   selector: 'nh-assistant-run-settings-form',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     TranslatePipe,
     NhAssistantTranslatePipe,
@@ -113,6 +115,8 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
   readonly acceptsFiles = signal(false);
   /** The agent's lower file limits, next to accepting files; empty keeps the application's. */
   readonly fileLimits = new FileLimitsDraft();
+  /** Whether the agent keeps a short visible plan of its work; off for a new agent. */
+  readonly keepsPlan = signal(false);
   readonly elevatedReads = signal<AgentElevatedReads>('restricted');
   /** The alert kinds the agent may raise, by id (FB93); none for a new agent. */
   readonly alertKinds = signal<string[]>([]);
@@ -165,6 +169,7 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
     this.delegateFromInitiator.set(settings?.delegateFromInitiator ?? false);
     this.acceptsFiles.set(settings?.acceptsFiles ?? false);
     this.fileLimits.load(settings);
+    this.keepsPlan.set(settings?.keepsPlan ?? false);
     this.elevatedReads.set(settings?.elevatedReads ?? 'restricted');
     this.alertKinds.set([...(settings?.alertKinds ?? [])]);
     this.advancedOpen.set(this.advancedInUse());
@@ -215,6 +220,7 @@ export class NhAssistantRunSettingsFormComponent extends RunConfigForm implement
       reason: blank(this.reason()),
       acceptsFiles: this.acceptsFiles(),
       ...this.fileLimits.toRequest(this.acceptsFiles()),
+      keepsPlan: this.keepsPlan(),
       ...(alertKinds ? { alertKinds } : {})
     };
     this.submit(errors, () => this.admin.saveRunSettings(this.agentId(), request), settings => this.saved.emit(settings));

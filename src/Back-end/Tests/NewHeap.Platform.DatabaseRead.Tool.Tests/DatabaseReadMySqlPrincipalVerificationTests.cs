@@ -14,7 +14,7 @@ namespace NewHeap.Platform.DatabaseRead.Tool.Tests;
 /// Accounts and roles belong to the server that the test process shares, so their names start
 /// with the name of the test's own database, and the test drops them when it ends. Grants that
 /// reach every account, mandatory roles and <c>PUBLIC</c>, are proved in
-/// <see cref="DatabaseReadMySqlServerWideGrantTests"/>.
+/// <see cref="DatabaseReadMySqlGrantToEveryAccountTests"/>.
 /// </remarks>
 public sealed class DatabaseReadMySqlPrincipalVerificationTests
 {

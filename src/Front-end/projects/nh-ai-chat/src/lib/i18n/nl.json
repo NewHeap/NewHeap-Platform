@@ -164,6 +164,7 @@
         "failed": "Mislukt",
         "awaiting-approval": "Wacht op goedkeuring",
         "awaiting-answer": "Wacht op antwoord",
+        "awaiting-client": "Loopt in de app",
         "rejected": "Afgewezen",
         "not-executed": "Niet uitgevoerd"
       },
@@ -183,6 +184,7 @@
       "running": "Roept {{name}} aan…",
       "awaiting-approval": "Wacht op goedkeuring: {{name}}",
       "awaiting-answer": "Wacht op een antwoord",
+      "awaiting-client": "Loopt in de app: {{name}}",
       "used-one": "1 tool gebruikt",
       "used-many": "{{count}} tools gebruikt",
       "progress": "{{finished}} van {{total}} klaar",
@@ -190,6 +192,10 @@
       "not-executed": "{{count}} niet uitgevoerd",
       "show-calls": "Tool-aanroepen tonen",
       "hide-calls": "Tool-aanroepen verbergen"
+    },
+    "tool-result": {
+      "label": "Resultaat van {{name}}",
+      "open-link": "Openen"
     },
     "approval": {
       "title": "Goedkeuring nodig",
@@ -254,6 +260,25 @@
         "moved": "Het wacht nu op de goedkeurders van {{subject}}."
       }
     },
+    "presentation": {
+      "current": "Nu",
+      "proposed": "Voorgesteld",
+      "before": "Voor",
+      "after": "Na",
+      "empty": "Leeg",
+      "change": {
+        "unchanged": "Ongewijzigd",
+        "added": "Nieuwe waarde",
+        "changed": "Wijzigt",
+        "cleared": "Wordt leeggemaakt"
+      },
+      "change-result": {
+        "unchanged": "Ongewijzigd",
+        "added": "Toegevoegd",
+        "changed": "Gewijzigd",
+        "cleared": "Leeggemaakt"
+      }
+    },
     "question": {
       "title": "Vraag",
       "status": {
@@ -271,6 +296,45 @@
       "answered": "Antwoord: {{choice}}",
       "expired": "Niemand heeft op tijd geantwoord.",
       "cancelled": "De vraag is ingetrokken toen de taak werd gestopt."
+    },
+    "elicitation": {
+      "title": "Verzoek van {{server}}",
+      "status": {
+        "pending": "Wacht op jou",
+        "accepted": "Beantwoord",
+        "declined": "Geweigerd",
+        "cancelled": "Geannuleerd",
+        "expired": "Verlopen"
+      },
+      "from": "{{server}} vraagt dit, niet de assistent:",
+      "host": "Opent een pagina op {{host}}",
+      "open": "{{host}} openen",
+      "choose": "Kies",
+      "invalid": "Vul dit veld in zoals gevraagd.",
+      "asked": "Gevraagd naar",
+      "recipient": "Je antwoord gaat alleen naar {{server}}. Het wordt niet bewaard en de assistent leest het niet.",
+      "submit": "Naar {{server}} sturen",
+      "decline": "Weigeren",
+      "cancel": "Annuleren",
+      "done": "Ik ben klaar",
+      "expires-in": "Antwoord binnen {{time}}",
+      "answering": "Je antwoord wordt verstuurd",
+      "waiting": "Wacht op de persoon wiens beurt het is.",
+      "outcome": {
+        "accepted": "{{server}} heeft het antwoord ontvangen.",
+        "declined": "Het verzoek van {{server}} is geweigerd.",
+        "cancelled": "Het verzoek van {{server}} is geannuleerd.",
+        "expired": "Niemand heeft {{server}} op tijd geantwoord."
+      }
+    },
+    "plan": {
+      "title": "Plan van de agent",
+      "progress": "{{completed}} van {{total}} klaar",
+      "status": {
+        "pending": "Niet begonnen",
+        "in-progress": "Bezig",
+        "completed": "Klaar"
+      }
     },
     "proposal-feedback": {
       "legend": "Wat klopte er niet? (optioneel)",
@@ -579,12 +643,27 @@
       "assistant-package-not-linked": "Deze agent, of dit onderdeel ervan, is niet aan een agentpakket gekoppeld.",
       "assistant-package-not-found": "Deze host heeft nooit een agentpakket met deze id geïmporteerd.",
       "assistant-question-invalid": "De assistent kon deze vraag niet stellen; hij gaat verder zonder.",
+      "assistant-plan-invalid": "De agent kon zijn plan niet bijwerken; hij gaat verder zonder de wijziging.",
+      "assistant-plan-update-limit-reached": "De agent heeft zijn plan in dit antwoord zo vaak bijgewerkt als mag.",
       "assistant-question-not-found": "Deze vraag is niet gevonden.",
       "assistant-question-not-pending": "Deze vraag wacht niet meer op een antwoord.",
       "assistant-question-forbidden": "Deze vraag is aan iemand anders gesteld.",
       "assistant-question-expired": "Niemand heeft deze vraag op tijd beantwoord. Stuur je bericht opnieuw om verder te gaan.",
       "assistant-question-cancelled": "De vraag is ingetrokken toen de taak werd gestopt.",
       "assistant-question-answer-invalid": "Kies een van de antwoorden van de vraag.",
+      "assistant-client-tool-unavailable": "Deze stap kan alleen in je app lopen terwijl je in het gesprek bent; de assistent gaat op een andere manier verder.",
+      "assistant-client-tool-not-found": "Deze stap in je app is niet gevonden.",
+      "assistant-client-tool-not-pending": "Deze stap in je app wacht niet meer op een resultaat.",
+      "assistant-client-tool-forbidden": "Deze stap loopt in de app van degene wiens beurt het is.",
+      "assistant-client-tool-expired": "Je app heeft niet op tijd gereageerd. Stuur je bericht opnieuw om verder te gaan.",
+      "assistant-client-tool-cancelled": "De stap in je app is ingetrokken toen de taak werd gestopt.",
+      "assistant-client-tool-result-invalid": "Je app meldde iets wat de assistent niet kan gebruiken.",
+      "assistant-client-tool-declined": "Je hebt deze stap in je app afgewezen.",
+      "assistant-client-tool-failed": "Je app kon deze stap niet afronden.",
+      "assistant-elicitation-not-found": "Het verzoek om invoer is niet gevonden.",
+      "assistant-elicitation-not-pending": "Het verzoek om invoer wacht niet meer op een antwoord.",
+      "assistant-elicitation-forbidden": "Alleen de persoon wiens beurt het is beantwoordt dit verzoek.",
+      "assistant-elicitation-answer-invalid": "Het antwoord past niet bij het verzoek. Controleer de velden en probeer het opnieuw.",
       "assistant-step-tool-unavailable": "Een stap noemde een tool die hier niet beschikbaar is.",
       "assistant-step-limit-reached": "De aanroep heeft zoveel stappen uitgevoerd als mag.",
       "assistant-step-mutation-limit-reached": "De aanroep heeft zoveel wijzigende stappen uitgevoerd als mag.",

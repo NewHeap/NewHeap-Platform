@@ -28,6 +28,8 @@
     <InternalsVisibleTo Include="NewHeap.Platform.AI.AspNet.Mvc" />
     <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat" />
     <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat.AspNet" />
+    <!-- The AG-UI endpoint captures the person of a turn that outlives its request, as the assistant endpoints do. -->
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat.AGUI" />
     <!-- The agent builder's tests stand in for the gateway's resources (INhAiGatewayResources). -->
     <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat.Tests" />
   </ItemGroup>

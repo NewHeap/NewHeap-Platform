@@ -3,6 +3,8 @@ import {
   AgentCompositionFeature,
   CompositionCeiling,
   AdminAgentInput,
+  AgentPlan,
+  PlanStep,
   AdminAlertKind,
   AlertModelSwitch,
   AgentPackage,
@@ -34,10 +36,12 @@ import {
   NotificationSubjectMute,
   AssistantAccount,
   ApprovalPresentation,
+  ApprovalPresentationField,
   NhAssistantConsultationLeaveRoute,
   NhAssistantConsultationRoute,
   RunCatalog,
-  ToolCatalogEntry
+  ToolCatalogEntry,
+  ToolResultPresentation
 } from '@newheap/platform-ai-chat';
 import type { NhAssistantMockUpload } from './nh-assistant-mock-files';
 
@@ -58,6 +62,8 @@ export interface NhAssistantMockToolStep {
     /** Default `succeeded`. */
     status?: 'succeeded' | 'failed';
     resultCode?: string | null;
+    /** The application's card of what a succeeded call returned, sent on `tool.completed`. Default none. */
+    resultPresentation?: ToolResultPresentation | null;
   };
 }
 
@@ -78,7 +84,8 @@ export interface NhAssistantMockApprovalStep {
     presentation?: {
       toolDisplayName: string;
       summary: string;
-      fields: { label: string; value: string }[];
+      /** A field of a change states its `currentValue`, and the card shows what changes. */
+      fields: ApprovalPresentationField[];
       notice: string | null;
     } | null;
     argumentsPreview: string;
@@ -87,6 +94,8 @@ export interface NhAssistantMockApprovalStep {
     expiresInSeconds?: number;
     /** Result preview of the tool after approval. */
     resultPreview?: string | null;
+    /** The application's card of what the tool returned after approval. Default none. */
+    resultPresentation?: ToolResultPresentation | null;
     approved: NhAssistantMockStep[];
     rejected: NhAssistantMockStep[];
     /** The consultation that proposed it; without it the approval is the conversation's own. */
@@ -130,6 +139,18 @@ export interface NhAssistantMockQuestionStep {
   };
 }
 
+/**
+ * Sets the agent's plan as `update_plan` does on the server (`run.KeepPlan()`): `plan.updated` with the
+ * whole plan, a snapshot that replaces the plan of the turn's message. It counts as a tool call of the
+ * turn and shows as the plan, never as a tool call.
+ */
+export interface NhAssistantMockPlanStep {
+  plan: {
+    /** One to ten steps; at most one `in-progress`. */
+    steps: PlanStep[];
+  };
+}
+
 /** Ends the stream with an `error` event. */
 export interface NhAssistantMockErrorStep {
   error: {
@@ -163,6 +184,7 @@ export type NhAssistantMockStep =
   | NhAssistantMockToolStep
   | NhAssistantMockApprovalStep
   | NhAssistantMockQuestionStep
+  | NhAssistantMockPlanStep
   | NhAssistantMockErrorStep
   | NhAssistantMockFailStep
   | NhAssistantMockConnectionStep;
@@ -779,6 +801,8 @@ export interface NhAssistantMockRun {
   shadow?: boolean;
   /** The personal MCP servers the run left out, as the server records them. Default none. */
   mcpConnectionSkips?: AgentRunMcpSkip[];
+  /** The last plan the run's agent kept (`run.KeepPlan()`), as `GET runs/{id}` returns it. Default none. */
+  plan?: AgentPlan;
 }
 
 /**

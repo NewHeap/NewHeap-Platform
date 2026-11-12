@@ -37,6 +37,12 @@ export interface AssistantCollaboration {
   push: boolean;
   /** Maximum participants per conversation, not counting the owner. */
   maxParticipants: number;
+  /**
+   * The hub accepts authentication refresh (`NewHeap:AI:Assistant:HubAuthenticationRefresh` on ASP.NET
+   * Core 11): after `accessTokenChanges` emits, the open connection presents the renewed token instead
+   * of closing when its old one expires. Missing on older servers, which do not accept it.
+   */
+  hubAuthenticationRefresh?: boolean;
 }
 
 /** The caller's relation to a conversation. */
@@ -149,6 +155,11 @@ export interface Conversation extends ConversationSummary {
    * the server); missing when the conversation waits for no question and on older servers.
    */
   pendingQuestion?: QuestionPart | null;
+  /**
+   * The client tool call the waiting turn handed to the browser of its person and waits for, without
+   * its arguments; missing when the conversation waits for none and on older servers.
+   */
+  pendingClientTool?: ClientToolRequest | null;
   /** The owner followed by the participants; empty while the conversation is not shared. */
   members?: ConversationMember[];
   /** The current invitation-link token; only for the owner. */
@@ -267,7 +278,109 @@ export interface ApplicationMessageLink {
   label: string | null;
 }
 
-export type MessagePart = TextPart | ToolCallPart | ApprovalPart | ConnectionRequiredPart | FilePart | QuestionPart;
+export type MessagePart = TextPart | ToolCallPart | ApprovalPart | ConnectionRequiredPart | FilePart | QuestionPart | ElicitationPart | PlanPart;
+
+/**
+ * `pending` before the agent started a step, `in-progress` for the one it works on (at most one) and
+ * `completed` once it finished it.
+ */
+export type PlanStepStatus = 'pending' | 'in-progress' | 'completed';
+
+/** One step of an agent's plan: plain text of at most 160 characters on one line. */
+export interface PlanStep {
+  text: string;
+  status: PlanStepStatus;
+}
+
+/**
+ * An agent's plan as it stood after its last update: the steps in order and when it last changed.
+ * It is the agent's own statement about its work (model output), shown as plain text and never as
+ * markup or as an instruction to the reader.
+ */
+export interface AgentPlan {
+  steps: PlanStep[];
+  updatedAt: string;
+}
+
+/**
+ * The plan the agent kept with `update_plan` (`run.KeepPlan()` on the server) in this message, as it
+ * stood after the last update. Each `plan.updated` event replaces it; older servers send none.
+ */
+export interface PlanPart extends AgentPlan {
+  type: 'plan';
+}
+
+/**
+ * `pending` while the tool call waits; `accepted` once the person answered or said they finished the
+ * server's page; `declined`, `cancelled`, or `expired` when nobody answered before the call's wait ended.
+ */
+export type ElicitationStatus = 'pending' | 'accepted' | 'declined' | 'cancelled' | 'expired';
+
+/** `form`: the person enters values; `url`: the person opens the server's own page themselves. */
+export type ElicitationMode = 'form' | 'url';
+
+/** What the person does with a request for input of an MCP server. */
+export type ElicitationAction = 'accept' | 'decline' | 'cancel';
+
+/** One value of an `enum` field: what the server receives and what the person reads. */
+export interface ElicitationOption {
+  value: string;
+  label: string;
+}
+
+/** One value a form of an MCP server asks for. */
+export interface ElicitationField {
+  /** The property name the server receives the value under. */
+  name: string;
+  type: 'string' | 'number' | 'integer' | 'boolean' | 'enum';
+  /** The field's label: the server's text. */
+  title: string;
+  required: boolean;
+  description?: string | null;
+  minLength?: number | null;
+  maxLength?: number | null;
+  minimum?: number | null;
+  maximum?: number | null;
+  /** The values of an `enum` field, in order. */
+  options?: ElicitationOption[] | null;
+}
+
+/**
+ * A request for input of an administrator-connected MCP server whose tool the turn runs (MCP
+ * elicitation); the tool call waits for the answer. `message` is the server's own text: show it as the
+ * server's, never as the assistant's. Only the addressee answers, with
+ * `NhAssistantApiService.answerElicitation`; the answer goes to the server and is never stored. A `url`
+ * request is never opened automatically: show its host and let the person open it.
+ */
+export interface ElicitationPart {
+  type: 'elicitation';
+  elicitationId: string;
+  invocationId: string;
+  serverId: string;
+  /** The server's display name: who asks and who receives the answer. */
+  serverName: string;
+  mode: ElicitationMode;
+  message: string;
+  addresseeActorId: string;
+  /** The end of the wait, never later than the tool call's own timeout. */
+  expiresAt: string;
+  status: ElicitationStatus;
+  /** What a form asks for; empty for `url`. */
+  fields: ElicitationField[];
+  /** The https page of a `url` request. */
+  url?: string | null;
+  /** The host of `url`, which the person checks before opening it. */
+  urlHost?: string | null;
+  closedAt?: string | null;
+}
+
+/** Body of `POST conversations/{id}/elicitations/{elicitationId}/answer`. */
+export interface AnswerElicitationRequest {
+  /** For `url`, `accept` says the person finished the server's page. */
+  action: ElicitationAction;
+  /** The values of an accepted form, by field name; nothing for any other answer. */
+  content?: Record<string, string | number | boolean> | null;
+}
 
 /**
  * `pending` while the turn waits for the answer; `answered` once the addressee chose; `expired` when
@@ -301,6 +414,51 @@ export interface QuestionPart {
 export interface AnswerQuestionRequest {
   /** The zero-based index of the chosen answer. */
   choice: number;
+  /** The client tools this browser can run for the rest of the turn; see `SendMessageRequest.clientTools`. */
+  clientTools?: string[];
+}
+
+/**
+ * `pending` while the turn waits for the browser of its person; `completed`, `declined`, `unavailable`
+ * or `failed` as that browser reported; `expired` when nothing came back within the server's
+ * `ClientToolLifetime`; `cancelled` when the turn was stopped.
+ */
+export type ClientToolStatus = 'pending' | 'completed' | 'declined' | 'unavailable' | 'failed' | 'expired' | 'cancelled';
+
+/**
+ * A client tool call (`AddClientTool` on the server): a tool the agent called that runs in the browser
+ * of the person whose turn it is, in the application's own interface. The `client-tool.requested` event
+ * of that person's own stream carries the `arguments` its handler receives; the conversation and the
+ * live updates of everyone else show the waiting call without them.
+ */
+export interface ClientToolRequest {
+  invocationId: string;
+  toolId: string;
+  /** The person whose browser runs it; nobody else reports its result. */
+  actorId: string;
+  /** After this moment a result is refused with `assistant-client-tool-expired`. */
+  expiresAt: string;
+  status: ClientToolStatus;
+  /** When its result came, or it expired or was cancelled; only sent then. */
+  closedAt?: string | null;
+  /** The arguments bound to the tool's input on the server; only on the person's own stream. */
+  arguments?: Record<string, unknown> | null;
+}
+
+/** What a browser reports after it ran a client tool's handler. */
+export type ClientToolReportStatus = 'completed' | 'declined' | 'unavailable' | 'failed';
+
+/** Body of `POST conversations/{id}/client-tools/{invocationId}/result`. */
+export interface ClientToolResultRequest {
+  status: ClientToolReportStatus;
+  /** How it ended in the interface: a dash-case code of at most 40 characters, such as `saved`. */
+  outcome?: string | null;
+  /** The id of what the person created, at most 64 letters, digits and `-_.:`, when the application returns one. */
+  id?: string | null;
+  /** Data the tool declares on the server with `Returns<TResult>()`; refused for a tool that declares none. */
+  data?: Record<string, unknown> | null;
+  /** The client tools this browser can run for the rest of the turn; see `SendMessageRequest.clientTools`. */
+  clientTools?: string[];
 }
 
 /**
@@ -344,7 +502,7 @@ export interface TextPart {
  * `assistant-proposal-<approval status>`, for example `assistant-proposal-expired`. An `ask_question`
  * call waits as `awaiting-answer` for the person it asked.
  */
-export type ToolCallStatus = 'running' | 'succeeded' | 'failed' | 'awaiting-approval' | 'awaiting-answer' | 'rejected' | 'not-executed';
+export type ToolCallStatus = 'running' | 'succeeded' | 'failed' | 'awaiting-approval' | 'awaiting-answer' | 'awaiting-client' | 'rejected' | 'not-executed';
 
 export interface ToolCallPart {
   type: 'tool-call';
@@ -363,6 +521,34 @@ export interface ToolCallPart {
   grantSource?: 'delegated' | 'agent' | 'delegated-read' | 'accountable' | null;
   /** The result came from rights this viewer does not have and is shielded from them. */
   restricted?: boolean;
+  /**
+   * The application's trusted card of what the call returned, in the reader's language: a title, an
+   * optional summary, at most eight fields and an optional link within the application. Only sent for a
+   * call the application presents and whose result the reader may see; never the raw result. The chat
+   * shows it with the application's renderer for the tool (`provideNhAssistantToolResultRenderers`) or
+   * the default `nh-assistant-tool-result-card`.
+   */
+  resultPresentation?: ToolResultPresentation | null;
+}
+
+/**
+ * How a presented field changes: it keeps its value (`unchanged`), gets a value where it had none
+ * (`added`), gets another value (`changed`) or loses its value (`cleared`).
+ */
+export type PresentationFieldChange = 'unchanged' | 'added' | 'changed' | 'cleared';
+
+/** A link of a result card to a page of the application: a path within it and the text people read. */
+export interface PresentationLink {
+  url: string;
+  label: string;
+}
+
+/** The application's trusted, localized card of what a tool call returned. */
+export interface ToolResultPresentation {
+  title: string;
+  summary: string | null;
+  fields: ApprovalPresentationField[];
+  link: PresentationLink | null;
 }
 
 /**
@@ -388,9 +574,16 @@ export type ApprovalStatus =
   | 'shadow'
   | 'shadow-superseded';
 
+/**
+ * One named fact of an approval or result card. A field of a change also states what it holds now
+ * (`currentValue`, empty when it is empty now) and how it changes; `value` is then the proposed
+ * value, empty when the change clears it. Both are missing for a plain fact and on older servers.
+ */
 export interface ApprovalPresentationField {
   label: string;
   value: string;
+  currentValue?: string;
+  change?: PresentationFieldChange;
 }
 
 export interface ApprovalPresentation {
@@ -544,6 +737,11 @@ export interface SendMessageRequest {
   clientContext?: ClientContext | null;
   /** Files the person attaches, as `POST conversations/{id}/files` returned them. */
   files?: FileReference[];
+  /**
+   * The ids of the client tools this browser has a handler for (`provideNhAssistantClientTools`). The
+   * server offers only the tools the application declared among them, and only in a person's own chat.
+   */
+  clientTools?: string[];
 }
 
 /**
@@ -557,6 +755,8 @@ export interface DecideApprovalRequest {
   decision: ApprovalDecision;
   expectedProposalHash: string;
   reason?: string;
+  /** The client tools this browser can run for the rest of the turn; see `SendMessageRequest.clientTools`. */
+  clientTools?: string[];
 }
 
 /** Response of `POST conversations/{id}/share-link`. */

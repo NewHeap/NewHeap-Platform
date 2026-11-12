@@ -33,11 +33,24 @@ function packageOf(inputPath) {
   const packageName = match[1];
   const flatName = packageName.replace("@", "").replace("/", "-");
 
-  if (match[2]?.startsWith(`${flatName}-`)) {
-    return `${packageName}/${match[2].slice(flatName.length + 1)}`;
+  if (!match[2]?.startsWith(`${flatName}-`)) {
+    return packageName;
   }
 
-  return packageName;
+  const rest = match[2].slice(flatName.length + 1);
+  // A library that loads part of itself on first use, such as the cards of
+  // @newheap/platform-ai-chat, has chunk files with rollup's eight-character hash:
+  // fesm2022/newheap-platform-ai-chat-nh-assistant-plan-view.component-BeGCstiW.mjs. The chunk
+  // named after the entry holds the entry's own code; the others report as package (chunk).
+  const chunk = rest.match(/^(.+)-[\w-]{8}$/)?.[1];
+  if (chunk === flatName) {
+    return packageName;
+  }
+  if (chunk) {
+    return `${packageName} (chunk ${chunk})`;
+  }
+
+  return `${packageName}/${rest}`;
 }
 
 function initialChunks() {

@@ -1,5 +1,5 @@
 import { Component, signal } from '@angular/core';
-import { ComponentFixture, TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
+import { ComponentFixture, DeferBlockState, TestBed, fakeAsync, flushMicrotasks, tick } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import {
@@ -247,7 +247,7 @@ describe('agent-run components', () => {
       expect(button(fixture, 'proposal.reject')).toBeDefined();
     });
 
-    it('explains a proposal in the words of the application and keeps the input under technical details', () => {
+    it('explains a proposal in the words of the application and keeps the input under technical details', async () => {
       fixture.componentInstance.proposals.set([{
         ...proposal('pending'),
         presentation: {
@@ -258,6 +258,10 @@ describe('agent-run components', () => {
         }
       }]);
       fixture.detectChanges();
+      // The presentation fields load on first use.
+      for (const block of await fixture.getDeferBlocks()) {
+        await block.render(DeferBlockState.Complete);
+      }
 
       const element = fixture.nativeElement as HTMLElement;
       expect(element.querySelector('.card-header')!.textContent).toContain('Change project status');

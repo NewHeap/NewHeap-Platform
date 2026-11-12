@@ -18,6 +18,11 @@ const contractFields: Record<NhAssistantMessageEvent['type'], string[]> = {
   'approval.required': ['approvalId', 'argumentsPreview', 'expiresAt', 'proposalHash', 'proposalId', 'status', 'summary', 'targets', 'toolId', 'type'],
   'question.asked': ['addresseeActorId', 'choices', 'expiresAt', 'question', 'questionId', 'status', 'type'],
   'question.answered': ['addresseeActorId', 'answerIndex', 'choices', 'closedAt', 'expiresAt', 'question', 'questionId', 'status', 'type'],
+  // Only the stream of the person whose turn called the client tool carries its arguments.
+  'client-tool.requested': ['actorId', 'arguments', 'expiresAt', 'invocationId', 'status', 'toolId'],
+  'elicitation.requested': ['addresseeActorId', 'elicitationId', 'expiresAt', 'fields', 'invocationId', 'message', 'mode', 'serverId', 'serverName', 'status', 'type'],
+  'elicitation.closed': ['addresseeActorId', 'closedAt', 'elicitationId', 'expiresAt', 'fields', 'invocationId', 'message', 'mode', 'serverId', 'serverName', 'status', 'type'],
+  'plan.updated': ['messageId', 'plan', 'turnId'],
   'connection.required': ['displayName', 'reason', 'serverId'],
   'turn.completed': ['errorCode', 'status', 'turnId', 'usage'],
   'error': ['code', 'messageKey'],

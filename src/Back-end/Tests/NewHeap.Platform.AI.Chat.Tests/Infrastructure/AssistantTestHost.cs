@@ -275,6 +275,62 @@ internal sealed class AssistantTestHost : IAsyncDisposable
             CancellationToken.None));
     }
 
+    /// <summary>
+    /// Sends a message from a browser that can run <paramref name="clientTools"/>.
+    /// </summary>
+    internal Task<TurnResult> SendWithClientToolsAsync(
+        Guid conversationId,
+        string text,
+        IReadOnlyCollection<string> clientTools,
+        string? userId = null)
+    {
+        return RunAsync(userId, (runner, context) => runner.StartMessageTurnAsync(
+            new NhAssistantMessageTurnRequest(
+                conversationId,
+                context,
+                text,
+                Guid.NewGuid().ToString("N"),
+                CancellationToken.None)
+            {
+                ClientTools = KnownClientTools(clientTools)
+            },
+            CancellationToken.None));
+    }
+
+    /// <summary>
+    /// Reports what the browser did with the client tool call <paramref name="invocationId"/>.
+    /// </summary>
+    internal Task<TurnResult> ReportClientToolAsync(
+        Guid conversationId,
+        Guid invocationId,
+        string? status,
+        string? outcome = null,
+        string? id = null,
+        System.Text.Json.JsonElement? data = null,
+        string? userId = null,
+        IReadOnlyCollection<string>? clientTools = null)
+    {
+        return RunAsync(userId, (runner, context) => runner.StartClientToolResultTurnAsync(
+            new NhAssistantClientToolResultTurnRequest(
+                conversationId,
+                context,
+                invocationId,
+                status,
+                outcome,
+                id,
+                data,
+                CancellationToken.None)
+            {
+                ClientTools = KnownClientTools(clientTools ?? [])
+            },
+            CancellationToken.None));
+    }
+
+    private IReadOnlySet<string> KnownClientTools(IReadOnlyCollection<string> clientTools)
+    {
+        return _provider.GetRequiredService<NhAssistantRegistrationState>().KnownClientTools(clientTools);
+    }
+
     public async Task<TurnResult> StartWithoutWaitingAsync(
         Guid conversationId,
         string text,
@@ -294,6 +350,108 @@ internal sealed class AssistantTestHost : IAsyncDisposable
         await whileRunning(scope.ServiceProvider.GetRequiredService<INhAssistantTurnRunner>());
         var events = await ReadAllAsync(started.Data);
         return new TurnResult(started, events);
+    }
+
+    /// <summary>
+    /// Sends a message and hands every request for input of an MCP server that the turn shows to
+    /// <paramref name="whileWaiting"/> while its tool waits, which may move the application's clock,
+    /// answer through <see cref="NhAssistantElicitationAnswerService"/> or let the request expire.
+    /// </summary>
+    internal async Task<TurnResult> SendWhileElicitationsWaitAsync(
+        Guid conversationId,
+        string text,
+        Func<NhAssistantElicitationView, Task> whileWaiting)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        var httpContext = EnterUser(scope.ServiceProvider, UserId);
+        var context = await ResolveAsync(scope.ServiceProvider, httpContext);
+        var runner = scope.ServiceProvider.GetRequiredService<INhAssistantTurnRunner>();
+        var started = await runner.StartMessageTurnAsync(
+            new NhAssistantMessageTurnRequest(conversationId, context, text, Guid.NewGuid().ToString("N"), CancellationToken.None),
+            CancellationToken.None);
+        if (!started.Success)
+        {
+            return new TurnResult(started, []);
+        }
+
+        var events = new List<NhAssistantTurnEvent>();
+        await foreach (var evt in started.Data.Events.ReadAllAsync())
+        {
+            events.Add(evt);
+            if (evt is NhAssistantElicitationRequestedEvent requested)
+            {
+                await whileWaiting(requested.Elicitation);
+            }
+        }
+        await started.Data.Completion;
+        return new TurnResult(started, events);
+    }
+
+    /// <summary>
+    /// Sends a message and answers every request for input of an MCP server that the turn shows while
+    /// its tool waits, as the person would through the answer endpoint; returns the turn with the
+    /// failure code of each answer that was refused, in order.
+    /// </summary>
+    internal async Task<(TurnResult Turn, IReadOnlyList<string?> AnswerCodes)> SendAnsweringElicitationsAsync(
+        Guid conversationId,
+        string text,
+        Func<NhAssistantElicitationView, (string Action, IReadOnlyDictionary<string, System.Text.Json.JsonElement>? Content)> answer,
+        string? answeredBy = null)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        var httpContext = EnterUser(scope.ServiceProvider, UserId);
+        var context = await ResolveAsync(scope.ServiceProvider, httpContext);
+        var runner = scope.ServiceProvider.GetRequiredService<INhAssistantTurnRunner>();
+        var started = await runner.StartMessageTurnAsync(
+            new NhAssistantMessageTurnRequest(conversationId, context, text, Guid.NewGuid().ToString("N"), CancellationToken.None),
+            CancellationToken.None);
+        if (!started.Success)
+        {
+            return (new TurnResult(started, []), []);
+        }
+
+        var events = new List<NhAssistantTurnEvent>();
+        var codes = new List<string?>();
+        await foreach (var evt in started.Data.Events.ReadAllAsync())
+        {
+            events.Add(evt);
+            if (evt is not NhAssistantElicitationRequestedEvent requested)
+            {
+                continue;
+            }
+
+            var (action, content) = answer(requested.Elicitation);
+            await using var answering = _provider.CreateAsyncScope();
+            var answered = await answering.ServiceProvider.GetRequiredService<NhAssistantElicitationAnswerService>().AnswerAsync(
+                conversationId,
+                requested.Elicitation.ElicitationId,
+                answeredBy ?? UserId,
+                null,
+                action,
+                content,
+                CancellationToken.None);
+            codes.Add(answered.Success
+                ? null
+                : answered.GetResultItems().Select(item => item.Name).FirstOrDefault(name => !string.IsNullOrEmpty(name)));
+            if (!answered.Success)
+            {
+                // The person answers once more as asked, so the turn does not wait for the full wait.
+                var (retryAction, retryContent) = answer(requested.Elicitation with { Status = "retry" });
+                var retried = await answering.ServiceProvider.GetRequiredService<NhAssistantElicitationAnswerService>().AnswerAsync(
+                    conversationId,
+                    requested.Elicitation.ElicitationId,
+                    UserId,
+                    null,
+                    retryAction,
+                    retryContent,
+                    CancellationToken.None);
+                codes.Add(retried.Success
+                    ? null
+                    : retried.GetResultItems().Select(item => item.Name).FirstOrDefault(name => !string.IsNullOrEmpty(name)));
+            }
+        }
+        await started.Data.Completion;
+        return (new TurnResult(started, events), codes);
     }
 
     public async Task<AssistantConversation> ReloadAsync(Guid conversationId, string owner = UserId)

@@ -30,6 +30,7 @@ import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.
 import { NhAssistantAgentRunApiService } from '../../services/nh-assistant-agent-run-api.service';
 import { nhAssistantErrorMessageKey } from '../../services/nh-assistant-transport';
 import type { NhAssistantError } from '../../services/nh-assistant.store';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 /** What `nh-assistant-proposal-feedback` stored. */
 export interface NhAssistantProposalFeedbackSaved {
@@ -53,6 +54,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-proposal-feedback',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-proposal-feedback.component.html',

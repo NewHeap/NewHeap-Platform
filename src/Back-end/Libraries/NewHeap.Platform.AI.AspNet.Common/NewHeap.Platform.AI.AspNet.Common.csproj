@@ -16,10 +16,12 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="ModelContextProtocol.Extensions.Tasks" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="NewHeap.Platform.AI.AspNet.Mvc" />
     <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat.AspNet" />
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat.Tests" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\NewHeap.Platform.AI.Common\NewHeap.Platform.AI.Common.csproj" />

@@ -57,11 +57,21 @@ public sealed partial class AssistantSamplesTests(AssistantSampleHost host) : IC
         var completed = events.Single(evt => evt.Name == "tool.completed").Data;
         Assert.Equal("succeeded", completed.GetProperty("status").GetString());
         Assert.Contains("Roadmap", completed.GetProperty("resultPreview").GetString());
+        // SPM-248: the sample's result presenter sends a trusted card of the projects found with the call.
+        var card = completed.GetProperty("resultPresentation");
+        var found = Assert.Single(card.GetProperty("fields").EnumerateArray());
+        Assert.Equal("PRJ-1", found.GetProperty("label").GetString());
+        Assert.Equal("Roadmap", found.GetProperty("value").GetString());
+        Assert.Equal(SampleAssistantToolResultPresenter.ProjectBoardRoute, card.GetProperty("link").GetProperty("url").GetString());
         Assert.Equal("completed", events[^1].Data.GetProperty("status").GetString());
         Assert.Contains(host.DivisionId, host.Projects.SearchedDivisions);
         var conversation = await host.GetJsonAsync(client, $"/api/assistant/conversations/{conversationId}");
         Assert.Equal("idle", conversation.GetProperty("status").GetString());
         Assert.Equal(2, conversation.GetProperty("messages").GetArrayLength());
+        // A reloaded conversation shows the same card on the call.
+        var call = conversation.GetProperty("messages")[1].GetProperty("parts").EnumerateArray()
+            .Single(part => part.GetProperty("type").GetString() == "tool-call");
+        Assert.Equal(card.GetProperty("title").GetString(), call.GetProperty("resultPresentation").GetProperty("title").GetString());
     }
 
     [Fact]
@@ -122,7 +132,11 @@ public sealed partial class AssistantSamplesTests(AssistantSampleHost host) : IC
         var presentation = approval.GetProperty("presentation");
         Assert.Equal(expectedDisplayName, presentation.GetProperty("toolDisplayName").GetString());
         Assert.Contains("PRJ-APPROVAL", presentation.GetProperty("summary").GetString());
-        Assert.Equal(3, presentation.GetProperty("fields").GetArrayLength());
+        // The project, and its status with the status it has now: the card shows the change.
+        Assert.Equal(2, presentation.GetProperty("fields").GetArrayLength());
+        var status = presentation.GetProperty("fields")[1];
+        Assert.Equal("changed", status.GetProperty("change").GetString());
+        Assert.NotEqual(status.GetProperty("currentValue").GetString(), status.GetProperty("value").GetString());
         Assert.Contains($"division:{host.DivisionId}", approval.GetProperty("targets").EnumerateArray().Select(target => target.GetString()));
         Assert.Equal("waiting-for-approval", paused[^1].Data.GetProperty("status").GetString());
         Assert.DoesNotContain(host.Projects.StatusChanges, change => change.ProjectId == projectId);

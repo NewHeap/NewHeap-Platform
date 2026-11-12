@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { NH_ASSISTANT_CONFIG } from '../nh-assistant.config';
+import { NhAssistantTokensDirective } from './nh-assistant-tokens';
 
 /** Where a subject link leads: a route of the host application or an `https` address elsewhere. */
 export interface NhAssistantSubjectTarget {
@@ -29,6 +30,7 @@ export interface NhAssistantSubjectTarget {
 @Component({
   selector: 'nh-assistant-subject-link',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (shownTypeName(); as type) {

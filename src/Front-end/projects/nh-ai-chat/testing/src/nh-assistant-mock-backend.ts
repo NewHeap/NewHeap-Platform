@@ -756,7 +756,13 @@ export class NhAssistantMockBackend {
       if (decision === 'approve') {
         await emit({
           type: 'tool.completed',
-          data: { invocationId: pending.invocationId, status: 'succeeded', resultCode: null, resultPreview: pending.step.resultPreview ?? null }
+          data: {
+            invocationId: pending.invocationId,
+            status: 'succeeded',
+            resultCode: null,
+            resultPreview: pending.step.resultPreview ?? null,
+            ...(pending.step.resultPresentation ? { resultPresentation: pending.step.resultPresentation } : {})
+          }
         });
         await this.playSteps(conversation.id, pending.assistantMessageId, pending.step.approved, emit);
       } else if (decision === 'leave') {
@@ -934,7 +940,11 @@ export class NhAssistantMockBackend {
             invocationId,
             status: step.tool.status ?? 'succeeded',
             resultCode: step.tool.resultCode ?? null,
-            resultPreview: step.tool.resultPreview ?? null
+            resultPreview: step.tool.resultPreview ?? null,
+            // As the server, only a call that succeeded carries the application's card.
+            ...(step.tool.resultPresentation && (step.tool.status ?? 'succeeded') === 'succeeded'
+              ? { resultPresentation: step.tool.resultPresentation }
+              : {})
           }
         });
       } else if ('approval' in step) {
@@ -947,6 +957,17 @@ export class NhAssistantMockBackend {
         usage.toolCalls++;
         await emit({ type: 'turn.completed', data: { turnId: this.nextId(), status: 'waiting-for-approval', usage, errorCode: null } });
         return;
+      } else if ('plan' in step) {
+        // update_plan counts as a call of the turn and shows as the plan.
+        usage.toolCalls++;
+        await emit({
+          type: 'plan.updated',
+          data: {
+            turnId: this.nextId(),
+            messageId: assistantMessageId,
+            plan: { steps: step.plan.steps.map(item => ({ ...item })), updatedAt: new Date().toISOString() }
+          }
+        });
       } else if ('error' in step) {
         await emit({ type: 'error', data: step.error });
         // The mock keeps the conversation usable after a failed turn.

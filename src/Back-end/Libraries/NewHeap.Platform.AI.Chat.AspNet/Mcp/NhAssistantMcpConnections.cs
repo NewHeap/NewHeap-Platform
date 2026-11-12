@@ -89,6 +89,18 @@ internal sealed record NhAssistantMcpConnectionPlan(
     /// that are shared, or never cached because they carry a request's token.
     /// </summary>
     public string? PersonalCacheKey { get; init; }
+
+    /// <summary>
+    /// The server's display name, which a person reads as the sender of the server's requests for
+    /// input; the server id when a plan was built by hand.
+    /// </summary>
+    public string? DisplayName { get; init; }
+
+    /// <summary>
+    /// How long a request for input of the server waits for the person: the server's wait time, five
+    /// minutes when it sets none (<see cref="AssistantMcpServer.ElicitationWaitMinutes"/>).
+    /// </summary>
+    public TimeSpan ElicitationWait { get; init; } = NhAssistantElicitationLimits.DefaultWait;
 }
 
 /// <summary>
@@ -410,6 +422,8 @@ internal sealed class NhAssistantMcpConnectionPlanner(
             !modes.IsOrganizationCredential(server.AuthMode, server.ConnectionScope))
         {
             Credentials = credentials,
+            DisplayName = server.DisplayName,
+            ElicitationWait = NhAssistantElicitationLimits.WaitOf(server.ElicitationWaitMinutes),
             Transport = server.Transport,
             ClientCertificate = certificate,
             PersonalCacheKey = NhAssistantMcpToolSource.IsPersonalOAuth(server) && subject.PersonActorId is { } person
@@ -441,7 +455,9 @@ internal interface INhAssistantMcpClientFactory
 /// is presented for mutual TLS. Every response passes <see cref="NhAssistantMcpResponseLimitHandler"/>,
 /// which stops reading one longer than <see cref="NhAssistantMcpOptions.MaxResponseBytes"/>. SDK logging
 /// is disabled because it can include request headers, and the client opens no standalone stream for
-/// server-initiated messages, which the assistant does not handle.
+/// server-initiated messages. A server's request for input during a tool call, as a multi round-trip
+/// <c>input_required</c> result or a request on the call's own response stream, goes to the person of
+/// the call through <see cref="NhAssistantMcpElicitation"/>.
 /// </summary>
 internal sealed class NhAssistantHttpMcpClientFactory(
     NhAssistantMcpHostGuard guard,
@@ -481,7 +497,7 @@ internal sealed class NhAssistantHttpMcpClientFactory(
             ownsHttpClient: true);
         using var connect = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         connect.CancelAfter(timeout);
-        return await McpClient.CreateAsync(transport, new McpClientOptions(), NullLoggerFactory.Instance, connect.Token);
+        return await McpClient.CreateAsync(transport, NhAssistantMcpElicitation.ClientOptions(plan), NullLoggerFactory.Instance, connect.Token);
     }
 
     /// <summary>
@@ -829,7 +845,7 @@ internal sealed partial class NhAssistantMcpToolSource(
             }
             leases.Add(lease.Data);
             owners[server.Id] = OwnerOf(server, request);
-            functions.AddRange(await ImportAsync(server, plan, enabled, lease.Data.Tools, skippedTools, cancellationToken));
+            functions.AddRange(await ImportAsync(server, plan, enabled, lease.Data, skippedTools, cancellationToken));
         }
 
         return new NhAssistantMcpToolSet(OfferedOnce(functions, skippedTools), async () =>
@@ -895,7 +911,7 @@ internal sealed partial class NhAssistantMcpToolSource(
                 await RecordHealthAsync(server, null);
             }
             leases.Add(lease.Data);
-            functions.AddRange(await ImportAsync(server, plan, tools, lease.Data.Tools, skippedTools, cancellationToken, clientConfirmed));
+            functions.AddRange(await ImportAsync(server, plan, tools, lease.Data, skippedTools, cancellationToken, clientConfirmed));
         }
 
         return new NhAssistantMcpToolSet(OfferedOnce(functions, skippedTools), async () =>
@@ -1153,11 +1169,12 @@ internal sealed partial class NhAssistantMcpToolSource(
         AssistantMcpServer server,
         NhAssistantMcpConnectionPlan plan,
         IReadOnlyList<AssistantMcpTool> enabled,
-        IList<McpClientTool> remoteTools,
+        NhAssistantMcpLease lease,
         Dictionary<string, string> skippedTools,
         CancellationToken cancellationToken,
         IReadOnlySet<string>? clientConfirmed = null)
     {
+        var remoteTools = lease.Tools;
         var candidates = new List<(AssistantMcpTool Tool, McpClientTool Remote, string LocalName)>();
         foreach (var tool in enabled)
         {
@@ -1282,7 +1299,15 @@ internal sealed partial class NhAssistantMcpToolSource(
         }
         var catalog = importer.Import(remotes, new NhAiMcpImportOptions(server.Id, server.Id, policies)
         {
-            HostInvocationBinders = storedBinders
+            HostInvocationBinders = storedBinders,
+            // A call the server refuses until a person finished a page of its own asks the person of the
+            // call, as the server's other requests for input do.
+            UrlElicitationHandler = NhAssistantMcpElicitation.CreateHandler(
+                server.Id,
+                server.DisplayName,
+                NhAssistantElicitationLimits.WaitOf(server.ElicitationWaitMinutes)),
+            // A server that offers MCP tasks runs a long tool as a task, polled within the tool's timeout.
+            RemoteCall = NhAssistantMcpRemoteTasks.For(lease.Client)
         });
         return catalog.CreateFunctions(services);
     }

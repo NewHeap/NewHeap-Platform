@@ -44,6 +44,42 @@ public sealed class NhBackgroundOperationsOptions
     /// <c>hubUrlSuffix</c> at the same path.
     /// </summary>
     public string HubPath { get; set; } = "/hub/background-operations";
+
+    /// <summary>
+    /// Whether a live-update connection may refresh its authentication without reconnecting, false by
+    /// default. It takes effect on ASP.NET Core 11, where the hub then maps SignalR's
+    /// <c>/refresh</c> endpoint below <see cref="HubPath"/>; on ASP.NET Core 10 it changes nothing. A
+    /// client that presents its renewed token there (<c>RefreshAuthenticationAsync</c> in the .NET client)
+    /// keeps its connection and its groups past the expiry of the token it connected with. The endpoint
+    /// requires the hub's authentication: an expired token or a removed user is refused with 401, a token
+    /// of another person or another impersonation with 403, and the connection then still closes when
+    /// its own authentication expires. After every accepted refresh the hub checks the user and the active
+    /// division again, as when the connection opened, and closes the connection once the person may no
+    /// longer use that division. A connection that does not refresh closes on expiry and reconnects as
+    /// before.
+    /// </summary>
+    public bool HubAuthenticationRefresh { get; set; }
+
+    /// <summary>
+    /// Whether the live-update hub validates the session of every open connection again each
+    /// <see cref="HubSessionCheckInterval"/>, true by default. A connection then closes at the next
+    /// check once the NewHeap session validator (<c>INhAuthenticationSessionValidator</c>) no longer
+    /// accepts its principal: the user was deleted, a password change, reset or revocation of their
+    /// sessions changed their security stamp, or an impersonation's origin session ended. Without the
+    /// check such a connection keeps receiving its user's changes until the authentication it was opened
+    /// with expires. After an accepted refresh (<see cref="HubAuthenticationRefresh"/>) the check
+    /// validates the refreshed principal. Each check asks the validator once per open connection; a host
+    /// without a registered validator, such as one with its own authentication, is not checked.
+    /// </summary>
+    public bool HubSessionCheckEnabled { get; set; } = true;
+
+    /// <summary>
+    /// How often the live-update hub validates the session of an open connection again while
+    /// <see cref="HubSessionCheckEnabled"/> is on: one minute by default, and at most one day. It follows
+    /// the application's clock (a registered <see cref="TimeProvider"/>, otherwise the system clock).
+    /// </summary>
+    public TimeSpan HubSessionCheckInterval { get; set; } = TimeSpan.FromMinutes(1);
+
     public bool UserNotificationProjectionEnabled { get; set; } = true;
     public string OperationUrlPrefix { get; set; } = "/background-operations";
     public TimeSpan DispatchInterval { get; set; } = TimeSpan.FromSeconds(1);
@@ -117,6 +153,13 @@ public sealed class NhBackgroundOperationsOptions
         if (LiveUpdatesEnabled)
         {
             ValidateHubPath();
+        }
+
+        if (LiveUpdatesEnabled
+            && HubSessionCheckEnabled
+            && (HubSessionCheckInterval <= TimeSpan.Zero || HubSessionCheckInterval > TimeSpan.FromDays(1)))
+        {
+            throw new InvalidOperationException("Background operation HubSessionCheckInterval must be positive and at most one day when the hub session check is enabled.");
         }
 
         if (UserNotificationProjectionEnabled

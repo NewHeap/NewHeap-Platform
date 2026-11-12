@@ -1,3 +1,4 @@
+using System.Text.Json;
 using NewHeap.Platform.AI.Chat.Collaboration;
 using NewHeap.Platform.AI.Chat.Entities;
 
@@ -5,9 +6,11 @@ namespace NewHeap.Platform.AI.Chat.Runtime;
 
 /// <summary>
 /// Internal event stream of one turn. The ASP.NET package translates these events to the
-/// server-sent events of the assistant contract.
+/// server-sent events of the assistant contract, and the AG-UI package to AG-UI events. The hierarchy is
+/// closed: every event is declared in this assembly, so the compiler checks that each translation covers
+/// every event.
 /// </summary>
-internal abstract record NhAssistantTurnEvent;
+internal closed record NhAssistantTurnEvent;
 
 internal sealed record NhAssistantPageScreenshotRequestedEvent(string Reason) : NhAssistantTurnEvent;
 
@@ -31,10 +34,26 @@ internal sealed record NhAssistantToolCompletedEvent(
     Guid InvocationId,
     string Status,
     string? ResultCode,
-    string? ResultPreview) : NhAssistantTurnEvent;
+    string? ResultPreview) : NhAssistantTurnEvent
+{
+    /// <summary>
+    /// The application's card of what the call returned in the culture of the turn
+    /// (<see cref="INhAssistantToolResultPresenter"/>); <see langword="null"/> without one and for a
+    /// shielded result.
+    /// </summary>
+    public NhAssistantToolResultPresentation? ResultPresentation { get; init; }
+}
 
 internal sealed record NhAssistantApprovalRequiredEvent(
-    NhAssistantApprovalView Approval) : NhAssistantTurnEvent;
+    NhAssistantApprovalView Approval) : NhAssistantTurnEvent
+{
+    /// <summary>
+    /// The tool call of the turn that waits for the decision: the proposing call, or the consult call of a
+    /// proposal the person who asked decides. The assistant's own server-sent events leave it out; the
+    /// AG-UI endpoint names it as the interrupted tool call.
+    /// </summary>
+    public Guid? InvocationId { get; init; }
+}
 
 /// <summary>
 /// The agent asked a person of the conversation a question with <c>ask_question</c>; the turn waits
@@ -48,6 +67,28 @@ internal sealed record NhAssistantQuestionAskedEvent(
 /// </summary>
 internal sealed record NhAssistantQuestionAnsweredEvent(
     NhAssistantQuestionView Question) : NhAssistantTurnEvent;
+
+/// <summary>
+/// The agent set or advanced its plan with <c>update_plan</c> (<c>run.KeepPlan()</c>): the whole plan as
+/// it now stands, in the message <paramref name="MessageId"/> of the turn. A snapshot, never a delta, so
+/// a client that missed an update shows the right plan with the next.
+/// </summary>
+internal sealed record NhAssistantPlanUpdatedEvent(
+    Guid TurnId,
+    Guid MessageId,
+    NhAssistantPlanPartView Plan) : NhAssistantTurnEvent;
+
+/// <summary>
+/// The agent called a client tool; the turn waits for the browser of <see cref="NhAssistantClientToolView.ActorId"/>
+/// to run it. Only the stream of that person's own request carries <see cref="Arguments"/>, the bound
+/// arguments the browser's handler receives; what the other sessions and participants receive leaves them
+/// out, so no other browser can run it.
+/// </summary>
+internal sealed record NhAssistantClientToolRequestedEvent(
+    NhAssistantClientToolView ClientTool) : NhAssistantTurnEvent
+{
+    public JsonElement? Arguments { get; init; }
+}
 
 /// <summary>
 /// The turn's person has to connect an MCP server, which each person connects to with OAuth, before
@@ -132,6 +173,12 @@ internal sealed record NhAssistantConversationView(
     /// conversation does not wait for a question.
     /// </summary>
     public NhAssistantQuestionView? PendingQuestion { get; init; }
+
+    /// <summary>
+    /// The client tool call the waiting turn waits for, which the browser of its person runs;
+    /// <see langword="null"/> when the conversation does not wait for one.
+    /// </summary>
+    public NhAssistantClientToolView? PendingClientTool { get; init; }
 
     /// <summary>
     /// The subject a person's chat is about (FB25), with how people see it; <see langword="null"/> for a
@@ -260,9 +307,21 @@ internal sealed record NhAssistantApplicationMessageView(
     }
 }
 
-internal abstract record NhAssistantPartView;
+/// <summary>
+/// A part of a message as the conversation shows it. The hierarchy is closed, so the compiler checks that
+/// the mapping to the API's parts covers every part.
+/// </summary>
+internal closed record NhAssistantPartView;
 
 internal sealed record NhAssistantTextPartView(string Text) : NhAssistantPartView;
+
+/// <summary>
+/// The plan the agent kept with <c>update_plan</c>, as it stood after the last update in its message:
+/// the agent's own statement about its work, plain text people see as the agent's.
+/// </summary>
+internal sealed record NhAssistantPlanPartView(
+    IReadOnlyList<NhAssistantPlanStep> Steps,
+    DateTimeOffset UpdatedAt) : NhAssistantPartView;
 
 /// <summary>A server the turn's person had to connect before the agent could use it.</summary>
 internal sealed record NhAssistantConnectionRequiredPartView(string ServerId, string DisplayName, string Reason) : NhAssistantPartView;
@@ -313,6 +372,13 @@ internal sealed record NhAssistantToolCallPartView(
     public bool Restricted { get; init; }
 
     /// <summary>
+    /// The application's card of what the call returned, in the viewer's culture
+    /// (<see cref="INhAssistantToolResultPresenter"/>); <see langword="null"/> without one and for a
+    /// viewer from whom the result is shielded.
+    /// </summary>
+    public NhAssistantToolResultPresentation? ResultPresentation { get; init; }
+
+    /// <summary>
     /// For a delegated read, the person whose rights the call read with. Never sent to clients.
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
@@ -346,6 +412,33 @@ internal sealed record NhAssistantQuestionView(
 
     /// <summary>
     /// The turn that asked it. Never sent to clients.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public Guid TurnId { get; init; }
+}
+
+/// <summary>
+/// A client tool call as the conversation shows it: the call, its tool, the person whose browser runs it,
+/// the end of its wait and its status.
+/// </summary>
+/// <param name="InvocationId">The call; the browser's report names it.</param>
+/// <param name="ActorId">The person whose turn called it and whose browser runs it.</param>
+/// <param name="ExpiresAt">The end of its wait on the application's clock.</param>
+/// <param name="Status">One of <see cref="NhAssistantClientToolStatuses"/>.</param>
+internal sealed record NhAssistantClientToolView(
+    Guid InvocationId,
+    string ToolId,
+    string ActorId,
+    DateTimeOffset ExpiresAt,
+    string Status)
+{
+    /// <summary>
+    /// When its result came, or it expired or was cancelled.
+    /// </summary>
+    public DateTimeOffset? ClosedAt { get; init; }
+
+    /// <summary>
+    /// The turn that called it. Never sent to clients.
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public Guid TurnId { get; init; }

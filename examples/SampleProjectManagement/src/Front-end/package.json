@@ -25,7 +25,7 @@
     "@angular/platform-browser": "20.3.35",
     "@angular/platform-browser-dynamic": "20.3.35",
     "@angular/router": "20.3.35",
-    "@microsoft/signalr": "^10.0.11",
+    "@microsoft/signalr": "^11.0.0",
     "@msgpack/msgpack": "^2.8.0",
     "@newheap/nh-toastr": "file:../../../../src/Front-end/projects/nh-toastr",
     "@newheap/platform-ai-chat": "file:../../../../src/Front-end/projects/nh-ai-chat",

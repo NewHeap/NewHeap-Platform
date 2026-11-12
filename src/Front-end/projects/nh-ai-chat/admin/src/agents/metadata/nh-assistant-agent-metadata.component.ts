@@ -23,6 +23,7 @@ import {
   NhAssistantError,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
@@ -133,6 +134,7 @@ interface NhAssistantAgentMetadataSlotView {
 @Component({
   selector: 'nh-assistant-agent-metadata',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [NgComponentOutlet, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantPackageLockComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-metadata.component.html',

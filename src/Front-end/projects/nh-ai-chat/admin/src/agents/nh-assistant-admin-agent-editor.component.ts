@@ -30,7 +30,8 @@ import {
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError,
   RunCatalog,
-  ToolCatalogEntry
+  ToolCatalogEntry,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective
 } from '@newheap/platform-ai-chat';
 import { NH_ASSISTANT_MAX_INSTRUCTIONS } from '../context/nh-assistant-admin-context.component';
 import { mayChangeAgentRights } from './agent-rights';
@@ -100,6 +101,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-admin-agent-editor',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     TranslatePipe,
     NhAssistantTranslatePipe,

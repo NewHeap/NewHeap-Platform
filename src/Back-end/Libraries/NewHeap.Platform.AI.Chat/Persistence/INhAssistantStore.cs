@@ -80,6 +80,17 @@ internal interface INhAssistantStore
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Renews the claim of <paramref name="turnId"/> on its running conversation: moves the
+    /// conversation's last update to now, so <see cref="TryBeginTurnAsync"/> does not take it over as
+    /// abandoned while the turn stands still for its person. Its status and concurrency stamp stay as
+    /// they are. Returns false when the turn no longer owns the conversation.
+    /// </summary>
+    Task<bool> TryKeepTurnAsync(
+        Guid conversationId,
+        Guid turnId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Ends the turn that owns the conversation. Returns false when another turn took ownership.
     /// </summary>
     Task<bool> TryEndTurnAsync(
@@ -183,6 +194,29 @@ internal interface INhAssistantStore
     /// when the call no longer waits, so an answer, an expiry and a cancellation close it once.
     /// </summary>
     Task<bool> TryCloseQuestionAsync(
+        Guid invocationId,
+        string status,
+        string? resultCode,
+        string? resultJson,
+        DateTimeOffset completedAt,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The client tool call of <paramref name="turnId"/> that waits for its person's browser, or
+    /// <see langword="null"/>.
+    /// </summary>
+    Task<AssistantToolInvocation?> FindAwaitingClientToolAsync(
+        Guid conversationId,
+        Guid turnId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Closes a client tool call that still waits for its person's browser: it takes
+    /// <paramref name="status"/>, <paramref name="resultCode"/> and <paramref name="resultJson"/>. Returns
+    /// <see langword="false"/> when the call no longer waits, so a result, an expiry and a cancellation
+    /// close it once.
+    /// </summary>
+    Task<bool> TryCloseClientToolAsync(
         Guid invocationId,
         string status,
         string? resultCode,

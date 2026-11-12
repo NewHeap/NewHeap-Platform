@@ -27,10 +27,12 @@ import {
   NH_ASSISTANT_MAX_PROPOSAL_LOOKUP,
   NhAssistantAgentRunApiService,
   NhAssistantError,
+  NhAssistantPresentationFieldsComponent,
   NhAssistantProposalFeedbackComponent,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵNhAssistantSubjectLinkComponent as NhAssistantSubjectLinkComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
@@ -142,6 +144,7 @@ interface NhAssistantFeedbackRequest {
 @Component({
   selector: 'nh-assistant-agent-proposals',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     DatePipe,
     NgTemplateOutlet,
@@ -149,6 +152,7 @@ interface NhAssistantFeedbackRequest {
     NhAssistantTranslatePipe,
     NhAssistantIconComponent,
     NhAssistantSubjectLinkComponent,
+    NhAssistantPresentationFieldsComponent,
     NhAssistantProposalFeedbackComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -18,7 +18,9 @@ public interface INhAiCallerCredentialAccessor
     /// in with an access token for the MCP exposure (<see cref="NhAiMcpExposureBuilder.UseProtectedResource(Action{NhAiMcpProtectedResourceOptions})"/>
     /// and its named resources), and a request whose token the application marked with
     /// <see cref="NhAiCallerCredentials.MarkNotForwardable"/>. An accessor of the application's own
-    /// returns none for such a request as well.
+    /// returns none for such a request as well. The default accessor also returns none inside a tool that
+    /// runs as an MCP task (<see cref="NhAiMcpExposureBuilder.UseTasks"/>): the task runs on after its
+    /// request ended, so its request is no credential of the task.
     /// </summary>
     ValueTask<string?> GetBearerTokenAsync(CancellationToken cancellationToken = default);
 }
@@ -78,7 +80,7 @@ internal sealed class NhAiNotForwardableToken(string issuer)
 /// <summary>
 /// Default accessor: the saved <c>access_token</c> of the current authentication result,
 /// falling back to the <c>Authorization: Bearer</c> header of the current request; none for a
-/// request whose token is marked as never passed on.
+/// request whose token is marked as never passed on, and none inside an MCP task.
 /// </summary>
 internal sealed class NhAiHttpContextCallerCredentialAccessor(
     IHttpContextAccessor httpContextAccessor) : INhAiCallerCredentialAccessor
@@ -88,6 +90,13 @@ internal sealed class NhAiHttpContextCallerCredentialAccessor(
     public async ValueTask<string?> GetBearerTokenAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (NhAiMcpTaskCalls.Current is { TaskId: not null })
+        {
+            // An MCP task runs on after its request ended: the request it started in is no credential
+            // of the task, also not while that request happens to last.
+            return null;
+        }
+
         var httpContext = httpContextAccessor.HttpContext;
         if (httpContext is null)
         {

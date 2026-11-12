@@ -201,6 +201,11 @@ reads it with whom it waits for. The turn waits for the answer as for an approva
 calls `NhAssistantStore.answerQuestion`, which streams the resumed turn. An agent message of a chat
 with `run.SkillsInChat()` names the skill it worked in (`message.skillId`).
 
+The plan an agent keeps with `update_plan` (`run.KeepPlan()` on the server) shows in its message as
+`nh-assistant-plan`: a checklist with the current step marked and completed steps struck through,
+every step as plain text. `plan.updated` replaces it with each snapshot, also from live updates, and
+`nh-assistant-run-result` shows a run's last plan (`AgentRunResult.plan`).
+
 A tool call whose agent proposal closed without running no longer waits: it ends as
 `rejected`, as `not-executed` when the proposal expired, was withdrawn or became stale, or as
 `failed` when its execution failed before it started, with the result code
@@ -216,6 +221,35 @@ group show `not-executed` as a finished call that did not run, never as waiting.
 `nh-assistant-tool-call-card`, `nh-assistant-approval-card` and
 `nh-assistant-agent-picker` are exported for custom layouts. All components are
 standalone and use `OnPush`.
+
+Approval cards show a field of an update with what it holds now and what it gets
+(`currentValue`, `change`), each labelled and with the change in words, through
+`nh-assistant-presentation-fields`. A call the server presented
+(`ToolCallPart.resultPresentation`) keeps a result card visible under its tool group:
+`nh-assistant-tool-result-card` by default, or the application's own standalone
+component for the tool:
+
+```ts
+provideNhAssistantToolResultRenderers({ toolId: 'projects.search', component: ProjectSearchResultComponent })
+```
+
+The component injects `NhAssistantToolResult` and reads its `presentation` signal: the
+trusted card the server's presenter wrote, never the call's raw result or arguments.
+Links in such a component use `--nh-assistant-link` (see [Theme](#theme)).
+
+Cards that are rarely on screen load on first use, in chunks of their own, so they stay
+out of the application's initial bundle: `nh-assistant-plan`,
+`nh-assistant-elicitation-card`, `nh-assistant-tool-result-card` and
+`nh-assistant-presentation-fields`. Until a card has arrived, and on the server, an empty
+box of about its height holds its place; the thread loads them while the browser is idle
+once it shows. A spec that reads such a card renders its defer block first:
+
+```ts
+fixture.detectChanges();
+for (const block of await fixture.getDeferBlocks()) {
+  await block.render(DeferBlockState.Complete);
+}
+```
 
 The panel selects the assistant in the prompt bar below the message field, alongside
 the send/stop action. The picker is hidden when only one assistant is available;
@@ -256,6 +290,41 @@ of that message; sending continues. The page icon beside the composer actions de
 the included context in its tooltip; clicking it leaves context out of the next message, which sends
 `clientContext: null`. Page context is untrusted data: the server treats entity ids as
 search hints and still authorizes every tool call.
+
+## Client tools
+
+A client tool runs in the person's browser, in your own interface, when the agent calls it: it opens a
+page or your own create form prefilled, and the person saves the change through your normal API. The
+server declares every client tool with `AddClientTool<TInput>(...)`; the browser only registers a
+handler per tool id, in the same providers as `provideNhAssistant`:
+
+```typescript
+import { provideNhAssistantClientTools } from '@newheap/platform-ai-chat';
+import { nhAssistantModalTool, nhAssistantNavigateTool } from '@newheap/platform-ai-chat/client-tools';
+
+provideNhAssistantClientTools(
+  nhAssistantNavigateTool<{ projectId?: unknown }>({
+    toolId: 'app.open-project',
+    // Your allow-list: a route from checked values, or null to refuse.
+    route: args => isProjectId(args.projectId) ? ['/projects', args.projectId] : null
+  }),
+  nhAssistantModalTool<{ projectId?: unknown; title?: unknown }, TaskViewModel>({
+    toolId: 'app.create-task',
+    loadComponent: () => import('./task-create-modal.component').then(module => module.TaskCreateModalComponent),
+    accepts: args => isProjectId(args.projectId),
+    options: () => ({ title: 'Create task', modalClasses: 'large' }),
+    inputs: args => ({ prefill: { projectId: args.projectId, title: typeof args.title === 'string' ? args.title : '' } }),
+    resultId: task => task.id
+  })
+);
+```
+
+The assistant names these ids with every message, runs a handler only for the `client-tool.requested`
+event of the person's own turn once its stream ended, and reports what happened, which continues the
+turn: `navigated`, or `saved` (with the id `resultId` returns), `cancelled` or `closed` for the modal. A
+handler of your own implements `NhAssistantClientToolHandler`; it starts in the assistant's injection
+context and returns `completed`, `declined`, `unavailable` or `failed` with a dash-case `outcome`. The
+arguments are bound to the tool's input on the server, but treat them as untrusted values all the same.
 
 ## Preferences
 
@@ -533,6 +602,10 @@ admin policy, reports only the caller's scopes and audits the export, which hold
 ## Theme
 
 The components define light and dark defaults and follow `prefers-color-scheme`.
+They bring these defaults themselves: the first assistant component adds one small
+stylesheet to the document, so the application adds nothing to `angular.json` for
+them. Set the properties on `:root`, on an ancestor or on a component element; the
+closest value wins, also for a component in a CDK overlay.
 Map them onto the host's design tokens with custom properties:
 
 ```scss
@@ -544,10 +617,22 @@ Map them onto the host's design tokens with custom properties:
   --nh-assistant-text-muted: var(--muted);
   --nh-assistant-border: var(--line);
   --nh-assistant-accent: var(--primary);
+  --nh-assistant-link: var(--info);
   --nh-assistant-highlight: var(--brand);
   --nh-assistant-focus: var(--accent);
 }
 ```
+
+`--nh-assistant-accent` fills buttons, borders and markers. `--nh-assistant-link`
+colors links and other accent-colored text on the assistant's surfaces: message and
+card links, subject links on hover, inline link buttons, and the header and status of
+a pending question or request for input. It defaults to the accent in the light
+scheme and to `#7eb5ff` in the dark scheme, because a brand accent that is dark
+enough to fill a button is often unreadable as text on a dark surface. Set it when
+the host sets the accent, to a color with at least 4.5:1 contrast on
+`--nh-assistant-background`, `-surface` and `-surface-strong` in both schemes. A host
+that switches schemes with a class rather than `prefers-color-scheme` sets it for
+each scheme.
 
 Further properties: `--nh-assistant-surface-strong`, `-accent-contrast`,
 `-user-bubble`, `-user-text`, `-success`, `-success-soft`, `-warning`,

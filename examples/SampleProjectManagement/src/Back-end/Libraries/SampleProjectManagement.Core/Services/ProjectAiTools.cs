@@ -18,6 +18,9 @@ public sealed class ProjectAiTools(
     public const string ManageCapability = "projects-manage";
     public const string ChangeStatusToolId = "projects.change-status";
 
+    /// <summary>The search of the projects of the authorized division.</summary>
+    public const string SearchToolId = "projects.search";
+
     /// <summary>
     /// The stable code of a call whose authorized context has no active division. The model
     /// receives it as <c>{"success":false,"code":"project-division-scope-missing","message":...}</c>.

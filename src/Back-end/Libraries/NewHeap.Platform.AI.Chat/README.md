@@ -29,9 +29,21 @@ one storage package: `NewHeap.Platform.AI.Chat.SqlServer` or
 - **Presentation** — consumers may register `INhAssistantToolPresenter` implementations
   with `AddToolPresenter<T>()`. A presenter receives the exact governed arguments,
   invocation context and request culture and may return a localized name, summary and
-  named fields. Output is bounded and stored with the approval; failures, time-outs,
-  oversized output and confidential or restricted tools use a safe generic fallback
-  without changing proposal evidence or rights.
+  named fields. A field of an update may state its current value
+  (`NhAssistantPresentationField.Changing`), so approvers see what changes. Output is
+  bounded and stored with the approval; failures, time-outs, oversized output and
+  confidential or restricted tools use a safe generic fallback without changing
+  proposal evidence or rights. An `INhAssistantToolResultPresenter`
+  (`AddToolResultPresenter<T>()`) turns what a call that succeeded returned into a
+  bounded, localized result card (title, fields, link within the application) that
+  `tool.completed` and the conversation carry, within the same limits and never for
+  confidential tools or shielded results; it never reaches the model.
+- **Plans** — an agent configured with `KeepPlan()` (or `keepsPlan` in the run settings of an
+  agent created in the administration) is offered `update_plan`, with which its model keeps a short
+  checklist of its work: the whole list of steps or `advance`, plain text within
+  `NhAssistantPlanLimits`, no approval, counted as a tool call. The turn's message keeps the plan,
+  `plan.updated` streams each snapshot to the request and the live updates, and `GET runs/{id}`
+  returns a run's last plan. It is the agent's own statement; no later turn reads it.
 - **Durable managers** — per-actor, per-UTC-day budgets (`DailyToolCallBudgetPerActor`,
   optional `DailyModelCallBudgetPerActor`) and idempotency leases with expiry takeover
   and fencing. Outside assistant turns, budget and evidence requests are delegated to

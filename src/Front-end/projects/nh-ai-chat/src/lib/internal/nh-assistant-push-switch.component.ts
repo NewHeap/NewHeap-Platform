@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { NhAssistantPushService } from '../services/nh-assistant-push.service';
+import { NhAssistantTokensDirective } from './nh-assistant-tokens';
 
 let nextId = 0;
 
@@ -12,6 +13,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-push-switch',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `

@@ -5,13 +5,19 @@ import {
   ClientContext,
   NH_ASSISTANT_ICONS,
   NhAssistantAccessPolicy,
+  NhAssistantClientToolHandler,
   NhAssistantConfig,
   NhAssistantIconName,
   NhAssistantPushConfig,
-  provideNhAssistant
+  provideNhAssistant,
+  provideNhAssistantClientTools,
+  provideNhAssistantToolResultRenderers
 } from '@newheap/platform-ai-chat';
-import { SampleAuthService } from 'sample-project-management-common';
+import { nhAssistantModalTool, nhAssistantNavigateTool } from '@newheap/platform-ai-chat/client-tools';
+import { TranslateService } from '@ngx-translate/core';
+import { ProjectTaskViewModel, SampleAuthService } from 'sample-project-management-common';
 import { Observable, map } from 'rxjs';
+import { SampleProjectSearchResultComponent } from './sample-project-search-result.component';
 
 /** Application permission that grants the assistant, matching the API access policy. */
 export const SAMPLE_ASSISTANT_PERMISSION = 'app.assistant.access';
@@ -94,6 +100,15 @@ export function sampleAssistantStateScope(): string | null {
 }
 
 /**
+ * SPM-263: the session's changes, such as a renewed token. The API reports
+ * `collaboration.hubAuthenticationRefresh`, so the open live connection presents a renewed token of
+ * the same account instead of closing when its old one expires; an account switch restarts it.
+ */
+export function sampleAssistantAccessTokenChanges(): Observable<unknown> {
+  return inject(SampleAuthService).authSubject;
+}
+
+/**
  * What the user has open. Pages that show an entity set it while they are active, for
  * example a project page with `{ type: 'project', id: 'PRJ-ALPHA' }`, and clear it when
  * they close.
@@ -139,17 +154,57 @@ export const SAMPLE_ASSISTANT_PUSH: NhAssistantPushConfig = {
   alertsUrl: '/management/alerts'
 };
 
+/** An id as the API writes it; anything else never reaches a route or a form. */
+const idPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isId(value: unknown): value is string {
+  return typeof value === 'string' && idPattern.test(value);
+}
+
+/**
+ * SPM-400: the handlers of the client tools the API declares in `SampleClientToolsComposition`. They run
+ * in this browser when the person's own turn calls them. `sample-ui.open-project` opens the project on
+ * the portal's project page, which the portal allows for a project id only. `sample-ui.create-task`
+ * opens the create-task form prefilled, loaded on first use; the person saves it through
+ * `POST project-tasks`, and the assistant learns whether they saved, cancelled or closed it, with the
+ * new task's id.
+ */
+export const SAMPLE_CLIENT_TOOLS: NhAssistantClientToolHandler[] = [
+  nhAssistantNavigateTool<{ projectId?: unknown }>({
+    toolId: 'sample-ui.open-project',
+    route: args => isId(args.projectId)
+      ? inject(Router).createUrlTree(['/management/intake-reviews'], { queryParams: { project: args.projectId } })
+      : null
+  }),
+  nhAssistantModalTool<{ projectId?: unknown; title?: unknown }, ProjectTaskViewModel>({
+    toolId: 'sample-ui.create-task',
+    loadComponent: () => import('../project-task-create-modal/project-task-create-modal.component')
+      .then(module => module.ProjectTaskCreateModalComponent),
+    accepts: args => isId(args.projectId),
+    options: () => ({ title: inject(TranslateService).instant('project-task.modal-title'), modalClasses: 'large' }),
+    inputs: args => ({
+      prefill: { projectId: args.projectId, title: typeof args.title === 'string' ? args.title : '' }
+    }),
+    resultId: task => task.id
+  })
+];
+
+/** The project search of the API, whose result card the portal renders itself. */
+export const SAMPLE_PROJECT_SEARCH_TOOL_ID = 'projects.search';
+
 /**
  * Registers the assistant for the management portal: the `/api/assistant` endpoints, the
  * NewHeap session token and active division, the page context, the permission-based access
  * policy, live updates over WebSockets through the `/hub/assistant` hub the server reports, Web
- * Push and the sample icons.
+ * Push, the sample icons, the handlers of the API's client tools (SPM-400) and the portal's renderer of
+ * the project search's result card.
  */
 export function provideSampleAssistant(overrides: Partial<NhAssistantConfig> = {}): EnvironmentProviders {
   return makeEnvironmentProviders([
     provideNhAssistant({
       apiBaseUrl: '/api/assistant',
       getAccessToken: sampleAssistantAccessToken,
+      accessTokenChanges: sampleAssistantAccessTokenChanges,
       getRequestHeaders: sampleAssistantRequestHeaders,
       getHubQueryParameters: sampleAssistantHubQueryParameters,
       getPageContext: sampleAssistantPageContext,
@@ -161,6 +216,10 @@ export function provideSampleAssistant(overrides: Partial<NhAssistantConfig> = {
       push: SAMPLE_ASSISTANT_PUSH,
       ...overrides
     }),
-    { provide: NH_ASSISTANT_ICONS, useValue: SAMPLE_ASSISTANT_ICONS }
+    provideNhAssistantClientTools(...SAMPLE_CLIENT_TOOLS),
+    { provide: NH_ASSISTANT_ICONS, useValue: SAMPLE_ASSISTANT_ICONS },
+    // SPM-248: the portal renders the result card of the project search with its own component; the
+    // cards of other tools, such as the project read, use the default card of the assistant.
+    provideNhAssistantToolResultRenderers({ toolId: SAMPLE_PROJECT_SEARCH_TOOL_ID, component: SampleProjectSearchResultComponent })
   ]);
 }

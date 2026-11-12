@@ -10,6 +10,13 @@ import { backToAdminList, openAdminAgent, openAdminTab } from './nh-assistant-ad
 import { NhAssistantAdminAgentsComponent } from '../../../admin/src/public-api';
 
 /**
+ * The time of a spec that walks a whole form flow through the administration: each step settles the
+ * page several times and a picker waits for its search, so under a loaded test run such a flow needs
+ * more than Jasmine's default of five seconds.
+ */
+const formFlowTimeout = 20_000;
+
+/**
  * The whole application as a scope: a schedule of an agent that works on the whole application runs
  * for it instead of a set of objects, once per division for an agent that works per division; the
  * forms offer it only to such agents, the run configuration names it, the agent editor sends per
@@ -232,7 +239,7 @@ describe('A schedule for the whole application in the run configuration', () => 
       subjectSet: 'active-projects', expectedVersion: 1
     }));
     expect(view().querySelector('[data-data-trigger="weekly-count"]')?.textContent).toContain('active-projects');
-  });
+  }, formFlowTimeout);
 
   it('keeps a subject set required for an agent that does not work on the whole application', async () => {
     await configure();
@@ -248,7 +255,7 @@ describe('A schedule for the whole application in the run configuration', () => 
     expect(requestBodies('PUT', 'admin/agents/statistics/triggers/weekly-count')).toEqual([]);
     expect(form.querySelector('input[id$="-trigger-set"]')?.getAttribute('aria-invalid')).toBe('true');
     expect(document.activeElement).toBe(form.querySelector('input[id$="-trigger-set"]'));
-  });
+  }, formFlowTimeout);
 
   it('shows the refusal of the whole application at the choice when the agent stopped working on it meanwhile', async () => {
     await configure();
@@ -276,7 +283,7 @@ describe('A schedule for the whole application in the run configuration', () => 
     await settle(fixture);
     expect(requestBodies('PUT', 'admin/agents/statistics/triggers/weekly-count').at(-1)).toEqual(jasmine.objectContaining({ subjectSet: 'active-projects' }));
     expect(view().querySelector('[data-data-trigger="weekly-count"]')).not.toBeNull();
-  });
+  }, formFlowTimeout);
 
   it('explains that a schedule of a per-division agent runs once per division and lists it for every division', async () => {
     await configure(scenario(true));
@@ -290,7 +297,7 @@ describe('A schedule for the whole application in the run configuration', () => 
 
     expect(requestBodies('PUT', 'admin/agents/statistics/triggers/weekly-count')).toEqual([jasmine.objectContaining({ subjectSet: null })]);
     expect(view().querySelector('[data-data-trigger="weekly-count"] [data-trigger-target]')?.textContent?.trim()).toBe('Every division');
-  });
+  }, formFlowTimeout);
 
   it('keeps a schedule for the whole application out of effect once the agent no longer works on it', async () => {
     await configure();
@@ -320,7 +327,7 @@ describe('A schedule for the whole application in the run configuration', () => 
     expect(form.querySelector('[data-schedule-target]')).toBeNull();
     expect(form.textContent).toContain('This schedule ran for the whole application, which the agent no longer works on.');
     expect(form.querySelector('input[id$="-trigger-set"]')).not.toBeNull();
-  });
+  }, formFlowTimeout);
 });
 
 describe('A schedule for the whole application in the guided setup', () => {
@@ -363,7 +370,7 @@ describe('A schedule for the whole application in the guided setup', () => {
       source: 'schedule', cron: '0 9 * * 1', subjectSet: null, skill: 'count-open-projects'
     })]);
     expect(view().querySelector('[data-data-trigger="count-open-projects-schedule"] [data-trigger-target]')?.textContent?.trim()).toBe('Every division');
-  });
+  }, formFlowTimeout);
 
   it('names the whole application in the review of an app-wide agent', async () => {
     await configure();
@@ -392,7 +399,7 @@ describe('A schedule for the whole application in the guided setup', () => {
     await settle(fixture);
 
     expect(setup().querySelector('[data-review-target]')?.textContent?.trim()).toBe('On the schedule 0 9 * * 1 (UTC), for the whole application');
-  });
+  }, formFlowTimeout);
 
   it('asks an agent that does not work on the whole application for a set of objects', async () => {
     await configure();
@@ -412,7 +419,7 @@ describe('A schedule for the whole application in the guided setup', () => {
 
     expect(setup().querySelector('[aria-current="step"]')?.textContent).toContain('When');
     expect(setup().querySelector('input[id$="-set"]')?.getAttribute('aria-invalid')).toBe('true');
-  });
+  }, formFlowTimeout);
 });
 
 describe('Per division and the whole application in the agent editor', () => {
@@ -453,7 +460,7 @@ describe('Per division and the whole application in the agent editor', () => {
     element = await settle(fixture);
     expect(requestBodies('PUT', 'admin/agents/statistics')).toEqual([jasmine.objectContaining({ perDivision: false, expectedVersion: 1 })]);
     expect((await profileOf(fixture, element, 'statistics')).querySelector('[data-works-on]')?.textContent).not.toContain('per division');
-  });
+  }, formFlowTimeout);
 
   it('does not offer or send per division when the application lists no divisions', async () => {
     await configure(scenario(false));
@@ -473,7 +480,7 @@ describe('Per division and the whole application in the agent editor', () => {
 
     expect(requestBodies('POST', 'admin/agents')).toEqual([jasmine.objectContaining({ worksOnApplication: true, perDivision: false })]);
     expect((await profileOf(fixture, element, 'statistics')).querySelector('[data-works-on]')?.textContent).not.toContain('per division');
-  });
+  }, formFlowTimeout);
 
   it('never offers the whole application as a kind of object, nor counts it as a known kind', async () => {
     await configure();
@@ -488,7 +495,7 @@ describe('Per division and the whole application in the agent editor', () => {
     element = await settle(fixture);
     const types = element.querySelector('[data-works-on-types]') as HTMLElement;
     expect(Array.from(types.querySelectorAll('label')).map(item => item.textContent?.trim())).toEqual(['Projects project']);
-  });
+  }, formFlowTimeout);
 });
 
 describe('provideNhAssistantMockApi the whole application', () => {

@@ -26,6 +26,7 @@ import {
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
   ɵNhAssistantSubjectLinkComponent as NhAssistantSubjectLinkComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
@@ -48,6 +49,7 @@ export type NhAssistantAgentThreadTab = 'proposals' | 'runs' | 'consultations' |
 @Component({
   selector: 'nh-assistant-agent-thread-view',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     TranslatePipe,
     NhAssistantTranslatePipe,

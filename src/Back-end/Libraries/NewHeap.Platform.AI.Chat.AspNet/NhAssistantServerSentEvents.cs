@@ -118,7 +118,10 @@ internal sealed class NhAssistantServerSentEventsResult(NhAssistantTurnHandle ha
                 new NhAssistantToolStartedDto(tool.InvocationId, tool.ToolId, tool.ToolVersion, tool.DisplayName, tool.ArgumentsPreview),
                 context.NhAssistantToolStartedDto)),
             NhAssistantToolCompletedEvent tool => ("tool.completed", Json(
-                new NhAssistantToolCompletedDto(tool.InvocationId, tool.Status, tool.ResultCode, tool.ResultPreview),
+                new NhAssistantToolCompletedDto(tool.InvocationId, tool.Status, tool.ResultCode, tool.ResultPreview)
+                {
+                    ResultPresentation = NhAssistantToolResultPresentationDto.From(tool.ResultPresentation)
+                },
                 context.NhAssistantToolCompletedDto)),
             NhAssistantPageScreenshotRequestedEvent screenshot => ("page-screenshot.requested", Json(
                 new NhAssistantPageScreenshotRequestedDto(screenshot.Reason),
@@ -132,6 +135,18 @@ internal sealed class NhAssistantServerSentEventsResult(NhAssistantTurnHandle ha
             NhAssistantQuestionAnsweredEvent answered => ("question.answered", Json(
                 NhAssistantDtoMapper.ToDto(answered.Question),
                 context.NhAssistantMessagePartDto)),
+            NhAssistantClientToolRequestedEvent requested => ("client-tool.requested", Json(
+                NhAssistantDtoMapper.ToDto(requested.ClientTool) with { Arguments = requested.Arguments },
+                context.NhAssistantClientToolDto)),
+            NhAssistantElicitationRequestedEvent requested => ("elicitation.requested", Json(
+                NhAssistantDtoMapper.ToDto(requested.Elicitation),
+                context.NhAssistantMessagePartDto)),
+            NhAssistantElicitationClosedEvent closed => ("elicitation.closed", Json(
+                NhAssistantDtoMapper.ToDto(closed.Elicitation),
+                context.NhAssistantMessagePartDto)),
+            NhAssistantPlanUpdatedEvent plan => ("plan.updated", Json(
+                new NhAssistantPlanUpdatedDto(plan.TurnId, plan.MessageId, NhAssistantDtoMapper.ToPlanDto(plan.Plan)),
+                context.NhAssistantPlanUpdatedDto)),
             NhAssistantConnectionRequiredEvent connection => ("connection.required", Json(
                 new NhAssistantConnectionRequiredDto(connection.ServerId, connection.DisplayName, connection.Reason),
                 context.NhAssistantConnectionRequiredDto)),
@@ -144,8 +159,7 @@ internal sealed class NhAssistantServerSentEventsResult(NhAssistantTurnHandle ha
                 context.NhAssistantTurnCompletedDto)),
             NhAssistantErrorEvent error => ("error", Json(
                 new NhAssistantErrorDto(error.Code, error.MessageKey),
-                context.NhAssistantErrorDto)),
-            _ => throw new InvalidOperationException($"Unknown assistant turn event '{evt.GetType().Name}'.")
+                context.NhAssistantErrorDto))
         };
     }
 
@@ -280,7 +294,25 @@ internal static class NhAssistantDtoMapper
             thread)
         {
             PendingQuestion = view.PendingQuestion is null ? null : ToDto(view.PendingQuestion),
+            PendingClientTool = view.PendingClientTool is null ? null : ToDto(view.PendingClientTool),
             Subject = ToDto(view.Subject)
+        };
+    }
+
+    /// <summary>
+    /// A client tool call without its arguments, which only the stream of its person's own request carries.
+    /// </summary>
+    public static NhAssistantClientToolDto ToDto(NhAssistantClientToolView clientTool)
+    {
+        ArgumentNullException.ThrowIfNull(clientTool);
+        return new NhAssistantClientToolDto(
+            clientTool.InvocationId,
+            clientTool.ToolId,
+            clientTool.ActorId,
+            clientTool.ExpiresAt,
+            clientTool.Status)
+        {
+            ClosedAt = clientTool.ClosedAt
         };
     }
 
@@ -320,6 +352,20 @@ internal static class NhAssistantDtoMapper
     }
 
     /// <summary>
+    /// An agent's plan as the API shows it outside a message: in <c>plan.updated</c> and a run's result.
+    /// </summary>
+    public static NhAssistantPlanDto ToPlanDto(NhAssistantPlanPartView plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        return new NhAssistantPlanDto(StepsOf(plan), plan.UpdatedAt);
+    }
+
+    private static NhAssistantPlanStepDto[] StepsOf(NhAssistantPlanPartView plan)
+    {
+        return plan.Steps.Select(step => new NhAssistantPlanStepDto(step.Text, step.Status)).ToArray();
+    }
+
+    /// <summary>
     /// The caller who may resolve uncertain executions in <paramref name="view"/>: the caller of a chat;
     /// an agent thread's uncertain executions are resolved through <c>approvals/{id}/resolve</c>.
     /// </summary>
@@ -350,6 +396,35 @@ internal static class NhAssistantDtoMapper
                 connection.DisplayName,
                 connection.Reason),
             NhAssistantFilePartView file => new NhAssistantFilePartDto(file.Name, file.MediaType, file.Size),
+            NhAssistantElicitationView elicitation => new NhAssistantElicitationPartDto(
+                elicitation.ElicitationId,
+                elicitation.InvocationId,
+                elicitation.ServerId,
+                elicitation.ServerName,
+                elicitation.Mode,
+                elicitation.Message,
+                elicitation.AddresseeActorId,
+                elicitation.ExpiresAt,
+                elicitation.Status,
+                elicitation.Fields
+                    .Select(field => new NhAssistantElicitationFieldDto(field.Name, field.Type, field.Title, field.Required)
+                    {
+                        Description = field.Description,
+                        MinLength = field.MinLength,
+                        MaxLength = field.MaxLength,
+                        Minimum = field.Minimum,
+                        Maximum = field.Maximum,
+                        Options = field.Options?
+                            .Select(option => new NhAssistantElicitationOptionDto(option.Value, option.Label))
+                            .ToArray()
+                    })
+                    .ToArray())
+            {
+                Url = elicitation.Url,
+                UrlHost = elicitation.UrlHost,
+                ClosedAt = elicitation.ClosedAt
+            },
+            NhAssistantPlanPartView plan => new NhAssistantPlanPartDto(StepsOf(plan), plan.UpdatedAt),
             NhAssistantQuestionView question => new NhAssistantQuestionPartDto(
                 question.QuestionId,
                 question.Question,
@@ -372,7 +447,8 @@ internal static class NhAssistantDtoMapper
                 tool.ResultCode)
             {
                 GrantSource = tool.GrantSource == NhAiGrantSource.None ? null : NhAssistantGrantSources.Name(tool.GrantSource),
-                Restricted = tool.Restricted
+                Restricted = tool.Restricted,
+                ResultPresentation = NhAssistantToolResultPresentationDto.From(tool.ResultPresentation)
             },
             NhAssistantApprovalView approval => new NhAssistantApprovalPartDto(
                 approval.ApprovalId,
@@ -406,8 +482,7 @@ internal static class NhAssistantDtoMapper
                         MovedToApprovalId = origin.MovedToApprovalId
                     }
                     : null
-            },
-            _ => throw new InvalidOperationException($"Unknown assistant message part '{part.GetType().Name}'.")
+            }
         };
     }
 }

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "profile": "commerce-development",
+  "schema": {
+    "operation": "describe",
+    "schemaName": "public",
+    "objectName": "Orders"
+  },
+  "limits": {
+    "maximumRows": 100,
+    "timeoutSeconds": 10
+  },
+  "reason": "Confirm the deployed order columns, indexes and relationships before constructing a diagnostic query"
+}

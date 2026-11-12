@@ -1179,6 +1179,11 @@ public sealed record NhAssistantCodeRunSettingsDto(
     public bool AllowQuestions { get; init; }
 
     /// <summary>
+    /// The agent keeps a short visible plan of its work with <c>update_plan</c> (<c>KeepPlan()</c>).
+    /// </summary>
+    public bool KeepsPlan { get; init; }
+
+    /// <summary>
     /// The agent keeps a working memory per subject (<c>Memory&lt;TMemory&gt;()</c>).
     /// </summary>
     public bool UsesMemory { get; init; }
@@ -1306,6 +1311,12 @@ public sealed record NhAssistantAgentRunSettingsDto(
     public IReadOnlyList<string> AlertKinds { get; init; } = [];
 
     /// <summary>
+    /// The agent keeps a short visible plan of its work with <c>update_plan</c>, in its runs, its
+    /// threads and people's chats with it.
+    /// </summary>
+    public bool KeepsPlan { get; init; }
+
+    /// <summary>
     /// The link of the run settings (part <c>runSettings</c>) to the agent package they were imported
     /// from, with their locked fields, which the administration shows read-only; left out when they
     /// are not linked.
@@ -1382,6 +1393,13 @@ public sealed record NhAssistantAgentRunSettingsRequest(
     /// settings of the kind apply as for an agent in code.
     /// </summary>
     public IReadOnlyList<string>? AlertKinds { get; init; }
+
+    /// <summary>
+    /// The agent keeps a short visible plan of its work with <c>update_plan</c>, plain text within
+    /// <see cref="NhAssistantPlanLimits"/>, in its runs, its threads and people's chats with it;
+    /// <see langword="false"/> (default) offers no plan.
+    /// </summary>
+    public bool KeepsPlan { get; init; }
 }
 
 public sealed record NhAssistantCodeSkillDto(string SkillId, string Description)
@@ -2173,6 +2191,7 @@ internal sealed class NhAssistantAgentConfiguration(
             SkillsInChat = code.SkillsInChat,
             ChatRoutesFirst = code.ChatRoutesFirst,
             AllowQuestions = code.AllowQuestions,
+            KeepsPlan = code.KeepsPlan,
             UsesMemory = code.MemoryType is not null,
             TriageProfile = code.TriageProfileName,
             RetryCount = code.RetryCount,
@@ -2356,6 +2375,7 @@ internal sealed class NhAssistantAgentConfiguration(
             MaxFilesPerTurn = request.MaxFilesPerTurn,
             MaxFileTokensPerTurn = request.MaxFileTokensPerTurn,
             AlertKindsJson = alertKindsJson,
+            KeepsPlan = request.KeepsPlan,
             UpdatedAt = DateTimeOffset.UtcNow,
             UpdatedBy = actorId,
             Reason = reason
@@ -3946,7 +3966,8 @@ internal sealed class NhAssistantAgentConfiguration(
             MaxFilePages = item.MaxFilePages,
             MaxFilesPerTurn = item.MaxFilesPerTurn,
             MaxFileTokensPerTurn = item.MaxFileTokensPerTurn,
-            AlertKinds = NhAssistantDataAlertKinds.Read(item.AlertKindsJson) ?? []
+            AlertKinds = NhAssistantDataAlertKinds.Read(item.AlertKindsJson) ?? [],
+            KeepsPlan = item.KeepsPlan
         };
     }
 

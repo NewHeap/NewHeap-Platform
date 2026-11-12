@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "profiles": {
+    "commerce-development": {
+      "provider": "postgresql",
+      "configurationPath": "Applications/Example.Portal.Api",
+      "environment": "Development",
+      "connectionStringName": "DiagnosticsReadOnly",
+      "maximumRows": 500,
+      "maximumTimeoutSeconds": 30,
+      "maximumLockTimeoutMilliseconds": 5000,
+      "maximumOutputBytes": 4194304,
+      "maximumCellBytes": 65536,
+      "maximumSqlBytes": 65536
+    }
+  }
+}

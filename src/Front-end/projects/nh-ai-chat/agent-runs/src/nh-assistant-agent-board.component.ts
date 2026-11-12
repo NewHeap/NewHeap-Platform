@@ -25,6 +25,7 @@ import {
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵNhAssistantMarkdownPipe as NhAssistantMarkdownPipe,
   ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵnhAssistantWatchAgentWork as nhAssistantWatchAgentWork
 } from '@newheap/platform-ai-chat';
@@ -72,6 +73,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-agent-board',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     DatePipe,
     NgTemplateOutlet,

@@ -3,6 +3,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { ToolCallPart } from '../../models/assistant-api.models';
 import { NhAssistantIconComponent, NhAssistantIconName } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 let nextId = 0;
 
@@ -13,6 +14,8 @@ const statusIcons: Record<ToolCallPart['status'], NhAssistantIconName> = {
   'awaiting-approval': 'clock',
   // An ask_question call waits for the person it asked.
   'awaiting-answer': 'clock',
+  // A client tool call waits for the browser of the person whose turn called it.
+  'awaiting-client': 'clock',
   rejected: 'x',
   // Ended without running: its proposal expired, was withdrawn or became stale.
   'not-executed': 'stop'
@@ -22,6 +25,7 @@ const statusIcons: Record<ToolCallPart['status'], NhAssistantIconName> = {
 @Component({
   selector: 'nh-assistant-tool-call-card',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-tool-call-card.component.html',

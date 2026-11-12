@@ -23,6 +23,7 @@ import {
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵNhAssistantSubjectLinkComponent as NhAssistantSubjectLinkComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
@@ -90,6 +91,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-run-now-dialog',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     TranslatePipe,
     NhAssistantTranslatePipe,

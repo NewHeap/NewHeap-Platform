@@ -148,8 +148,9 @@ internal sealed partial class NhAssistantTurnRunner
 
     /// <summary>
     /// A person's chat with an agent whose run settings opt in: the agent's skills that work live with
-    /// <c>use_skill</c> for <c>SkillsInChat</c> (LS20), without triage, and <c>ask_question</c> for
-    /// <c>AllowQuestions</c> (LS21). Any other chat keeps the agent's own tools only.
+    /// <c>use_skill</c> for <c>SkillsInChat</c> (LS20), without triage, <c>ask_question</c> for
+    /// <c>AllowQuestions</c> (LS21) and <c>update_plan</c> for <c>KeepPlan</c>. Any other chat keeps the
+    /// agent's own tools only.
     /// </summary>
     private async Task PrepareChatAsync(NhAssistantTurnState state, CancellationToken cancellationToken)
     {
@@ -158,7 +159,7 @@ internal sealed partial class NhAssistantTurnRunner
             return;
         }
         if (!registration.AgentRuns.TryGetValue(state.EffectiveAgent.Id, out var options)
-            || !(options.SkillsInChat || options.AllowQuestions))
+            || !(options.SkillsInChat || options.AllowQuestions || options.KeepsPlan))
         {
             RefreshFunctions(state);
             return;
@@ -213,12 +214,18 @@ internal sealed partial class NhAssistantTurnRunner
     {
         if (state.AgentTurn is not null
             || !registration.AgentRuns.TryGetValue(state.EffectiveAgent.Id, out var options)
-            || !options.SkillsInChat)
+            || !(options.SkillsInChat || options.KeepsPlan))
         {
             return;
         }
 
+        // A chat that keeps a plan goes on keeping it after the decision.
         await PrepareSkillsAsync(state, cancellationToken);
+        if (!options.SkillsInChat)
+        {
+            return;
+        }
+
         var waiting = history.FirstOrDefault(message => message.Id == waitingMessageId);
         if (waiting is null)
         {
@@ -311,6 +318,10 @@ internal sealed partial class NhAssistantTurnRunner
         if (OffersQuestions(state))
         {
             functions.Add(CreateAskQuestionFunction(state));
+        }
+        if (OffersPlan(state))
+        {
+            functions.Add(CreatePlanFunction(state));
         }
 
         if (state.PageScreenshotAvailable && !state.RuleTurn && state.Scope.Consultation is null)

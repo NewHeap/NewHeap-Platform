@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>NewHeap.Platform.AI.Chat.AGUI</PackageId>
+    <Copyright>NewHeap B.V.</Copyright>
+    <Title>NewHeap AI Chat AG-UI</Title>
+    <PackageDescription>An opt-in AG-UI (Agent-User Interaction Protocol) endpoint for the NewHeap assistant: AG-UI clients run a chat agent over the same turn runner, authorization, approvals, budget and audit as the assistant endpoints.</PackageDescription>
+    <PackageTags>newheap platform ai chat assistant agui ag-ui aspnetcore sse</PackageTags>
+    <IsPackable>true</IsPackable>
+    <!-- The turn events and message parts are closed hierarchies: a translation that misses one fails the build. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS8509</WarningsAsErrors>
+    <!-- The endpoint's request delegate is generated when the library is built, as in NewHeap.Platform.AI.Chat.AspNet. -->
+    <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The AG-UI protocol types and their server-sent event writer; consumers without AG-UI never get them. -->
+    <PackageReference Include="AGUI.Abstractions" />
+    <PackageReference Include="AGUI.Formatting" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NewHeap.Platform.AI.Chat.AspNet\NewHeap.Platform.AI.Chat.AspNet.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="NewHeap.Platform.AI.Chat.Tests" />
+  </ItemGroup>
+</Project>

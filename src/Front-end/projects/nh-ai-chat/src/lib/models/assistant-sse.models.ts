@@ -1,5 +1,5 @@
 import { AgentTriggerReceipt } from './assistant-agent-run.models';
-import { ApprovalPart, ConnectionRequiredReason, QuestionPart } from './assistant-api.models';
+import { AgentPlan, ApprovalPart, ClientToolRequest, ConnectionRequiredReason, ElicitationPart, QuestionPart, ToolResultPresentation } from './assistant-api.models';
 
 /*
  * Server-sent events of an assistant turn.
@@ -32,6 +32,11 @@ export interface ToolCompletedEvent {
   status: 'succeeded' | 'failed';
   resultCode: string | null;
   resultPreview: string | null;
+  /**
+   * The application's trusted card of what the call returned, in the language of the turn. Only sent
+   * for a call the application presents and whose result is not shielded; missing on older servers.
+   */
+  resultPresentation?: ToolResultPresentation | null;
 }
 
 export type ApprovalRequiredEvent = ApprovalPart;
@@ -41,6 +46,29 @@ export type QuestionAskedEvent = QuestionPart;
 
 /** The addressee answered the question; the turn continues with the answer. */
 export type QuestionAnsweredEvent = QuestionPart;
+
+/**
+ * The agent called a client tool; the turn waits for the browser of `actorId` to run it. Only that
+ * person's own stream carries the `arguments`; the store runs the registered handler once the stream
+ * ended and reports its result.
+ */
+export type ClientToolRequestedEvent = ClientToolRequest;
+
+/** An MCP server asked the person of the turn for input while its tool runs; the call waits. */
+export type ElicitationRequestedEvent = ElicitationPart;
+
+/** The request for input was answered, declined, cancelled or expired; the call continues. */
+export type ElicitationClosedEvent = ElicitationPart;
+
+/**
+ * The agent set or advanced its plan with `update_plan`: the whole plan as it now stands, a snapshot
+ * that replaces the plan of the message `messageId` of the turn. Older servers never send it.
+ */
+export interface PlanUpdatedEvent {
+  turnId: string;
+  messageId: string;
+  plan: AgentPlan;
+}
 
 /** The person who asked has to connect an MCP server before the agent can use it. */
 export interface ConnectionRequiredEvent {
@@ -86,6 +114,10 @@ export interface NhAssistantSseEventMap {
   'approval.required': ApprovalRequiredEvent;
   'question.asked': QuestionAskedEvent;
   'question.answered': QuestionAnsweredEvent;
+  'client-tool.requested': ClientToolRequestedEvent;
+  'elicitation.requested': ElicitationRequestedEvent;
+  'elicitation.closed': ElicitationClosedEvent;
+  'plan.updated': PlanUpdatedEvent;
   'connection.required': ConnectionRequiredEvent;
   'turn.completed': TurnCompletedEvent;
   'error': AssistantErrorEvent;
@@ -113,6 +145,10 @@ export const NH_ASSISTANT_SSE_EVENT_TYPES: readonly NhAssistantSseEventType[] = 
   'approval.required',
   'question.asked',
   'question.answered',
+  'client-tool.requested',
+  'elicitation.requested',
+  'elicitation.closed',
+  'plan.updated',
   'connection.required',
   'turn.completed',
   'error'

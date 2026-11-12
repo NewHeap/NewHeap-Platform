@@ -687,6 +687,7 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
         var concurrency = await AcquireConcurrencyAsync(
             descriptor,
             context,
+            GetExecutionTimeout(descriptor, context),
             cancellationToken);
         activity?.SetTag(
             "newheap.ai.tool.concurrency",
@@ -708,7 +709,11 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 NhAiToolFailureCodes.ConcurrencyLimited,
                 "AI tool concurrency limit was reached.");
         }
-        await using var concurrencyLease = concurrency.Lease;
+        // The call holds its slot until it ends, except while it waits for a person
+        // (NhAiToolCallTimeout.WaitForPersonAsync), when another call of the tool may run.
+        await using var slot = new NhAiToolCallSlot(
+            concurrency.Lease,
+            (within, token) => AcquireConcurrencyAsync(descriptor, context, within, token));
 
         var executionTimeout = GetExecutionTimeout(descriptor, context);
         if (executionTimeout <= TimeSpan.Zero)
@@ -802,13 +807,34 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 CancellationToken.None);
         }
 
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(executionTimeout);
+        // The call's own time, on the system clock as before; it stands still while the call waits for
+        // a person (NhAiToolCallTimeout.WaitForPersonAsync), such as an MCP server's request for input,
+        // and the call lets its concurrency slot go meanwhile.
+        using var timeout = new NhAiToolCallTimeout(executionTimeout, TimeProvider.System, cancellationToken)
+        {
+            Slot = slot
+        };
+        using var timeoutScope = NhAiToolCallTimeout.Enter(timeout);
         string? verificationCode = null;
         string? verificationEvidenceReference = null;
         try
         {
             var result = await invocation(context, timeout.Token);
+            if (timeout.SlotLost)
+            {
+                // The call waited for a person and found no free slot again in time; whatever the tool
+                // returned meanwhile, it went on without one.
+                await CompleteIdempotencyOnceAsync(NhAiOutcomeKind.TerminalFailure);
+                return await RefuseSlotLostAsync<T>(
+                    descriptor,
+                    context,
+                    approvalCode,
+                    approvalEvidenceReference,
+                    idempotencyCode,
+                    activity,
+                    cancellationToken);
+            }
+
             if (result.Success && ExceedsResultLimit(result.Data, descriptor.MaxResultBytes))
             {
                 await CompleteIdempotencyOnceAsync(NhAiOutcomeKind.TerminalFailure);
@@ -890,6 +916,19 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 resultCode: resultCode);
             return result;
         }
+        catch (OperationCanceledException) when (timeout.SlotLost && !cancellationToken.IsCancellationRequested)
+        {
+            // The call ended because it found no free slot again after it waited for a person.
+            await CompleteIdempotencyOnceAsync(NhAiOutcomeKind.TerminalFailure);
+            return await RefuseSlotLostAsync<T>(
+                descriptor,
+                context,
+                approvalCode,
+                approvalEvidenceReference,
+                idempotencyCode,
+                activity,
+                cancellationToken);
+        }
         catch (OperationCanceledException)
         {
             await CompleteIdempotencyOnceAsync(NhAiOutcomeKind.TerminalFailure);
@@ -922,6 +961,36 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
                 resultCode: NhAiToolFailureCodes.Failed);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Refuses a call that lost its concurrency slot while it waited for a person
+    /// (<see cref="NhAiToolCallTimeout.SlotLost"/>) as a call is refused that finds no slot before it
+    /// runs: with <see cref="NhAiToolFailureCodes.ConcurrencyLimited"/>.
+    /// </summary>
+    private async ValueTask<TaskResult<T>> RefuseSlotLostAsync<T>(
+        NhAiToolDescriptor descriptor,
+        NhAiInvocationContext context,
+        string? approvalCode,
+        string? approvalEvidenceReference,
+        string? idempotencyCode,
+        Activity? activity,
+        CancellationToken cancellationToken)
+    {
+        activity?.SetTag("newheap.ai.tool.concurrency", "concurrency-lost-while-waiting");
+        activity?.SetTag("newheap.ai.tool.outcome", "concurrency-denied");
+        await WriteAuditAsync(
+            descriptor,
+            context,
+            NhAiOutcomeKind.Conflict,
+            cancellationToken,
+            approvalCode: approvalCode,
+            approvalEvidenceReference: approvalEvidenceReference,
+            idempotencyCode: idempotencyCode,
+            resultCode: NhAiToolFailureCodes.ConcurrencyLimited);
+        return TaskResult<T>.Failed(
+            NhAiToolFailureCodes.ConcurrencyLimited,
+            "AI tool concurrency limit was reached.");
     }
 
     private async ValueTask WriteAuditAsync(
@@ -995,17 +1064,18 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
 
     /// <summary>
     /// Admits the invocation within the tool's concurrency bound. A call whose bound is full waits
-    /// for a free slot until the earlier of the tool's timeout and the invocation context's deadline,
-    /// measured on the application's clock, and is refused when the wait ends first. A call whose
-    /// deadline has already passed asks once without waiting, so it still ends as
+    /// for a free slot at most <paramref name="maximumWait"/>, measured on the application's clock, and
+    /// is refused when the wait ends first: before it runs, the earlier of the tool's timeout and the
+    /// invocation context's deadline; after it waited for a person, the time it has left. A call without
+    /// time left asks once without waiting, so before it runs it still ends as
     /// <see cref="NhAiToolFailureCodes.DeadlineExpired"/> when a slot is free.
     /// </summary>
     private async ValueTask<NhAiConcurrencyDecision> AcquireConcurrencyAsync(
         NhAiToolDescriptor descriptor,
         NhAiInvocationContext context,
+        TimeSpan maximumWait,
         CancellationToken cancellationToken)
     {
-        var maximumWait = GetExecutionTimeout(descriptor, context);
         if (maximumWait <= TimeSpan.Zero)
         {
             return await _concurrencyLimiter.TryAcquireAsync(
@@ -1032,11 +1102,15 @@ public sealed partial class NhAiToolInvoker : INhAiToolInvoker
         }
     }
 
+    /// <summary>
+    /// The tool's timeout, within the deadline of the invocation as it stands now: in a run that stood
+    /// still for a person, its own deadline moved later by that time (<see cref="NhAiRunPause"/>).
+    /// </summary>
     private static TimeSpan GetExecutionTimeout(
         NhAiToolDescriptor descriptor,
         NhAiInvocationContext context)
     {
-        if (context.Deadline is not { } deadline)
+        if (NhAiRunPause.DeadlineOf(context) is not { } deadline)
         {
             return descriptor.Timeout;
         }

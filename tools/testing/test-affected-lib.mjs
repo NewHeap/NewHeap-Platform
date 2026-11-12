@@ -32,6 +32,7 @@ import {
   resolveRelative,
   resultLine,
   runJobs,
+  mySqlServerNames,
   slowestFirst,
   sqlServerFlagParameters,
   summaryLines,
@@ -427,6 +428,10 @@ assert.deepEqual(sqlServerFlagParameters('public void Translates(string query,\n
 assert.deepEqual(
   sqlServerFlagParameters('public void Translates(RelationalTestProvider provider) { bool sqlServer = provider == RelationalTestProvider.SqlServer; }'),
   []);
+// A MySQL test named after its "MySQL server" would run in the SQL Server process.
+assert.deepEqual(mySqlServerNames('public sealed class DatabaseReadMySqlServerWideGrantTests'), ['DatabaseReadMySqlServerWideGrantTests']);
+assert.deepEqual(mySqlServerNames('public async Task MySqlServerRefusesAnOldVersion()'), ['MySqlServerRefusesAnOldVersion']);
+assert.deepEqual(mySqlServerNames('internal sealed class DatabaseReadMySqlTestServer { public void SqlServerCase() { } }'), []);
 const repositoryRoot = resolve(fileURLToPath(new URL('.', import.meta.url)), '..', '..');
 const flagged = [];
 function scanTests(folder) {
@@ -435,15 +440,19 @@ function scanTests(folder) {
     if (entry.isDirectory() && !['bin', 'obj'].includes(entry.name)) {
       scanTests(path);
     } else if (entry.isFile() && entry.name.endsWith('.cs')) {
-      for (const name of sqlServerFlagParameters(readFileSync(path, 'utf8'))) {
+      const source = readFileSync(path, 'utf8');
+      for (const name of sqlServerFlagParameters(source)) {
         flagged.push(`${normalizePath(relative(repositoryRoot, path))}: bool ${name}`);
+      }
+      for (const name of mySqlServerNames(source)) {
+        flagged.push(`${normalizePath(relative(repositoryRoot, path))}: ${name}`);
       }
     }
   }
 }
 scanTests(join(repositoryRoot, 'src/Back-end/Tests'));
 scanTests(join(repositoryRoot, 'examples/SampleProjectManagement/src/Back-end/Tests'));
-assert.deepEqual(flagged, [], 'Name the provider of these tests instead of a SQL Server flag; see "Test project ownership" in AGENTS.md.');
+assert.deepEqual(flagged, [], 'Name the provider of these tests instead of a SQL Server flag, and let no MySQL test say SqlServer; see "Test project ownership" in AGENTS.md.');
 
 // The durations live in the user's own cache folder, never in the shared temp folder; a variable that
 // is missing or relative falls back to the home folder.

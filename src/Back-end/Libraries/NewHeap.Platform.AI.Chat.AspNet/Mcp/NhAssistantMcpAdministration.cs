@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.Chat.Entities;
 using NewHeap.Platform.AI.Chat.Persistence;
+using NewHeap.Platform.AI.Chat.Runtime;
 using NewHeap.Platform.Common.Models;
 
 namespace NewHeap.Platform.AI.Chat.AspNet.Mcp;
@@ -13,9 +14,10 @@ namespace NewHeap.Platform.AI.Chat.AspNet.Mcp;
 /// <see cref="ClientCertificateReference"/>: null keeps the stored value, an empty string clears it,
 /// any other value replaces it; a stored secret and a reference exclude each other. Both are kept only
 /// while the URL's origin, the authentication mode and the <c>api-key</c> header stay the same.
-/// <see cref="HeadlessUse"/>, <see cref="Transport"/> and <see cref="UserName"/>: null keeps the stored
-/// value; a new server starts at <see cref="NhAssistantMcpHeadlessUses.Never"/> and
-/// <see cref="NhAssistantMcpTransports.StreamableHttp"/>.
+/// <see cref="HeadlessUse"/>, <see cref="Transport"/>, <see cref="UserName"/> and
+/// <see cref="ElicitationWaitMinutes"/>: null keeps the stored value; a new server starts at
+/// <see cref="NhAssistantMcpHeadlessUses.Never"/>, <see cref="NhAssistantMcpTransports.StreamableHttp"/>
+/// and a wait of five minutes.
 /// </summary>
 internal sealed record NhAssistantMcpServerInput(
     string Id,
@@ -44,6 +46,12 @@ internal sealed record NhAssistantMcpServerInput(
 
     /// <summary>The readers of the server; null keeps them, an empty list removes them all.</summary>
     public IReadOnlyList<NhAssistantMcpReaderInput>? Readers { get; init; }
+
+    /// <summary>
+    /// How long the server's request for input waits for the person, in whole minutes from 1 to 10;
+    /// null keeps the stored value.
+    /// </summary>
+    public int? ElicitationWaitMinutes { get; init; }
 }
 
 /// <summary>
@@ -671,6 +679,10 @@ internal sealed partial class NhAssistantMcpAdministration(
                 NhAssistantFieldErrors.Required)
             .Require(input.AuthMode != NhAssistantMcpAuthModes.OAuthClientCredentials || !string.IsNullOrWhiteSpace(oauthClientId), "oauth.clientId", NhAssistantFieldErrors.Required)
             .Require(input.RequiredPolicy is not { Length: 0 or > 256 }, "requiredPolicy", NhAssistantFieldErrors.Invalid)
+            .Require(
+                input.ElicitationWaitMinutes is not { } wait || NhAssistantElicitationLimits.IsValidWait(wait),
+                "elicitationWaitMinutes",
+                NhAssistantFieldErrors.Invalid)
             .Require(NhAssistantMcpHeadlessUses.IsValid(headlessUse), "headlessUse", NhAssistantFieldErrors.Invalid)
             .Require(
                 !NhAssistantMcpHeadlessUses.IsValid(headlessUse)
@@ -856,6 +868,10 @@ internal sealed partial class NhAssistantMcpAdministration(
         if (input.Transport is not null)
         {
             server.Transport = input.Transport;
+        }
+        if (input.ElicitationWaitMinutes is { } wait)
+        {
+            server.ElicitationWaitMinutes = wait;
         }
         server.UserName = input.AuthMode == NhAssistantMcpAuthModes.Basic
             ? (input.UserName ?? server.UserName)?.Trim()

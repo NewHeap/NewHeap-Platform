@@ -21,6 +21,7 @@ import {
   NhAssistantError,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
@@ -59,6 +60,7 @@ type Change = { kind: 'state'; state: AgentStateAction; from: string } | { kind:
 @Component({
   selector: 'nh-assistant-agent-state-control',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-state-control.component.html',

@@ -22,6 +22,7 @@ import {
   ShadowVariantPromotion,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
@@ -55,6 +56,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-agent-rollout',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     DatePipe,
     TranslatePipe,

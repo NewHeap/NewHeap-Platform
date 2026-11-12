@@ -179,6 +179,32 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         DiagnosticSeverity.Error,
         true);
 
+    private static readonly DiagnosticDescriptor InvalidTaskSupport = new(
+        "NHAI020",
+        "AI tool cannot run as an MCP task",
+        "AI tool '{0}' declares TaskSupport, which requires Mcp exposure and a value of NhAiToolTaskSupport",
+        "NewHeap.AI",
+        DiagnosticSeverity.Error,
+        true);
+
+    private static readonly DiagnosticDescriptor TaskSupportReadsCallerToken = new(
+        "NHAI021",
+        "AI tool that reads the caller's token cannot run as an MCP task",
+        "AI tool '{0}' declares TaskSupport, but its tool set '{1}' takes {2}, which reads the caller's token or request; an MCP task runs after its request ended, without the caller's token. Remove TaskSupport, or move the tool to a tool set that works with the caller of its NhAiInvocationContext instead.",
+        "NewHeap.AI",
+        DiagnosticSeverity.Error,
+        true);
+
+    /// <summary>
+    /// The services a tool set reads its caller's token or request with: the caller's credential of the
+    /// API bridge and the request itself, which holds the <c>Authorization</c> header.
+    /// </summary>
+    private static readonly string[] CallerTokenReaderNames =
+    [
+        "NewHeap.Platform.AI.AspNet.INhAiCallerCredentialAccessor",
+        "Microsoft.AspNetCore.Http.IHttpContextAccessor"
+    ];
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var attributedMethods = context.SyntaxProvider.CreateSyntaxProvider(
@@ -305,6 +331,9 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             // How a person decides the proposals is no part of what the tool does, so it stays out of
             // the contract hash and a pending proposal keeps its binding when the author adds it.
             var requireIndividualDecision = GetNamedBool(toolAttribute, "RequireIndividualDecision");
+            // How an MCP client receives the result is no part of what the tool does either, so the
+            // task support stays out of the contract hash as well.
+            var taskSupport = GetNamedInt(toolAttribute, "TaskSupport", 0);
             if (version < 1)
             {
                 context.ReportDiagnostic(Diagnostic.Create(
@@ -370,6 +399,27 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                     InvalidWithoutApproval,
                     location,
                     setId + "." + toolId));
+                continue;
+            }
+            // Task support 1 = Optional, 2 = Required; only an MCP export can offer a task.
+            if (taskSupport != 0 && ((exposure & 2) == 0 || taskSupport < 0 || taskSupport > 2))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    InvalidTaskSupport,
+                    location,
+                    setId + "." + toolId));
+                continue;
+            }
+            // A task runs after its request ended and never has the caller's token, so a tool whose
+            // tool set reads that token or the request cannot run as one.
+            if (taskSupport != 0 && FindCallerTokenReader(method.ContainingType) is { } tokenReader)
+            {
+                context.ReportDiagnostic(Diagnostic.Create(
+                    TaskSupportReadsCallerToken,
+                    location,
+                    setId + "." + toolId,
+                    method.ContainingType.Name,
+                    tokenReader));
                 continue;
             }
             if (timeoutSeconds < 1
@@ -571,7 +621,8 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
                 subject.Type,
                 subject.ArgumentName,
                 allowWithoutApproval,
-                requireIndividualDecision));
+                requireIndividualDecision,
+                taskSupport));
         }
 
         var duplicateGroups = tools.GroupBy(tool => tool.LogicalId + "@" + tool.Version)
@@ -829,6 +880,11 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         {
             builder.AppendLine("        RequireIndividualDecision = true,");
         }
+        if (tool.TaskSupport != 0)
+        {
+            builder.Append("        TaskSupport = (global::NewHeap.Platform.AI.NhAiToolTaskSupport)")
+                .Append(tool.TaskSupport).AppendLine(",");
+        }
         if (tool.SubjectType is not null && tool.SubjectArgument is not null)
         {
             builder.Append("        Subject = new global::NewHeap.Platform.AI.NhAiToolSubject(")
@@ -1050,6 +1106,35 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         }
 
         return attributes.ToImmutable();
+    }
+
+    /// <summary>
+    /// The name of the first service a constructor of the tool set takes that reads the caller's token
+    /// or request (<see cref="CallerTokenReaderNames"/>), or <see langword="null"/> when it takes none.
+    /// The tool set is created from the request's services, so its constructors are what it can read.
+    /// </summary>
+    private static string? FindCallerTokenReader(INamedTypeSymbol toolSet)
+    {
+        foreach (var constructor in toolSet.InstanceConstructors)
+        {
+            foreach (var parameter in constructor.Parameters)
+            {
+                if (parameter.Type is not INamedTypeSymbol type)
+                {
+                    continue;
+                }
+
+                var name = type.ContainingNamespace is { IsGlobalNamespace: false } containingNamespace
+                    ? containingNamespace.ToDisplayString() + "." + type.MetadataName
+                    : type.MetadataName;
+                if (CallerTokenReaderNames.Contains(name, StringComparer.Ordinal))
+                {
+                    return type.Name;
+                }
+            }
+        }
+
+        return null;
     }
 
     private static bool IsAuthorizationAttribute(AttributeData attribute)
@@ -1969,7 +2054,8 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             string? subjectType,
             string? subjectArgument,
             bool allowWithoutApproval,
-            bool requireIndividualDecision)
+            bool requireIndividualDecision,
+            int taskSupport)
         {
             Method = method;
             SetId = setId;
@@ -2010,6 +2096,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
             SubjectArgument = subjectArgument;
             AllowWithoutApproval = allowWithoutApproval;
             RequireIndividualDecision = requireIndividualDecision;
+            TaskSupport = taskSupport;
         }
 
         public IMethodSymbol Method { get; }
@@ -2052,6 +2139,7 @@ public sealed class NhAiToolGenerator : IIncrementalGenerator
         public string? SubjectArgument { get; }
         public bool AllowWithoutApproval { get; }
         public bool RequireIndividualDecision { get; }
+        public int TaskSupport { get; }
     }
 
     /// <summary>

@@ -16,4 +16,10 @@ describe('@newheap/platform-ai-chat public API', () => {
 
     expect(error).toEqual({ code: 'assistant-conversation-busy', messageKey: 'nh-assistant.errors.assistant-conversation-busy' });
   });
+
+  it('shares the theme tokens directive with the secondary entry points only as an internal export', () => {
+    expect(publicApi.ɵNhAssistantTokensDirective).toBeDefined();
+    expect('NhAssistantTokensDirective' in publicApi).toBeFalse();
+    expect('NhAssistantTokensComponent' in publicApi).toBeFalse();
+  });
 });

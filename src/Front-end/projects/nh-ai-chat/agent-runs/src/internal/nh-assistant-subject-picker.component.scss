@@ -1,7 +1,4 @@
-@use '../../../src/lib/styles/tokens';
 @use '../../../src/lib/styles/forms';
-
-@include tokens.tokens;
 
 :host {
   display: block;

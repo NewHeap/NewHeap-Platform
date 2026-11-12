@@ -364,6 +364,12 @@ lazily loads the renderer with progress, previews locally and uploads only after
 Send the next message to give the image to the assistant. The mock replies do not analyze pixels.
 The image excludes the chat and marked private fields and follows the normal attachment policies.
 
+AG-UI clients reach the project assistant at `/api/assistant/agui/sample-project-assistant`
+(`MapNewHeapAssistantAGUI`, SPM-245): the same agent, policies, approvals and audit as the assistant's
+own API. An AG-UI thread names the person's own conversation, the portal's client tools arrive as
+frontend tool calls, and proposals and questions end a run with an AG-UI interrupt that the next run
+resumes.
+
 The assistant reads files of the sample's media library (SPM-305). `ProjectMediaFileSource`
 implements the assistant's file source: a person attaches a PDF, an image, or a Word or Excel
 document in the chat panel, the upload endpoint checks it and the source stores it in a media
@@ -893,6 +899,22 @@ metadata address stays the one of `/mcp`. As an alternative for an identity prov
 `/mcp` the application validates with a scheme of its own, `:ServiceTokens` adds that scheme next to the
 NewHeap token; it marks each token with `NhAiCallerCredentials.MarkNotForwardable`, so the service works
 as its linked account while its token, like the tokens of both protected resources, is never passed on.
+A portfolio analysis takes longer than an MCP client should wait on one request, so `/mcp` offers it as
+an MCP task (SPM-222). `projects.analyze-portfolio` (`ProjectPortfolioAnalysisAiTools`) declares
+`TaskSupport = NhAiToolTaskSupport.Optional`, and the exposure enables tasks with `UseTasks()`. A client
+that negotiated the MCP Tasks extension gets a task at once and polls it; the tool sees `McpTaskId` and
+waits within its ten-minute timeout for the analysis, the background operation of SPM-083 that
+`SamplePortfolioAnalysisToolsComposition` starts for the person in the active division under the
+person's request id. A client without tasks gets the analysis it started right away and polls
+`projects.portfolio-analysis-status`, as such clients always did, and its retry with the same request id
+finds the same analysis. The tasks live in the assistant's store, so every instance of the API answers a
+poll; another person or division never finds the task, and it expires an hour after the tool's timeout.
+`McpTaskSamplesTests` runs both clients with the official MCP SDK. A task runs on after its request
+ended and without the person's token, so the analysis works with the caller of its invocation context
+only. The API bridge's tools on the same endpoint call the API with that token: they declare
+`ForwardsCallerToken` and stay plain calls, which `AiBridgeSamplesTests` checks on an exposure with tasks.
+The generator would refuse task support for a tool set that takes `INhAiCallerCredentialAccessor` or
+`IHttpContextAccessor` (`NHAI021`), and the API would not start with a tool that declares both.
 
 Whether the assistant uses compositions and the script tool is the portal's own setting (SPM-371). The
 assistant settings page stores it per environment and agent in the portal's table

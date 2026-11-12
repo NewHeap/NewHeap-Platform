@@ -9,6 +9,7 @@ import {
   ɵnhAssistantCodeKeys as nhAssistantCodeKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe
 } from '@newheap/platform-ai-chat';
 
@@ -24,6 +25,7 @@ const routeOrder: readonly NhAssistantConsultationRoute[] = ['asker-decides', 's
 @Component({
   selector: 'nh-assistant-agent-consultations',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [DatePipe, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-consultations.component.html',

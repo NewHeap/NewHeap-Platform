@@ -7,6 +7,7 @@ import {
   RunCatalog,
   ToolCatalogEntry,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
@@ -70,6 +71,7 @@ const stepOfField: Record<string, WorkSetupStep> = {
 @Component({
   selector: 'nh-assistant-agent-work-setup',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     TranslatePipe,
     NhAssistantTranslatePipe,

@@ -1,6 +1,7 @@
 <ng-template #drawer>
   <section
     class="drawer"
+    data-nh-assistant-tokens
     [class.page]="page()"
     [class.with-sidebar]="sidebar()"
     [attr.role]="page() ? 'region' : 'dialog'"
@@ -158,9 +159,11 @@
             [decisionOwner]="activeMemberName()"
             [approvalRights]="store.approvalRights()"
             [writingMessageId]="store.writingMessageId()"
+            [answeringElicitationId]="store.answeringElicitationId()"
             (approvalChoice)="decideApproval($event)"
             (approvalResolution)="resolveApproval($event)"
             (questionAnswer)="answerQuestion($event)"
+            (elicitationAnswer)="answerElicitation($event)"
             (retryMessage)="store.send($event)" />
         }
       }

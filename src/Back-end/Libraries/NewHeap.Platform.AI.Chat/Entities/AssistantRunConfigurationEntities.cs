@@ -272,6 +272,12 @@ public sealed class AssistantAgentRunConfiguration
     /// </summary>
     public string? AlertKindsJson { get; set; }
 
+    /// <summary>
+    /// Whether the agent keeps a short visible plan of its work with <c>update_plan</c>, as an agent in
+    /// code does with <c>KeepPlan()</c>. Off until an administrator switches it on.
+    /// </summary>
+    public bool KeepsPlan { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public string CreatedBy { get; set; } = string.Empty;

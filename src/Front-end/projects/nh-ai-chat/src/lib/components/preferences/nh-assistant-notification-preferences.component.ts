@@ -17,6 +17,7 @@ import { NhAssistantPushSwitchComponent } from '../../internal/nh-assistant-push
 import { NhAssistantTranslatePipe } from '../../internal/nh-assistant-translate.pipe';
 import { NhAssistantPushService } from '../../services/nh-assistant-push.service';
 import { NhAssistantError } from '../../services/nh-assistant.store';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 /** A time of day as `PUT notifications` takes it: `HH:mm`. */
 const timeOfDay = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -55,6 +56,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-notification-preferences',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [DatePipe, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantPushSwitchComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-notification-preferences.component.html',

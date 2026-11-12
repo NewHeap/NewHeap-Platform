@@ -34,7 +34,16 @@ public sealed record NhAssistantCollaborationDto(
     bool Directory,
     string? HubPath,
     bool Push,
-    int MaxParticipants);
+    int MaxParticipants)
+{
+    /// <summary>
+    /// Whether a connection to <see cref="HubPath"/> may refresh its authentication at
+    /// <c>{HubPath}/refresh</c> instead of reconnecting (<see cref="NhAssistantOptions.HubAuthenticationRefresh"/>
+    /// on ASP.NET Core 11): a client that renewed its access token refreshes the open connection with it.
+    /// <see langword="false"/> on ASP.NET Core 10 and while live updates are off.
+    /// </summary>
+    public bool HubAuthenticationRefresh { get; init; }
+}
 
 public sealed record NhAssistantAgentSummaryDto(
     string Id,
@@ -184,11 +193,77 @@ public sealed record NhAssistantConversationDto(
     public NhAssistantMessagePartDto? PendingQuestion { get; init; }
 
     /// <summary>
+    /// The client tool call the waiting turn handed to the browser of its person and waits for, without
+    /// its arguments; left out when the conversation waits for none. A reloaded page shows that the
+    /// person's app runs it and never runs it again.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NhAssistantClientToolDto? PendingClientTool { get; init; }
+
+    /// <summary>
     /// The subject a person's chat is about (FB25); left out for a chat without one and for an agent
     /// thread, whose subject <see cref="Thread"/> names.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public NhAssistantConversationSubjectDto? Subject { get; init; }
+}
+
+/// <summary>
+/// A client tool call (<c>AddClientTool</c>) that the turn handed to the browser of the person whose turn
+/// it is: the data of the <c>client-tool.requested</c> event and of <c>pendingClientTool</c>.
+/// </summary>
+/// <param name="InvocationId">The call; the browser reports its result with
+/// <c>POST conversations/{id}/client-tools/{invocationId}/result</c>.</param>
+/// <param name="ToolId">The client tool, whose handler the browser runs.</param>
+/// <param name="ActorId">The person whose browser runs it; nobody else reports its result.</param>
+/// <param name="ExpiresAt">The end of the wait, after which a result is refused with <c>assistant-client-tool-expired</c>.</param>
+/// <param name="Status"><c>pending</c>, <c>completed</c>, <c>declined</c>, <c>unavailable</c>, <c>failed</c>,
+/// <c>expired</c> or <c>cancelled</c> (<see cref="NhAssistantClientToolStatuses"/>).</param>
+public sealed record NhAssistantClientToolDto(
+    Guid InvocationId,
+    string ToolId,
+    string ActorId,
+    DateTimeOffset ExpiresAt,
+    string Status)
+{
+    /// <summary>
+    /// When its result came, or it expired or was cancelled; only sent then.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? ClosedAt { get; init; }
+
+    /// <summary>
+    /// The arguments the tool's handler receives, bound to the tool's input on the server. Only the
+    /// stream of the request of the person whose turn called the tool carries them; live updates and
+    /// <c>pendingClientTool</c> leave them out.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonElement? Arguments { get; init; }
+}
+
+/// <summary>
+/// Body of <c>POST conversations/{id}/client-tools/{invocationId}/result</c>: what the browser of the person
+/// whose turn called a client tool reports after it ran the tool's handler. The model reads it as the
+/// result of the call; it is data from the browser, never instructions.
+/// </summary>
+/// <param name="Status"><c>completed</c>, <c>declined</c>, <c>unavailable</c> or <c>failed</c>.</param>
+/// <param name="Outcome">How it ended in the interface, a dash-case code of at most 40 characters such
+/// as <c>navigated</c>, <c>saved</c>, <c>cancelled</c> or <c>closed</c>.</param>
+/// <param name="Id">The id of what the person created, at most 64 letters, digits and <c>-_.:</c>, when
+/// the application returns one.</param>
+/// <param name="Data">Data the tool declares with <c>Returns&lt;TResult&gt;()</c>, at most 4,096 bytes;
+/// refused for a tool that declares none.</param>
+public sealed record NhAssistantClientToolResultRequest(
+    string? Status,
+    string? Outcome = null,
+    string? Id = null,
+    JsonElement? Data = null)
+{
+    /// <summary>
+    /// The client tools this browser can run, for the rest of the turn; see
+    /// <see cref="NhAssistantSendMessageRequest.ClientTools"/>.
+    /// </summary>
+    public IReadOnlyList<string>? ClientTools { get; init; }
 }
 
 /// <summary>
@@ -619,7 +694,47 @@ public sealed record NhAssistantLiveEventDto(
 [JsonDerivedType(typeof(NhAssistantConnectionRequiredPartDto), "connection-required")]
 [JsonDerivedType(typeof(NhAssistantFilePartDto), "file")]
 [JsonDerivedType(typeof(NhAssistantQuestionPartDto), "question")]
+[JsonDerivedType(typeof(NhAssistantElicitationPartDto), "elicitation")]
+[JsonDerivedType(typeof(NhAssistantPlanPartDto), "plan")]
 public abstract record NhAssistantMessagePartDto;
+
+/// <summary>
+/// The plan the agent kept with <c>update_plan</c> (<c>run.KeepPlan()</c>), as it stood after the last
+/// update in this message. It is the agent's own statement about its work: plain text to show as the
+/// agent's, never as markup or as an instruction to the reader.
+/// </summary>
+/// <param name="Steps">One to ten steps, in order.</param>
+/// <param name="UpdatedAt">When the agent last changed it.</param>
+public sealed record NhAssistantPlanPartDto(
+    IReadOnlyList<NhAssistantPlanStepDto> Steps,
+    DateTimeOffset UpdatedAt) : NhAssistantMessagePartDto;
+
+/// <summary>
+/// One step of an agent's plan.
+/// </summary>
+/// <param name="Text">Plain text of at most 160 characters on one line.</param>
+/// <param name="Status"><c>pending</c>, <c>in-progress</c> or <c>completed</c>
+/// (<see cref="NhAssistantPlanStepStatuses"/>); at most one step is in progress.</param>
+public sealed record NhAssistantPlanStepDto(string Text, string Status);
+
+/// <summary>
+/// An agent's plan as it stood after its last update: the steps in order and when it last changed.
+/// </summary>
+public sealed record NhAssistantPlanDto(
+    IReadOnlyList<NhAssistantPlanStepDto> Steps,
+    DateTimeOffset UpdatedAt);
+
+/// <summary>
+/// The data of the <c>plan.updated</c> event of a turn: the whole plan after the update, a snapshot that
+/// replaces the plan part of <paramref name="MessageId"/>.
+/// </summary>
+/// <param name="TurnId">The turn whose plan it is.</param>
+/// <param name="MessageId">The agent's message of the turn that holds the plan.</param>
+/// <param name="Plan">The plan as it now stands.</param>
+public sealed record NhAssistantPlanUpdatedDto(
+    Guid TurnId,
+    Guid MessageId,
+    NhAssistantPlanDto Plan);
 
 /// <summary>
 /// A question the agent asked with <c>ask_question</c> in a person's chat (LS21). Only the
@@ -656,7 +771,14 @@ public sealed record NhAssistantQuestionPartDto(
 /// Body of <c>POST conversations/{id}/questions/{questionId}/answer</c> (LS21).
 /// </summary>
 /// <param name="Choice">The zero-based index of the chosen answer.</param>
-public sealed record NhAssistantAnswerQuestionRequest(int? Choice);
+public sealed record NhAssistantAnswerQuestionRequest(int? Choice)
+{
+    /// <summary>
+    /// The client tools this browser can run, for the rest of the turn; see
+    /// <see cref="NhAssistantSendMessageRequest.ClientTools"/>.
+    /// </summary>
+    public IReadOnlyList<string>? ClientTools { get; init; }
+}
 
 /// <summary>
 /// A file a person attached to the message: its name, media type and size in bytes, never its
@@ -673,6 +795,94 @@ public sealed record NhAssistantConnectionRequiredPartDto(string ServerId, strin
 
 /// <summary>The data of the <c>connection.required</c> event of a turn.</summary>
 public sealed record NhAssistantConnectionRequiredDto(string ServerId, string DisplayName, string Reason);
+
+/// <summary>
+/// An administrator-connected MCP server asked the person of the turn for input while its tool ran
+/// (MCP elicitation), and the tool call waits for the answer. <paramref name="Message"/> is the
+/// server's own text: show it as the server's, never as the assistant's. Only the
+/// <paramref name="AddresseeActorId"/> answers, with
+/// <c>POST conversations/{id}/elicitations/{elicitationId}/answer</c>; the answer goes to the server that
+/// asked and is never stored. The turn's stream carries <c>elicitation.requested</c> and
+/// <c>elicitation.closed</c> with this part.
+/// </summary>
+/// <param name="ElicitationId">The request; the answer names it.</param>
+/// <param name="InvocationId">The tool call that waits for it.</param>
+/// <param name="ServerId">The server that asks.</param>
+/// <param name="ServerName">The server's display name, who receives the answer.</param>
+/// <param name="Mode"><c>form</c>: the person enters <paramref name="Fields"/>; <c>url</c>: the person
+/// opens <see cref="Url"/> themselves and says when they are done.</param>
+/// <param name="Message">The server's message, at most 1,000 characters.</param>
+/// <param name="AddresseeActorId">The person whose turn it is, who alone answers.</param>
+/// <param name="ExpiresAt">The end of the wait, never later than the tool call's own timeout.</param>
+/// <param name="Status"><c>pending</c>, <c>accepted</c>, <c>declined</c>, <c>cancelled</c> or
+/// <c>expired</c>.</param>
+/// <param name="Fields">What a form asks for; empty for <c>url</c>.</param>
+public sealed record NhAssistantElicitationPartDto(
+    Guid ElicitationId,
+    Guid InvocationId,
+    string ServerId,
+    string ServerName,
+    string Mode,
+    string Message,
+    string AddresseeActorId,
+    DateTimeOffset ExpiresAt,
+    string Status,
+    IReadOnlyList<NhAssistantElicitationFieldDto> Fields) : NhAssistantMessagePartDto
+{
+    /// <summary>
+    /// The https page of a <c>url</c> request. Never open it automatically: show it with
+    /// <see cref="UrlHost"/> and let the person open it.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Url { get; init; }
+
+    /// <summary>The host of <see cref="Url"/>, which the person checks before opening it.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? UrlHost { get; init; }
+
+    /// <summary>When it was answered, declined, cancelled or expired; only sent then.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? ClosedAt { get; init; }
+}
+
+/// <summary>
+/// One value a form of an MCP server asks for.
+/// </summary>
+/// <param name="Name">The property name the server receives the value under.</param>
+/// <param name="Type"><c>string</c>, <c>number</c>, <c>integer</c>, <c>boolean</c> or <c>enum</c>.</param>
+/// <param name="Title">The field's label, the server's text.</param>
+public sealed record NhAssistantElicitationFieldDto(string Name, string Type, string Title, bool Required)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MinLength { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxLength { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Minimum { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Maximum { get; init; }
+
+    /// <summary>The values of an <c>enum</c> field, in order.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<NhAssistantElicitationOptionDto>? Options { get; init; }
+}
+
+/// <summary>One value of an <c>enum</c> field: what the server receives and what the person reads.</summary>
+public sealed record NhAssistantElicitationOptionDto(string Value, string Label);
+
+/// <summary>
+/// Body of <c>POST conversations/{id}/elicitations/{elicitationId}/answer</c>.
+/// </summary>
+/// <param name="Action"><c>accept</c>, <c>decline</c> or <c>cancel</c>. For <c>url</c>, <c>accept</c>
+/// says the person finished the server's page.</param>
+/// <param name="Content">The values of an accepted form, by field name; nothing for any other answer.</param>
+public sealed record NhAssistantAnswerElicitationRequest(string? Action, IReadOnlyDictionary<string, JsonElement>? Content);
 
 public sealed record NhAssistantTextPartDto(string Text) : NhAssistantMessagePartDto;
 
@@ -696,9 +906,83 @@ public sealed record NhAssistantToolCallPartDto(
     /// The result came from the agent's own grant and is shielded from this viewer.
     /// </summary>
     public bool Restricted { get; init; }
+
+    /// <summary>
+    /// The application's trusted card of what the call returned, in the caller's language
+    /// (<see cref="INhAssistantToolResultPresenter"/>). Only written for a call that has one and whose
+    /// result the caller may see.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NhAssistantToolResultPresentationDto? ResultPresentation { get; init; }
 }
 
-public sealed record NhAssistantPresentationFieldDto(string Label, string Value);
+/// <summary>
+/// One named fact of an approval or result card. A field of a change also states what it holds now.
+/// </summary>
+public sealed record NhAssistantPresentationFieldDto(string Label, string Value)
+{
+    /// <summary>
+    /// What the field holds now, empty for a field that is empty now. Only written when the presenter
+    /// states it.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CurrentValue { get; init; }
+
+    /// <summary>
+    /// How the field changes: <c>unchanged</c>, <c>added</c>, <c>changed</c> or <c>cleared</c>
+    /// (<see cref="NhAssistantPresentationFieldChange"/>). Only written with <see cref="CurrentValue"/>.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Change { get; init; }
+
+    internal static NhAssistantPresentationFieldDto From(NhAssistantPresentationField field)
+    {
+        return new NhAssistantPresentationFieldDto(field.Label, field.Value)
+        {
+            CurrentValue = field.CurrentValue,
+            Change = NameOf(field.Change)
+        };
+    }
+
+    private static string? NameOf(NhAssistantPresentationFieldChange change)
+    {
+        return change switch
+        {
+            NhAssistantPresentationFieldChange.Unchanged => "unchanged",
+            NhAssistantPresentationFieldChange.Added => "added",
+            NhAssistantPresentationFieldChange.Changed => "changed",
+            NhAssistantPresentationFieldChange.Cleared => "cleared",
+            _ => null
+        };
+    }
+}
+
+/// <summary>
+/// The link of a result card to a page of the application: a path within it and the text people read.
+/// </summary>
+public sealed record NhAssistantPresentationLinkDto(string Url, string Label);
+
+/// <summary>
+/// The application's trusted card of what a tool call returned: a title, an optional summary, at most
+/// eight fields and an optional link to a page of the application. Never the raw result.
+/// </summary>
+public sealed record NhAssistantToolResultPresentationDto(
+    string Title,
+    string? Summary,
+    IReadOnlyList<NhAssistantPresentationFieldDto> Fields,
+    NhAssistantPresentationLinkDto? Link)
+{
+    internal static NhAssistantToolResultPresentationDto? From(NhAssistantToolResultPresentation? presentation)
+    {
+        return presentation is null
+            ? null
+            : new NhAssistantToolResultPresentationDto(
+                presentation.Title,
+                presentation.Summary,
+                presentation.Fields.Select(NhAssistantPresentationFieldDto.From).ToArray(),
+                presentation.Link is { } link ? new NhAssistantPresentationLinkDto(link.Url, link.Label) : null);
+    }
+}
 
 public sealed record NhAssistantApprovalPresentationDto(
     string ToolDisplayName,
@@ -714,7 +998,7 @@ public sealed record NhAssistantApprovalPresentationDto(
                 presentation.ToolDisplayName,
                 presentation.Summary,
                 presentation.Fields
-                    .Select(field => new NhAssistantPresentationFieldDto(field.Label, field.Value))
+                    .Select(NhAssistantPresentationFieldDto.From)
                     .ToArray(),
                 presentation.Notice);
     }
@@ -855,6 +1139,13 @@ public sealed record NhAssistantSendMessageRequest(
     IReadOnlyList<NhAiFileReference>? Files = null)
 {
     /// <summary>
+    /// The ids of the client tools (<c>AddClientTool</c>) this browser has a handler for. The turn offers
+    /// only the tools the application declared among them, and only in a person's own chat; the browser
+    /// declares no description or schema. Ids the application did not declare are ignored; at most 64.
+    /// </summary>
+    public IReadOnlyList<string>? ClientTools { get; init; }
+
+    /// <summary>
     /// This client can ask the user for a page screenshot during this message's turn. This is a
     /// capability, never consent. Defaults to false; it is not carried into resumed turns.
     /// </summary>
@@ -889,7 +1180,14 @@ public sealed record NhAssistantClientEntityDto(
 public sealed record NhAssistantDecideApprovalRequest(
     string? Decision,
     string? ExpectedProposalHash,
-    string? Reason);
+    string? Reason)
+{
+    /// <summary>
+    /// The client tools this browser can run, for the rest of the turn; see
+    /// <see cref="NhAssistantSendMessageRequest.ClientTools"/>.
+    /// </summary>
+    public IReadOnlyList<string>? ClientTools { get; init; }
+}
 
 public sealed record NhAssistantErrorDto(
     string Code,
@@ -917,7 +1215,16 @@ public sealed record NhAssistantToolCompletedDto(
     Guid InvocationId,
     string Status,
     string? ResultCode,
-    string? ResultPreview);
+    string? ResultPreview)
+{
+    /// <summary>
+    /// The application's trusted card of what the call returned, in the language of the turn
+    /// (<see cref="INhAssistantToolResultPresenter"/>). Only written for a call that has one and whose
+    /// result is not shielded.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NhAssistantToolResultPresentationDto? ResultPresentation { get; init; }
+}
 
 public sealed record NhAssistantUsageDto(
     int InputTokens,
@@ -946,12 +1253,16 @@ public sealed record NhAssistantTurnCompletedDto(
 [JsonSerializable(typeof(NhAssistantClientContextDto))]
 [JsonSerializable(typeof(NhAssistantDecideApprovalRequest))]
 [JsonSerializable(typeof(NhAssistantAnswerQuestionRequest))]
+[JsonSerializable(typeof(NhAssistantClientToolResultRequest))]
+[JsonSerializable(typeof(NhAssistantClientToolDto))]
+[JsonSerializable(typeof(NhAssistantAnswerElicitationRequest))]
 [JsonSerializable(typeof(NhAssistantErrorDto))]
 [JsonSerializable(typeof(NhAssistantTurnStartedDto))]
 [JsonSerializable(typeof(NhAssistantMessageDeltaDto))]
 [JsonSerializable(typeof(NhAssistantToolStartedDto))]
 [JsonSerializable(typeof(NhAssistantToolCompletedDto))]
 [JsonSerializable(typeof(NhAssistantPageScreenshotRequestedDto))]
+[JsonSerializable(typeof(NhAssistantPlanUpdatedDto))]
 [JsonSerializable(typeof(NhAssistantTurnCompletedDto))]
 [JsonSerializable(typeof(NhAssistantMessageDto))]
 [JsonSerializable(typeof(NhAssistantMarkReadRequest))]
@@ -1474,6 +1785,14 @@ public sealed record NhAssistantMcpServerInputDto(
     /// <c>readers[0].toolName</c>.
     /// </summary>
     public IReadOnlyList<NhAssistantMcpReaderInputDto?>? Readers { get; init; }
+
+    /// <summary>
+    /// How long a request for input of the server waits for the person of a chat turn, in whole
+    /// minutes from 1 to 10 (<c>elicitationWaitMinutes: invalid</c> otherwise). Omitted or null keeps
+    /// the stored value; a new server waits 5 minutes. The tool's own timeout stands still while the
+    /// person is asked; the turn's own timeout keeps running.
+    /// </summary>
+    public int? ElicitationWaitMinutes { get; init; }
 }
 
 /// <summary>
@@ -1607,6 +1926,12 @@ public sealed record NhAssistantMcpServerDto(
     /// Whether the tools are offered in headless runs (<see cref="NhAssistantMcpHeadlessUses"/>).
     /// </summary>
     public string HeadlessUse { get; init; } = NhAssistantMcpHeadlessUses.Never;
+
+    /// <summary>
+    /// How long a request for input of the server waits for the person of a chat turn, in minutes:
+    /// from 1 to 10, 5 unless an administrator or the application's code set another.
+    /// </summary>
+    public int ElicitationWaitMinutes { get; init; } = Mcp.NhAssistantMcpServerLimits.DefaultElicitationWaitMinutes;
 
     /// <summary>
     /// When an administrator's test or sync, or a turn with the shared credential, last connected.

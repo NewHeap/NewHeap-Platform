@@ -538,6 +538,9 @@
         "headless-use": "Achtergrondruns",
         "headless-use-hint": "Agents die zonder een persoon werken, mogen de tools gebruiken met de eigen inloggegevens van deze server. De aanroep heeft nog steeds de rechten nodig van de persoon voor wie de agent werkt, of, voor een agent die voor zichzelf werkt, een grant in de applicatiecode (mcp.<server-id>.*).",
         "headless-use-personal": "Achtergrondruns mogen de server gebruiken met een kortlevend token van de persoon voor wie de run werkt, en alleen nadat die persoon dat in de eigen voorkeuren heeft toegestaan.",
+        "elicitation-wait": "Wachten op een persoon",
+        "elicitation-wait-hint": "Als een tool van deze server de persoon in een chat om invoer vraagt, wacht de chat zoveel minuten op het antwoord, van {{min}} tot {{max}}. De eigen time-out van de tool en de tijdslimiet van de beurt staan intussen stil, samen hoogstens tien minuten per beurt.",
+        "elicitation-wait-invalid": "Vul een heel aantal minuten in van {{min}} tot {{max}}.",
         "required-policy": "Vereiste policy",
         "required-policy-hint": "Optioneel. De tools van de server zijn alleen beschikbaar voor gebruikers die aan deze policy voldoen.",
         "enabled": "Server staat aan",
@@ -749,6 +752,10 @@
         "replay-progress": "{{replayed}} van hoogstens {{max}} runs herhaald, {{skipped}} overgeslagen"
       },
       "run-config": {
+        "plan": {
+          "label": "Houdt een zichtbaar plan bij",
+          "agent-hint": "De agent toont een korte checklist van zijn werk in chats en runs, die mensen zien als het plan van de agent. Uit tot je dit aanzet."
+        },
         "files": {
           "label": "Neemt bestanden aan",
           "agent-hint": "Berichten van mensen en de tools van de agent mogen hem documenten geven, zoals pdf's, binnen de limieten van de applicatie. Een nieuwe agent neemt er geen aan totdat je dit aanzet.",

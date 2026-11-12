@@ -162,6 +162,8 @@ export const ASSISTANT_PLAYGROUND_PROMPTS = [
   { key: 'list', text: 'Which projects are active?' },
   { key: 'tools', text: 'Compare the open work across all projects.' },
   { key: 'approval', text: 'Put project Alpha migration on hold.' },
+  { key: 'result-cards', text: 'Show the projects as result cards.' },
+  { key: 'plan', text: 'Review the active projects step by step.' },
   { key: 'question', text: 'Ask me which status project Beta onboarding should get.' },
   { key: 'legacy-approval', text: 'Show a legacy approval fallback.' },
   { key: 'forbidden', text: 'Delete the archived projects.' },
@@ -446,6 +448,14 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       createdAt: '2026-10-12T05:00:00Z',
       durationSeconds: 3,
       result: '3 open projects; with three or fewer there is nothing to follow up.',
+      // SPM-304: the plan the run's agent kept of its work, which the run's result shows.
+      plan: {
+        steps: [
+          { text: 'Count the open projects', status: 'completed' },
+          { text: 'Decide whether any project needs a follow-up', status: 'completed' }
+        ],
+        updatedAt: '2026-10-12T05:00:03Z'
+      },
       // SPM-251: the run left the team calendar out; the person it acted for had not allowed its
       // use in background runs and was told in the inbox.
       mcpConnectionSkips: [
@@ -933,6 +943,9 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         isEnabled: true,
         // SPM-251: background runs may use the server's own key; the editor shows the choice.
         headlessUse: 'organization',
+        // SPM-251: a request for input of the server waits three minutes for the person's answer
+        // instead of five; the tool's own timeout stands still meanwhile.
+        elicitationWaitMinutes: 3,
         remoteTools: PLAYGROUND_REMOTE_TOOLS,
         // SPM-305: its reading tool turns Word and Excel documents into text for models that do not
         // read them; the administration lists it under "Reading documents", asked first for its priority.
@@ -1057,6 +1070,100 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       ]
     },
     {
+      // SPM-248: trusted result cards. The search shows with the portal's own renderer for
+      // projects.search, the project read with the default card of the assistant.
+      match: /result cards?/i,
+      steps: [
+        {
+          tool: {
+            toolId: 'projects.search',
+            displayName: 'Search projects',
+            argumentsPreview: '{"input":{"query":"a","limit":5}}',
+            resultPreview: '[{"key":"PRJ-ALPHA","name":"Alpha migration"},{"key":"PRJ-GAMMA","name":"Gamma analytics"}]',
+            resultPresentation: {
+              title: 'Projects found',
+              summary: '2 projects match.',
+              fields: [
+                { label: 'PRJ-ALPHA', value: 'Alpha migration' },
+                { label: 'PRJ-GAMMA', value: 'Gamma analytics' }
+              ],
+              link: { url: '/management/project-management', label: 'Open the project board' }
+            }
+          }
+        },
+        {
+          tool: {
+            toolId: 'projects.get',
+            displayName: 'Read project',
+            argumentsPreview: '{"input":{"projectId":"alpha"}}',
+            resultPreview: '{"key":"PRJ-ALPHA","name":"Alpha migration","status":"Active","deadline":"2026-12-04T00:00:00+00:00"}',
+            resultPresentation: {
+              title: 'Alpha migration',
+              summary: null,
+              fields: [
+                { label: 'Project', value: 'PRJ-ALPHA' },
+                { label: 'Status', value: 'Active' },
+                { label: 'Deadline', value: 'Friday, 4 December 2026' }
+              ],
+              link: { url: '/management/intake-reviews?project=alpha', label: 'Open project' }
+            }
+          }
+        },
+        { text: 'I found **2** projects. Alpha migration is active and due on Friday 4 December.' }
+      ]
+    },
+    {
+      // SPM-333 and SPM-304: the agent keeps a visible plan of its work (KeepPlan() on the server):
+      // each update replaces the checklist in its message, the current step marked.
+      match: /step by step/i,
+      steps: [
+        {
+          plan: {
+            steps: [
+              { text: 'Find the active projects', status: 'in-progress' },
+              { text: 'Read the project that is due first', status: 'pending' },
+              { text: 'Summarize what needs attention', status: 'pending' }
+            ]
+          }
+        },
+        {
+          tool: {
+            toolId: 'projects.search',
+            displayName: 'Search projects',
+            argumentsPreview: '{"input":{"query":"active","limit":5}}',
+            resultPreview: '[{"key":"PRJ-ALPHA","name":"Alpha migration"},{"key":"PRJ-GAMMA","name":"Gamma analytics"}]'
+          }
+        },
+        {
+          plan: {
+            steps: [
+              { text: 'Find the active projects', status: 'completed' },
+              { text: 'Read the project that is due first', status: 'in-progress' },
+              { text: 'Summarize what needs attention', status: 'pending' }
+            ]
+          }
+        },
+        {
+          tool: {
+            toolId: 'projects.get',
+            displayName: 'Read project',
+            argumentsPreview: '{"input":{"projectId":"alpha"}}',
+            resultPreview: '{"key":"PRJ-ALPHA","name":"Alpha migration","status":"Active","deadline":"2026-12-04T00:00:00+00:00"}'
+          }
+        },
+        {
+          plan: {
+            steps: [
+              { text: 'Find the active projects', status: 'completed' },
+              { text: 'Read the project that is due first', status: 'completed' },
+              { text: 'Summarize what needs attention', status: 'completed' }
+            ]
+          }
+        },
+        { text: 'Two projects are active. **Alpha migration** is due first, on Friday 4 December, and is on schedule.' }
+      ]
+    },
+    {
       // SPM-350: the prepared status brief, in English or Dutch, once the person sent it.
       match: /status ?brief/i,
       steps: [
@@ -1134,10 +1241,10 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
             presentation: {
               toolDisplayName: 'Change project status',
               summary: 'Change project PRJ-ALPHA — Alpha migration to On hold.',
+              // SPM-246: the status states what it holds now, so the card shows the change in words.
               fields: [
                 { label: 'Project', value: 'PRJ-ALPHA — Alpha migration' },
-                { label: 'Current status', value: 'Active' },
-                { label: 'New status', value: 'On hold' }
+                { label: 'Status', value: 'On hold', currentValue: 'Active', change: 'changed' }
               ],
               notice: null
             },
@@ -1145,6 +1252,13 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
             targets: ['PRJ-ALPHA · Alpha migration'],
             expiresInSeconds: 300,
             resultPreview: '{"key":"PRJ-ALPHA","status":"on-hold"}',
+            // SPM-248: the default result card of the executed change, with the status before and after.
+            resultPresentation: {
+              title: 'Alpha migration',
+              summary: 'The status of PRJ-ALPHA changed.',
+              fields: [{ label: 'Status', value: 'On hold', currentValue: 'Active', change: 'changed' }],
+              link: { url: '/management/intake-reviews?project=alpha', label: 'Open project' }
+            },
             approved: [{ text: 'Done. **Alpha migration** is now *On hold*.' }],
             rejected: [{ text: 'Understood. I left Alpha migration unchanged.' }]
           }

@@ -53,7 +53,10 @@ public sealed class AssistantToolPresenterSamplesTests
 
         Assert.NotNull(presentation);
         Assert.Contains(project.Name, presentation.Summary, StringComparison.Ordinal);
-        Assert.Equal(3, presentation.Fields.Count);
+        // The project, and its status with the status it has now, so the card shows the change.
+        Assert.Equal(2, presentation.Fields.Count);
+        Assert.Equal(NhAssistantPresentationFieldChange.Changed, presentation.Fields[1].Change);
+        Assert.NotEqual(presentation.Fields[1].CurrentValue, presentation.Fields[1].Value);
         // The check the assistant drops a presentation by finds no broken rule.
         Assert.Null(NhAssistantPresentationLimits.FindBrokenRule(presentation));
     }
@@ -89,6 +92,50 @@ public sealed class AssistantToolPresenterSamplesTests
         Assert.Equal(NhAssistantPresentationRules.TooManyFields, NhAssistantPresentationLimits.FindBrokenRule(grown));
     }
 
+    [Theory]
+    [InlineData("en-US")]
+    [InlineData("nl-NL")]
+    public async Task SPM_248_the_result_cards_of_a_project_read_and_a_search_keep_within_the_limits(string cultureName)
+    {
+        var culture = CultureInfo.GetCultureInfo(cultureName);
+        var presenter = CreateResultPresenter();
+        var project = new ProjectAiProjectItem(
+            Guid.NewGuid(),
+            new string('K', MaxLengthOf(nameof(Project.Key))),
+            new string('N', MaxLengthOf(nameof(Project.Name))),
+            ProjectStatus.OnHold,
+            new DateTimeOffset(2026, 12, 1, 0, 0, 0, TimeSpan.Zero),
+            null);
+        var found = Enumerable.Range(1, 10)
+            .Select(index => new ProjectAiSearchItem(Guid.NewGuid(), new string('K', MaxLengthOf(nameof(Project.Key))), new string('N', MaxLengthOf(nameof(Project.Name)))))
+            .ToArray();
+
+        var read = await PresentInAsync(culture, () => presenter.PresentResultAsync(
+            ResultOf(ProjectOverviewAiTools.GetToolId, project, culture),
+            TestContext.Current.CancellationToken));
+        var search = await PresentInAsync(culture, () => presenter.PresentResultAsync(
+            ResultOf(ProjectAiTools.SearchToolId, found, culture),
+            TestContext.Current.CancellationToken));
+        var other = await presenter.PresentResultAsync(
+            ResultOf(ProjectAiTools.ChangeStatusToolId, project, culture),
+            TestContext.Current.CancellationToken);
+
+        // The read names the project, its status and deadline and links to its page.
+        Assert.NotNull(read);
+        Assert.Equal(project.Name, read.Title);
+        Assert.Equal(3, read.Fields.Count);
+        Assert.Equal($"/management/intake-reviews?project={project.Id:D}", read.Link!.Url);
+        Assert.Null(NhAssistantPresentationLimits.FindBrokenResultRule(read));
+        // The search shows the first eight of ten projects and says so.
+        Assert.NotNull(search);
+        Assert.Equal(NhAssistantPresentationLimits.MaxFields, search.Fields.Count);
+        Assert.Contains("10", search.Summary, StringComparison.Ordinal);
+        Assert.Equal(SampleAssistantToolResultPresenter.ProjectBoardRoute, search.Link!.Url);
+        Assert.Null(NhAssistantPresentationLimits.FindBrokenResultRule(search));
+        // A tool the presenter does not present gets no card.
+        Assert.Null(other);
+    }
+
     /// <summary>
     /// The longest text the sample stores in a project's property, from its <see cref="StringLengthAttribute"/>,
     /// so a longer column in the model makes this test present the longer text.
@@ -96,6 +143,28 @@ public sealed class AssistantToolPresenterSamplesTests
     private static int MaxLengthOf(string propertyName)
     {
         return typeof(Project).GetProperty(propertyName)!.GetCustomAttribute<StringLengthAttribute>()!.MaximumLength;
+    }
+
+    private static SampleAssistantToolResultPresenter CreateResultPresenter()
+    {
+        var localizers = new ResourceManagerStringLocalizerFactory(
+            Options.Create(new LocalizationOptions()),
+            NullLoggerFactory.Instance);
+        return new SampleAssistantToolResultPresenter(new StringLocalizer<SampleAssistantToolPresenter>(localizers));
+    }
+
+    /// <summary>
+    /// What the assistant gives a result presenter for a call of <paramref name="toolId"/> that returned
+    /// <paramref name="data"/>, as the tool's result serializes it.
+    /// </summary>
+    private static NhAssistantToolResultPresentationContext ResultOf(string toolId, object data, CultureInfo culture)
+    {
+        var descriptor = new ProjectAiToolsNhAiCatalog().Descriptors.FirstOrDefault(tool => tool.Id == toolId)
+            ?? Assert.Single(new ProjectOverviewAiToolsNhAiCatalog().Descriptors, tool => tool.Id == toolId);
+        return new NhAssistantToolResultPresentationContext(
+            descriptor,
+            System.Text.Json.JsonSerializer.SerializeToElement(data, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)),
+            culture);
     }
 
     private static SampleAssistantToolPresenter CreatePresenter(IProjectAiReadService projects)
@@ -132,9 +201,10 @@ public sealed class AssistantToolPresenterSamplesTests
     /// Presents with <paramref name="culture"/> current, as the assistant runs a presenter in each culture
     /// it presents in.
     /// </summary>
-    private static async Task<NhAssistantApprovalPresentation?> PresentInAsync(
+    private static async Task<T?> PresentInAsync<T>(
         CultureInfo culture,
-        Func<ValueTask<NhAssistantApprovalPresentation?>> present)
+        Func<ValueTask<T?>> present)
+        where T : class
     {
         var (previousCulture, previousUiCulture) = (CultureInfo.CurrentCulture, CultureInfo.CurrentUICulture);
         CultureInfo.CurrentCulture = culture;

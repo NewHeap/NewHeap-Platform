@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Localization;
 using NewHeap.Platform.AI;
 using NewHeap.Platform.AI.Chat;
+using NewHeap.Platform.AI.Chat.AGUI;
 using NewHeap.Platform.AI.Chat.AspNet;
 using NewHeap.Platform.AI.Chat.AspNet.Mcp;
 using NewHeap.Platform.AI.Scripting;
@@ -50,10 +51,23 @@ public static class SampleAssistantComposition
     public const string AccessPolicy = "app.active-division.project.view";
 
     /// <summary>
+    /// SPM-245: the AG-UI endpoint of the project assistant, which AG-UI clients such as CopilotKit or the
+    /// .NET <c>AGUIChatClient</c> run it through, next to the assistant's own API.
+    /// </summary>
+    public const string AGUIPath = "/api/assistant/agui/" + AgentId;
+
+    /// <summary>
     /// Administrators (manage permission or the administrator role) manage agents, MCP servers and
     /// the application context.
     /// </summary>
     public const string AdminPolicy = "app.project.edit-or-admin";
+
+    /// <summary>
+    /// How long one turn of the sample's assistant may run with a scripted model. SPM-251: it stands
+    /// still while the person answers an MCP server's request for input, so a server's wait of three
+    /// minutes (the milestones server) still gets its full wait within this minute.
+    /// </summary>
+    public static readonly TimeSpan TurnTimeout = TimeSpan.FromSeconds(60);
 
     /// <summary>
     /// Seeded once as version 1 of the application context; administrators edit it afterwards.
@@ -173,6 +187,19 @@ public static class SampleAssistantComposition
                 // headlessUse to organization, or to personal for a forwarded token, which then needs
                 // the consent of the person a run acts for; every server starts at never.
                 mcp.RequireHttps = true;
+                // SPM-251: a connected server may ask the person of a chat turn for input while its
+                // tool runs (MCP elicitation): a form of strings, numbers, yes/no and single choices,
+                // or an https page of its own that the person opens and finishes. The chat shows the
+                // request as the server's, the answer goes straight back to the server and is never
+                // stored, and the audit records only the server, the call, the mode and the outcome.
+                // A run, a consultation or anything the chat cannot show safely is declined. The
+                // request waits the server's own wait time, five minutes unless an administrator or
+                // the application's code sets one to ten (the operations code gives the milestones
+                // server three, SampleAssistantOperationsService). The turn stands still meanwhile: the
+                // tool's own timeout and the turn's timeout below stop, at most ten minutes per turn
+                // (NhAssistantMcpServerLimits.MaxTurnPauseMinutes), a heartbeat keeps another request
+                // from claiming the chat as abandoned, and the tool's slot is free for other people's
+                // calls until the person answered. The answer reaches only the API process that runs the turn.
                 mcp.ToolListCacheDuration = TimeSpan.FromMinutes(5);
                 // SPM-251: connecting to a server, and listing its tools, each end after ten seconds.
                 mcp.ConnectTimeout = TimeSpan.FromSeconds(10);
@@ -199,6 +226,9 @@ public static class SampleAssistantComposition
             .UseTimeZone("Europe/Amsterdam")
             .UseTurnContextProvider<SampleAssistantTurnContextProvider>()
             .AddToolPresenter<SampleAssistantToolPresenter>()
+            // The chat shows a card of what a project read or search returned, under the tool calls; the
+            // portal renders the search with its own component and the project with the default card.
+            .AddToolResultPresenter<SampleAssistantToolResultPresenter>()
             // SPM-349: the messaging app's chat may not propose to archive a project. Only the proposal
             // stage names the channel of the call that proposes, so the guard runs there alone.
             .AddProposalGuard<ProjectArchiveChannelProposalGuard>(
@@ -219,6 +249,9 @@ public static class SampleAssistantComposition
                     SampleAiBridgeComposition.ToolSetId + ".*",
                     // SPM-289: the gateway's four reads, which the application map points at.
                     SampleAiBridgeComposition.GatewayToolSetId + ".*",
+                    // SPM-400: the client tools that open a project or the create-task form in the
+                    // person's portal; a turn offers them only when that browser can run them.
+                    SampleClientToolsComposition.ToolSetPrefix + ".*",
                     NhAssistantConsultationTools.ConsultToolId(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type),
                     NhAssistantConsultationTools.RequestToolId(SampleIntakeReviewerComposition.AgentId, ProjectSubjects.Type),
                     // SPM-361: the planner takes requests only; it has no consult tool to select.
@@ -274,7 +307,7 @@ public static class SampleAssistantComposition
             {
                 limits.MaxToolCallsPerTurn = 4;
                 limits.MaxMessageChars = 4_000;
-                limits.TurnTimeout = TimeSpan.FromSeconds(60);
+                limits.TurnTimeout = TurnTimeout;
                 if (model is not null && model.Timeout * 2 > limits.TurnTimeout)
                 {
                     // A turn holds several model calls; a slow real model gets two of its timeouts.
@@ -290,6 +323,12 @@ public static class SampleAssistantComposition
                 // reviewer runs. Unlimited by default; an agent with runs can set its own limit.
                 limits.MaxConsultationsPerTurn = 2;
             }));
+
+        // SPM-263: on ASP.NET Core 11 a live-update connection may refresh its authentication at
+        // /hub/assistant/refresh instead of reconnecting when its token expires. The hub keeps it only
+        // for the same caller in the same tenant; another person's token is refused and a token of
+        // another tenant closes the connection. On ASP.NET Core 10 the setting changes nothing.
+        services.Configure<NhAssistantOptions>(options => options.HubAuthenticationRefresh = true);
 
         // SPM-373, SPM-374: the project assistant's scripts make at most four calls, as its turns do, and at
         // most one call that changes data; that call gets the sample's approval as it does on its own, so a
@@ -363,6 +402,9 @@ public static class SampleAssistantComposition
         // outside the prefix. NewHeap's bearer setup reads the WebSocket's query token for that path,
         // also when the setting moves the hub out of /hub.
         endpoints.MapNewHeapAssistant("/api/assistant");
+        // SPM-245: the same agent for AG-UI clients, over the same turns, policies, approvals and audit. Only
+        // this agent is offered there; map one endpoint per agent that AG-UI clients may run.
+        endpoints.MapNewHeapAssistantAGUI(AGUIPath, AgentId);
         return endpoints;
     }
 }
@@ -372,7 +414,9 @@ public static class SampleAssistantComposition
 /// inside the same authorized division. The technical descriptor remains model-facing metadata.
 /// SPM-246: a presentation keeps within <see cref="NhAssistantPresentationLimits"/> (at most eight
 /// fields, short texts); one that breaks a cap is dropped with a warning naming this presenter, the
-/// tool and the rule, and the approver reads the generic summary. Approvals are presented in every
+/// tool and the rule, and the approver reads the generic summary. The status field states the status the
+/// project has now (<see cref="NhAssistantPresentationField.Changing"/>), so the approval card shows the
+/// change from the current to the proposed status. Approvals are presented in every
 /// culture of <c>NewHeap:PlatformAspNetCommon:Settings:SupportedCultures</c> (nl-NL and en-US here),
 /// so each approver reads their own language.
 /// </summary>
@@ -389,6 +433,7 @@ public sealed class SampleAssistantToolPresenter(
         var name = context.Descriptor.Id switch
         {
             "projects.search" => localizer["ToolProjectsSearch"].Value,
+            ProjectOverviewAiTools.GetToolId => localizer["ToolProjectGet"].Value,
             "projects.change-status" => localizer["ToolProjectStatusChange"].Value,
             ProjectTaskAiTools.CompleteToolId => localizer["ToolProjectTaskComplete"].Value,
             _ => null
@@ -431,14 +476,15 @@ public sealed class SampleAssistantToolPresenter(
             localizer["ToolProjectStatusChange"].Value,
             localizer["ApprovalProjectStatusSummary", project.Key, project.Name, newStatus].Value,
             [
+                // A plain fact: which project the change concerns.
                 new NhAssistantPresentationField(
                     localizer["ApprovalFieldProject"].Value,
                     localizer["ApprovalProjectValue", project.Key, project.Name].Value),
-                new NhAssistantPresentationField(
-                    localizer["ApprovalFieldCurrentStatus"].Value,
-                    currentStatus),
-                new NhAssistantPresentationField(
-                    localizer["ApprovalFieldNewStatus"].Value,
+                // The field the change alters, with what it holds now, read in the authorized division,
+                // so the approver sees the status change from its current value to the proposed one.
+                NhAssistantPresentationField.Changing(
+                    localizer["ApprovalFieldStatus"].Value,
+                    currentStatus,
                     newStatus)
             ]);
     }
@@ -555,9 +601,11 @@ public sealed class SampleAssistantAuditSink(SampleAssistantAuditLog log) : INhA
 /// its event message; a message that names a project id and "the intake reviewer" consults it, or
 /// with "again" requests a new review (SPM-278), and the consulted reviewer answers from its
 /// working memory; a message that names a project id and its documents reads them through the
-/// document tool (SPM-306); any other message searches projects; a tool result is summarized, and
-/// files that reach it are named with their type and size or the start of their text (SPM-305). It
-/// demonstrates the governed flow, not language understanding.
+/// document tool (SPM-306); "open project &lt;id&gt;" and "create task &lt;title&gt; for project &lt;id&gt;" call the
+/// client tools that the person's portal runs, when the turn offers them (SPM-400); any other message
+/// searches projects; a tool result is summarized, and files that reach it are named with their type and
+/// size or the start of their text (SPM-305). It demonstrates the governed flow, not language
+/// understanding.
 /// </summary>
 public sealed partial class SampleAssistantChatClient : IChatClient
 {
@@ -569,7 +617,7 @@ public sealed partial class SampleAssistantChatClient : IChatClient
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(new ChatResponse(Respond(messages.ToArray()))
+        return Task.FromResult(new ChatResponse(Respond(messages.ToArray(), options))
         {
             ModelId = "sample-assistant-model"
         });
@@ -580,7 +628,7 @@ public sealed partial class SampleAssistantChatClient : IChatClient
         ChatOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var message = Respond(messages.ToArray());
+        var message = Respond(messages.ToArray(), options);
         foreach (var content in message.Contents)
         {
             await Task.Yield();
@@ -610,7 +658,7 @@ public sealed partial class SampleAssistantChatClient : IChatClient
     {
     }
 
-    private static ChatMessage Respond(IReadOnlyList<ChatMessage> messages)
+    private static ChatMessage Respond(IReadOnlyList<ChatMessage> messages, ChatOptions? options)
     {
         var last = messages.LastOrDefault();
         if (last is not null && DescribeFiles(last) is { } received)
@@ -665,6 +713,12 @@ public sealed partial class SampleAssistantChatClient : IChatClient
                     "Nothing to propose: " + (explanation ?? "the work is already done."));
             }
 
+            // SPM-400: the person's portal reports what happened to a client tool.
+            if (ClientToolAnswer(result.Result) is { } clientTool)
+            {
+                return new ChatMessage(ChatRole.Assistant, clientTool);
+            }
+
             // SPM-328: an approval in the person's own chat went to the order desk, which reports here.
             if (ResultCodeOf(result.Result) == "assistant-proposal-handed-to-application")
             {
@@ -716,6 +770,26 @@ public sealed partial class SampleAssistantChatClient : IChatClient
         {
             // SPM-306: the document reader reads the project's documents through its tool.
             return Call("project_documents_read_v1", new
+            {
+                input = new { projectId = Guid.Parse(projectId) }
+            });
+        }
+
+        // SPM-400: the portal opens the project, or its create-task form prefilled; only offered when the
+        // person's browser can run them.
+        var createTask = CreateTaskPattern().Match(text);
+        if (projectId is not null && createTask.Success && Offers(options, SampleClientToolsComposition.CreateTaskFunction))
+        {
+            return Call(SampleClientToolsComposition.CreateTaskFunction, new
+            {
+                input = new { projectId = Guid.Parse(projectId), title = createTask.Groups["title"].Value.Trim() }
+            });
+        }
+
+        if (projectId is not null && text.Contains("open project", StringComparison.OrdinalIgnoreCase)
+            && Offers(options, SampleClientToolsComposition.OpenProjectFunction))
+        {
+            return Call(SampleClientToolsComposition.OpenProjectFunction, new
             {
                 input = new { projectId = Guid.Parse(projectId) }
             });
@@ -953,6 +1027,50 @@ public sealed partial class SampleAssistantChatClient : IChatClient
 
     [GeneratedRegex("\\b(draft|active|onhold|completed|archived)\\b", RegexOptions.IgnoreCase)]
     private static partial Regex StatusPattern();
+
+    /// <summary>
+    /// SPM-400: a task the person asks to create, such as "create task Book the venue for project …".
+    /// </summary>
+    [GeneratedRegex(@"\bcreate (?:a )?task (?<title>.{1,120}?) for project\b", RegexOptions.IgnoreCase)]
+    private static partial Regex CreateTaskPattern();
+
+    /// <summary>
+    /// Whether the turn offers the function <paramref name="name"/>.
+    /// </summary>
+    private static bool Offers(ChatOptions? options, string name)
+    {
+        return options?.Tools?.Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal)) == true;
+    }
+
+    /// <summary>
+    /// SPM-400: what the assistant says after the person's portal reported a client tool: the outcome it
+    /// read as data, never an instruction. <see langword="null"/> for any other result.
+    /// </summary>
+    private static string? ClientToolAnswer(object? result)
+    {
+        var code = ResultCodeOf(result);
+        if (code is null || !code.StartsWith("assistant-client-tool-", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var outcome = result is JsonElement { ValueKind: JsonValueKind.Object } json
+            && json.TryGetProperty("data", out var data)
+            && data.ValueKind == JsonValueKind.Object
+            && data.TryGetProperty("outcome", out var value)
+            && value.ValueKind == JsonValueKind.String
+                ? value.GetString()
+                : null;
+        return (code, outcome) switch
+        {
+            ("assistant-client-tool-completed", "navigated") => "The project is open in your portal.",
+            ("assistant-client-tool-completed", "saved") => "You saved the task in your portal.",
+            ("assistant-client-tool-completed", _) => "You left the form without saving; nothing changed.",
+            ("assistant-client-tool-declined", _) => "You chose not to open it; nothing changed.",
+            ("assistant-client-tool-unavailable", _) => "Your portal cannot do that here; open the project from the project list instead.",
+            _ => "Your portal could not finish that; nothing changed that I know of."
+        };
+    }
 
     [GeneratedRegex("<working-memory[^>]*>(?<memory>.*?)</working-memory>", RegexOptions.Singleline)]
     private static partial Regex WorkingMemoryPattern();

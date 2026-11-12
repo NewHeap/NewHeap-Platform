@@ -15,7 +15,8 @@ import {
   AgentWithoutApproval,
   NhAssistantAdminApiService,
   WithoutApprovalSwitch,
-  ɵNhAssistantIconComponent as NhAssistantIconComponent
+  ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective
 } from '@newheap/platform-ai-chat';
 import { NhAssistantAccountNames } from '../../nh-assistant-account-names';
 import { startNhAssistantAdminTranslations } from '../../i18n/nh-assistant-admin-translations';
@@ -31,6 +32,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-agent-without-approval',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [DatePipe, TranslatePipe, NhAssistantIconComponent, NhAssistantWithoutApprovalSwitchComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-without-approval.component.html',

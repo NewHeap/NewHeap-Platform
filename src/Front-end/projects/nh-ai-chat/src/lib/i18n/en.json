@@ -164,6 +164,7 @@
         "failed": "Failed",
         "awaiting-approval": "Awaiting approval",
         "awaiting-answer": "Awaiting an answer",
+        "awaiting-client": "Running in the app",
         "rejected": "Rejected",
         "not-executed": "Not run"
       },
@@ -183,6 +184,7 @@
       "running": "Calling {{name}}…",
       "awaiting-approval": "Waiting for approval: {{name}}",
       "awaiting-answer": "Waiting for an answer",
+      "awaiting-client": "Running in the app: {{name}}",
       "used-one": "Used 1 tool",
       "used-many": "Used {{count}} tools",
       "progress": "{{finished}} of {{total}} done",
@@ -190,6 +192,10 @@
       "not-executed": "{{count}} not run",
       "show-calls": "Show tool calls",
       "hide-calls": "Hide tool calls"
+    },
+    "tool-result": {
+      "label": "Result of {{name}}",
+      "open-link": "Open"
     },
     "approval": {
       "title": "Approval required",
@@ -254,6 +260,25 @@
         "moved": "It now waits for the approvers of {{subject}}."
       }
     },
+    "presentation": {
+      "current": "Now",
+      "proposed": "Proposed",
+      "before": "Before",
+      "after": "After",
+      "empty": "Empty",
+      "change": {
+        "unchanged": "Unchanged",
+        "added": "New value",
+        "changed": "Changes",
+        "cleared": "Cleared"
+      },
+      "change-result": {
+        "unchanged": "Unchanged",
+        "added": "Added",
+        "changed": "Changed",
+        "cleared": "Cleared"
+      }
+    },
     "question": {
       "title": "Question",
       "status": {
@@ -271,6 +296,45 @@
       "answered": "Answer: {{choice}}",
       "expired": "Nobody answered in time.",
       "cancelled": "The question was withdrawn when the task was stopped."
+    },
+    "elicitation": {
+      "title": "Request from {{server}}",
+      "status": {
+        "pending": "Waiting for you",
+        "accepted": "Answered",
+        "declined": "Declined",
+        "cancelled": "Cancelled",
+        "expired": "Expired"
+      },
+      "from": "{{server}} asks, not the assistant:",
+      "host": "Opens a page on {{host}}",
+      "open": "Open {{host}}",
+      "choose": "Choose",
+      "invalid": "Fill in this field as asked.",
+      "asked": "Asked for",
+      "recipient": "Your answer goes to {{server}} only. It is not stored and the assistant does not read it.",
+      "submit": "Send to {{server}}",
+      "decline": "Decline",
+      "cancel": "Cancel",
+      "done": "I am done",
+      "expires-in": "Answer within {{time}}",
+      "answering": "Sending your answer",
+      "waiting": "Waiting for the person whose turn it is.",
+      "outcome": {
+        "accepted": "{{server}} received the answer.",
+        "declined": "The request of {{server}} was declined.",
+        "cancelled": "The request of {{server}} was cancelled.",
+        "expired": "Nobody answered {{server}} in time."
+      }
+    },
+    "plan": {
+      "title": "Agent's plan",
+      "progress": "{{completed}} of {{total}} done",
+      "status": {
+        "pending": "Not started",
+        "in-progress": "In progress",
+        "completed": "Done"
+      }
     },
     "proposal-feedback": {
       "legend": "What was wrong? (optional)",
@@ -579,12 +643,27 @@
       "assistant-package-not-linked": "This agent, or this part of it, is not linked to an agent package.",
       "assistant-package-not-found": "This host never imported an agent package with this id.",
       "assistant-question-invalid": "The assistant could not ask this question; it continues without it.",
+      "assistant-plan-invalid": "The agent could not update its plan; it continues without the change.",
+      "assistant-plan-update-limit-reached": "The agent updated its plan as often as it may in this answer.",
       "assistant-question-not-found": "This question was not found.",
       "assistant-question-not-pending": "This question no longer waits for an answer.",
       "assistant-question-forbidden": "This question is addressed to someone else.",
       "assistant-question-expired": "Nobody answered this question in time. Send your message again to continue.",
       "assistant-question-cancelled": "The question was withdrawn when the task was stopped.",
       "assistant-question-answer-invalid": "Choose one of the answers of the question.",
+      "assistant-client-tool-unavailable": "This step can only run in your app while you take part in the chat; the assistant continues another way.",
+      "assistant-client-tool-not-found": "This step in your app was not found.",
+      "assistant-client-tool-not-pending": "This step in your app no longer waits for a result.",
+      "assistant-client-tool-forbidden": "This step runs in the app of the person whose turn it is.",
+      "assistant-client-tool-expired": "Your app did not report back in time. Send your message again to continue.",
+      "assistant-client-tool-cancelled": "The step in your app was withdrawn when the task was stopped.",
+      "assistant-client-tool-result-invalid": "Your app reported something the assistant cannot use.",
+      "assistant-client-tool-declined": "You declined this step in your app.",
+      "assistant-client-tool-failed": "Your app could not complete this step.",
+      "assistant-elicitation-not-found": "The request for input was not found.",
+      "assistant-elicitation-not-pending": "The request for input no longer waits for an answer.",
+      "assistant-elicitation-forbidden": "Only the person whose turn it is answers this request.",
+      "assistant-elicitation-answer-invalid": "The answer does not fit the request. Check the fields and try again.",
       "assistant-step-tool-unavailable": "A step named a tool that is not available here.",
       "assistant-step-limit-reached": "The call ran as many steps as it may.",
       "assistant-step-mutation-limit-reached": "The call ran as many changing steps as it may.",

@@ -12,6 +12,7 @@ import {
   NhAssistantError,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
@@ -49,6 +50,7 @@ interface HandOffRow {
 @Component({
   selector: 'nh-assistant-agent-hand-offs',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [DatePipe, TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhAssistantHandOffFormComponent, NhAssistantPackageLockComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-hand-offs.component.html',

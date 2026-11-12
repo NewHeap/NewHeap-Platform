@@ -1,0 +1,128 @@
+<section class="card" [attr.aria-labelledby]="cardId + '-title'">
+  <header class="header">
+    <nh-assistant-icon [name]="statusIcon()" />
+    <h3 [id]="cardId + '-title'">
+      {{ 'nh-assistant.elicitation.title' | translate: { server: elicitation().serverName } }}
+    </h3>
+    <span class="status">{{ 'nh-assistant.elicitation.status.' + effectiveStatus() | translate }}</span>
+  </header>
+
+  <!-- The server's own text, never the assistant's and never rendered as HTML. -->
+  <p class="from">{{ 'nh-assistant.elicitation.from' | translate: { server: elicitation().serverName } }}</p>
+  <blockquote class="message" data-message>{{ elicitation().message }}</blockquote>
+
+  @if (elicitation().mode === 'url') {
+    @if (elicitation().url; as url) {
+      <div class="link">
+        <p class="host">
+          <nh-assistant-icon name="link" />
+          {{ 'nh-assistant.elicitation.host' | translate: { host: elicitation().urlHost } }}
+        </p>
+        <p class="url" data-url>{{ url }}</p>
+        @if (actionable()) {
+          <!-- Opens only when the person clicks it; the chat never opens it by itself. -->
+          <a class="open" data-open [href]="url" target="_blank" rel="noopener noreferrer">
+            {{ 'nh-assistant.elicitation.open' | translate: { host: elicitation().urlHost } }}
+          </a>
+        }
+      </div>
+    }
+  } @else if (actionable()) {
+    <form class="fields" (submit)="$event.preventDefault(); submit()">
+      @for (field of elicitation().fields; track field.name) {
+        <div class="field" [attr.data-invalid]="showErrors() && invalid().has(field.name) ? 'true' : null">
+          @switch (field.type) {
+            @case ('boolean') {
+              <label class="check" [for]="fieldId(field)">
+                <input
+                  type="checkbox"
+                  [id]="fieldId(field)"
+                  [name]="field.name"
+                  [checked]="valueOf(field) === true"
+                  [disabled]="disabled()"
+                  (change)="setValue(field, $any($event.target).checked)" />
+                {{ field.title }}
+              </label>
+            }
+            @case ('enum') {
+              <label [for]="fieldId(field)">{{ field.title }}@if (field.required) { <span aria-hidden="true">*</span> }</label>
+              <select
+                [id]="fieldId(field)"
+                [name]="field.name"
+                [required]="field.required"
+                [disabled]="disabled()"
+                (change)="setValue(field, $any($event.target).value)">
+                <option value="" [selected]="valueOf(field) === null">{{ 'nh-assistant.elicitation.choose' | translate }}</option>
+                @for (option of field.options ?? []; track option.value) {
+                  <option [value]="option.value" [selected]="valueOf(field) === option.value">{{ option.label }}</option>
+                }
+              </select>
+            }
+            @default {
+              <label [for]="fieldId(field)">{{ field.title }}@if (field.required) { <span aria-hidden="true">*</span> }</label>
+              <input
+                [id]="fieldId(field)"
+                [name]="field.name"
+                [type]="field.type === 'string' ? 'text' : 'number'"
+                [attr.step]="field.type === 'integer' ? 1 : null"
+                [attr.min]="field.minimum ?? null"
+                [attr.max]="field.maximum ?? null"
+                [attr.maxlength]="field.maxLength ?? null"
+                [required]="field.required"
+                [disabled]="disabled()"
+                [value]="valueOf(field) ?? ''"
+                (input)="setValue(field, $any($event.target).value)" />
+            }
+          }
+          @if (field.description) {
+            <p class="hint">{{ field.description }}</p>
+          }
+          @if (showErrors() && invalid().has(field.name)) {
+            <p class="error" role="alert">{{ 'nh-assistant.elicitation.invalid' | translate }}</p>
+          }
+        </div>
+      }
+    </form>
+  } @else if (elicitation().fields.length > 0) {
+    <ul class="asked" [attr.aria-label]="'nh-assistant.elicitation.asked' | translate">
+      @for (field of elicitation().fields; track field.name) {
+        <li>{{ field.title }}</li>
+      }
+    </ul>
+  }
+
+  @if (actionable()) {
+    <p class="recipient" data-recipient>
+      <nh-assistant-icon name="lock" />
+      {{ 'nh-assistant.elicitation.recipient' | translate: { server: elicitation().serverName } }}
+    </p>
+    <div class="actions">
+      @if (elicitation().mode === 'url') {
+        <button class="primary" type="button" data-done [disabled]="disabled()" (click)="done()">
+          {{ 'nh-assistant.elicitation.done' | translate }}
+        </button>
+      } @else {
+        <button class="primary" type="button" data-submit [disabled]="disabled()" (click)="submit()">
+          {{ 'nh-assistant.elicitation.submit' | translate: { server: elicitation().serverName } }}
+        </button>
+        <button type="button" data-decline [disabled]="disabled()" (click)="decline()">
+          {{ 'nh-assistant.elicitation.decline' | translate }}
+        </button>
+      }
+      <button type="button" data-cancel [disabled]="disabled()" (click)="cancel()">
+        {{ 'nh-assistant.elicitation.cancel' | translate }}
+      </button>
+    </div>
+    <p class="expiry" aria-live="off">
+      <nh-assistant-icon name="clock" />
+      {{ 'nh-assistant.elicitation.expires-in' | translate: { time: countdown() } }}
+    </p>
+    @if (answering()) {
+      <p class="answering" role="status">{{ 'nh-assistant.elicitation.answering' | translate }}</p>
+    }
+  } @else if (effectiveStatus() === 'pending') {
+    <p class="outcome" role="status" data-waiting>{{ 'nh-assistant.elicitation.waiting' | translate }}</p>
+  } @else {
+    <p class="outcome" data-outcome>{{ 'nh-assistant.elicitation.outcome.' + effectiveStatus() | translate: { server: elicitation().serverName } }}</p>
+  }
+</section>

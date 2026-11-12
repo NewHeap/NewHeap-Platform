@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, e
 import { NavigationStart, Router } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 import { NH_ASSISTANT_CONFIG } from '../../nh-assistant.config';
 import { NhAssistantStore } from '../../services/nh-assistant.store';
 import { NhAssistantScreenshotCapture } from './nh-assistant-screenshot-capture';
@@ -12,6 +13,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-screenshot',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-screenshot.component.html',

@@ -5,7 +5,8 @@ import { Subscription } from 'rxjs';
 import {
   AgentThreadMemory,
   NhAssistantAgentRunApiService,
-  ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork
+  ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective
 } from '@newheap/platform-ai-chat';
 
 /**
@@ -16,6 +17,7 @@ import {
 @Component({
   selector: 'nh-assistant-agent-memory',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [DatePipe, TranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-agent-memory.component.html',

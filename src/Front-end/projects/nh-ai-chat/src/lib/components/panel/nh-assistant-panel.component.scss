@@ -1,10 +1,5 @@
 @use '../../styles/tokens';
 
-// The drawer renders inside the CDK overlay container, outside this host element, so the
-// tokens are applied to the drawer root as well.
-@include tokens.tokens;
-@include tokens.tokens('.drawer');
-
 :host {
   display: contents;
 }
@@ -16,6 +11,8 @@
   min-height: 0;
 }
 
+// The drawer renders inside the CDK overlay container, outside this host element, so it carries
+// the tokens directive (`data-nh-assistant-tokens`) of its own.
 .drawer {
   position: relative;
   display: flex;

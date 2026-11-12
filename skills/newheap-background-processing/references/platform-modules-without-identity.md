@@ -82,8 +82,13 @@ The platform's controllers and hub authenticate with the `Bearer` and `Identity.
 schemes; `AddNewHeapAuthenticationForwarding` forwards each one the application did not register
 to its own scheme. Map the hub with `MapNewHeapBackgroundOperations` and the controllers with
 `MapControllers`; a hub connection closes when the authentication it was opened with expires, so the
-client reconnects with its current session. The NewHeap Angular clients expect enum names, so serialize MVC JSON with
-`JsonStringEnumConverter`. Turn on in-app agent notifications with
+client reconnects with its current session, unless on ASP.NET Core 11 with
+`NhBackgroundOperationsOptions.HubAuthenticationRefresh` it refreshes that authentication for the same
+person (its `NameIdentifier`) first. The hub's periodic session check
+(`NhBackgroundOperationsOptions.HubSessionCheckEnabled`, on by default) closes a connection whose
+session ended only when the application registers an `INhAuthenticationSessionValidator` for its own
+sessions; without one the hub relies on the expiry alone. The NewHeap Angular clients expect enum
+names, so serialize MVC JSON with `JsonStringEnumConverter`. Turn on in-app agent notifications with
 `UseInAppAgentNotifications()` on the assistant builder.
 
 ## Avoid

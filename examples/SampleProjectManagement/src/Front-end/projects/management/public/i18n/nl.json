@@ -385,6 +385,9 @@
     "assistant-prompt-list": "Toolaanroep en tabel",
     "assistant-prompt-tools": "Meerdere tool-aanroepen",
     "assistant-prompt-approval": "Goedkeuring",
+    "assistant-prompt-result-cards": "Resultaatkaarten",
+    "assistant-prompt-plan": "Zichtbaar plan",
+    "assistant-result-search-label": "Projecten die de assistent vond",
     "assistant-prompt-question": "Vraag met keuzes",
     "assistant-prompt-legacy-approval": "Oude goedkeuring",
     "assistant-prompt-forbidden": "Mislukte toolaanroep",
@@ -922,5 +925,18 @@
     "unread": "{{count}} ongelezen",
     "bell": "Attenties",
     "bell-unread": "Attenties, {{count}} ongelezen"
+  },
+  "project-task": {
+    "modal-title": "Taak aanmaken",
+    "create-label": "Projecttaak",
+    "create-title": "Een taak aanmaken",
+    "create-description": "Controleer de taak en sla hem op om hem aan het project toe te voegen. Er verandert niets tot je opslaat.",
+    "project": "Project",
+    "project-loading": "Het project wordt geladen...",
+    "project-load-failed": "Het project kon niet worden geladen. Sluit het formulier en open het project vanuit de projectlijst.",
+    "task-title": "Titel",
+    "task-title-help": "Maximaal 180 tekens.",
+    "cancel": "Annuleren",
+    "save": "Taak opslaan"
   }
 }

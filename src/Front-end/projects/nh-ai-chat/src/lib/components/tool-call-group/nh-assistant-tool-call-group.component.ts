@@ -3,19 +3,22 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { ToolCallPart } from '../../models/assistant-api.models';
 import { NhAssistantIconComponent, NhAssistantIconName } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantToolCallCardComponent } from '../tool-call-card/nh-assistant-tool-call-card.component';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 let nextId = 0;
 
 /**
  * Overall state of a run of tool calls, from most to least urgent. `not-executed` means that every
  * call finished and at least one ended without running, because its proposal expired, was
- * withdrawn or became stale. `awaiting-answer` waits for the answer to a question the agent asked.
+ * withdrawn or became stale. `awaiting-answer` waits for the answer to a question the agent asked, and
+ * `awaiting-client` for the app of the person whose turn called a client tool.
  */
-export type NhAssistantToolCallGroupState = 'awaiting-approval' | 'awaiting-answer' | 'running' | 'failed' | 'not-executed' | 'succeeded';
+export type NhAssistantToolCallGroupState = 'awaiting-approval' | 'awaiting-answer' | 'awaiting-client' | 'running' | 'failed' | 'not-executed' | 'succeeded';
 
 const stateIcons: Record<NhAssistantToolCallGroupState, NhAssistantIconName> = {
   'awaiting-approval': 'clock',
   'awaiting-answer': 'clock',
+  'awaiting-client': 'clock',
   running: 'tool',
   failed: 'warning',
   'not-executed': 'stop',
@@ -30,6 +33,7 @@ const stateIcons: Record<NhAssistantToolCallGroupState, NhAssistantIconName> = {
 @Component({
   selector: 'nh-assistant-tool-call-group',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantIconComponent, NhAssistantToolCallCardComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-tool-call-group.component.html',
@@ -47,7 +51,7 @@ export class NhAssistantToolCallGroupComponent {
   /** The call that currently needs attention or runs; the latest one when several do. */
   readonly current = computed(() => {
     const calls = this.calls();
-    return findLast(calls, call => call.status === 'awaiting-approval' || call.status === 'awaiting-answer')
+    return findLast(calls, call => isWaiting(call))
       ?? findLast(calls, call => call.status === 'running')
       ?? null;
   });
@@ -59,7 +63,9 @@ export class NhAssistantToolCallGroupComponent {
   readonly state = computed<NhAssistantToolCallGroupState>(() => {
     const current = this.current();
     if (current) {
-      return current.status === 'awaiting-approval' || current.status === 'awaiting-answer' ? current.status : 'running';
+      return current.status === 'awaiting-approval' || current.status === 'awaiting-answer' || current.status === 'awaiting-client'
+        ? current.status
+        : 'running';
     }
 
     if (this.failed() > 0) {
@@ -76,7 +82,12 @@ export class NhAssistantToolCallGroupComponent {
 }
 
 function isActive(call: ToolCallPart): boolean {
-  return call.status === 'running' || call.status === 'awaiting-approval' || call.status === 'awaiting-answer';
+  return call.status === 'running' || isWaiting(call);
+}
+
+/** Whether the call waits for a person: an approval, an answer or the person's app. */
+function isWaiting(call: ToolCallPart): boolean {
+  return call.status === 'awaiting-approval' || call.status === 'awaiting-answer' || call.status === 'awaiting-client';
 }
 
 function findLast(calls: readonly ToolCallPart[], predicate: (call: ToolCallPart) => boolean): ToolCallPart | undefined {

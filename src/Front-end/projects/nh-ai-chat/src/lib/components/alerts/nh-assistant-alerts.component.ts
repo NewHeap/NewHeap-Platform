@@ -29,6 +29,7 @@ import { NhAssistantAlertBadgeService } from '../../services/nh-assistant-alert-
 import { NhAssistantApiService } from '../../services/nh-assistant-api.service';
 import { NhAssistantPushService } from '../../services/nh-assistant-push.service';
 import { NhAssistantError } from '../../services/nh-assistant.store';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 /** How `nh-assistant-alerts` shows its alerts: a card each, or one row each for a long list. */
 export type NhAssistantAlertDensity = 'comfortable' | 'compact';
@@ -73,6 +74,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-alerts',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [DatePipe, TranslatePipe, NhAssistantIconComponent, NhAssistantTranslatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-alerts.component.html',

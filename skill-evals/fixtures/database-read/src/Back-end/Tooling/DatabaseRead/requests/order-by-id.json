@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "profile": "commerce-development",
+  "sql": "SELECT \"Id\", \"Number\", \"Status\", \"PaidDateTime\", \"LastModifiedDateTime\" FROM \"Orders\" WHERE \"Id\" = @orderId LIMIT 1",
+  "parameters": [
+    {
+      "name": "orderId",
+      "type": "uuid",
+      "value": "00000000-0000-0000-0000-000000000000"
+    }
+  ],
+  "limits": {
+    "maximumRows": 1,
+    "timeoutSeconds": 10
+  },
+  "reason": "Read one order by its id"
+}

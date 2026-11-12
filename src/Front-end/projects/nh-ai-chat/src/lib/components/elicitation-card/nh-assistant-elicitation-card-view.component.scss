@@ -1,0 +1,206 @@
+@use '../../styles/tokens';
+
+:host {
+  display: block;
+  // A pending request's color is also its header and status text, so it reads as text.
+  --nha-status-color: var(--nha-link);
+  --nha-status-background: var(--nha-surface-strong);
+}
+
+:host([data-status='accepted']) { --nha-status-color: var(--nha-success); --nha-status-background: var(--nha-success-soft); }
+:host([data-status='declined']),
+:host([data-status='expired']),
+:host([data-status='cancelled']) { --nha-status-color: var(--nha-text-muted); --nha-status-background: var(--nha-surface-strong); }
+
+.card {
+  border: 1px solid var(--nha-status-color);
+  border-radius: var(--nha-radius-control);
+  padding: 12px;
+  color: var(--nha-text);
+  background: var(--nha-background);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--nha-status-color);
+}
+
+h3 {
+  flex: 1;
+  margin: 0;
+  color: var(--nha-text);
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.status {
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--nha-status-color);
+  background: var(--nha-status-background);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.from {
+  margin: 8px 0 0;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+}
+
+.message {
+  margin: 4px 0 0;
+  border-inline-start: 3px solid var(--nha-border);
+  padding: 4px 0 4px 10px;
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.link {
+  margin: 10px 0 0;
+}
+
+.host {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.url {
+  margin: 4px 0 0;
+  color: var(--nha-text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.open {
+  display: inline-block;
+  margin: 8px 0 0;
+  color: var(--nha-link);
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  @include tokens.focus-ring;
+}
+
+.fields {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 0;
+}
+
+.field {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+
+  label {
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+
+  .check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  input:not([type='checkbox']),
+  select {
+    min-height: 36px;
+    max-width: 100%;
+    border: 1px solid var(--nha-border);
+    border-radius: var(--nha-radius-control);
+    padding: 6px 10px;
+    color: var(--nha-text);
+    background: var(--nha-background);
+    font: inherit;
+    @include tokens.focus-ring;
+  }
+}
+
+.field[data-invalid='true'] input:not([type='checkbox']),
+.field[data-invalid='true'] select {
+  border-color: var(--nha-danger, var(--nha-accent));
+}
+
+.hint,
+.error {
+  margin: 0;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+}
+
+.error {
+  color: var(--nha-danger, var(--nha-text));
+}
+
+.asked {
+  margin: 10px 0 0;
+  padding-inline-start: 18px;
+  color: var(--nha-text-muted);
+  font-size: 13px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+button {
+  min-height: 36px;
+  max-width: 100%;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius-control);
+  padding: 6px 14px;
+  color: var(--nha-text);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  @include tokens.focus-ring;
+
+  &.primary {
+    border-color: var(--nha-accent);
+  }
+
+  &:hover:not(:disabled) {
+    border-color: var(--nha-accent);
+    background: var(--nha-surface-strong);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: .55;
+  }
+}
+
+.recipient,
+.expiry,
+.answering,
+.outcome {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  color: var(--nha-text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.outcome {
+  color: var(--nha-text);
+}

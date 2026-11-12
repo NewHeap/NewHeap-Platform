@@ -28,7 +28,8 @@ public interface INhAiToolConcurrencyLimiter
     /// The invoker passes a token that ends at the call's wait bound, the earlier of the tool's
     /// <see cref="NhAiToolDescriptor.Timeout"/> and the invocation context's
     /// <see cref="NhAiInvocationContext.Deadline"/> on the application's clock, or when its own caller
-    /// cancels. Return a refusal, or throw <see cref="OperationCanceledException"/>, when the token ends
+    /// cancels. A call that let its slot go while it waited for a person, such as the person who answers
+    /// an MCP server's request for input, asks again before it goes on, bounded by the time it has left. Return a refusal, or throw <see cref="OperationCanceledException"/>, when the token ends
     /// before a slot is free: the invoker then refuses the call with
     /// <see cref="NhAiToolFailureCodes.ConcurrencyLimited"/>, or rethrows when its caller cancelled.
     /// The default implementation does not wait: it asks <see cref="TryAcquireAsync"/> once, so a

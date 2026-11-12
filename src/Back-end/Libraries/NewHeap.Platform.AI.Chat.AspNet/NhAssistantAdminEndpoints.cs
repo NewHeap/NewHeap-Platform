@@ -211,7 +211,7 @@ internal static class NhAssistantAdminEndpoints
         admin.MapPost("mcp-servers", CreateMcpServerAsync)
             .WithName("NhAssistantAdminCreateMcpServer")
             .WithSummary("Connect an MCP server")
-            .WithDescription("Stores an MCP server; the secret is protected and never returned. headlessUse starts at never unless the body sets organization. Invalid fields answer 400 assistant-validation with errors per field (id, displayName, url, authMode, headerName, secret, secretReference, userName, clientCertificateReference, transport, connectionScope, requiredPolicy, headlessUse and the dotted oauth.scopes, oauth.clientId, oauth.clientSecret, oauth.clientSecretReference, oauth.organizationAccountLabel, oauth.confirmAuthorization); a reference that names no available secret or certificate is not-found at its field. Confirming the authorization runs discovery (502 when it fails); a secret resolver that fails answers 503 assistant-mcp-secret-unavailable.")
+            .WithDescription("Stores an MCP server; the secret is protected and never returned. headlessUse starts at never unless the body sets organization, and elicitationWaitMinutes, how long the server's requests for input wait for the person of a chat turn, at 5 unless the body sets 1 to 10. Invalid fields answer 400 assistant-validation with errors per field (id, displayName, url, authMode, headerName, secret, secretReference, userName, clientCertificateReference, transport, connectionScope, requiredPolicy, headlessUse, elicitationWaitMinutes and the dotted oauth.scopes, oauth.clientId, oauth.clientSecret, oauth.clientSecretReference, oauth.organizationAccountLabel, oauth.confirmAuthorization); a reference that names no available secret or certificate is not-found at its field. Confirming the authorization runs discovery (502 when it fails); a secret resolver that fails answers 503 assistant-mcp-secret-unavailable.")
             .Produces<NhAssistantMcpServerDto>(StatusCodes.Status201Created)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
@@ -221,7 +221,7 @@ internal static class NhAssistantAdminEndpoints
         admin.MapPut("mcp-servers/{id}", UpdateMcpServerAsync)
             .WithName("NhAssistantAdminUpdateMcpServer")
             .WithSummary("Update an MCP server")
-            .WithDescription("Updates a server. An omitted secret is kept and an empty secret is cleared; an omitted headlessUse is kept. Field errors, discovery and secret failures answer as for creating a server.")
+            .WithDescription("Updates a server. An omitted secret is kept and an empty secret is cleared; an omitted headlessUse or elicitationWaitMinutes is kept. Field errors, discovery and secret failures answer as for creating a server.")
             .Produces<NhAssistantMcpServerDto>()
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status400BadRequest)
@@ -1258,7 +1258,8 @@ internal static class NhAssistantAdminEndpoints
                     reader?.ToolName,
                     reader?.MaxClassification,
                     reader?.Priority ?? 0))
-                .ToArray()
+                .ToArray(),
+            ElicitationWaitMinutes = body.ElicitationWaitMinutes
         }, errors);
     }
 

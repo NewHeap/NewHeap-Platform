@@ -881,6 +881,10 @@
         <dt>{{ 'nh-assistant.admin.agent-page.code.questions' | translate }}</dt>
         <dd data-code-setting="questions">{{ (code.allowQuestions ? 'nh-assistant.admin.agent-page.code.yes' : 'nh-assistant.admin.agent-page.code.no') | translate }}</dd>
       }
+      @if (code.keepsPlan !== undefined) {
+        <dt>{{ 'nh-assistant.admin.run-config.plan.label' | translate }}</dt>
+        <dd data-code-setting="plan">{{ (code.keepsPlan ? 'nh-assistant.admin.agent-page.code.yes' : 'nh-assistant.admin.agent-page.code.no') | translate }}</dd>
+      }
       @if (code.maxConsultationsPerTurn) {
         <dt>{{ 'nh-assistant.admin.agent-page.code.consultations-per-turn' | translate }}</dt>
         <dd data-code-setting="consultations-per-turn">{{ code.maxConsultationsPerTurn | number }}</dd>

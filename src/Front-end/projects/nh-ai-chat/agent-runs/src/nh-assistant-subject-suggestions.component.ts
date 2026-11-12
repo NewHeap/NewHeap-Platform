@@ -28,6 +28,7 @@ import {
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
@@ -56,6 +57,7 @@ interface NhAssistantStartedAgent {
 @Component({
   selector: 'nh-assistant-subject-suggestions',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     TranslatePipe,
     NhAssistantTranslatePipe,

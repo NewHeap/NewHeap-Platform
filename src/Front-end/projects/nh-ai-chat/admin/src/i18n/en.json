@@ -538,6 +538,9 @@
         "headless-use": "Background runs",
         "headless-use-hint": "Agents that work without a person may use the tools with this server's own credential. The call still needs the rights of the person the agent works for, or, for an agent that acts for itself, a grant in the application code (mcp.<server id>.*).",
         "headless-use-personal": "Background runs may use the server with a short-lived token of the person the run acts for, only after that person allowed it in their preferences.",
+        "elicitation-wait": "Wait for a person",
+        "elicitation-wait-hint": "When a tool of this server asks the person of a chat for input, the chat waits this many minutes, from {{min}} to {{max}}, for the answer. The tool's own timeout and the turn's time limit stand still meanwhile, up to ten minutes per chat turn in all.",
+        "elicitation-wait-invalid": "Enter a whole number of minutes from {{min}} to {{max}}.",
         "required-policy": "Required policy",
         "required-policy-hint": "Optional. The server's tools are only available to users who pass this policy.",
         "enabled": "Server is enabled",
@@ -749,6 +752,10 @@
         "replay-progress": "{{replayed}} of at most {{max}} runs replayed, {{skipped}} skipped"
       },
       "run-config": {
+        "plan": {
+          "label": "Keeps a visible plan",
+          "agent-hint": "The agent shows a short checklist of its work in chats and runs, which people see as the agent's plan. Off until you switch it on."
+        },
         "files": {
           "label": "Accepts files",
           "agent-hint": "People's messages and the agent's tools may give it documents, such as PDFs, within the application's limits. A new agent accepts none until you switch this on.",

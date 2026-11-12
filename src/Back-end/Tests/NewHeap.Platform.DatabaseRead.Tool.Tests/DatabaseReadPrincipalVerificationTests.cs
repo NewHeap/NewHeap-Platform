@@ -343,12 +343,22 @@ public sealed class DatabaseReadPrincipalVerificationTests
         return verification.IsReadOnly ? "read-only" : $"rejected by {verification.FailedCheck ?? "(no check)"}";
     }
 
+    /// <summary>
+    /// How long a grant or revocation of the test may run. Server-scope grants change <c>master</c>,
+    /// where the process's other tests create their databases at the same time, so under the parallel
+    /// load of the full test matrix one can wait behind a slow <c>CREATE DATABASE</c> for longer than the
+    /// driver's default of 30 seconds. The bound only matters when the server hangs.
+    /// </summary>
+    private static readonly int PreparationCommandTimeoutSeconds =
+        (int)RelationalTestServer.PreparationCommandTimeout.TotalSeconds;
+
     private static async Task ExecutePostgreSqlAsync(string connectionString, string sql)
     {
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync();
         await using var command = connection.CreateCommand();
         command.CommandText = sql;
+        command.CommandTimeout = PreparationCommandTimeoutSeconds;
         await command.ExecuteNonQueryAsync();
     }
 
@@ -366,6 +376,7 @@ public sealed class DatabaseReadPrincipalVerificationTests
                 await using var command = connection.CreateCommand();
                 command.Transaction = transaction;
                 command.CommandText = sql;
+                command.CommandTimeout = PreparationCommandTimeoutSeconds;
                 await command.ExecuteNonQueryAsync();
                 await transaction.CommitAsync();
                 return;

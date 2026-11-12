@@ -34,6 +34,7 @@ import {
   TriggerComparison,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
@@ -119,6 +120,7 @@ interface Confirmation {
 @Component({
   selector: 'nh-assistant-agent-run-configuration',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     DatePipe,
     DecimalPipe,

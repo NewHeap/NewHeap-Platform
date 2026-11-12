@@ -4,8 +4,8 @@ title: "Add a governed assistant with durable conversations and in-chat approval
 area: backend
 reference: ai-assistant
 summary: "Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, share conversations with colleagues who continue them with their own permissions, follow them live and notify people who are away, and let administrators manage agents, MCP servers and the application context while users set style preferences."
-sample-cases: ["SPM-245", "SPM-246", "SPM-247", "SPM-249", "SPM-250", "SPM-251", "SPM-252", "SPM-254", "SPM-263", "SPM-264", "SPM-266", "SPM-278", "SPM-289", "SPM-291", "SPM-299", "SPM-300", "SPM-305", "SPM-306", "SPM-312", "SPM-323", "SPM-331", "SPM-332", "SPM-334", "SPM-341", "SPM-342", "SPM-345", "SPM-346", "SPM-347", "SPM-358", "SPM-359", "SPM-363", "SPM-366", "SPM-371", "SPM-372", "SPM-380", "SPM-381", "SPM-383", "SPM-384", "SPM-399"]
-public-symbols: ["AddNewHeapAssistant", "UseApplicationBudgetInTurns", "INhAssistantMcpCredentialProvider", "AddMcpCredentialProvider", "NhAssistantMcpCredentialProviders", "NhAssistantMcpCredentialOwnership", "NhAssistantMcpCredential", "NhAssistantMcpCredentialSubject", "NhAssistantMcpChallenge", "NhAssistantMcpAuthModeDto", "MapNewHeapAssistant", "NhAssistantBuilder", "NhAssistantAgentDefinition", "NhAssistantLimits", "NhAssistantOptions", "NhAssistantDbContextOptions", "UseSqlServer", "UsePostgreSql", "INhAssistantBusinessAuditSink", "NhAssistantAuditEvent", "INhAssistantTitleGenerator", "NhAssistantTextAssets", "NhAiScriptedChatClient", "UseAdminPolicy", "UseDefaultApplicationContext", "ConfigureMcp", "NhAssistantMcpOptions", "NhAssistantAuditEventKind", "INhAssistantTurnContextProvider", "NhAssistantContextFact", "UseTurnContextProvider", "UseTimeZone", "INhAssistantToolPresenter", "NhAssistantApprovalPresentation", "NhAssistantPresentationField", "NhAssistantPresentationLimits", "FindBrokenRule", "NhAssistantPresentationRules", "AddToolPresenter", "INhAssistantParticipantDirectory", "NhAssistantDirectoryEntry", "NhAssistantDirectorySearch", "NhAssistantDirectoryLookup", "UseParticipantDirectory", "INhAssistantDisplayNameResolver", "UseDisplayNameResolver", "NhAssistantParticipantRoles", "NhAssistantParticipantSources", "ConfigurePush", "NhAssistantPushOptions", "NhAssistantWebPushKeys", "NhAssistantHub", "INhAssistantHubClient", "AddMcpContextBinding", "NhAssistantMcpContextBinding", "NhAssistantMcpHeadlessUses", "NhAssistantMcpTransports", "NhAssistantMcpAuthModes", "NhAssistantMcpConnectionScopes", "NhAssistantMcpConnectionStatuses", "NhAssistantMcpOAuthOptions", "NhAssistantMcpConnectionReasons", "AddNewHeapAssistantMcpHealthCheck", "INhAssistantMcpSecretResolver", "NhAssistantMcpSecretReferences", "AddMcpSecretResolver", "NhAssistantMcpContext", "INhAssistantConversationSnapshotProvider", "NhAssistantConversationSnapshotRequest", "NhAssistantConversationSnapshot", "NhAssistantSnapshotMessage", "NhAssistantSnapshotCodes", "ConfigureAgentContext", "NhAssistantAgentContextBuilder", "NhAssistantAgentContextOptions", "UseApplicationMap", "MaxApplicationMapCharacters", "ApplicationMapTimeout", "UseFileSource", "INhAssistantFileSource", "NhAssistantFile", "NhAssistantFileActor", "NhAssistantFileUpload", "NhAssistantFileOrigins", "NhAssistantFileLimits", "NhAiFileReference", "INhAiToolResultFiles", "NhAiMediaTypes", "MaxFileBytes", "MaxFilePages", "MaxFilesPerTurn", "MaxFileTokensPerTurn", "AddFileReader", "INhAssistantFileReader", "NhAssistantFileReadRequest", "NhAssistantFileReaderBuilder", "NhAssistantMcpReaders", "ConfigureUploads", "NhAssistantUploadOptions", "NhAssistantAgentUploadsDto", "NhAssistantSendMessageRequest", "NhAssistantPageScreenshotRequestedDto", "NhAssistantUploadExtensionDto", "NhAssistantFilePartDto", "INhAssistantUploadScanner", "UseScanner", "ReaderTextRetention", "ReaderCallTimeout", "MaxTextCharacters", "MaxResponseBytes", "MaxToolListPages", "MaxTools", "INhAssistantConversationMessages", "NhAssistantApplicationMessage", "NhAssistantApplicationMessageLink", "NhAssistantApplicationMessageAccess", "NhAssistantMarkdown", "NhAssistantConversationPerson", "NhAssistantApplicationMessageReceipt", "NhAssistantMessageRoles", "NhAssistantMessageAuthorKinds", "NhAssistantMessageDto", "NhAssistantApplicationMessageDto", "NhAssistantApplicationMessageLinkDto", "INhAssistantMcpServers", "NhAssistantMcpServerRequest", "NhAssistantMcpOAuthRequest", "NhAssistantMcpReaderRequest", "NhAssistantMcpToolSettingsRequest", "NhAssistantMcpServerLimits", "NhAssistantMcpServerDto", "NhAssistantMcpToolDto", "NhAssistantMcpServerTestResultDto", "MaxToolsAwaitingSync", "AwaitingSync", "AdminMcpToolReviewedBeforeSync", "AdminMcpToolSeenAfterReview", "AllowLoopback", "MaxConsultationsPerTurn", "KeepTurnsAfterDisconnect", "INhAssistantConversationTurns", "NhAssistantConversationMessage", "NhAssistantConversationDecision", "NhAssistantConversationTurnOptions", "NhAssistantConversationTurnResult", "AllowQuestions", "NhAssistantQuestionStatuses", "NhAssistantQuestionLimits", "NhAssistantQuestionPartDto", "NhAssistantAnswerQuestionRequest", "NhAssistantConversationDto", "INhAssistantConversations", "NhAssistantNewConversation", "NhAssistantConversationOptions", "NhAssistantConversationAnswer", "NhAssistantConversationPage", "NhAssistantConversationUpload", "INhAssistantFileRetention", "NhAssistantForgottenConversation", "NhAssistantFileRetentionReasons", "UseFileRetention", "ForgetConversationAsync", "INhAiTurnPerson", "IncludeChain", "UseMcpChainApplication", "ContinueMcpChain", "NhAssistantMcpChainCaller", "BinderId", "MaxChainAgents", "MaxApplicationIdLength", "IsApplicationId", "UseMcpLinks", "INhAssistantMcpLinks", "NhAssistantMcpLinkList", "NhAssistantMcpLinkProblems", "LinkCacheDuration", "INhAssistantCompositionSwitch", "NhAssistantCompositionSwitchContext", "NhAssistantCompositionChannel", "UseCompositionSwitch", "AllowCompositions", "AllowScripts", "UseCompositionsAsData", "NhAssistantCompositionCeiling", "NhAssistantCompositionCeilingBuilder", "NhAssistantAgentCompositionSettings", "INhAssistantCompositionStatus", "NhAssistantCompositionStatusRequest", "NhAssistantCompositionStatusDto", "NhAssistantCompositionFeatureStatusDto", "NhAssistantCompositionChannelStatusDto", "NhAssistantCompositionReasons", "NhAssistantCompositionChannels", "NhAssistantCompositionCeilingDto", "NhAiCompositionFeature", "NhAiCompositionFeatures", "AddComposition", "NhAssistantCompositionBuilder", "NhAssistantCompositionContext", "NhAssistantCompositionLimits", "NhAssistantCompositionCodes", "INhAssistantToolSteps", "NhAssistantToolStepRequest", "NhAssistantToolStepSession", "NhAssistantToolStep", "NhAssistantToolStepStatus", "NhAssistantToolStepCodes", "NhAssistantToolStepLimits", "NhAssistantToolStepActivity", "NhAssistantCompositionActivityDto", "NhAssistantCompositionToolUsageDto", "NhAssistantCompositionCallDto", "NhAssistantCompositionStepDto", "getAgentCompositionActivity", "AgentCompositionActivity", "NhAssistantAgentCompositionActivityComponent", "RequireChatSubject", "RequiresChatSubject", "NhAssistantConversationSubjectDto", "ConversationSubject", "NhAssistantBriefingPurposes", "NhAssistantHttpStatuses", "NhAssistantClientContextDto", "NhAssistantTurnWait", "NhAssistantTurnProgress", "NhAssistantTurnProgressKinds", "NhAssistantTurnProgressTool", "NhAssistantTurnTimings", "ExportImportedMcpTools", "INhAssistantImportedMcpToolExportSelector", "NhAssistantExportableMcpTool", "NhAssistantImportedMcpToolExport", "NhAssistantImportedMcpToolExports", "NhAssistantMcpExportCall"]
+sample-cases: ["SPM-245","SPM-246","SPM-247","SPM-249","SPM-250","SPM-251","SPM-252","SPM-254","SPM-263","SPM-264","SPM-266","SPM-278","SPM-289","SPM-291","SPM-299","SPM-300","SPM-305","SPM-306","SPM-312","SPM-323","SPM-331","SPM-332","SPM-334","SPM-341","SPM-342","SPM-345","SPM-346","SPM-347","SPM-358","SPM-359","SPM-363","SPM-364","SPM-366","SPM-370","SPM-371","SPM-372","SPM-380","SPM-381","SPM-383","SPM-384","SPM-399","SPM-400"]
+public-symbols: ["AddNewHeapAssistant","UseApplicationBudgetInTurns","INhAssistantMcpCredentialProvider","AddMcpCredentialProvider","NhAssistantMcpCredentialProviders","NhAssistantMcpCredentialOwnership","NhAssistantMcpCredential","NhAssistantMcpCredentialSubject","NhAssistantMcpChallenge","NhAssistantMcpAuthModeDto","MapNewHeapAssistant","NhAssistantBuilder","NhAssistantAgentDefinition","NhAssistantLimits","NhAssistantOptions","NhAssistantDbContextOptions","UseSqlServer","UsePostgreSql","INhAssistantBusinessAuditSink","NhAssistantAuditEvent","INhAssistantTitleGenerator","NhAssistantTextAssets","NhAiScriptedChatClient","UseAdminPolicy","UseDefaultApplicationContext","ConfigureMcp","NhAssistantMcpOptions","NhAssistantAuditEventKind","INhAssistantTurnContextProvider","NhAssistantContextFact","UseTurnContextProvider","UseTimeZone","INhAssistantToolPresenter","NhAssistantApprovalPresentation","NhAssistantPresentationField","NhAssistantPresentationLimits","FindBrokenRule","NhAssistantPresentationRules","AddToolPresenter","INhAssistantParticipantDirectory","NhAssistantDirectoryEntry","NhAssistantDirectorySearch","NhAssistantDirectoryLookup","UseParticipantDirectory","INhAssistantDisplayNameResolver","UseDisplayNameResolver","NhAssistantParticipantRoles","NhAssistantParticipantSources","ConfigurePush","NhAssistantPushOptions","NhAssistantWebPushKeys","NhAssistantHub","INhAssistantHubClient","AddMcpContextBinding","NhAssistantMcpContextBinding","NhAssistantMcpHeadlessUses","NhAssistantMcpTransports","NhAssistantMcpAuthModes","NhAssistantMcpConnectionScopes","NhAssistantMcpConnectionStatuses","NhAssistantMcpOAuthOptions","NhAssistantMcpConnectionReasons","AddNewHeapAssistantMcpHealthCheck","INhAssistantMcpSecretResolver","NhAssistantMcpSecretReferences","AddMcpSecretResolver","NhAssistantMcpContext","INhAssistantConversationSnapshotProvider","NhAssistantConversationSnapshotRequest","NhAssistantConversationSnapshot","NhAssistantSnapshotMessage","NhAssistantSnapshotCodes","ConfigureAgentContext","NhAssistantAgentContextBuilder","NhAssistantAgentContextOptions","UseApplicationMap","MaxApplicationMapCharacters","ApplicationMapTimeout","UseFileSource","INhAssistantFileSource","NhAssistantFile","NhAssistantFileActor","NhAssistantFileUpload","NhAssistantFileOrigins","NhAssistantFileLimits","NhAiFileReference","INhAiToolResultFiles","NhAiMediaTypes","MaxFileBytes","MaxFilePages","MaxFilesPerTurn","MaxFileTokensPerTurn","AddFileReader","INhAssistantFileReader","NhAssistantFileReadRequest","NhAssistantFileReaderBuilder","NhAssistantMcpReaders","ConfigureUploads","NhAssistantUploadOptions","NhAssistantAgentUploadsDto","NhAssistantUploadExtensionDto","NhAssistantFilePartDto","INhAssistantUploadScanner","UseScanner","ReaderTextRetention","ReaderCallTimeout","MaxTextCharacters","MaxResponseBytes","MaxToolListPages","MaxTools","INhAssistantConversationMessages","NhAssistantApplicationMessage","NhAssistantApplicationMessageLink","NhAssistantApplicationMessageAccess","NhAssistantMarkdown","NhAssistantConversationPerson","NhAssistantApplicationMessageReceipt","NhAssistantMessageRoles","NhAssistantMessageAuthorKinds","NhAssistantMessageDto","NhAssistantApplicationMessageDto","NhAssistantApplicationMessageLinkDto","INhAssistantMcpServers","NhAssistantMcpServerRequest","NhAssistantMcpOAuthRequest","NhAssistantMcpReaderRequest","NhAssistantMcpToolSettingsRequest","NhAssistantMcpServerLimits","NhAssistantMcpServerDto","NhAssistantMcpToolDto","NhAssistantMcpServerTestResultDto","MaxToolsAwaitingSync","AwaitingSync","ElicitationWaitMinutes","MinElicitationWaitMinutes","DefaultElicitationWaitMinutes","MaxElicitationWaitMinutes","MaxTurnPauseMinutes","AdminMcpToolReviewedBeforeSync","AdminMcpToolSeenAfterReview","AllowLoopback","MaxConsultationsPerTurn","KeepTurnsAfterDisconnect","INhAssistantConversationTurns","NhAssistantConversationMessage","NhAssistantConversationDecision","NhAssistantConversationTurnOptions","NhAssistantConversationTurnResult","AllowQuestions","NhAssistantQuestionStatuses","NhAssistantQuestionLimits","NhAssistantQuestionPartDto","NhAssistantAnswerQuestionRequest","NhAssistantConversationDto","INhAssistantConversations","NhAssistantNewConversation","NhAssistantConversationOptions","NhAssistantConversationAnswer","NhAssistantConversationPage","NhAssistantConversationUpload","INhAssistantFileRetention","NhAssistantForgottenConversation","NhAssistantFileRetentionReasons","UseFileRetention","ForgetConversationAsync","INhAiTurnPerson","IncludeChain","UseMcpChainApplication","ContinueMcpChain","NhAssistantMcpChainCaller","BinderId","MaxChainAgents","MaxApplicationIdLength","IsApplicationId","UseMcpLinks","INhAssistantMcpLinks","NhAssistantMcpLinkList","NhAssistantMcpLinkProblems","LinkCacheDuration","INhAssistantCompositionSwitch","NhAssistantCompositionSwitchContext","NhAssistantCompositionChannel","UseCompositionSwitch","AllowCompositions","AllowScripts","UseCompositionsAsData","NhAssistantCompositionCeiling","NhAssistantCompositionCeilingBuilder","NhAssistantAgentCompositionSettings","INhAssistantCompositionStatus","NhAssistantCompositionStatusRequest","NhAssistantCompositionStatusDto","NhAssistantCompositionFeatureStatusDto","NhAssistantCompositionChannelStatusDto","NhAssistantCompositionReasons","NhAssistantCompositionChannels","NhAssistantCompositionCeilingDto","NhAiCompositionFeature","NhAiCompositionFeatures","AddComposition","NhAssistantCompositionBuilder","NhAssistantCompositionContext","NhAssistantCompositionLimits","NhAssistantCompositionCodes","INhAssistantToolSteps","NhAssistantToolStepRequest","NhAssistantToolStepSession","NhAssistantToolStep","NhAssistantToolStepStatus","NhAssistantToolStepCodes","NhAssistantToolStepLimits","NhAssistantToolStepActivity","NhAssistantCompositionActivityDto","NhAssistantCompositionToolUsageDto","NhAssistantCompositionCallDto","NhAssistantCompositionStepDto","getAgentCompositionActivity","AgentCompositionActivity","NhAssistantAgentCompositionActivityComponent","RequireChatSubject","RequiresChatSubject","NhAssistantConversationSubjectDto","ConversationSubject","NhAssistantBriefingPurposes","NhAssistantHttpStatuses","NhAssistantClientContextDto","NhAssistantTurnWait","NhAssistantTurnProgress","NhAssistantTurnProgressKinds","NhAssistantTurnProgressTool","NhAssistantTurnTimings","ExportImportedMcpTools","INhAssistantImportedMcpToolExportSelector","NhAssistantExportableMcpTool","NhAssistantImportedMcpToolExport","NhAssistantImportedMcpToolExports","NhAssistantMcpExportCall","NhAssistantPresentationFieldChange","INhAssistantToolResultPresenter","NhAssistantToolResultPresentation","NhAssistantToolResultPresentationContext","NhAssistantPresentationLink","AddToolResultPresenter","FindBrokenResultRule","NhAssistantToolResultPresentationDto","NhAssistantPresentationLinkDto","NhAssistantPresentationFieldDto","NhAssistantElicitationPartDto","NhAssistantElicitationFieldDto","NhAssistantElicitationOptionDto","NhAssistantAnswerElicitationRequest","AddClientTool","NhAssistantClientToolBuilder","HandsOffChange","NhAssistantClientToolStatuses","NhAssistantClientToolLimits","ClientToolLifetime","AwaitingClient","NhAssistantClientToolDto","NhAssistantClientToolResultRequest","ClientToolRequested","ClientToolCompleted","ClientToolExpired","MapNewHeapAssistantAGUI","NhAssistantAGUICustomEvents","NhAssistantSendMessageRequest","NhAssistantPageScreenshotRequestedDto"]
 skills: ["newheap-backend-development"]
 providers: ["sql-server", "postgresql"]
 risk: high
@@ -143,6 +143,27 @@ and assert `null` (SPM-347). A proposal is presented in every supported UI cultu
 localization, which NewHeap hosts fill from
 `NewHeap:PlatformAspNetCommon:Settings:SupportedCultures`, at most eight
 (`MaxCultures`), so each approver reads their own language (SPM-246).
+
+For an update, state what a field holds now so the approver sees what changes: create it with
+`NhAssistantPresentationField.Changing(label, currentValue, proposedValue)`, or set the init-only
+`CurrentValue` next to `Value`. `Change` (`NhAssistantPresentationFieldChange`) then reads
+`Unchanged`, `Added` (empty now), `Changed` or `Cleared` (an empty `Value`, allowed only with a current
+value), and the approval card, the agent proposals list and other clients show both values with the
+change in words. A field without `CurrentValue` stays a plain fact, and stored approvals of older
+versions read as before. The current value has the same cap as the value
+(`field-current-value-too-long`); read it again inside the authorized scope, as the sample's status
+change does (SPM-246).
+
+Use `AddToolResultPresenter<T>()` with an `INhAssistantToolResultPresenter` to show a trusted card of
+what a call returned instead of only the tool's name (generative UI). It receives the authorized
+`Data` of a call that succeeded (`ReadData<T>()`), the untrusted model `Arguments` and the culture, and
+returns a `NhAssistantToolResultPresentation`: a title of 160 characters, an optional summary, at most
+eight fields and an optional `NhAssistantPresentationLink` to a path within the application. The same
+caps, timeout, drop with a content-free warning and confidential exclusion apply; test it with
+`NhAssistantPresentationLimits.FindBrokenResultRule`. The card never reaches the model and never shows
+raw JSON. It is presented in every supported culture, sent on `tool.completed` as `resultPresentation`,
+stored with the conversation as a message part, so a reload and the live updates of other
+participants show it, and left out for a viewer from whom the result is shielded (SPM-246, SPM-248).
 
 The library replaces `INhAiBudgetManager`, `INhAiIdempotencyManager` and
 `INhAiApprovalEvidenceProvider` with durable implementations on its own tables.
@@ -637,10 +658,29 @@ connections. A removed participant, a person whose role on the subject ended and
 agent permission was revoked therefore stop receiving updates within ten seconds without any
 client action, also while an old participant row still names them. A connection lasts as long
 as its session: the hub closes it when the token it was opened with expires
-(`CloseOnAuthenticationExpiration`), and every minute it validates the connection's principal
+(`CloseOnAuthenticationExpiration`), and every minute on the application's clock it validates the connection's principal
 again with `INhAuthenticationSessionValidator` and closes it once a password change or reset
 changed the security stamp, the user was deleted or an impersonation's origin session ended;
-the client reconnects with its current session. The hub sends
+the client reconnects with its current session. On ASP.NET Core 11 opt in with
+`NhAssistantOptions.HubAuthenticationRefresh` (`NewHeap:AI:Assistant:HubAuthenticationRefresh`,
+false by default, read when the hub is mapped), as the sample does (SPM-263), to let a client
+refresh its connection's authentication instead of reconnecting: the hub then maps SignalR's
+`/refresh` endpoint below its path, which requires the access policy, so an expired token or a
+removed user is refused with 401, and a token of another person or of another impersonation
+origin with 403, after which the connection keeps its own principal until that expires. An
+accepted refresh keeps the connection, its groups and its watch only while the refreshed principal
+resolves to the same actor in the same tenant; the hub closes it otherwise, also when the refresh
+completed while the connection still joined its groups, and the session check validates the
+refreshed principal from then on. `GET status` reports it as `collaboration.hubAuthenticationRefresh`.
+The .NET client refreshes with `WithAuthenticationRefresh` and `RefreshAuthenticationAsync`. In the
+browser, give `provideNhAssistant` an `accessTokenChanges` that emits when the session renews the
+token `getAccessToken` returns, such as `() => inject(MyAuthService).authSubject`, as the sample does:
+with `@microsoft/signalr` 11 and the status field, `NhAssistantLiveService` then refreshes the open
+connection with a renewed token of the same state scope (`getStateScope`) instead of letting it close
+at expiry, restarts it and reloads snapshots when the hub refuses the token, and leaves a token of
+another account to the restart the account switch brings. `nh-ai-chat` still accepts
+`@microsoft/signalr` 10, with which the connection closes on expiry and reconnects as before. On
+ASP.NET Core 10 the option changes nothing. The hub sends
 `ConversationChanged`, `ConversationRead` (to the reader only), `ConversationRemoved`
 and `ConversationEvent` with the same turn events the starting request streams plus
 `message.created`. NewHeap hosts read the bearer token and active division from the
@@ -732,6 +772,88 @@ in a chat, so it cannot tell the parts of one turn apart. The question itself co
 size `MaxToolCallsPerTurn` for the work plus the questions it may need. A decision on an inline
 approval still starts a new allowance: a person who decides a proposal approves real work, and each
 proposal costs the model a call that needs that decision.
+
+## Client tools in the person's browser
+
+Some work belongs in the application's own interface rather than on the server: opening a page, or
+opening the application's own create form so the person reviews and saves the change themselves.
+Declare such a tool on the server with `AddClientTool<TInput>(toolId, tool => tool.Describe(...)
+.RequirePolicy(...))` (SPM-400). The application owns its id, description, input (the JSON schema of
+`TInput`, bound with required constructor parameters and nullable annotations respected) and policies;
+a browser never declares a tool, so the model never reads text a browser wrote. The browser registers
+a handler per tool id and names the ids it can run with every request that carries a turn
+(`clientTools` on the message, decision, answer and client tool result requests); ids the application
+did not declare are ignored. A client tool is a governed read-only tool that only agents see: the
+agent's selectors select it, the invocation gate checks the person's policies, and the tool budget,
+`MaxToolCallsPerTurn` and the content-free audit count it. Mark a tool that opens a form for a change
+with `HandsOffChange()`: it is offered only where the agent's model is offered changes in a person's
+chat (execute autonomy), exactly where it could propose the same change, and its description tells the
+model to prefer the hand-off over a proposal while the person takes part. Keep proposals for runs,
+consultations and changes the person should approve rather than make.
+
+A turn offers a client tool only in a person's own chat whose browser declared its handler; agent
+threads, runs, rule turns, consultations, an application's channel (`INhAssistantConversationTurns`),
+follow-up turns, a step of a composition or script, and MCP clients never get one, and a call there
+ends at once as `not-executed` with `assistant-client-tool-unavailable`, without running anything.
+When the model calls it, the invoker authorizes and audits the call and the turn waits as for a
+question: the call is `awaiting-client`, the conversation `waiting-for-approval` with
+`pendingClientTool`, and only the stream of the person's own request receives `client-tool.requested`
+with the bound `arguments`; other sessions and participants see the waiting call without them. The
+person's browser runs the handler and posts the result to `POST
+conversations/{id}/client-tools/{invocationId}/result` (`NhAssistantClientToolResultRequest`): a
+`status` of `completed`, `declined`, `unavailable` or `failed`, a dash-case `outcome` such as `saved`,
+an optional `id` of what the person created, and `data` only for a tool that declares
+`Returns<TResult>()`, which is bound to `TResult` so undeclared properties never reach the model. Anyone
+else is refused with `403 assistant-client-tool-forbidden`, a call that no longer waits with
+`409 assistant-client-tool-not-pending` and a result out of bounds with `400
+assistant-client-tool-result-invalid`. The result resumes the turn as a stream with the report as the
+call's output, data from the browser and never instructions; the turn continues on the tool calls,
+tokens and consultations it has left. The wait ends after `NhAssistantLimits.ClientToolLifetime` (15
+minutes by default, one minute to one day) on the application's clock: a late result is refused with
+`409 assistant-client-tool-expired` and releases the conversation, as a new message does, and stopping
+the turn cancels the call. The audit records `ClientToolRequested`, `ClientToolCompleted` with the
+reported status and `ClientToolExpired`, never the arguments, the outcome, the id or the data. A
+client tool needs no storage of its own: it lives in its call and the message's `client-tool` part.
+
+## AG-UI clients
+
+To let AG-UI (Agent-User Interaction Protocol) clients such as CopilotKit, Blazor AI components or the
+.NET `AGUIChatClient` run a chat agent, add `NewHeap.Platform.AI.Chat.AGUI` and map one endpoint per
+agent next to `MapNewHeapAssistant` (SPM-245):
+
+```csharp
+endpoints.MapNewHeapAssistant("/api/assistant");
+endpoints.MapNewHeapAssistantAGUI("/api/assistant/agui/project-assistant", "project-assistant");
+```
+
+It is a second surface over the same assistant, as the MCP export is for tools: the turn runner, tool
+authorization, approvals, budget and audit stay the assistant's, and the endpoint requires the
+assistant access policy and the person's own authentication. The request never names a person or an
+agent. Its `threadId` names the person's conversation with the endpoint's agent: a GUID is the
+conversation id and the first message creates it, any other thread id names a conversation derived
+from the person, the tenant, the agent and that id, and another person's conversation, another agent's
+chat or an agent thread answers `404`. Only the newest message is read, a person's text; the history
+comes from the assistant's store, files go through the upload endpoint, and `tools` only selects
+client tools declared with `AddClientTool` by id, never with a description of the client. `state`,
+`context` and `forwardedProps` never reach the turn.
+
+The run streams `RUN_STARTED` and `RUN_FINISHED` (with usage), text as text messages, a server tool
+call as `TOOL_CALL_START`/`ARGS`/`END` with the arguments' preview and `TOOL_CALL_RESULT` with the
+completed call as `tool.completed` carries it, the trusted result card included and a shielded
+result never, a client tool as a frontend tool call with its bound arguments that the client runs
+and answers with a tool message (the semantics of the client tool result endpoint), and the plan as
+a `STATE_SNAPSHOT` of `{ plan: { turnId, messageId, steps, updatedAt } }`. A proposal or question the
+turn waits for ends the run with an interrupt (`tool_call` naming the proposing call, or
+`input_required` with the choices as a response schema); a `resume` entry decides the proposal with
+`approved` or `decision` (`approve`, `reject`, `leave`), bound to the proposal hash in the
+interrupt's id, or answers the question with `choice`, and the decide and answer endpoints' checks
+run unchanged; a cancelled entry stops the turn. An MCP server's request for input keeps its tool
+call open, so it arrives within the run as the `CUSTOM` event `newheap.elicitation.requested` with an
+interrupt object, and a resume entry of that id in a request of its own answers it while the run goes
+on. Approvals, answered questions, closed requests for input and connections to make also arrive as
+`CUSTOM` events (`NhAssistantAGUICustomEvents`). A failed turn ends with `RUN_ERROR` and the
+assistant's content-free code; a refused request answers with the status and error of the matching
+assistant endpoint.
 
 ## Application messages
 
@@ -1415,6 +1537,57 @@ binding sends `idempotencyKey`: the key the client sent under `_meta` `com.newhe
 underscores or dashes) so a retry carries the same key, or else one per call. The remote holds replays
 against it, as its guards would against a conversation.
 
+## Requests for input of MCP servers and approval pages for MCP clients
+
+An administrator-connected MCP server may ask for input while its tool runs (MCP elicitation, SPM-251):
+as a multi round-trip `input_required` result, as an `elicitation/create` request on the call's stream
+of an older protocol revision, or by refusing the call with `URL_ELICITATION_REQUIRED` until a person
+finished a page of its own. The assistant's client declares both modes and asks the person of the
+governed call in a person's chat turn. The chat shows the server's message
+as the server's (`elicitation` part, `elicitation.requested` and `elicitation.closed` events,
+`NhAssistantElicitationPartDto`), never to the model, with a form of strings, numbers, integers,
+booleans and single choices (`NhAssistantElicitationFieldDto`) or an https link with its host that the
+person opens themselves. Only that person answers, through
+`POST conversations/{id}/elicitations/{elicitationId}/answer` (`NhAssistantAnswerElicitationRequest`);
+the answer goes straight back to the waiting call, is checked against the fields and is never stored.
+A finished page lets a refused call run again within the same governed execution; a cancelled one fails
+it with `ai-mcp-url-elicitation-required`. A request waits the server's own wait time, not the tool's
+timeout: five minutes unless an administrator sets one to ten (`elicitationWaitMinutes` of
+`admin/mcp-servers` and the server editor) or the application's code does
+(`NhAssistantMcpServerRequest.ElicitationWaitMinutes`, bounded by `NhAssistantMcpServerLimits`
+`MinElicitationWaitMinutes`, `DefaultElicitationWaitMinutes` and `MaxElicitationWaitMinutes`; another
+value fails with `elicitationWaitMinutes: invalid`). While the person is asked, in both forms and for a
+refused call, the turn stands still: the clock of the tool's own timeout and the turn's own
+(`NhAssistantLimits.TurnTimeout`) stop and run on with the time that was left, and the turn's model and
+tool calls find its deadline moved later by that time. A turn stands still at most ten minutes in all
+(`NhAssistantMcpServerLimits.MaxTurnPauseMinutes`, a fixed limit): a request waits no longer than what is
+left of them, and its `expiresAt` shows that end. The wait follows the application's clock
+(`TimeProvider`); when nobody answers in time the server reads a cancellation and the audit records
+`<mode>-expired`. The person's stop, or the end of a request-bound turn's request, ends the wait at once
+(`<mode>-cancelled`). A heartbeat keeps the turn's claim on the conversation meanwhile, so another request
+or process never takes a waiting turn over as abandoned; a request-bound turn's stream must stay open for
+`TurnTimeout` plus ten minutes. The call lets its tool's concurrency slot go while the person is asked, so
+another person's call of the same tool runs meanwhile, and takes one again within the time it has left
+before the answer goes back; when none becomes free, the call ends as `ai-tool-concurrency-limited` and
+the server never receives the answer. As for `POST cancel`, an answer reaches only the process that runs
+the turn. Requests without a
+person (a run, a consultation, a rule turn, a call of an exported tool), with nested or multiple-choice
+values, more than eight fields, a message over 1,000 characters or a link that is not https are declined
+without asking anyone. The audit records `McpElicitationRequested` and `McpElicitationClosed` with the
+server, the call, the mode and the outcome, never the message or the answer.
+
+Set `NewHeap:AI:Assistant:Mcp:ApprovalLinkTemplate` (`NhAssistantMcpOptions.ApprovalLinkTemplate`, an
+absolute https page with one `{approvalId}`, http only on a loopback name) to send an MCP client of
+`WithNewHeapPlatformAITools` to the application's approval page when its call left proposals for a
+person to decide, through `INhAssistantProposals.ProposeForAsync` or a consultation whose proposals
+wait for the subject's approvers (SPM-364, SPM-370). A client that supports multi round-trip requests
+and link requests receives `input_required` with a URL elicitation and a protected request state that
+names only the proposals, the caller and the tool; its retry never runs the tool again, is checked for
+the caller and returns the decision: approved and executed (`_meta` `newheap/approvals`), rejected
+(`assistant-mcp-proposal-rejected`), closed (`assistant-mcp-proposal-closed`) or still pending
+(`ai-tool-approval-required`), at most three rounds. A forged or foreign state fails with
+`assistant-mcp-approval-state-invalid`. The decision stays on the page with the proposal's hash.
+
 ## Consultation chains across applications
 
 When cooperating applications consult each other's agents over MCP, let them keep one
@@ -1636,12 +1809,22 @@ checks the protocol on both providers; `nh-assistant-screenshot.spec.ts` checks 
 
 ## Avoid
 
+- Selecting the agent, the person or the history from an AG-UI request, or adding a client's tool
+  descriptions, state or context to a turn; map one `MapNewHeapAssistantAGUI` endpoint per agent and
+  let the assistant's store and declared client tools govern the run.
+
 - Exporting imported MCP tools by registering them as MCP-exposed catalogs or a second MCP client in
   the host; use `ExportImportedMcpTools`, which keeps the turn's credential, binding, bounds and audit.
   Do not allow a server that serves background runs with the organization's credential in the export
   unless that server binds each call to the person itself.
 - Setting `ClientConfirmationIsApproval` for a client that runs tools without asking the person, or
   for a remote that ignores `idempotencyKey`; the confirmation is the only approval such a change gets.
+- Treating an MCP server's request for input as the assistant's or the model's text, opening its link
+  for the person, storing the answer, or treating an MCP client's accepted elicitation as an approval;
+  a proposal is decided on the application's page with its hash.
+- Raising a tool's own timeout or `TurnTimeout` so a person has time to answer its server; set the
+  server's `elicitationWaitMinutes` instead. The tool's clock and the turn's stand still while the person
+  is asked, and the tool's slot is free for other people's calls meanwhile.
 
 - Treating a chat about a subject as the agent's thread, or authorizing a tool on
   `ConversationSubject` alone: it names what the person asked about, and the tool still checks the
@@ -1746,6 +1929,8 @@ checks the protocol on both providers; `nh-assistant-screenshot.spec.ts` checks 
 - Sending a conversation's updates or notifications to its stored participant rows without
   its read rule, or keeping a hub connection, push subscription or participant row of a person
   whose session ended or whose account the platform deleted.
+- Refreshing an open hub connection with another person's or another tenant's token, for example
+  after an account switch; the refresh is refused or the connection closes, so open a new one.
 - Binding the assistant context to a server id without its reviewed URL, asking the model
   to repeat conversation text as tool arguments, or treating the metadata as
   authorization on the remote side.
@@ -1791,7 +1976,7 @@ proposal, an exhausted daily budget, the tool-call limit, cancel and a disabled
 flag. For `AllowQuestions`, assert that a question waits, that its addressee's answer resumes the
 turn with the answer as the call's result, that another participant is refused, that a question
 expires on the application's clock and that a stopped turn cancels it, and that an agent without the
-opt-in offers no `ask_question`. Script a provider error inside the stream with
+opt-in offers no `ask_question`. For `MapNewHeapAssistantAGUI`, drive the endpoint with `AGUIChatClient` and assert streamed text, a tool call with its result card, an approval interrupt resumed only with the matching proposal hash, a question interrupt, a client tool run by the client, the event names and that another person's thread answers `404`. For `AddClientTool`, assert that the call waits for the person's browser and resumes with its report, that only that person reports a bounded result, that the wait expires on the application's clock, that a browser without the handler is offered no tool and that a hand-off is offered only where the agent may change data. Script a provider error inside the stream with
 `RespondWithProviderError("server_is_overloaded")` and assert that one retry answers, that
 a repeated or non-transient error fails the turn with `assistant-model-unavailable`, and
 that the failed conversation accepts the next message. At the tool-call limit, assert a closing answer from a request with tool choice
@@ -1913,7 +2098,18 @@ rejects anonymous connections (SPM-263). Over the real hub, assert on both provi
 thread's events reach only people whose role holds, also with a stale participant row, a chat's
 only participants who pass the agent's policy and only on connections of the chat's tenant, and
 that a connection closes when its token expires and when the session validator refuses it
-(`AssistantLiveReadRuleTests`, `AssistantHubSessionTests`). For push, check the RFC 8291 test vector,
+(`AssistantLiveReadRuleTests`, `AssistantHubSessionTests`). On ASP.NET Core 11 with
+`HubAuthenticationRefresh`, refresh with the .NET client and assert that the same caller's
+connection outlives its first token, keeps receiving and is validated with the refreshed principal,
+that another person's token is refused with 403 while the connection keeps receiving its caller's
+updates, that a token of another tenant closes it, and that an expired token and a removed user are
+refused with 401 (`AssistantHubAuthenticationRefreshTests`); on ASP.NET Core 10 assert that no
+refresh endpoint is mapped and that the status reports `hubAuthenticationRefresh: false`. In
+`nh-ai-chat` specs, assert that a renewed token of the same scope refreshes the open connection once
+without a reconnect, that a token of another scope is left to the account switch's restart, that a
+refused refresh restarts the connection and reloads snapshots, that a hub without the status field
+refreshes nothing, and that the store connects with the status field and restarts after an account
+switch. For push, check the RFC 8291 test vector,
 a verifiable VAPID token, the endpoint allow-list, the notification rules, an
 encrypted delivery without message content, the opt-out and the removal of a gone
 subscription (SPM-264), and on both providers that Web Push and in-app notifications skip a

@@ -63,7 +63,8 @@ internal sealed class NhAssistantConversationReader(
             message => NhAssistantContent.DeserializeParts(message.PartsJson));
         var invocationIds = storedParts.Values
             .SelectMany(parts => parts)
-            .Where(part => part.Type is NhAssistantStoredPart.ToolCallType or NhAssistantStoredPart.QuestionType && part.InvocationId is not null)
+            .Where(part => part.Type is NhAssistantStoredPart.ToolCallType or NhAssistantStoredPart.QuestionType or NhAssistantStoredPart.ClientToolType
+                && part.InvocationId is not null)
             .Select(part => part.InvocationId!.Value)
             .ToHashSet();
         var approvalIds = storedParts.Values
@@ -83,9 +84,11 @@ internal sealed class NhAssistantConversationReader(
             approvals,
             cancellationToken);
         var now = _applicationClock.GetUtcNow();
+        var resultCards = ResultCardsOf(storedParts.Values, CultureInfo.CurrentUICulture);
 
         var messageViews = new List<NhAssistantMessageView>(messages.Count);
         var questions = new List<NhAssistantQuestionView>();
+        var clientTools = new List<NhAssistantClientToolView>();
         foreach (var message in messages)
         {
             var parts = new List<NhAssistantPartView>();
@@ -104,13 +107,29 @@ internal sealed class NhAssistantConversationReader(
                         parts.Add(question);
                         questions.Add(question);
                         break;
+                    case NhAssistantStoredPart.PlanType when NhAssistantPlans.ViewOf(part) is { } plan:
+                        // The agent's plan as it stood after the last update in this message.
+                        parts.Add(plan);
+                        break;
+                    // A client tool call shows as its tool call; the conversation names the one it waits for.
+                    case NhAssistantStoredPart.ClientToolType
+                        when part.InvocationId is { } clientInvocationId
+                            && invocations.TryGetValue(clientInvocationId, out var handed)
+                            && NhAssistantClientTools.ViewOf(part, handed, now) is { } clientTool:
+                        clientTools.Add(clientTool);
+                        break;
                     case NhAssistantStoredPart.SkillType when part.SkillId is not null:
                         // The message names the skill it worked in at its end (LS20).
                         skillId = part.SkillId;
                         break;
                     case NhAssistantStoredPart.ToolCallType
                         when part.InvocationId is { } invocationId && invocations.TryGetValue(invocationId, out var invocation):
-                        parts.Add(ToView(invocation, LocalizedToolName(invocation, approvals)));
+                        parts.Add(ToView(invocation, LocalizedToolName(invocation, approvals)) with
+                        {
+                            ResultPresentation = invocation.DataClassification < NhAiDataClassification.Confidential
+                                ? resultCards.GetValueOrDefault(invocationId)
+                                : null
+                        });
                         break;
                     case NhAssistantStoredPart.ApprovalType
                         when part.ApprovalId is { } approvalId && approvals.TryGetValue(approvalId, out var approval):
@@ -119,6 +138,14 @@ internal sealed class NhAssistantConversationReader(
                     case NhAssistantStoredPart.ConnectionRequiredType
                         when part is { ServerId: { } serverId, DisplayName: { } serverName, Reason: { } reason }:
                         parts.Add(new NhAssistantConnectionRequiredPartView(serverId, serverName, reason));
+                        break;
+                    // A server's request for input waits only while its turn runs; once the turn ended
+                    // without closing it, it reads as expired.
+                    case NhAssistantStoredPart.ElicitationType
+                        when NhAssistantElicitationView.From(
+                            part,
+                            conversation.Status == NhAssistantConversationStatuses.Running ? now : DateTimeOffset.MaxValue) is { } elicitation:
+                        parts.Add(elicitation);
                         break;
                     // A person's attachments show by name, type and size; the files a tool returned
                     // stay named in that call's result, which follows the viewer's rights to it.
@@ -172,6 +199,13 @@ internal sealed class NhAssistantConversationReader(
                 && asked.Status == NhAssistantToolCallStatuses.AwaitingAnswer)
             : null;
 
+        // A waiting turn that handed a client tool to its person's browser waits for its result.
+        var pendingClientTool = pending is null && pendingQuestion is null && conversation.Status == NhAssistantConversationStatuses.WaitingForApproval
+            ? clientTools.LastOrDefault(clientTool => clientTool.TurnId == conversation.ActiveTurnId
+                && invocations.TryGetValue(clientTool.InvocationId, out var handed)
+                && handed.Status == NhAssistantToolCallStatuses.AwaitingClient)
+            : null;
+
         var participants = await store.GetParticipantsAsync(conversation.Id, cancellationToken);
         IReadOnlyList<NhAssistantMemberView> members = participants.Count == 0
             ? []
@@ -209,8 +243,34 @@ internal sealed class NhAssistantConversationReader(
             Members = members,
             ProtectedShareToken = access.IsOwner ? conversation.ProtectedShareToken : null,
             PendingQuestion = pendingQuestion,
+            PendingClientTool = pendingClientTool,
             Subject = NhAssistantChatSubjectView.Of(conversation, subjects)
         };
+    }
+
+    /// <summary>
+    /// The result cards of the conversation's calls in the viewer's culture, by invocation id. A card
+    /// may be stored in a later message than its call, such as the turn that ran an approved call.
+    /// </summary>
+    private static Dictionary<Guid, NhAssistantToolResultPresentation> ResultCardsOf(
+        IEnumerable<IReadOnlyList<NhAssistantStoredPart>> messages,
+        CultureInfo culture)
+    {
+        var cards = new Dictionary<Guid, NhAssistantToolResultPresentation>();
+        foreach (var part in messages.SelectMany(parts => parts))
+        {
+            if (part.Type != NhAssistantStoredPart.ToolResultType || part.InvocationId is not { } invocationId)
+            {
+                continue;
+            }
+
+            if (NhAssistantToolPresentationResolver.PickResult(part.ResultPresentation, part.ResultPresentations, culture) is { } card)
+            {
+                cards[invocationId] = card;
+            }
+        }
+
+        return cards;
     }
 
     /// <summary>

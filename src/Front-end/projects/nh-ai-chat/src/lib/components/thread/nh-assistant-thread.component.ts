@@ -1,5 +1,5 @@
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
-import { NgTemplateOutlet } from '@angular/common';
+import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -16,17 +16,22 @@ import {
   viewChild
 } from '@angular/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { ApprovalDecision, ApprovalPart, ApprovalResolution, ConversationMember, FilePart, Message, QuestionPart } from '../../models/assistant-api.models';
+import { ApprovalDecision, ApprovalPart, ApprovalResolution, ConversationMember, ElicitationPart, FilePart, Message, QuestionPart } from '../../models/assistant-api.models';
+import { nhAssistantPrefetchCardViews } from '../../internal/nh-assistant-card-views';
 import { nhAssistantFileTypeLabel, nhAssistantFormatFileSize } from '../../internal/nh-assistant-files';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantMarkdownPipe } from '../../internal/nh-assistant-markdown.pipe';
 import { NhAssistantMessageLinkComponent } from '../../internal/nh-assistant-message-link.component';
-import { NhAssistantPartGroupsPipe } from '../../internal/nh-assistant-part-groups';
+import { NhAssistantPartGroupsPipe, nhAssistantSupersededPlans } from '../../internal/nh-assistant-part-groups';
 import { NhAssistantApprovalCardComponent } from '../approval-card/nh-assistant-approval-card.component';
 import { NhAssistantConnectionRequiredComponent } from '../connection-required/nh-assistant-connection-required.component';
+import { NhAssistantElicitationAnswer, NhAssistantElicitationCardComponent } from '../elicitation-card/nh-assistant-elicitation-card.component';
+import { NhAssistantPlanComponent } from '../plan/nh-assistant-plan.component';
 import { NhAssistantQuestionCardComponent } from '../question-card/nh-assistant-question-card.component';
 import { NhAssistantToolCallGroupComponent } from '../tool-call-group/nh-assistant-tool-call-group.component';
+import { NhAssistantToolResultComponent } from '../tool-result/nh-assistant-tool-result.component';
 import type { NhAssistantApprovalRight } from '../../services/nh-assistant.store';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 /** A decision about one approval of the thread. */
 export interface NhAssistantApprovalChoice {
@@ -39,6 +44,11 @@ export interface NhAssistantQuestionAnswer {
   questionId: string;
   /** The zero-based index of the chosen answer. */
   choice: number;
+}
+
+/** The user's answer to a request for input of an MCP server of the thread. */
+export interface NhAssistantElicitationReply extends NhAssistantElicitationAnswer {
+  elicitationId: string;
 }
 
 /** How the user resolves the uncertain hand-off of one approval they made in this chat. */
@@ -67,6 +77,7 @@ const stickToBottomDistance = 120;
 @Component({
   selector: 'nh-assistant-thread',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     NgTemplateOutlet,
     ScrollingModule,
@@ -78,7 +89,10 @@ const stickToBottomDistance = 120;
     NhAssistantToolCallGroupComponent,
     NhAssistantApprovalCardComponent,
     NhAssistantConnectionRequiredComponent,
-    NhAssistantQuestionCardComponent
+    NhAssistantQuestionCardComponent,
+    NhAssistantToolResultComponent,
+    NhAssistantElicitationCardComponent,
+    NhAssistantPlanComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-thread.component.html',
@@ -134,6 +148,13 @@ export class NhAssistantThreadComponent {
    */
   readonly questionAnswer = output<NhAssistantQuestionAnswer>();
   /**
+   * The user's answer to a request for input of an MCP server whose tool their turn runs, for example
+   * for `NhAssistantStore.answerElicitation`. Only the person whose turn it is gets the form or link.
+   */
+  readonly elicitationAnswer = output<NhAssistantElicitationReply>();
+  /** The request for input the host sends an answer to now, for example `NhAssistantStore.answeringElicitationId`. */
+  readonly answeringElicitationId = input<string | null>(null);
+  /**
    * The question to ask again after the viewer connected an MCP server from a connection card: the
    * text of the user message the card answered. The panel sends it.
    */
@@ -158,6 +179,12 @@ export class NhAssistantThreadComponent {
     }
   }
 
+  /**
+   * The agent messages whose plan a later agent message of the same turn replaced: a turn that waited
+   * for a person continues in a new message, which carries the plan on. Each turn shows its newest plan.
+   */
+  readonly supersededPlans = computed(() => nhAssistantSupersededPlans(this.messages()));
+
   readonly virtualThreshold = NH_ASSISTANT_VIRTUAL_SCROLL_THRESHOLD;
   readonly virtual = computed(() => this.messages().length > NH_ASSISTANT_VIRTUAL_SCROLL_THRESHOLD);
   /**
@@ -181,7 +208,8 @@ export class NhAssistantThreadComponent {
     return lastPart.type === 'tool-call'
       && lastPart.status !== 'running'
       && lastPart.status !== 'awaiting-approval'
-      && lastPart.status !== 'awaiting-answer';
+      && lastPart.status !== 'awaiting-answer'
+      && lastPart.status !== 'awaiting-client';
   });
   /**
    * The message in whose row the working indicator shows: the answer `writingMessageId` names.
@@ -210,6 +238,11 @@ export class NhAssistantThreadComponent {
   private readonly viewport = viewChild(CdkVirtualScrollViewport);
 
   constructor() {
+    // Plans, requests for input and result cards load on first use; once the thread shows, their views
+    // arrive while the browser is idle, so such a card shows at once instead of its placeholder.
+    const view = inject(DOCUMENT).defaultView;
+    afterNextRender(() => nhAssistantPrefetchCardViews(view));
+
     effect(onCleanup => {
       if (!this.streaming()) {
         this.turnStartedAt.set(null);
@@ -297,6 +330,16 @@ export class NhAssistantThreadComponent {
 
   answerQuestion(question: QuestionPart, choice: number): void {
     this.questionAnswer.emit({ questionId: question.questionId, choice });
+  }
+
+  /** Whether the current user may answer the request for input: it waits and their turn runs the tool. */
+  canAnswerElicitation(elicitation: ElicitationPart): boolean {
+    const currentActorId = this.currentActorId();
+    return elicitation.status === 'pending' && !!currentActorId && elicitation.addresseeActorId === currentActorId;
+  }
+
+  answerElicitation(elicitation: ElicitationPart, answer: NhAssistantElicitationAnswer): void {
+    this.elicitationAnswer.emit({ ...answer, elicitationId: elicitation.elicitationId });
   }
 
   /** Display name of another person's message, or `null` when the application provides none. */

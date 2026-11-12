@@ -12,6 +12,9 @@
   --nh-assistant-border: var(--line);
   --nh-assistant-accent: var(--primary);
   --nh-assistant-accent-contrast: var(--nh-white);
+  // Links and accent-colored text: the primary blue fills buttons but is too dark to read on the dark
+  // surfaces, so text uses the informational blue of the scheme (#7eb5ff dark, #0f4087 light).
+  --nh-assistant-link: var(--info);
   --nh-assistant-highlight: var(--brand);
   --nh-assistant-focus: var(--accent);
   --nh-assistant-user-bubble: var(--primary);

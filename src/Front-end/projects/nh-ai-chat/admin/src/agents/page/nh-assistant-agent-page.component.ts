@@ -28,6 +28,7 @@ import {
   ToolCatalogEntry,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
@@ -92,6 +93,7 @@ let nextId = 0;
 @Component({
   selector: 'nh-assistant-agent-page',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     DatePipe,
     DecimalPipe,

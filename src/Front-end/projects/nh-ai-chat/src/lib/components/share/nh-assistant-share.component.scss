@@ -1,7 +1,4 @@
-@use '../../styles/tokens';
 @use '../../styles/forms';
-
-@include tokens.tokens;
 
 :host {
   display: flex;

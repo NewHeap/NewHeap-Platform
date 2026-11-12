@@ -35,11 +35,22 @@ import {
   validateRules,
   walkFiles
 } from './lib.mjs';
+import {
+  loadSkillEvaluations,
+  pluginEvalSuiteRoot,
+  renderPluginEvalSuite,
+  validateSkillEvalSuiteDefinition
+} from './skill-eval-suite.mjs';
 
 const checkOnly = process.argv.includes('--check');
 const registry = await loadRegistry();
 const rules = await loadRules();
-const failures = [...validateRegistry(registry), ...validateRules(rules, registry)];
+const skillEvaluations = await loadSkillEvaluations();
+const failures = [
+  ...validateRegistry(registry),
+  ...validateRules(rules, registry),
+  ...await validateSkillEvalSuiteDefinition(skillEvaluations)
+];
 if (failures.length > 0) throw new Error(failures.join('\n'));
 const groups = groupRulesByReference(rules);
 const versions = await packageVersions();
@@ -180,7 +191,7 @@ const manifest = {
       name: 'newheap-library-maintenance',
       path: 'skills/newheap-library-maintenance',
       audience: 'platform-maintainers',
-      references: ['references/sample-maintenance.md', 'references/skill-impact.md', 'references/release-checklist.md', 'references/github-releases.md']
+      references: ['references/sample-maintenance.md', 'references/skill-impact.md', 'references/release-checklist.md', 'references/github-releases.md', 'references/skill-evals.md']
     }
   ]
 };
@@ -206,13 +217,19 @@ outputs.set(resolve(repositoryRoot, 'plugins', 'newheap-platform', 'distribution
   }
 }, null, 2)}\n`);
 
+const pluginEvalSuite = renderPluginEvalSuite(skillEvaluations, rules);
+for (const [path, content] of pluginEvalSuite) outputs.set(path, content);
+
 const stale = [];
 const normalizeLineEndings = value => value?.replaceAll('\r\n', '\n');
 const expectedPluginSkillFiles = new Set([...outputs.keys()].filter(path => {
   const outputRelative = relative(consumerPluginSkillsRoot, path);
   return outputRelative && !outputRelative.startsWith('..');
 }));
-if (!checkOnly) await rm(consumerPluginSkillsRoot, { recursive: true, force: true });
+if (!checkOnly) {
+  await rm(consumerPluginSkillsRoot, { recursive: true, force: true });
+  await rm(pluginEvalSuiteRoot, { recursive: true, force: true });
+}
 for (const [path, content] of outputs) {
   let current;
   try { current = await readFile(path, 'utf8'); } catch { current = undefined; }
@@ -229,6 +246,9 @@ if (checkOnly) {
   const existingPluginSkillFiles = await walkFiles(consumerPluginSkillsRoot).catch(() => []);
   for (const path of existingPluginSkillFiles) {
     if (!expectedPluginSkillFiles.has(path)) stale.push(path);
+  }
+  for (const path of await walkFiles(pluginEvalSuiteRoot).catch(() => [])) {
+    if (!pluginEvalSuite.has(path)) stale.push(path);
   }
 }
 

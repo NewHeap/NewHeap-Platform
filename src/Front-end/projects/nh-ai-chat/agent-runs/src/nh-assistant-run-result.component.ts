@@ -21,12 +21,14 @@ import {
   NhAssistantAgentRunApiService,
   NhAssistantApiError,
   NhAssistantError,
+  NhAssistantPlanComponent,
   ɵnhAssistantCodeKeys as nhAssistantCodeKeys,
   ɵnhAssistantErrorKeys as nhAssistantErrorKeys,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵNhAssistantMarkdownPipe as NhAssistantMarkdownPipe,
   ɵnhAssistantReloadOnAgentWork as nhAssistantReloadOnAgentWork,
   ɵNhAssistantSubjectLinkComponent as NhAssistantSubjectLinkComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError
 } from '@newheap/platform-ai-chat';
@@ -42,7 +44,7 @@ interface RunDuration {
 
 /**
  * One run of an agent with its result: what it worked on, how it was started and ended, its usage
- * and duration, its whole answer, the proposals it made (also those it placed at other objects the
+ * and duration, the plan its agent kept (`run.KeepPlan()`), its whole answer, the proposals it made (also those it placed at other objects the
  * reader may read) and the files it saved. The answer is model output: it is rendered with the
  * assistant's safe Markdown rendering, which shows inline HTML as text and keeps only a strict set
  * of tags and links, never as HTML. The server decides who sees a run (`GET runs/{id}`): readers of
@@ -59,6 +61,7 @@ interface RunDuration {
 @Component({
   selector: 'nh-assistant-run-result',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     DatePipe,
     TranslatePipe,
@@ -66,6 +69,7 @@ interface RunDuration {
     NhAssistantIconComponent,
     NhAssistantMarkdownPipe,
     NhAssistantSubjectLinkComponent,
+    NhAssistantPlanComponent,
     NhAssistantAgentProposalsComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

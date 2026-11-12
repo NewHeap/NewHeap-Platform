@@ -1,10 +1,13 @@
 import {
   ApprovalDecision,
   ApprovalPart,
+  ClientToolRequest,
   Conversation,
   ConversationStatus,
+  ElicitationPart,
   Message,
   MessagePart,
+  PlanPart,
   QuestionPart,
   ToolCallPart
 } from '../models/assistant-api.models';
@@ -78,7 +81,9 @@ export function applyNhAssistantEvent(
         ...part,
         status: data.status,
         resultCode: data.resultCode,
-        resultPreview: data.resultPreview
+        resultPreview: data.resultPreview,
+        // The trusted card of the result; a live event without one keeps a card the snapshot had.
+        ...(data.resultPresentation ? { resultPresentation: data.resultPresentation } : {})
       }));
     }
 
@@ -117,6 +122,35 @@ export function applyNhAssistantEvent(
       };
     }
 
+    case 'client-tool.requested': {
+      // The call waits for its person's browser; the conversation keeps it without its arguments, which
+      // only the store of that person's own stream hands to the handler.
+      const { arguments: _arguments, ...request } = event.data;
+      const clientTool: ClientToolRequest = request;
+      const withToolAwaiting = updateToolCall(conversation, clientTool.invocationId, part => ({ ...part, status: 'awaiting-client' }));
+      return { ...withToolAwaiting, status: 'waiting-for-approval', pendingClientTool: clientTool };
+    }
+
+    case 'elicitation.requested':
+    case 'elicitation.closed': {
+      // A server's request for input shows where its tool call waits; a repeat replaces it.
+      const elicitation: ElicitationPart = { ...event.data, type: 'elicitation' };
+      return hasElicitation(conversation, elicitation.elicitationId)
+        ? replaceElicitation(conversation, elicitation)
+        : appendToCurrentAssistantMessage(conversation, elicitation);
+    }
+
+    case 'plan.updated': {
+      // A snapshot of the whole plan: it replaces the plan of its message, so a repeated or late event
+      // never shows an older plan twice.
+      const plan: PlanPart = { type: 'plan', steps: event.data.plan.steps, updatedAt: event.data.plan.updatedAt };
+      const messages = ensureMessage(conversation.messages, event.data.messageId);
+      return {
+        ...conversation,
+        messages: messages.map(message => message.id === event.data.messageId ? withPlan(message, plan) : message)
+      };
+    }
+
     case 'connection.required': {
       const data = event.data;
       // One card per server and answer, also when a live update repeats the event.
@@ -138,7 +172,8 @@ export function applyNhAssistantEvent(
         ...conversation,
         status,
         pendingApproval: status === 'waiting-for-approval' ? conversation.pendingApproval : null,
-        pendingQuestion: status === 'waiting-for-approval' ? conversation.pendingQuestion ?? null : null
+        pendingQuestion: status === 'waiting-for-approval' ? conversation.pendingQuestion ?? null : null,
+        pendingClientTool: status === 'waiting-for-approval' ? conversation.pendingClientTool ?? null : null
       };
     }
 
@@ -223,6 +258,22 @@ export function applyNhAssistantQuestionAnswer(
     part => ({ ...part, status: 'running' }));
 }
 
+/**
+ * Records locally that the person's browser reported the result of the client tool call
+ * `invocationId`, until the server state is reloaded: the conversation waits for it no longer and the
+ * turn runs again.
+ */
+export function applyNhAssistantClientToolReport(conversation: Conversation, invocationId: string): Conversation {
+  return updateToolCall(
+    {
+      ...conversation,
+      status: 'running',
+      pendingClientTool: conversation.pendingClientTool?.invocationId === invocationId ? null : conversation.pendingClientTool ?? null
+    },
+    invocationId,
+    part => ({ ...part, status: 'running' }));
+}
+
 /** An approval part after the user's decision. */
 function decidedApproval(part: ApprovalPart, decision: ApprovalDecision): ApprovalPart {
   const decided: ApprovalPart = { ...part, status: decision === 'approve' ? 'approved' : 'rejected' };
@@ -263,7 +314,8 @@ export function applyNhAssistantConversationChange(conversation: Conversation, c
     lastMessageSequence: change.lastMessageSequence,
     participantCount: change.participantCount,
     pendingApproval: change.status === 'waiting-for-approval' ? conversation.pendingApproval : null,
-    pendingQuestion: change.status === 'waiting-for-approval' ? conversation.pendingQuestion ?? null : null
+    pendingQuestion: change.status === 'waiting-for-approval' ? conversation.pendingQuestion ?? null : null,
+    pendingClientTool: change.status === 'waiting-for-approval' ? conversation.pendingClientTool ?? null : null
   };
 }
 
@@ -360,6 +412,23 @@ function appendToCurrentAssistantMessage(conversation: Conversation, part: Messa
   };
 }
 
+/**
+ * The message with `plan` in place of the plan it holds, or after its parts for its first plan. A plan
+ * older than the one the message holds, as a late live event may carry, changes nothing.
+ */
+function withPlan(message: Message, plan: PlanPart): Message {
+  const index = message.parts.findIndex(part => part.type === 'plan');
+  if (index < 0) {
+    return { ...message, parts: [...message.parts, plan] };
+  }
+
+  const current = message.parts[index] as PlanPart;
+  if (Date.parse(current.updatedAt) > Date.parse(plan.updatedAt)) {
+    return message;
+  }
+  return { ...message, parts: message.parts.map((part, position) => position === index ? plan : part) };
+}
+
 function partKey(part: MessagePart): string {
   if (part.type === 'tool-call') {
     return part.invocationId;
@@ -372,6 +441,12 @@ function partKey(part: MessagePart): string {
   }
   if (part.type === 'question') {
     return `question-${part.questionId}`;
+  }
+  if (part.type === 'elicitation') {
+    return `elicitation-${part.elicitationId}`;
+  }
+  if (part.type === 'plan') {
+    return 'plan';
   }
 
   return 'text';
@@ -389,6 +464,23 @@ function replaceQuestion(conversation: Conversation, question: QuestionPart): Co
       ...message,
       parts: message.parts.map(part =>
         part.type === 'question' && part.questionId === question.questionId ? question : part
+      )
+    }))
+  };
+}
+
+function hasElicitation(conversation: Conversation, elicitationId: string): boolean {
+  return conversation.messages.some(message =>
+    message.parts.some(part => part.type === 'elicitation' && part.elicitationId === elicitationId));
+}
+
+function replaceElicitation(conversation: Conversation, elicitation: ElicitationPart): Conversation {
+  return {
+    ...conversation,
+    messages: conversation.messages.map(message => ({
+      ...message,
+      parts: message.parts.map(part =>
+        part.type === 'elicitation' && part.elicitationId === elicitation.elicitationId ? elicitation : part
       )
     }))
   };

@@ -1,0 +1,53 @@
+@if (presented().length > 0) {
+  <dl class="fields">
+    @for (field of presented(); track $index) {
+      <div class="field" [attr.data-change]="field.change">
+        <dt>{{ field.label }}</dt>
+        <dd>
+          @switch (field.change) {
+            @case ('unchanged') {
+              <span class="value">{{ field.value }}</span>
+              <span class="badge" data-change-badge>{{ changeKeys() + 'unchanged' | translate }}</span>
+            }
+            @case ('changed') {
+              <span class="badge" data-change-badge>{{ changeKeys() + 'changed' | translate }}</span>
+              <span class="line current" data-current>
+                <span class="line-label">{{ currentKey() | translate }}</span>
+                <del>{{ field.currentValue }}</del>
+              </span>
+              <span class="line proposed" data-proposed>
+                <span class="line-label">{{ proposedKey() | translate }}</span>
+                <ins>{{ field.value }}</ins>
+              </span>
+            }
+            @case ('added') {
+              <span class="badge" data-change-badge>{{ changeKeys() + 'added' | translate }}</span>
+              <span class="line current" data-current>
+                <span class="line-label">{{ currentKey() | translate }}</span>
+                <span class="empty">{{ 'nh-assistant.presentation.empty' | translate }}</span>
+              </span>
+              <span class="line proposed" data-proposed>
+                <span class="line-label">{{ proposedKey() | translate }}</span>
+                <ins>{{ field.value }}</ins>
+              </span>
+            }
+            @case ('cleared') {
+              <span class="badge" data-change-badge>{{ changeKeys() + 'cleared' | translate }}</span>
+              <span class="line current" data-current>
+                <span class="line-label">{{ currentKey() | translate }}</span>
+                <del>{{ field.currentValue }}</del>
+              </span>
+              <span class="line proposed" data-proposed>
+                <span class="line-label">{{ proposedKey() | translate }}</span>
+                <span class="empty">{{ 'nh-assistant.presentation.empty' | translate }}</span>
+              </span>
+            }
+            @default {
+              <span class="value">{{ field.value }}</span>
+            }
+          }
+        </dd>
+      </div>
+    }
+  </dl>
+}

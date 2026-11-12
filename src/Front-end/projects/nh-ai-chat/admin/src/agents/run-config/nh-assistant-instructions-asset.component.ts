@@ -11,7 +11,8 @@ import {
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵtoNhAssistantError as toNhAssistantError,
-  ɵprovideNhAssistantSelect as provideNhAssistantSelect
+  ɵprovideNhAssistantSelect as provideNhAssistantSelect,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective
 } from '@newheap/platform-ai-chat';
 import { NhComboboxComponent } from '@newheap/platform-common/select';
 import { RunConfigFieldError, dashCase } from './run-config-shared';
@@ -34,6 +35,7 @@ const shownHashLength = 12;
 @Component({
   selector: 'nh-assistant-instructions-asset',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [TranslatePipe, NhAssistantTranslatePipe, NhAssistantIconComponent, NhComboboxComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [provideNhAssistantSelect()],

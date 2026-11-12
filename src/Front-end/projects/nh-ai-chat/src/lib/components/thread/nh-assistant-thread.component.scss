@@ -1,7 +1,4 @@
-@use '../../styles/tokens';
 @use '../../styles/markdown';
-
-@include tokens.tokens;
 
 :host {
   display: flex;
@@ -217,7 +214,7 @@ cdk-virtual-scroll-viewport.scroller {
 }
 
 .message[data-author='application'] .author-icon {
-  color: var(--nha-accent);
+  color: var(--nha-link);
 }
 
 .message[data-author='application'] .tag {

@@ -353,6 +353,13 @@ public sealed class AssistantMcpServer
     /// </summary>
     public string HeadlessUse { get; set; } = NhAssistantMcpHeadlessUses.Never;
 
+    /// <summary>
+    /// How long the server's request for input waits for the person of a chat turn, in whole minutes
+    /// from 1 to 10; <see langword="null"/> waits five minutes. The tool's own timeout stands still
+    /// meanwhile; the turn's deadline still ends the wait.
+    /// </summary>
+    public int? ElicitationWaitMinutes { get; set; }
+
     public DateTimeOffset? LastSyncAt { get; set; }
 
     public string? LastSyncStatus { get; set; }
@@ -727,4 +734,65 @@ public sealed class AssistantMcpConnectionNotice
     public string Code { get; set; } = string.Empty;
 
     public DateTimeOffset NotifiedAt { get; set; }
+}
+
+/// <summary>
+/// An MCP task (SEP-2663) of the host's MCP exposure: a long-running tool call that an MCP client polls
+/// for its result. It belongs to the actor, tenant and active division that started it, holds the
+/// bounded result or error once the tool ended and never the call's arguments. It does not exist any more
+/// from <see cref="ExpiresAt"/> on, on the application's clock, and is deleted after that.
+/// </summary>
+public sealed class AssistantMcpTask
+{
+    /// <summary>The task's id: 32 lowercase hexadecimal characters of a random value.</summary>
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>The name the MCP export gives the tool.</summary>
+    public string ToolName { get; set; } = string.Empty;
+
+    public string ToolId { get; set; } = string.Empty;
+
+    public int ToolVersion { get; set; }
+
+    public string ActorId { get; set; } = string.Empty;
+
+    /// <summary>The actor's tenant; empty without one.</summary>
+    public string TenantKey { get; set; } = string.Empty;
+
+    /// <summary>The call's active division; empty without one.</summary>
+    public string DivisionKey { get; set; } = string.Empty;
+
+    /// <summary>One of the values in <see cref="NhAssistantMcpTaskStatuses"/>.</summary>
+    public string Status { get; set; } = NhAssistantMcpTaskStatuses.Working;
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public DateTimeOffset LastUpdatedAt { get; set; }
+
+    public DateTimeOffset ExpiresAt { get; set; }
+
+    /// <summary>From when a working task counts as abandoned: its tool's timeout passed.</summary>
+    public DateTimeOffset AbandonAt { get; set; }
+
+    public long PollIntervalMs { get; set; }
+
+    /// <summary>The tool's result of a completed task, bounded by the exposure.</summary>
+    public string? ResultJson { get; set; }
+
+    /// <summary>The JSON-RPC error of a failed task, bounded by the exposure.</summary>
+    public string? ErrorJson { get; set; }
+
+    /// <summary>A stable code that explains the status, such as an abandoned task's.</summary>
+    public string? StatusMessage { get; set; }
+}
+
+/// <summary>
+/// The statuses of an <see cref="AssistantMcpTask"/>. A NewHeap task never waits for input.
+/// </summary>
+public static class NhAssistantMcpTaskStatuses
+{
+    public const string Working = "working";
+    public const string Completed = "completed";
+    public const string Failed = "failed";
+    public const string Cancelled = "cancelled";
 }

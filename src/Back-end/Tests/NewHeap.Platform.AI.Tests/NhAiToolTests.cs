@@ -338,6 +338,10 @@ public sealed class NhAiToolTests
         "NhAiToolEffect.IdempotentMutation",
         "Approval = NhAiApprovalRequirement.Required, Idempotency = NhAiIdempotencySupport.Required, AllowWithoutApproval = true",
         "NHAI019")]
+    [InlineData(
+        "NhAiToolEffect.ReadOnly",
+        "TaskSupport = NhAiToolTaskSupport.Optional",
+        "NHAI020")]
     public void Generator_rejects_unsafe_effects_bounds_and_verifier_ids(
         string effect,
         string namedArguments,
@@ -535,6 +539,39 @@ public sealed class NhAiToolTests
         Assert.DoesNotContain(runResult.GeneratedTrees, tree => tree.ToString().Contains("AllowWithoutApproval", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData("NewHeap.Platform.AI.AspNet.INhAiCallerCredentialAccessor", "Optional", "INhAiCallerCredentialAccessor")]
+    [InlineData("NewHeap.Platform.AI.AspNet.INhAiCallerCredentialAccessor", "Required", "INhAiCallerCredentialAccessor")]
+    [InlineData("Microsoft.AspNetCore.Http.IHttpContextAccessor", "Optional", "IHttpContextAccessor")]
+    public void Generator_refuses_task_support_for_a_tool_set_that_reads_the_callers_token(
+        string service,
+        string taskSupport,
+        string reader)
+    {
+        var runResult = GenerateTaskTool(service, $", TaskSupport = NhAiToolTaskSupport.{taskSupport}");
+
+        var refusal = Assert.Single(runResult.Diagnostics, diagnostic => diagnostic.Id == "NHAI021");
+        Assert.Equal(DiagnosticSeverity.Error, refusal.Severity);
+        var message = refusal.GetMessage(System.Globalization.CultureInfo.InvariantCulture);
+        Assert.Contains("'reports.export'", message, StringComparison.Ordinal);
+        Assert.Contains($"tool set 'ReportTools' takes {reader}", message, StringComparison.Ordinal);
+        Assert.Contains("Remove TaskSupport", message, StringComparison.Ordinal);
+        Assert.Empty(runResult.GeneratedTrees);
+    }
+
+    [Theory]
+    [InlineData("NewHeap.Platform.AI.AspNet.INhAiCallerCredentialAccessor", "")]
+    [InlineData("System.TimeProvider", ", TaskSupport = NhAiToolTaskSupport.Optional")]
+    public void Generator_accepts_a_tool_that_reads_the_callers_token_without_tasks_and_a_task_tool_that_does_not(
+        string service,
+        string namedArguments)
+    {
+        var runResult = GenerateTaskTool(service, namedArguments);
+
+        Assert.DoesNotContain(runResult.Diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+        Assert.Single(runResult.GeneratedTrees);
+    }
+
     [Fact]
     public void Generator_emits_an_individual_decision_without_changing_the_contract()
     {
@@ -728,6 +765,53 @@ public sealed class NhAiToolTests
     private static string GenerateAgentTool(string namedArguments)
     {
         return GenerateAgentTool(namedArguments, string.Empty);
+    }
+
+    /// <summary>
+    /// Runs the generator over a tool set that takes <paramref name="service"/> in its primary
+    /// constructor, with one MCP-exposed read whose attribute adds <paramref name="namedArguments"/>.
+    /// </summary>
+    private static GeneratorDriverRunResult GenerateTaskTool(string service, string namedArguments)
+    {
+        var source = $$"""
+            using System;
+            using System.ComponentModel;
+            using System.Threading;
+            using System.Threading.Tasks;
+            using Microsoft.AspNetCore.Authorization;
+            using NewHeap.Platform.AI;
+            using NewHeap.Platform.Common.Models;
+
+            [NhAiToolSet("reports")]
+            [Authorize(Policy = "reports.read")]
+            public sealed class ReportTools(global::{{service}} service)
+            {
+                [NhAiTool("export", 1, NhAiToolEffect.ReadOnly, NhAiToolExposure.Mcp{{namedArguments}})]
+                [Description("Export a report.")]
+                public Task<TaskResult<string>> ExportAsync(
+                    string input,
+                    NhAiInvocationContext context,
+                    CancellationToken cancellationToken) => throw new NotImplementedException();
+            }
+            """;
+        var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+            .Split(Path.PathSeparator)
+            .Select(path => MetadataReference.CreateFromFile(path))
+            .Append(MetadataReference.CreateFromFile(typeof(NhAiToolAttribute).Assembly.Location))
+            .Append(MetadataReference.CreateFromFile(typeof(TaskResult<>).Assembly.Location))
+            .Append(MetadataReference.CreateFromFile(typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute).Assembly.Location))
+            .Append(MetadataReference.CreateFromFile(typeof(Microsoft.AspNetCore.Http.IHttpContextAccessor).Assembly.Location))
+            .Append(MetadataReference.CreateFromFile(typeof(NewHeap.Platform.AI.AspNet.INhAiCallerCredentialAccessor).Assembly.Location));
+        var compilation = CSharpCompilation.Create(
+            "GeneratorTaskSupport",
+            [CSharpSyntaxTree.ParseText(source)],
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(new NhAiToolGenerator());
+
+        driver = driver.RunGenerators(compilation);
+
+        return driver.GetRunResult();
     }
 
     private static string GenerateAgentTool(string namedArguments, string methodAuthorization)

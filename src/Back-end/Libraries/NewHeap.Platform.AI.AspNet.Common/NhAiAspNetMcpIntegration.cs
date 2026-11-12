@@ -50,7 +50,7 @@ public static class NhAiAspNetMcpBuilderExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(configure);
         builder.WithNewHeapPlatformAITools();
-        configure(new NhAiMcpExposureBuilder(builder.Services));
+        configure(new NhAiMcpExposureBuilder(builder));
         return builder;
     }
 }
@@ -208,6 +208,14 @@ internal static class NhAiMcpRequestHandlers
         RequestContext<CallToolRequestParams> request,
         CancellationToken cancellationToken)
     {
+        if (NhAiMcpTaskCalls.Current is { TaskId: not null } taskCall
+            && string.Equals(taskCall.ToolName, request.Params?.Name, StringComparison.Ordinal))
+        {
+            // The call became an MCP task: it runs after its request may have ended, as the caller the
+            // request authorized.
+            return await NhAiMcpTaskCalls.InvokeAsync(request, taskCall, cancellationToken);
+        }
+
         var services = RequiredServices(request.Services);
         var httpContext = services.GetRequiredService<IHttpContextAccessor>().HttpContext;
         if (httpContext is null)
@@ -246,11 +254,32 @@ internal static class NhAiMcpRequestHandlers
                 ? Error(NhAiCompositionFeatures.ScriptingOffCode, "Scripts are off in this application.")
                 : Error(NhAiCompositionFeatures.CompositionOffCode, "Compositions are off in this application.");
         }
+        if (tool.Metadata.OfType<NhAiToolDescriptor>().FirstOrDefault()?.TaskSupport == NhAiToolTaskSupport.Required)
+        {
+            // A tool that requires tasks has no answer of its own for a caller without them.
+            throw NhAiMcpTasks.MissingTasksCapability();
+        }
 
         // The tool reads the call's request metadata as data the caller sent, never as identity.
         using (NhAiMcpInboundCall.Enter(request.Params?.Meta))
         {
-            return await tool.InvokeAsync(request, cancellationToken);
+            var descriptor = tool.Metadata.OfType<NhAiToolDescriptor>().FirstOrDefault();
+            var steps = services.GetServices<INhAiMcpCallStep>().ToArray();
+            if (descriptor is null || steps.Length == 0)
+            {
+                return await tool.InvokeAsync(request, cancellationToken);
+            }
+
+            // The steps a host registered run around the authorized call, in registration order.
+            var call = new NhAiMcpExportedCall(request, resolved.Data, descriptor);
+            Func<CancellationToken, ValueTask<CallToolResult>> next = token => tool.InvokeAsync(request, token);
+            for (var index = steps.Length - 1; index >= 0; index--)
+            {
+                var step = steps[index];
+                var inner = next;
+                next = token => step.InvokeAsync(call, inner, token);
+            }
+            return await next(cancellationToken);
         }
     }
 
@@ -267,7 +296,7 @@ internal static class NhAiMcpRequestHandlers
             ?? "ai-tool-authorization-denied";
     }
 
-    private static CallToolResult Error(string code, string message)
+    internal static CallToolResult Error(string code, string message)
     {
         var meta = new System.Text.Json.Nodes.JsonObject
         {
@@ -291,6 +320,32 @@ internal static class NhAiMcpRequestHandlers
 }
 
 internal sealed record NhAiMcpError(string Code, string Message);
+
+/// <summary>
+/// One call of an exported NewHeap tool by an MCP client, after the caller was authenticated and the
+/// tool was found for them.
+/// </summary>
+/// <param name="Request">The MCP request, with its server, parameters, request state and input responses.</param>
+/// <param name="Invocation">The caller's invocation context, as the export resolved it for this request.</param>
+/// <param name="Descriptor">The tool.</param>
+internal sealed record NhAiMcpExportedCall(
+    RequestContext<CallToolRequestParams> Request,
+    NhAiInvocationContext Invocation,
+    NhAiToolDescriptor Descriptor);
+
+/// <summary>
+/// A step a NewHeap host runs around every call of an exported tool, such as the assistant's
+/// approval page for a call that left a proposal. A step calls <c>next</c> to run the governed tool,
+/// or answers without it, for example for a retry it recognizes; it never weakens the tool's own
+/// authorization, approval, budget or audit, which run inside <c>next</c>.
+/// </summary>
+internal interface INhAiMcpCallStep
+{
+    ValueTask<CallToolResult> InvokeAsync(
+        NhAiMcpExportedCall call,
+        Func<CancellationToken, ValueTask<CallToolResult>> next,
+        CancellationToken cancellationToken);
+}
 
 /// <summary>
 /// The request metadata (<c>_meta</c>) of the MCP tool call that the NewHeap export runs in this
@@ -388,6 +443,15 @@ internal sealed class NhAiMcpAuthorityStartupValidator(
                 {
                     throw new InvalidOperationException(
                         $"NewHeap AI MCP export name '{descriptor.ExportName}' is registered more than once.");
+                }
+                if (descriptor.TaskSupport != NhAiToolTaskSupport.None && descriptor.ForwardsCallerToken)
+                {
+                    // A task runs after its request ended, without the caller's token: the tool would
+                    // fail, or pass a token on only while the request happened to last.
+                    throw new InvalidOperationException(
+                        $"AI tool '{descriptor.Id}' of catalog '{catalog.Manifest.CatalogId}' declares MCP task support ({descriptor.TaskSupport}) "
+                        + "but passes the caller's token on (ForwardsCallerToken). An MCP task runs after its request ended, without the caller's token. "
+                        + "Set TaskSupport to None, or let the tool work with the caller of its NhAiInvocationContext instead of their token.");
                 }
             }
         }

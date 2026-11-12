@@ -120,6 +120,49 @@ with an MCP `initialize` `POST` and reads the challenge's scopes. The metadata d
 origin; a browser-based client also needs the host's CORS policy to expose
 `WWW-Authenticate`.
 
+A tool that runs long, for example one that waits for a background operation, declares
+`TaskSupport = NhAiToolTaskSupport.Optional` on its `[NhAiTool]`, and the exposure enables MCP
+tasks (SEP-2663) with `WithNewHeapPlatformAITools(exposure => exposure.UseTasks())`, on the MCP
+SDK's tasks extension. The negotiation decides per call: an MCP client that declared the
+`io.modelcontextprotocol/tasks` extension on the 2026-07-28 revision gets a task at once and polls
+`tasks/get` for the tool's result, while the tool runs on in the process with the caller as the
+request authorized them (`NhAiInvocationContext.McpTaskId` names the task). Every other client,
+on an older revision or without the opt-in, gets the tool's own answer as before. Keep that answer
+the established pattern: the tool starts its durable work under the caller's stable request id and
+returns a receipt that the client polls with a status tool of the application; with a task id the
+same tool waits for that work within its own timeout instead. `NhAiToolTaskSupport.Required`
+refuses a client without tasks with the MCP error for a missing client capability; the generator
+refuses task support without `Mcp` exposure (`NHAI020`), and the contract hash ignores it.
+
+A task belongs to the actor, tenant and active division that created it; for anybody else it does
+not exist and they get the SDK's error for an unknown task, never a refusal that confirms it. Every
+`tasks/get`, `tasks/update` and `tasks/cancel` resolves the caller again and checks that the same
+tool is still offered to them. The assistant registers the store of tasks in its own schema, which
+every instance of a stateless host shares; `NhAiMcpTaskOptions.UseInMemoryStore()` is for tests and
+development only, and `UseTasks` without either fails at startup. A task's `ttl` is the tool's
+timeout plus `AbandonAfter` plus `TimeToLive` on the application's `TimeProvider`; a working task
+whose tool can no longer answer, because its process ended, fails with
+`NhAiMcpTaskFailureCodes.Abandoned` once that timeout and margin passed, and the client calls the tool
+again with the same request id. A result larger than `MaxResultBytes` is replaced by
+`ResultTooLarge`. The log records a task's id, tool and status, never its arguments or result.
+A governed tool never asks the client for input while it runs, so a NewHeap task is never
+`input_required`.
+
+A task runs on after its request ended, with the caller as the request authorized them but without
+their token, so only a tool that works with the caller of its `NhAiInvocationContext` supports tasks.
+A tool that needs the person's token never does: the API bridge's tools and the gateway's `query`
+and `get`, which call the application's own API with it, a `forward-user-token` MCP server, and any
+tool that reads the request's `Authorization` header. The generator refuses `TaskSupport` for a tool
+set that takes `INhAiCallerCredentialAccessor` or `IHttpContextAccessor` in a constructor
+(`NHAI021`); move such a tool to a tool set of its own without task support. A hand-built or
+attested catalog declares a tool that passes the caller's token on with
+`NhAiToolDescriptor.ForwardsCallerToken`, as the bridge does for its tools, and the exposure refuses
+to start when an exported tool declares both that and task support, naming the tool and the fix.
+Inside a task the default `INhAiCallerCredentialAccessor` returns no token, so a dependency that
+forwards it fails the same way every time instead of while the request happens to last. Imported
+MCP tools never declare task support, and `ExportImportedMcpTools` never exports a
+`forward-user-token` server.
+
 Expected `TaskResult` failures remain structured tool results and are marked as
 MCP tool errors rather than JSON-RPC protocol failures. An enveloped export
 publishes the shared `NhAiToolResult` shape as structured content and its schema,
@@ -276,7 +319,15 @@ from a stale list fails with `ai-tool-not-authorized` and runs nothing.
 - Building one global actor-independent tool list for a multi-tenant host.
 - Trusting MCP arguments, prompts, retrieved content, or headers as scope authorization.
 - Returning credentials, internal exception text, prompts, or raw audit content over MCP.
-- Using MCP Tasks as NewHeap's authoritative durable-operation store.
+- Using MCP Tasks as NewHeap's authoritative durable-operation store; a task only reports a call,
+  the durable work stays a background operation found again by the caller's request id.
+- Changing a long-running tool's answer for clients without tasks when it gains task support; they
+  keep the request id and status tool pattern.
+- Telling another actor that a task exists, or reading or cancelling a task without authorizing the
+  caller for its tool again.
+- Declaring task support for a tool that needs the caller's token or request, such as one whose tool
+  set takes `INhAiCallerCredentialAccessor` or `IHttpContextAccessor`, or a hand-built tool that
+  declares `ForwardsCallerToken`.
 - Passing an MCP client's access token on to the application's own API or another
   server; it is for the MCP resource only. A scheme of the application's own that validates
   tokens for an MCP entry marks them with `NhAiCallerCredentials.MarkNotForwardable`.
@@ -334,8 +385,18 @@ which a client that follows the MCP authorization flow, such as the MCP SDK clie
 assistant's own client, discovers the exposure, registers and signs in at
 `NhAiTestAuthorizationServer`. For an exposure with `AllowCompositions` or `AllowScripts`, assert
 that a marked tool is listed and runs while the switch is on, is left out and refused with its code
-while it is off, and that a feature the exposure does not allow is never listed. SPM-222, SPM-240,
-SPM-370 and SPM-371 are the executable references.
+while it is off, and that a feature the exposure does not allow is never listed. For `UseTasks`,
+call a tool that supports tasks as a task over Streamable HTTP on the 2026-07-28 revision and poll
+it to its result, call it on 2025-11-25 and without the opt-in and assert the tool's own answer, and
+assert that another actor and another division get an unknown task, that the owner's cancellation
+stops the tool, that a task expires on the test clock and fails as abandoned after its timeout, that a
+tool that requires tasks refuses a client without them, and that the store keeps and ends a task once
+on SQL Server and PostgreSQL. Assert that the generator reports `NHAI021` for a task tool whose tool
+set takes `INhAiCallerCredentialAccessor` or `IHttpContextAccessor` and accepts the same tool set
+without task support, that the exposure refuses to start for an exported tool with task support and
+`ForwardsCallerToken`, that a task never has the caller's token while a plain call of the same tool
+does, and that the bridge's tools declare `ForwardsCallerToken` without task support on an exposure
+with tasks. SPM-222, SPM-240, SPM-370 and SPM-371 are the executable references.
 
 ## Optional source evidence
 

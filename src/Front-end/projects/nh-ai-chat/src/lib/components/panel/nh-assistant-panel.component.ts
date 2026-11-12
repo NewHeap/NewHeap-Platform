@@ -45,10 +45,12 @@ import {
 import {
   NhAssistantApprovalChoice,
   NhAssistantApprovalResolutionChoice,
+  NhAssistantElicitationReply,
   NhAssistantQuestionAnswer,
   NhAssistantThreadComponent
 } from '../thread/nh-assistant-thread.component';
 import { nhAssistantErrorKeys, toNhAssistantError } from '../../internal/nh-assistant-errors';
+import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 let nextId = 0;
 
@@ -110,6 +112,7 @@ export type NhAssistantBeforeSubmit = (message: NhAssistantOutgoingMessage) => P
 @Component({
   selector: 'nh-assistant-panel',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   host: { '[class.nh-assistant-page]': 'page()' },
   imports: [
     NgTemplateOutlet,
@@ -124,7 +127,8 @@ export type NhAssistantBeforeSubmit = (message: NhAssistantOutgoingMessage) => P
     NhAssistantPreferencesComponent,
     NhAssistantShareComponent,
     NhAssistantScreenshotComponent,
-    NhAssistantThreadComponent
+    NhAssistantThreadComponent,
+    NhAssistantTokensDirective
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './nh-assistant-panel.component.html',
@@ -547,6 +551,11 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   /** Answers the question the conversation waits for; only its addressee gets the choices. */
   answerQuestion(answer: NhAssistantQuestionAnswer): void {
     this.store.answerQuestion(answer.questionId, answer.choice);
+  }
+
+  /** Answers an MCP server's request for input; only the person whose turn it is gets the form or link. */
+  answerElicitation(reply: NhAssistantElicitationReply): void {
+    void this.store.answerElicitation(reply.elicitationId, reply.action, reply.content);
   }
 
   cancel(): void {

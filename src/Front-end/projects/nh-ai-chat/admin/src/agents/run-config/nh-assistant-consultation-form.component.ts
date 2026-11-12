@@ -12,6 +12,7 @@ import {
   RunCatalog,
   ToolCatalogEntry,
   ɵNhAssistantIconComponent as NhAssistantIconComponent,
+  ɵNhAssistantTokensDirective as NhAssistantTokensDirective,
   ɵNhAssistantTranslatePipe as NhAssistantTranslatePipe,
   ɵprovideNhAssistantSelect as provideNhAssistantSelect
 } from '@newheap/platform-ai-chat';
@@ -86,6 +87,7 @@ interface RouteChoice {
 @Component({
   selector: 'nh-assistant-consultation-form',
   standalone: true,
+  hostDirectives: [NhAssistantTokensDirective],
   imports: [
     TranslatePipe,
     NhAssistantTranslatePipe,

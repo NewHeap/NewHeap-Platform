@@ -53,7 +53,7 @@ internal sealed class NhAssistantRestrictedResults
                 if (part is NhAssistantToolCallPartView tool
                     && !await shield.MayViewAsync(tool.GrantSource, tool.ToolId, tool.ReadForActorId))
                 {
-                    parts.Add(tool with { ResultPreview = null, Restricted = true });
+                    parts.Add(tool with { ResultPreview = null, ResultPresentation = null, Restricted = true });
                     continue;
                 }
 

@@ -138,6 +138,15 @@ public sealed class NhAssistantLimits
     public TimeSpan ApprovalLifetime { get; set; } = TimeSpan.FromMinutes(15);
 
     /// <summary>
+    /// How long a turn waits, on the application's clock, for the browser of the person whose turn it is
+    /// to run a client tool (<see cref="NhAssistantBuilder.AddClientTool{TInput}"/>) and report its result,
+    /// for example while the person fills in the form the tool opened. A later result is refused with
+    /// <see cref="NhAssistantErrorCodes.ClientToolExpired"/> and releases the conversation. 15 minutes by
+    /// default; from one minute to one day.
+    /// </summary>
+    public TimeSpan ClientToolLifetime { get; set; } = TimeSpan.FromMinutes(15);
+
+    /// <summary>
     /// Maximum number of tools offered to one agent in one turn.
     /// </summary>
     public int MaxToolsPerAgent { get; set; } = 64;
@@ -402,6 +411,8 @@ public sealed class NhAssistantLimits
             || DailyToolCallBudgetPerActor < 1
             || DailyModelCallBudgetPerActor is < 1
             || ApprovalLifetime <= TimeSpan.Zero
+            || ClientToolLifetime < TimeSpan.FromMinutes(1)
+            || ClientToolLifetime > TimeSpan.FromDays(1)
             || MaxToolsPerAgent < 1
             || MaxToolSelectorsPerAgent < 1
             || MaxHistoryMessages < 1

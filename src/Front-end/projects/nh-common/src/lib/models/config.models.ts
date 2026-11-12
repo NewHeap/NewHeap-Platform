@@ -104,6 +104,15 @@ export class BackgroundOperationsNhCommonModuleConfig {
   pollingInterval: number = 5000;
   liveUpdatesEnabled: boolean = true;
   listPageSize: number = 100;
+  /**
+   * Refreshes the authentication of the open live-update connection after the session renewed its
+   * access token, instead of letting the connection close when the token it opened with expires.
+   * Turn it on only together with the server's `NhBackgroundOperationsOptions.HubAuthenticationRefresh`
+   * on ASP.NET Core 11. It needs `@microsoft/signalr` 11; with 10 the connection keeps closing on
+   * expiry and reconnecting. A refresh that fails restarts the connection, which resynchronizes, and
+   * a change of user or active division still restarts it. Default `false`.
+   */
+  authenticationRefresh: boolean = false;
 
   public constructor(init?: Partial<BackgroundOperationsNhCommonModuleConfig>) {
     Object.assign(this, init);

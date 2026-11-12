@@ -26,13 +26,21 @@ public sealed class ProjectAiToolDiscoveryPolicy : INhAiToolDiscoveryPolicy
     /// </summary>
     private const string ExportedResearchToolPrefix = "mcp.research.";
 
+    /// <summary>
+    /// SPM-400: the client tools that the person's portal runs (<c>SampleClientToolsComposition</c>). They
+    /// change nothing on the server and need no division; their policies decide every call, and the turn
+    /// offers them only to a browser that can run them.
+    /// </summary>
+    private const string ClientToolPrefix = "sample-ui.";
+
     public ValueTask<bool> CanDiscoverAsync(
         NhAiToolDescriptor descriptor,
         NhAiInvocationContext context,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (descriptor.Id.StartsWith(AgentBuilderToolPrefix, StringComparison.Ordinal))
+        if (descriptor.Id.StartsWith(AgentBuilderToolPrefix, StringComparison.Ordinal)
+            || descriptor.Id.StartsWith(ClientToolPrefix, StringComparison.Ordinal))
         {
             return ValueTask.FromResult(descriptor.RequiresAuthorization);
         }
