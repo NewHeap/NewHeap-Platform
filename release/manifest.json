@@ -214,7 +214,7 @@
     "newheap-platform-plugin": {
       "displayName": "NewHeap Platform AI plugin",
       "kind": "plugin",
-      "version": "1.13.128",
+      "version": "1.13.129",
       "tagPrefix": "newheap-platform-plugin-v",
       "directory": "plugins/newheap-platform",
       "packageName": "newheap-platform"
