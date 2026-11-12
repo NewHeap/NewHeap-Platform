@@ -2,7 +2,8 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { provideTranslateService, TranslateService } from '@ngx-translate/core';
 import { NhAssistantMockBackend, provideNhAssistantMockApi } from '@newheap/platform-ai-chat/testing';
-import { firstValueFrom } from 'rxjs';
+import { Subject, firstValueFrom } from 'rxjs';
+import { NhAssistantApiService, NhAssistantUploadEvent } from '../services/nh-assistant-api.service';
 import { NhAssistantScreenshotComponent } from '../components/screenshot/nh-assistant-screenshot.component';
 import { NhAssistantScreenshotCapture } from '../components/screenshot/nh-assistant-screenshot-capture';
 import { provideNhAssistant } from '../provide-nh-assistant';
@@ -22,7 +23,7 @@ describe('Consent-first page screenshots', () => {
       provideNhAssistant({ apiBaseUrl: '/api/assistant', getAccessToken: () => 'token', screenshots: enabled }),
       provideNhAssistantMockApi({
         agents: [{ id: 'projects', version: 1, displayNameKey: 'Projects', descriptionKey: 'Projects', canMutate: false,
-          uploads: { acceptedMediaTypes: png ? ['image/png'] : ['application/pdf'], maxFiles: 1, maxFileBytes: 1024 } }],
+          uploads: { acceptedMediaTypes: png ? ['image/png'] : ['application/pdf'], maxFiles: 3, maxFileBytes: 1024 } }],
         timing: { firstEventDelayMs: 0, eventDelayMs: 0 },
         turns: [
           { match: 'request-screen', steps: [
@@ -137,6 +138,89 @@ describe('Consent-first page screenshots', () => {
     expect(await store.submit('Explain this screenshot.', files)).toBeTrue();
     expect(backend.requests.find(request => request.path.endsWith('/messages'))?.body).toEqual(jasmine.objectContaining({ files }));
   });
+
+  async function followUp(): Promise<void> {
+    const deadline = performance.now() + 10_000;
+    while ((backend.requests.filter(request => request.path.endsWith('/messages')).length < 2
+      || store.activeConversation()?.status !== 'idle') && performance.now() < deadline) {
+      fixture.detectChanges();
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+    expect(backend.requests.filter(request => request.path.endsWith('/messages')).length).toBe(2);
+    expect(store.activeConversation()?.status).toBe('idle');
+  }
+
+  it('sends an approved AI-requested screenshot once, preserving draft text and unrelated files', async () => {
+    await setup();
+    await store.submit('request-screen');
+    await finished();
+    await store.attach([image()]);
+    await uploaded();
+    const other = store.attachedFiles()[0];
+    store.keepUnsentMessage({ text: 'Not ready to send this draft.', prepared: false });
+    const component = fixture.componentInstance;
+    await component.take();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.primary').textContent).toContain('Send to assistant');
+    component.share();
+    component.share();
+    await followUp();
+    const body = backend.requests.filter(request => request.path.endsWith('/messages'))[1].body as { text: string; files: { id: string }[] };
+    expect(body.text).toBe('Here is the requested screenshot of the current page. Please continue.');
+    expect(body.files.length).toBe(1);
+    expect(body.files[0].id).not.toBe(other.id);
+    expect(store.attachedFiles()).toEqual([other]);
+    expect(store.unsentMessage()?.text).toBe('Not ready to send this draft.');
+  });
+
+  it('waits for upload completion before automatically sending the approved image', async () => {
+    await setup();
+    await store.submit('request-screen');
+    await finished();
+    const upload = new Subject<NhAssistantUploadEvent>();
+    spyOn(TestBed.inject(NhAssistantApiService), 'uploadFile').and.returnValue(upload);
+    await fixture.componentInstance.take();
+    fixture.componentInstance.share();
+    fixture.detectChanges();
+    expect(backend.requests.filter(request => request.path.endsWith('/messages')).length).toBe(1);
+    const file = { id: 'approved-page', name: 'page.png', mediaType: 'image/png', size: 100 };
+    upload.next({ type: 'uploaded', file });
+    upload.complete();
+    await followUp();
+    expect(backend.requests.filter(request => request.path.endsWith('/messages'))[1].body)
+      .toEqual(jasmine.objectContaining({ files: [file] }));
+  });
+
+  for (const interruption of ['navigation', 'conversation', 'failure', 'destroy'] as const) {
+    it('does not automatically send a pending screenshot after ' + interruption, async () => {
+      await setup();
+      await store.submit('request-screen');
+      await finished();
+      const upload = new Subject<NhAssistantUploadEvent>();
+      spyOn(TestBed.inject(NhAssistantApiService), 'uploadFile').and.returnValue(upload);
+      const submit = spyOn(store, 'submit').and.callThrough();
+      await fixture.componentInstance.take();
+      fixture.componentInstance.share();
+      if (interruption === 'navigation') {
+        await TestBed.inject(Router).navigateByUrl('/another-page');
+      } else if (interruption === 'conversation') {
+        store.startNewConversation();
+      } else if (interruption === 'failure') {
+        upload.error(new Error('Upload failed'));
+      } else {
+        fixture.destroy();
+      }
+      if (interruption !== 'destroy') {
+        fixture.detectChanges();
+      }
+      upload.next({ type: 'uploaded', file: { id: 'late-page', name: 'page.png', mediaType: 'image/png', size: 100 } });
+      upload.complete();
+      if (interruption !== 'destroy') {
+        fixture.detectChanges();
+      }
+      expect(submit).not.toHaveBeenCalled();
+    });
+  }
 
   it('discards a cancelled capture, ignores its late completion and asks for consent again', async () => {
     await setup();

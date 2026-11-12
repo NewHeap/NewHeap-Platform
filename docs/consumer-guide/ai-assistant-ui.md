@@ -54,6 +54,13 @@ The image goes to the model with the next message. Enabling screenshots also adv
 `page-screenshot.requested` event opens the same consent dialog with the AI's reason, at
 most once per turn; it never captures or uploads. History, other participants, queued
 messages and resumed turns do not replay this browser capability. The user may decline.
+For an AI-requested image, **Send to assistant** confirms the preview, uploads the PNG and
+automatically submits a separate follow-up containing only that image. No typed message or
+second send action is needed. The existing queue waits for a running turn and preserves
+unsent composer text and unrelated attachments; `NhAssistantStore.submit(text, files, true)`
+uses this draft-preserving path. Failed uploads never submit a message, and navigation,
+conversation/account changes or access loss before upload completion cancel automatic submission.
+Manually opened screenshots remain attachments for the next message.
 No screen picker is involved. The sample lab's replies are scripted, not vision.
 
 The capture covers the current viewport, capped at 1920 pixels on the longest edge, and

@@ -2033,7 +2033,9 @@ tool accepts a reason of 1 to 500 characters and emits `page-screenshot.requeste
 once in that turn. It only requests consent: no capture, upload or image content exists yet.
 The Angular `screenshots: true` option advertises this capability and opens the consent and
 local-preview flow (SPM-305). The image reaches the model through the normal attachment flow
-when the person confirms and sends their next message. Do not treat the capability as consent.
+when the person confirms the requested preview: the browser automatically sends a separate
+follow-up with the uploaded image. No additional typed message or send action is required.
+Manual captures remain attachments for the next message. Do not treat the capability as consent.
 The event reaches only the sending stream; it is never broadcast to other participants or
 replayed from stored history. Resumed turns and headless channels do not inherit the capability.
 `AssistantUploadEndpointTests.Page_screenshot_requests_require_client_capability_and_only_request_consent_once`

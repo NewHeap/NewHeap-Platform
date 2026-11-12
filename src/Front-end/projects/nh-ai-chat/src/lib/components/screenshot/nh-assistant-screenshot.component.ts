@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, input, signal, untracked, viewChild } from '@angular/core';
 import { NavigationStart, Router } from '@angular/router';
-import { TranslatePipe } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { NhAssistantIconComponent } from '../../internal/nh-assistant-icon.component';
 import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 import { NH_ASSISTANT_CONFIG } from '../../nh-assistant.config';
@@ -23,6 +23,8 @@ export class NhAssistantScreenshotComponent {
   readonly store = inject(NhAssistantStore);
   private readonly config = inject(NH_ASSISTANT_CONFIG);
   private readonly capture = inject(NhAssistantScreenshotCapture);
+  private readonly translate = inject(TranslateService);
+  private readonly pendingShare = signal<{ attachmentId: string; scope: string } | null>(null);
   private readonly dialog = viewChild<ElementRef<HTMLDialogElement>>('dialog');
   private controller?: AbortController;
   private file: File | null = null;
@@ -50,8 +52,27 @@ export class NhAssistantScreenshotComponent {
         }
       });
     });
+    // A requested image is a separate, consented follow-up: never send the composer's text or other files.
+    effect(() => {
+      const pending = this.pendingShare();
+      const attachment = this.store.attachments().find(item => item.id === pending?.attachmentId);
+      const valid = this.available() && !this.disabled() && pending?.scope === this.currentScope();
+      untracked(() => {
+        if (!pending) {
+          return;
+        }
+        if (!valid || !attachment || attachment.state === 'failed') {
+          this.pendingShare.set(null);
+          return;
+        }
+        if (attachment.state === 'uploaded' && attachment.file) {
+          this.pendingShare.set(null);
+          void this.store.submit(this.translate.instant('nh-assistant.screenshot.message'), [attachment.file], true);
+        }
+      });
+    });
     const requests = this.store.pageScreenshotRequests.subscribe(request => {
-      if (request.conversationId === this.store.activeConversation()?.id && this.phase() === 'closed') {
+      if (request.conversationId === this.store.activeConversation()?.id && this.phase() === 'closed' && !this.pendingShare()) {
         this.open();
         if (this.phase() === 'consent') {
           this.reason.set(request.reason);
@@ -123,12 +144,22 @@ export class NhAssistantScreenshotComponent {
       return;
     }
     const file = this.file;
+    const requested = this.reason() !== null;
+    const scope = this.currentScope();
+    const existing = new Set(this.store.attachments().map(item => item.id));
     this.close();
     // The existing store owns upload progress, errors, limits and the conversation binding.
     void this.store.attach([file]);
+    if (requested) {
+      const attachment = this.store.attachments().find(item => !existing.has(item.id));
+      if (attachment) {
+        this.pendingShare.set({ attachmentId: attachment.id, scope });
+      }
+    }
   }
 
   close(): void {
+    this.pendingShare.set(null);
     this.scope = null;
     this.reason.set(null);
     const controller = this.controller;

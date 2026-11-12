@@ -1196,7 +1196,7 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
       match: /visible on my screen/i,
       steps: [
         { screenshot: { reason: 'Seeing the current page would help me understand which controls and information you are asking about.' } },
-        { text: 'I have asked permission to see this page. You can decline, or review a screenshot and attach it to your next message. This lab uses scripted replies; a live assistant with image support can inspect the attached image.' }
+        { text: 'I have asked permission to see this page. You can decline, or review a screenshot and confirm it to send it straight back to me without typing another message. This lab uses scripted replies; a live assistant with image support can inspect the attached image.' }
       ]
     },
     {

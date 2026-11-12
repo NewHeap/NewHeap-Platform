@@ -361,7 +361,9 @@ The Assistant lab's **Share a screenshot** prompt demonstrates consent-first pag
 (SPM-305). The portal enables `NhAssistantConfig.screenshots`; the scripted AI request opens
 the consent dialog with its reason. Users can also choose **Share page**. Both ask permission,
 lazily loads the renderer with progress, previews locally and uploads only after confirmation.
-Send the next message to give the image to the assistant. The mock replies do not analyze pixels.
+For an AI request, confirming the preview uploads the image and sends a separate follow-up
+automatically, preserving draft text and unrelated files. A manual capture still attaches to the
+next message. The mock replies do not analyze pixels.
 The image excludes the chat and marked private fields and follows the normal attachment policies.
 
 AG-UI clients reach the project assistant at `/api/assistant/agui/sample-project-assistant`

@@ -1,6 +1,9 @@
 {
   "nh-assistant": {
     "screenshot": {
+      "share-requested": "Naar assistent sturen",
+      "review-requested": "Controleer de afbeelding. Na bevestiging wordt deze geüpload en direct naar de assistent gestuurd, zodat die verder kan.",
+      "message": "Hier is de gevraagde screenshot van de huidige pagina. Ga verder.",
       "requested": "De assistent wil deze pagina graag bekijken",
       "open": "Pagina delen",
       "title": "Deze pagina delen met de assistent",
@@ -12,7 +15,7 @@
       "capturing": "Afbeelding maken…",
       "review": "Controleer de afbeelding voordat je deelt. Annuleer als er informatie in staat die je niet wilt delen.",
       "preview": "Voorbeeld van de huidige applicatiepagina",
-      "retention": "Delen uploadt deze afbeelding als bijlage bij dit gesprek. Deze gaat met je volgende bericht naar de AI en volgt het bewaarbeleid voor gespreksbijlagen. Andere gespreksdeelnemers kunnen de bijlage zien.",
+      "retention": "Delen uploadt deze afbeelding als bijlage bij dit gesprek. De gedeelde afbeelding volgt het bewaarbeleid voor gespreksbijlagen. Andere gespreksdeelnemers kunnen de bijlage zien.",
       "share": "Delen met AI",
       "retry": "Opnieuw proberen",
       "failed": "De pagina kon niet worden vastgelegd. Probeer het opnieuw of voeg zelf een screenshot toe.",

@@ -1,6 +1,9 @@
 {
   "nh-assistant": {
     "screenshot": {
+      "share-requested": "Send to assistant",
+      "review-requested": "Review the image. Confirming uploads it and sends it directly to the assistant so it can continue.",
+      "message": "Here is the requested screenshot of the current page. Please continue.",
       "requested": "The assistant would like to see this page",
       "open": "Share page",
       "title": "Share this page with the assistant",
@@ -12,7 +15,7 @@
       "capturing": "Creating screenshot…",
       "review": "Check the image before sharing. Cancel if it contains information you do not want to share.",
       "preview": "Preview of the current application page",
-      "retention": "Sharing uploads this image as an attachment to this conversation. It will be sent to the AI with your next message and follows the conversation’s file retention policy. Other conversation participants can see the attachment.",
+      "retention": "Sharing uploads this image as an attachment to this conversation. The shared image follows the conversation’s file retention policy. Other conversation participants can see the attachment.",
       "share": "Share with AI",
       "retry": "Try again",
       "failed": "The page could not be captured. Try again or attach a screenshot yourself.",

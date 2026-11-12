@@ -1048,10 +1048,11 @@ export class NhAssistantStore {
    * conversation's FIFO queue. A shown error alone does not hold a message back while nothing is
    * queued: the person asks again, for example after a failed turn. Queued messages still wait
    * for an explicit `resumeQueue` after Stop or a failure. A queued message keeps its `files`.
+   * `preserveDraft` queues a consented follow-up even while idle, leaving the composer untouched.
    */
-  async submit(text: string, files: readonly FileReference[] = []): Promise<boolean> {
+  async submit(text: string, files: readonly FileReference[] = [], preserveDraft = false): Promise<boolean> {
     const stopped = this.pausedQueuesState().has(this.activeIdState() ?? newConversationKey);
-    if (this.canSend() && this.queuedMessages().length === 0 && !stopped && !this.submittingState()) {
+    if (!preserveDraft && this.canSend() && this.queuedMessages().length === 0 && !stopped && !this.submittingState()) {
       const revision = this.accountRevision;
       this.submittingState.set(true);
       try {

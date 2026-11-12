@@ -26,7 +26,7 @@
       <p>{{ 'nh-assistant.screenshot.' + phase() | translate }}</p>
     </div>
   } @else if (phase() === 'preview') {
-    <p>{{ 'nh-assistant.screenshot.review' | translate }}</p>
+    <p>{{ (reason() !== null ? 'nh-assistant.screenshot.review-requested' : 'nh-assistant.screenshot.review') | translate }}</p>
     <img class="preview" [src]="preview()" [alt]="'nh-assistant.screenshot.preview' | translate" />
     <p class="hint">{{ 'nh-assistant.screenshot.retention' | translate }}</p>
   } @else if (phase() === 'error') {
@@ -41,7 +41,7 @@
       </button>
     } @else if (phase() === 'preview') {
       <button type="button" class="primary" [disabled]="full() || disabled()"
-        [attr.aria-label]="'nh-assistant.screenshot.share' | translate" (click)="share()">{{ 'nh-assistant.screenshot.share' | translate }}</button>
+        [attr.aria-label]="(reason() !== null ? 'nh-assistant.screenshot.share-requested' : 'nh-assistant.screenshot.share') | translate" (click)="share()">{{ (reason() !== null ? 'nh-assistant.screenshot.share-requested' : 'nh-assistant.screenshot.share') | translate }}</button>
     }
   </footer>
 </dialog>

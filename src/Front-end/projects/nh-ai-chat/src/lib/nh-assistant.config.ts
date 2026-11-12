@@ -61,7 +61,9 @@ export interface NhAssistantConfig {
   /**
    * Offers a one-off image of the visible application page when the agent accepts PNG uploads.
    * Default false. Also lets the AI request capture in this client's message turn.
-   * The user consents before capture and reviews locally before attaching it.
+   * The user consents before capture and reviews locally. Confirming an AI-requested image
+   * uploads and sends it as a separate follow-up without sending or clearing the composer draft.
+   * A manually opened screenshot remains an attachment for the next message.
    * html2canvas loads only after consent. Mark private content with
    * `data-nh-assistant-screenshot-exclude`; password fields and assistant panels are excluded.
    */

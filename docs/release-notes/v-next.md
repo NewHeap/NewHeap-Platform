@@ -1,1 +1,7 @@
 # v-next
+
+## @newheap/platform-ai-chat: requested screenshots
+
+Approving an AI-requested screenshot now uploads and sends it as a separate follow-up automatically.
+The confirmation explicitly says **Send to assistant**; composer drafts and unrelated attachments stay
+untouched. Manual captures still attach to the next message. No backend upgrade or configuration change is required.
