@@ -1,7 +1,1 @@
 # v-next
-
-## @newheap/platform-ai-chat: page screenshots
-
-| Breaking change | Required action |
-| --- | --- |
-| The chat package adds the `html2canvas@^1.4.1` peer for lazy page capture. | A standard npm install resolves this peer automatically; no separate install is needed. To enable this feature, set `screenshots: true` in the chat configuration for agents accepting PNG uploads. Users can initiate sharing, or the AI can request it. Each capture requires explicit user consent and preview confirmation. |
