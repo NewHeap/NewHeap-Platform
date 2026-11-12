@@ -413,6 +413,7 @@
     "assistant-cost-center-error-too-long": "Use at most 100 characters.",
     "assistant-cost-center-error-required": "Enter a cost center.",
     "assistant-cost-center-error-invalid": "This value is not a cost center.",
+    "assistant-prompt-screenshot": "Share a screenshot",
     "assistant-prompt-page": "Page context",
     "assistant-page-title": "Project page",
     "assistant-page-description": "Open a project as if you were on its page. Its context is sent with the next message; use the page icon beside the sharing actions to leave it out. Hover over the icon to see which page is included.",

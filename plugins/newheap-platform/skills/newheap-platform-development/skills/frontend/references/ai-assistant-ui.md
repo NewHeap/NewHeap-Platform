@@ -15,7 +15,7 @@ Register the assistant once with the host's token and access policy, place the l
 ## Preferred approach
 
 Install `@newheap/platform-ai-chat` with its peers (`@angular/cdk`,
-`@angular/router`, `@ngx-translate/core`, `marked`, `dompurify`) and load
+`@angular/router`, `@ngx-translate/core`, `marked`, `dompurify`, `html2canvas`) and load
 `@angular/cdk/overlay-prebuilt.css` once in the application styles. Call
 `provideNhAssistant(...)` once in the root providers with the assistant base URL,
 `getAccessToken` and an `accessPolicy` class. `getAccessToken` runs in the
@@ -43,6 +43,30 @@ the result to the contract limits, and a failing getter only leaves the context 
 The page icon beside the composer actions describes the included context in its
 tooltip; the user can leave it out of the next message, which sends `null`. Page context is untrusted data for the
 model: entity ids are search hints and never replace authorization.
+
+Set `screenshots: true` in `NhAssistantConfig` to offer **Share page** when the selected
+agent accepts PNG uploads (SPM-305). It is off by default. The user consents before
+`import('html2canvas')` loads the renderer, sees preparing/capturing progress and reviews
+a local preview before **Share with AI** uploads it through the existing attachment flow.
+The image goes to the model with the next message. Enabling screenshots also advertises
+`pageScreenshotAvailable` on messages sent from this browser. The backend offers
+`request_page_screenshot` for that message turn when the agent accepts PNG uploads. Its
+`page-screenshot.requested` event opens the same consent dialog with the AI's reason, at
+most once per turn; it never captures or uploads. History, other participants, queued
+messages and resumed turns do not replay this browser capability. The user may decline.
+No screen picker is involved. The sample lab's replies are scripted, not vision.
+
+The capture covers the current viewport, capped at 1920 pixels on the longest edge, and
+excludes assistant panels and password/payment-code fields. Mark any other sensitive
+subtree with `data-nh-assistant-screenshot-exclude`. This is a DOM rendering, not an exact
+browser screenshot: embedded or cross-origin content and unsupported effects can be absent.
+Always retain the review step. Cancellation, navigation, changing the conversation or agent,
+and losing access discard the preview and late capture results. The approved upload follows
+the conversation's existing access, classification, scanning, model-media and retention rules;
+PNG acceptance alone does not promise that a text-only model can analyze pixels. Do not log
+image data or put it into route context or browser storage. Check `report:bundle` to keep
+html2canvas outside initial JavaScript and run `nh-assistant-screenshot.spec.ts` for the consent,
+cancellation, preview, renderer and attachment behavior.
 
 Pass `getStateScope` with a stable, non-secret user-and-tenant identifier when
 the assistant should restore its selected agent, active conversation and open

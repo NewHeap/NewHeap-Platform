@@ -36,6 +36,7 @@
     "@swimlane/ngx-datatable": "^23.0.1",
     "bootstrap": "^5.3.8",
     "dompurify": "^3.4.15",
+    "html2canvas": "1.4.1",
     "js-base64": "^3.7.8",
     "luxon": "^3.7.2",
     "marked": "^18.0.13",
@@ -58,4 +59,3 @@
     "vite": "7.3.7"
   }
 }
-

@@ -10,6 +10,7 @@ import { firstValueFrom, toArray } from 'rxjs';
 
 /** The data fields of every event as contract section 6 defines them. */
 const contractFields: Record<NhAssistantMessageEvent['type'], string[]> = {
+  'page-screenshot.requested': ['reason'],
   'turn.started': ['assistantMessageId', 'turnId', 'userMessageId'],
   'message.delta': ['messageId', 'text'],
   'tool.started': ['argumentsPreview', 'displayName', 'invocationId', 'toolId', 'toolVersion'],

@@ -37,6 +37,7 @@
     "@swimlane/ngx-datatable": "^23.0.1",
     "@types/luxon": "^3.4.2",
     "dompurify": "^3.4.15",
+    "html2canvas": "1.4.1",
     "js-base64": "^3.7.7",
     "luxon": "^3.5.0",
     "marked": "^18.0.13",

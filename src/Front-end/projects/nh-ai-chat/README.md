@@ -21,14 +21,26 @@ registry=https://registry.npmjs.org/
 Install the package with its peer dependencies:
 
 ```bash
-npm install @newheap/platform-ai-chat @angular/cdk @angular/router marked dompurify
+npm install @newheap/platform-ai-chat @angular/cdk @angular/router marked dompurify html2canvas
 ```
 
 View available versions on [npmjs.org](https://www.npmjs.com/package/@newheap/platform-ai-chat). For NuGet, npm and AI-plugin installation, see [Consume public packages](../../../../docs/how-to/consume-public-packages.md).
 
 Peer dependencies: Angular `^20.3.28` (`@angular/core`, `@angular/common`),
 `@angular/cdk` `^20.2.14`, `@angular/router` `^20.3.28`, `@ngx-translate/core` `^17.0.0`, `marked` `^18.0.0`,
-`dompurify` `^3.4.0` and `rxjs` `~7.8.0`.
+`dompurify` `^3.4.0`, `html2canvas` `^1.4.1` and `rxjs` `~7.8.0`.
+
+Set `screenshots: true` in the assistant config to offer **Share page** for agents accepting
+PNG uploads. The AI can also call `request_page_screenshot` to open the same consent dialog
+with a reason. This is offered only for the sending browser's current message turn; history,
+other participants, queued messages and resumed turns never reopen a request. The renderer
+loads only after explicit capture consent. Preparing and capturing
+states lead to a local preview; **Share with AI** uploads through the normal attachment flow,
+and the next message sends it. Cancel discards the image. The current viewport is captured,
+with a 1920-pixel maximum edge, excluding the chat, password fields and elements marked
+`data-nh-assistant-screenshot-exclude`. DOM rendering may omit embedded content or visual
+effects, so the user always reviews the image. Navigation, changing chat or losing access
+clears it. The host must enable image-capable uploads/models and retain the normal file policies.
 
 The panel is a CDK overlay. Load the CDK overlay styles once, for example in
 `angular.json`:

@@ -36,6 +36,7 @@ import { NhAssistantComposerComponent } from '../composer/nh-assistant-composer.
 import { NhAssistantConversationListComponent } from '../conversation-list/nh-assistant-conversation-list.component';
 import { NhAssistantPreferencesComponent } from '../preferences/nh-assistant-preferences.component';
 import { NhAssistantShareComponent } from '../share/nh-assistant-share.component';
+import { NhAssistantScreenshotComponent } from '../screenshot/nh-assistant-screenshot.component';
 import {
   NH_ASSISTANT_CONVERSATION_FRAGMENT,
   NH_ASSISTANT_JOIN_FRAGMENT,
@@ -122,6 +123,7 @@ export type NhAssistantBeforeSubmit = (message: NhAssistantOutgoingMessage) => P
     NhAssistantConversationListComponent,
     NhAssistantPreferencesComponent,
     NhAssistantShareComponent,
+    NhAssistantScreenshotComponent,
     NhAssistantThreadComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

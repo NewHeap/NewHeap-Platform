@@ -215,6 +215,10 @@ internal sealed class NhAssistantTurnState
 
     public NhAssistantClientContext? ClientContext { get; init; }
 
+    public bool PageScreenshotAvailable { get; set; }
+
+    public bool PageScreenshotRequested { get; set; }
+
     public Collaboration.NhAssistantSpeakers? Speakers { get; init; }
 
     /// <summary>
@@ -380,7 +384,10 @@ internal sealed class NhAssistantTurnState
     {
         // The stream is unbounded; a disconnected client never blocks the turn.
         Events.TryWrite(evt);
-        return Broadcast?.Invoke(evt) ?? ValueTask.CompletedTask;
+        // A page request belongs only to the browser that sent the message, never other participants.
+        return evt is NhAssistantPageScreenshotRequestedEvent
+            ? ValueTask.CompletedTask
+            : Broadcast?.Invoke(evt) ?? ValueTask.CompletedTask;
     }
 }
 

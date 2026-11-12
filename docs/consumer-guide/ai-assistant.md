@@ -1852,6 +1852,20 @@ returned to the model, and per tool what the calls saved: `GET admin/agents/{id}
 `nh-assistant-agent-composition-activity`. It reads the stored tool invocations and is content-free;
 calls in a consultation store nothing and are not listed.
 
+## Consent-first page screenshots
+
+For browser chat messages with `NhAssistantSendMessageRequest.PageScreenshotAvailable = true`,
+the runtime offers `request_page_screenshot` when the agent's upload rules accept PNG. The
+tool accepts a reason of 1 to 500 characters and emits `page-screenshot.requested` at most
+once in that turn. It only requests consent: no capture, upload or image content exists yet.
+The Angular `screenshots: true` option advertises this capability and opens the consent and
+local-preview flow (SPM-305). The image reaches the model through the normal attachment flow
+when the person confirms and sends their next message. Do not treat the capability as consent.
+The event reaches only the sending stream; it is never broadcast to other participants or
+replayed from stored history. Resumed turns and headless channels do not inherit the capability.
+`AssistantUploadEndpointTests.Page_screenshot_requests_require_client_capability_and_only_request_consent_once`
+checks the protocol on both providers; `nh-assistant-screenshot.spec.ts` checks the browser boundary.
+
 ## Avoid
 
 - Exporting imported MCP tools by registering them as MCP-exposed catalogs or a second MCP client in

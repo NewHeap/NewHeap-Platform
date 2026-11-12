@@ -9,6 +9,8 @@ namespace NewHeap.Platform.AI.Chat.Runtime;
 /// </summary>
 internal abstract record NhAssistantTurnEvent;
 
+internal sealed record NhAssistantPageScreenshotRequestedEvent(string Reason) : NhAssistantTurnEvent;
+
 internal sealed record NhAssistantTurnStartedEvent(
     Guid TurnId,
     Guid UserMessageId,

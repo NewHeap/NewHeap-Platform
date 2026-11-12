@@ -280,7 +280,8 @@ export class NhAssistantPanelService {
     });
 
     this.subscriptions.add(overlayRef.keydownEvents().subscribe(event => {
-      if (event.key === 'Escape') {
+      // CDK listens in the capture phase: let an inner native dialog handle Escape first.
+      if (event.key === 'Escape' && !(event.target instanceof Element && event.target.closest('dialog[open]'))) {
         event.preventDefault();
         this.close();
       }

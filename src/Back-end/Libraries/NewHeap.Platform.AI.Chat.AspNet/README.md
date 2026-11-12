@@ -241,7 +241,7 @@ callers receive `404`.
 
 Each event is written as `event: <name>`, `data: <json>` and an empty line:
 `turn.started`, `message.delta`, `tool.started`, `tool.completed`,
-`approval.required`, `question.asked`, `question.answered`, `turn.completed` or `error`. A `: keep-alive` comment follows
+`approval.required`, `question.asked`, `question.answered`, `page-screenshot.requested`, `turn.completed` or `error`. A `: keep-alive` comment follows
 every 15 seconds without events, and the stream closes after `turn.completed` or
 `error`. Response buffering is disabled and `X-Accel-Buffering: no` is set for
 reverse proxies. A client disconnect cancels the turn and releases the conversation.

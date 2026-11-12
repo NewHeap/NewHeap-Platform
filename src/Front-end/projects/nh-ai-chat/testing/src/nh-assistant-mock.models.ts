@@ -158,6 +158,7 @@ export interface NhAssistantMockConnectionStep {
 }
 
 export type NhAssistantMockStep =
+  | { screenshot: { reason: string } }
   | NhAssistantMockTextStep
   | NhAssistantMockToolStep
   | NhAssistantMockApprovalStep

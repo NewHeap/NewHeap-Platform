@@ -47,6 +47,14 @@ export interface NhAssistantConfig {
    */
   getPageContext?: () => ClientContext | null | Promise<ClientContext | null>;
   /**
+   * Offers a one-off image of the visible application page when the agent accepts PNG uploads.
+   * Default false. Also lets the AI request capture in this client's message turn.
+   * The user consents before capture and reviews locally before attaching it.
+   * html2canvas loads only after consent. Mark private content with
+   * `data-nh-assistant-screenshot-exclude`; password fields and assistant panels are excluded.
+   */
+  screenshots?: boolean;
+  /**
    * Stable, non-secret identity for browser UI state (for example a user id plus tenant id).
    * Runs in the assistant injection context. Return null on sign-out. Without this callback
    * the assistant keeps UI state in memory only. Never return an access token.

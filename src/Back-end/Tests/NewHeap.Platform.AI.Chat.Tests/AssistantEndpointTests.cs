@@ -348,15 +348,21 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database) : 
             new NhAssistantClientContextDto("/projects/7", "Project 7", [new NhAssistantClientEntityDto("project", "7", "Roadmap")]),
             context.NhAssistantClientContextDto);
         var message = JsonSerializer.SerializeToElement(
-            new NhAssistantSendMessageRequest("Hi", "c-1", clientContext),
+            new NhAssistantSendMessageRequest("Hi", "c-1", clientContext) { PageScreenshotAvailable = true },
             context.NhAssistantSendMessageRequest);
         AssertNames(clientContext, "route", "title", "entities");
         AssertNames(clientContext.GetProperty("entities")[0], "type", "id", "label");
-        AssertNames(message, "text", "clientMessageId", "clientContext", "files");
+        AssertNames(message, "text", "clientMessageId", "clientContext", "files", "pageScreenshotAvailable");
+        Assert.True(message.GetProperty("pageScreenshotAvailable").GetBoolean());
+        var screenshot = JsonSerializer.SerializeToElement(
+            new NhAssistantPageScreenshotRequestedDto("Seeing the controls would help."),
+            context.NhAssistantPageScreenshotRequestedDto);
+        AssertNames(screenshot, "reason");
         var read = JsonSerializer.Deserialize(
             """{ "text": "Hi", "clientMessageId": "c-1", "clientContext": { "route": "/x" }, "files": [{ "id": "f-1", "name": "Plan.pdf", "mediaType": "application/pdf", "size": 12, "hash": null }] }""",
             context.NhAssistantSendMessageRequest)!;
         Assert.Equal("/x", read.ClientContext!.Value.GetProperty("route").GetString());
+        Assert.False(read.PageScreenshotAvailable);
         Assert.Equal(new NhAiFileReference("f-1", "Plan.pdf", NhAiMediaTypes.Pdf, 12), Assert.Single(read.Files!));
 
         // The upload answers the file's reference; a message shows an attachment as a `file` part.

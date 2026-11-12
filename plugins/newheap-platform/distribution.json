@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "pluginVersion": "1.13.126",
   "guidanceVersion": "1.13.126",
-  "skillContentHash": "9d70d7f3b2e74a20d9781ad1925c080df52a9fe213f8952b48278a4eb54c6a4b",
+  "skillContentHash": "eea387b9d8b4fcfa500b63148c488c910036fd3efee661877ad537888587b426",
   "skills": [
     "newheap-platform-development"
   ],
@@ -80,6 +80,7 @@
       "@newheap/platform-common": "^6.1.0 || ^7.0.0",
       "@ngx-translate/core": "^17.0.0",
       "dompurify": "^3.4.0",
+      "html2canvas": "^1.4.1",
       "marked": "^18.0.0",
       "rxjs": "~7.8.0"
     },

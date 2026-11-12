@@ -1,0 +1,62 @@
+@use '../../styles/tokens';
+
+@include tokens.tokens;
+
+:host { display: inline-flex; }
+
+button {
+  font: inherit;
+  cursor: pointer;
+  @include tokens.focus-ring;
+
+  &:disabled { opacity: .5; cursor: not-allowed; }
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--nha-radius-control);
+  color: var(--nha-text-muted);
+  background: transparent;
+  font-size: 12px;
+
+  &:hover:not(:disabled) { background: var(--nha-surface-strong); color: var(--nha-text); }
+}
+
+dialog {
+  box-sizing: border-box;
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 20px;
+  overflow: auto;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius);
+  color: var(--nha-text);
+  background: var(--nha-background);
+  box-shadow: var(--nha-shadow);
+  font-family: var(--nha-font);
+  font-size: 14px;
+  line-height: 1.5;
+
+  &::backdrop { background: rgb(0 0 0 / .55); }
+}
+
+header, footer { display: flex; align-items: center; gap: 12px; }
+header { justify-content: space-between; }
+h3 { margin: 0; font-size: 18px; }
+.close { @include tokens.icon-button; flex: none; }
+.hint { color: var(--nha-text-muted); font-size: 12px; }
+.error { color: var(--nha-danger); }
+.preview { display: block; width: 100%; max-height: 55dvh; object-fit: contain; border: 1px solid var(--nha-border); background: var(--nha-surface); }
+footer { justify-content: flex-end; margin-top: 20px; flex-wrap: wrap; }
+.primary, .secondary { min-height: 40px; padding: 8px 14px; border: 1px solid var(--nha-border); border-radius: var(--nha-radius-control); }
+.primary { color: var(--nha-accent-contrast); background: var(--nha-accent); }
+.secondary { color: var(--nha-text); background: var(--nha-surface); }
+.loading { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 180px; }
+.spinner { width: 24px; height: 24px; border: 3px solid var(--nha-border); border-top-color: var(--nha-highlight); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }

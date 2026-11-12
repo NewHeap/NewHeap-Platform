@@ -120,6 +120,9 @@ internal sealed class NhAssistantServerSentEventsResult(NhAssistantTurnHandle ha
             NhAssistantToolCompletedEvent tool => ("tool.completed", Json(
                 new NhAssistantToolCompletedDto(tool.InvocationId, tool.Status, tool.ResultCode, tool.ResultPreview),
                 context.NhAssistantToolCompletedDto)),
+            NhAssistantPageScreenshotRequestedEvent screenshot => ("page-screenshot.requested", Json(
+                new NhAssistantPageScreenshotRequestedDto(screenshot.Reason),
+                context.NhAssistantPageScreenshotRequestedDto)),
             NhAssistantApprovalRequiredEvent approval => ("approval.required", Json(
                 NhAssistantDtoMapper.ToDto(approval.Approval),
                 context.NhAssistantMessagePartDto)),

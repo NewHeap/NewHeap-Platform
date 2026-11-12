@@ -983,6 +983,25 @@ describe('NhAssistantPanelComponent', () => {
     }
   });
 
+  it('leaves Escape to a native dialog inside the drawer', async () => {
+    await open();
+    const dialog = document.createElement('dialog');
+    const button = document.createElement('button');
+    button.textContent = 'Cancel';
+    dialog.append(button);
+    overlay.querySelector('.drawer')!.append(dialog);
+    try {
+      dialog.showModal();
+      button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      expect(TestBed.inject(NhAssistantPanelService).isOpen()).toBeTrue();
+      dialog.close();
+      overlay.querySelector('textarea')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      expect(TestBed.inject(NhAssistantPanelService).isOpen()).toBeFalse();
+    } finally {
+      dialog.remove();
+    }
+  });
+
   it('edits a queued message without replacing the fresh draft or dispatching an unfinished edit', async () => {
     await open();
     const store = TestBed.inject(NhAssistantStore);

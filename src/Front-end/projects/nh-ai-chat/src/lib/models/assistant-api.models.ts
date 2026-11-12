@@ -536,6 +536,8 @@ export type NhAssistantClientContext = ClientContext;
 
 /** Body of `POST conversations/{id}/messages`. */
 export interface SendMessageRequest {
+  /** Offers consent-first page capture for this turn; this flag never grants consent. */
+  pageScreenshotAvailable?: boolean;
   text: string;
   clientMessageId: string;
   /** Page context of this message; `null` when the user left it out. */

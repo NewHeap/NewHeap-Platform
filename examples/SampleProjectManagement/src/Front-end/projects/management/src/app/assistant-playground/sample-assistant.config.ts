@@ -153,6 +153,7 @@ export function provideSampleAssistant(overrides: Partial<NhAssistantConfig> = {
       getRequestHeaders: sampleAssistantRequestHeaders,
       getHubQueryParameters: sampleAssistantHubQueryParameters,
       getPageContext: sampleAssistantPageContext,
+      screenshots: true,
       getStateScope: sampleAssistantStateScope,
       accessPolicy: SampleAssistantAccessPolicy,
       // The development proxy serves the API below /api, like the background operation hub.

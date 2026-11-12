@@ -82,6 +82,7 @@ export interface NhAssistantSseEventMap {
   'message.delta': MessageDeltaEvent;
   'tool.started': ToolStartedEvent;
   'tool.completed': ToolCompletedEvent;
+  'page-screenshot.requested': { reason: string };
   'approval.required': ApprovalRequiredEvent;
   'question.asked': QuestionAskedEvent;
   'question.answered': QuestionAnsweredEvent;
@@ -108,6 +109,7 @@ export const NH_ASSISTANT_SSE_EVENT_TYPES: readonly NhAssistantSseEventType[] = 
   'message.delta',
   'tool.started',
   'tool.completed',
+  'page-screenshot.requested',
   'approval.required',
   'question.asked',
   'question.answered',

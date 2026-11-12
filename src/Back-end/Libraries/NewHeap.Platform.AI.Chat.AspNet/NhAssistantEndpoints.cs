@@ -448,6 +448,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             {
                 AgentTurn = agentTurn,
                 Files = files,
+                PageScreenshotAvailable = request.PageScreenshotAvailable,
                 Person = outlives ? NhAiPersonInvocations.FromRequest(httpContext, caller.Data) : null
             },
             httpContext.RequestAborted);

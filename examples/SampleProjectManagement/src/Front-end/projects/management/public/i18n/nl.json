@@ -413,6 +413,7 @@
     "assistant-cost-center-error-too-long": "Gebruik hoogstens 100 tekens.",
     "assistant-cost-center-error-required": "Vul een kostenplaats in.",
     "assistant-cost-center-error-invalid": "Deze waarde is geen kostenplaats.",
+    "assistant-prompt-screenshot": "Screenshot delen",
     "assistant-prompt-page": "Paginacontext",
     "assistant-page-title": "Projectpagina",
     "assistant-page-description": "Open een project alsof je op de projectpagina bent. De context gaat mee met het volgende bericht; met het pagina-icoon naast de deelacties laat je die weg. De tooltip toont welke pagina wordt meegestuurd.",

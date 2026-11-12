@@ -1,0 +1,47 @@
+@if (available()) {
+  <button class="trigger" type="button" [disabled]="disabled() || full()"
+    [attr.title]="'nh-assistant.screenshot.open' | translate"
+    [attr.aria-label]="'nh-assistant.screenshot.open' | translate" (click)="open()">
+    <nh-assistant-icon name="page" />
+    <span>{{ 'nh-assistant.screenshot.open' | translate }}</span>
+  </button>
+}
+<dialog #dialog [attr.aria-labelledby]="titleId" (cancel)="close()" (keydown.escape)="$event.stopPropagation()">
+  <header>
+    <h3 [id]="titleId">{{ 'nh-assistant.screenshot.title' | translate }}</h3>
+    <button type="button" class="close" [attr.aria-label]="'nh-assistant.screenshot.cancel' | translate" (click)="close()">
+      <nh-assistant-icon name="close" />
+    </button>
+  </header>
+  @if (phase() === 'consent') {
+    @if (reason(); as reason) {
+      <p><strong>{{ 'nh-assistant.screenshot.requested' | translate }}</strong></p>
+      <p>{{ reason }}</p>
+    }
+    <p>{{ 'nh-assistant.screenshot.consent' | translate }}</p>
+    <p class="hint">{{ 'nh-assistant.screenshot.scope' | translate }}</p>
+  } @else if (busy()) {
+    <div class="loading" role="status" aria-live="polite" aria-atomic="true" aria-busy="true">
+      <span class="spinner" aria-hidden="true"></span>
+      <p>{{ 'nh-assistant.screenshot.' + phase() | translate }}</p>
+    </div>
+  } @else if (phase() === 'preview') {
+    <p>{{ 'nh-assistant.screenshot.review' | translate }}</p>
+    <img class="preview" [src]="preview()" [alt]="'nh-assistant.screenshot.preview' | translate" />
+    <p class="hint">{{ 'nh-assistant.screenshot.retention' | translate }}</p>
+  } @else if (phase() === 'error') {
+    <p class="error" role="alert">{{ 'nh-assistant.screenshot.' + error() | translate }}</p>
+  }
+  <footer>
+    <button type="button" class="secondary" [attr.aria-label]="'nh-assistant.screenshot.cancel' | translate" (click)="close()">{{ 'nh-assistant.screenshot.cancel' | translate }}</button>
+    @if (phase() === 'consent' || phase() === 'error') {
+      <button type="button" class="primary"
+        [attr.aria-label]="(phase() === 'error' ? 'nh-assistant.screenshot.retry' : 'nh-assistant.screenshot.capture') | translate" (click)="take()">
+        {{ (phase() === 'error' ? 'nh-assistant.screenshot.retry' : 'nh-assistant.screenshot.capture') | translate }}
+      </button>
+    } @else if (phase() === 'preview') {
+      <button type="button" class="primary" [disabled]="full() || disabled()"
+        [attr.aria-label]="'nh-assistant.screenshot.share' | translate" (click)="share()">{{ 'nh-assistant.screenshot.share' | translate }}</button>
+    }
+  </footer>
+</dialog>

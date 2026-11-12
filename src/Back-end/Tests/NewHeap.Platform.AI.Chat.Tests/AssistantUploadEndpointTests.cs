@@ -440,6 +440,48 @@ public sealed class AssistantUploadEndpointTests(AssistantDatabaseFixture databa
         return uploads.GetProperty("acceptedMediaTypes").EnumerateArray().Select(item => item.GetString()!).ToArray();
     }
 
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Page_screenshot_requests_require_client_capability_and_only_request_consent_once(AssistantTestProvider provider)
+    {
+        const string reason = "Seeing the controls would help explain this page.";
+        var model = new NhAiScriptedChatClient()
+            .RespondWithFunctionCall("request_page_screenshot", new { reason = new string('x', 501) }, "invalid")
+            .RespondWithFunctionCall("request_page_screenshot", new { reason }, "request")
+            .RespondWithFunctionCall("request_page_screenshot", new { reason }, "duplicate")
+            .RespondWithText("Please review the request.")
+            .RespondWithText("I can help without an image.")
+            .RespondWithText("This agent cannot accept images.");
+        await using var app = await StartAsync(provider, model);
+        using var client = app.CreateClient();
+        var id = await CreateConversationAsync(client, FileAgent);
+
+        using var turn = await client.PostAsync($"/api/assistant/conversations/{id}/messages",
+            Json(new { text = "Help with this page", clientMessageId = "screen-1", pageScreenshotAvailable = true }));
+        Assert.Equal(HttpStatusCode.OK, turn.StatusCode);
+        var (events, _) = await ReadAllAsync(turn);
+        Assert.True(events.Any(item => item.Name == "page-screenshot.requested"), JsonSerializer.Serialize(events));
+        var request = Assert.Single(events, item => item.Name == "page-screenshot.requested");
+        Assert.Equal(reason, request.Data.GetProperty("reason").GetString());
+        Assert.Contains(model.Requests[0].Options!.Tools!, tool => tool.Name == "request_page_screenshot");
+        Assert.Empty(app.Services.GetRequiredService<TestUploads>().Stored);
+        Assert.All(model.Requests, request => Assert.Empty(request.Messages.SelectMany(message => message.Contents).OfType<DataContent>()));
+
+        // Capability is per message, not persisted permission. The next message does not offer it.
+        using var without = await client.PostAsync($"/api/assistant/conversations/{id}/messages",
+            Json(new { text = "Continue without an image", clientMessageId = "screen-2" }));
+        var (withoutEvents, _) = await ReadAllAsync(without);
+        Assert.DoesNotContain(withoutEvents, item => item.Name == "page-screenshot.requested");
+        Assert.DoesNotContain(model.Requests[^1].Options!.Tools!, tool => tool.Name == "request_page_screenshot");
+
+        var closed = await CreateConversationAsync(client, ClosedAgent);
+        using var unsupported = await client.PostAsync($"/api/assistant/conversations/{closed}/messages",
+            Json(new { text = "Help with this page", clientMessageId = "screen-3", pageScreenshotAvailable = true }));
+        await ReadAllAsync(unsupported);
+        Assert.DoesNotContain(model.Requests[^1].Options!.Tools!, tool => tool.Name == "request_page_screenshot");
+    }
+
     private Task<AssistantWebApplication> StartAsync(
         AssistantTestProvider provider = AssistantTestProvider.PostgreSql,
         NhAiScriptedChatClient? model = null,

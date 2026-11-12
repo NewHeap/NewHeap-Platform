@@ -142,6 +142,10 @@ export function applyNhAssistantEvent(
       };
     }
 
+    case 'page-screenshot.requested':
+      // Consent belongs to the current browser, never to persisted conversation history.
+      return conversation;
+
     case 'error':
       return {
         ...conversation,

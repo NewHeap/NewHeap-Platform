@@ -153,10 +153,14 @@ internal sealed partial class NhAssistantTurnRunner
     /// </summary>
     private async Task PrepareChatAsync(NhAssistantTurnState state, CancellationToken cancellationToken)
     {
-        if (!string.Equals(state.Conversation.Kind, NhAssistantConversationKinds.Chat, StringComparison.Ordinal)
-            || !registration.AgentRuns.TryGetValue(state.EffectiveAgent.Id, out var options)
+        if (!string.Equals(state.Conversation.Kind, NhAssistantConversationKinds.Chat, StringComparison.Ordinal))
+        {
+            return;
+        }
+        if (!registration.AgentRuns.TryGetValue(state.EffectiveAgent.Id, out var options)
             || !(options.SkillsInChat || options.AllowQuestions))
         {
+            RefreshFunctions(state);
             return;
         }
 
@@ -307,6 +311,11 @@ internal sealed partial class NhAssistantTurnRunner
         if (OffersQuestions(state))
         {
             functions.Add(CreateAskQuestionFunction(state));
+        }
+
+        if (state.PageScreenshotAvailable && !state.RuleTurn && state.Scope.Consultation is null)
+        {
+            functions.Add(CreatePageScreenshotFunction(state));
         }
 
         state.ExtraFunctions = functions;

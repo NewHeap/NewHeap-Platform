@@ -483,6 +483,12 @@ internal sealed class NhAssistantMemoryFunction(
         "Asks a person of the conversation a question with choices and waits for the answer.",
         NhAiToolEffect.ReadOnly);
 
+    public static NhAiToolDescriptor PageScreenshotDescriptor { get; } = Create(
+        "assistant.request-page-screenshot",
+        "request_page_screenshot",
+        "Requests permission to share the current application page.",
+        NhAiToolEffect.ReadOnly);
+
     private readonly JsonElement _schema = JsonDocument.Parse(schema).RootElement.Clone();
 
     public NhAiToolDescriptor Descriptor { get; } = descriptor;

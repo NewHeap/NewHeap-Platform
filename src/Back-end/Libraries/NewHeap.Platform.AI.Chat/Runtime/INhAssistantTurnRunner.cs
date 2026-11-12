@@ -112,6 +112,8 @@ internal sealed record NhAssistantMessageTurnRequest(
     string Language = "en",
     NhAssistantClientContext? ClientContext = null)
 {
+    public bool PageScreenshotAvailable { get; init; }
+
     /// <summary>
     /// The agent side of a turn in an agent thread; <see langword="null"/> in a chat.
     /// </summary>

@@ -913,6 +913,8 @@ export class NhAssistantMockBackend {
           usage.outputTokens++;
           await emit({ type: 'message.delta', data: { messageId: assistantMessageId, text: piece } });
         }
+      } else if ('screenshot' in step) {
+        await emit({ type: 'page-screenshot.requested', data: step.screenshot });
       } else if ('tool' in step) {
         const invocationId = this.nextId();
         usage.toolCalls++;

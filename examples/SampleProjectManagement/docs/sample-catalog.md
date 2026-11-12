@@ -357,6 +357,13 @@ that region next to `local`, and the assistant's profile gets a larger call budg
 Messages and the project data that tools read leave the machine, so use test data only; the
 [README](../README.md#a-real-model-for-the-assistant) lists the settings.
 
+The Assistant lab's **Share a screenshot** prompt demonstrates consent-first page images
+(SPM-305). The portal enables `NhAssistantConfig.screenshots`; the scripted AI request opens
+the consent dialog with its reason. Users can also choose **Share page**. Both ask permission,
+lazily loads the renderer with progress, previews locally and uploads only after confirmation.
+Send the next message to give the image to the assistant. The mock replies do not analyze pixels.
+The image excludes the chat and marked private fields and follows the normal attachment policies.
+
 The assistant reads files of the sample's media library (SPM-305). `ProjectMediaFileSource`
 implements the assistant's file source: a person attaches a PDF, an image, or a Word or Excel
 document in the chat panel, the upload endpoint checks it and the source stores it in a media

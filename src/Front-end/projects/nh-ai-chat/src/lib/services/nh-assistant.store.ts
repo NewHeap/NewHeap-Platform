@@ -12,7 +12,7 @@ import {
   untracked
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { Observable, Subscription, firstValueFrom, isObservable } from 'rxjs';
+import { Observable, Subject, Subscription, firstValueFrom, isObservable } from 'rxjs';
 import {
   AgentSummary,
   AgentUploads,
@@ -291,6 +291,9 @@ export interface NhAssistantChatSubject extends ConversationSubjectRef {
  */
 @Injectable()
 export class NhAssistantStore {
+  private readonly pageScreenshotRequestsSubject = new Subject<{ conversationId: string; reason: string }>();
+  /** Transient requests from this client's own turn; history and other participants never replay them. */
+  readonly pageScreenshotRequests = this.pageScreenshotRequestsSubject.asObservable();
   private readonly api = inject(NhAssistantApiService);
   private readonly agentRuns = inject(NhAssistantAgentRunApiService);
   private readonly config = inject(NH_ASSISTANT_CONFIG);
@@ -1221,6 +1224,8 @@ export class NhAssistantStore {
       this.runStream(conversationId, this.api.sendMessage(conversationId, {
         text: trimmed,
         clientMessageId,
+        ...(this.config.screenshots === true && !queued && this.uploads()?.acceptedMediaTypes.includes('image/png')
+          ? { pageScreenshotAvailable: true } : {}),
         ...(clientContext === undefined ? {} : { clientContext }),
         ...(files.length > 0 ? { files: [...files] } : {})
       }), {
@@ -2225,6 +2230,13 @@ export class NhAssistantStore {
   }
 
   private applyEvent(conversationId: string, event: NhAssistantSseEvent, clientMessageId?: string): void {
+    if (event.type === 'page-screenshot.requested') {
+      if (this.config.screenshots === true && conversationId === this.activeConversation()?.id
+        && typeof event.data.reason === 'string' && event.data.reason.trim().length > 0 && event.data.reason.length <= 500) {
+        this.pageScreenshotRequestsSubject.next({ conversationId, reason: event.data.reason });
+      }
+      return;
+    }
     this.patchSession(conversationId, session => {
       const conversation = applyNhAssistantEvent(session.conversation, event, clientMessageId);
       let { error, notice, lastUsage } = session;

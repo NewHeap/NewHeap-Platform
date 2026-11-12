@@ -1991,6 +1991,9 @@ internal sealed partial class NhAssistantTurnRunner(
 
         var speakers = await LoadSpeakersAsync(conversation, access.ActorId, request.Language);
         var state = await CreateStateAsync(conversation, effectiveAgent, turnId, userMessage.Id, request.CallerContext, request.Language, request.ClientContext, speakers, events, request.AgentTurn, channel: request.Channel, chatSubject: chatSubject, clock: clock);
+        state.PageScreenshotAvailable = request.PageScreenshotAvailable
+            && request.AgentTurn is null
+            && services.GetRequiredService<NhAssistantUploads>().RulesOf(effectiveAgent)?.AcceptedMediaTypes.Contains("image/png") == true;
         await state.EmitAsync(new NhAssistantTurnStartedEvent(turnId, userMessage.Id, state.AssistantMessageId));
 
         var toolCallsToday = await store.GetToolCallsAsync(

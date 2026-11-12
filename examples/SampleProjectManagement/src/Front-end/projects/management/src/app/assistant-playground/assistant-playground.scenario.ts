@@ -157,6 +157,7 @@ export const PLAYGROUND_COLLEAGUE_MESSAGE = 'Can you give a short update for the
 
 /** Prompts that exercise each scripted turn of the playground scenario. */
 export const ASSISTANT_PLAYGROUND_PROMPTS = [
+  { key: 'screenshot', text: 'Can you help me with what is visible on my screen?' },
   { key: 'page', text: 'What am I looking at?' },
   { key: 'list', text: 'Which projects are active?' },
   { key: 'tools', text: 'Compare the open work across all projects.' },
@@ -1083,6 +1084,17 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         },
         { text: 'Team update: **Alpha migration** is active and on schedule; **Beta onboarding** waits for the contract scope.' }
       ]
+    },
+    {
+      match: /visible on my screen/i,
+      steps: [
+        { screenshot: { reason: 'Seeing the current page would help me understand which controls and information you are asking about.' } },
+        { text: 'I have asked permission to see this page. You can decline, or review a screenshot and attach it to your next message. This lab uses scripted replies; a live assistant with image support can inspect the attached image.' }
+      ]
+    },
+    {
+      match: /screenshot/i,
+      steps: [{ text: 'This lab uses scripted replies and does not analyze image pixels. Image attachments travel with your message through the same upload flow that a live image-capable assistant uses.' }]
     },
     {
       match: /looking at|this page/i,

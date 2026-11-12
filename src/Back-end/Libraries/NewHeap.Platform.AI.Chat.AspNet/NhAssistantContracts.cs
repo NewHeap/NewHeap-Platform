@@ -852,7 +852,17 @@ public sealed record NhAssistantSendMessageRequest(
     string? Text,
     string? ClientMessageId,
     JsonElement? ClientContext = null,
-    IReadOnlyList<NhAiFileReference>? Files = null);
+    IReadOnlyList<NhAiFileReference>? Files = null)
+{
+    /// <summary>
+    /// This client can ask the user for a page screenshot during this message's turn. This is a
+    /// capability, never consent. Defaults to false; it is not carried into resumed turns.
+    /// </summary>
+    public bool PageScreenshotAvailable { get; init; }
+}
+
+/// <summary>A transient request for the sending client to ask for consent; no image is captured.</summary>
+public sealed record NhAssistantPageScreenshotRequestedDto(string Reason);
 
 /// <summary>
 /// What the user has open: route (max 200), title (max 120) and at most 5 entities. Untrusted data
@@ -941,6 +951,7 @@ public sealed record NhAssistantTurnCompletedDto(
 [JsonSerializable(typeof(NhAssistantMessageDeltaDto))]
 [JsonSerializable(typeof(NhAssistantToolStartedDto))]
 [JsonSerializable(typeof(NhAssistantToolCompletedDto))]
+[JsonSerializable(typeof(NhAssistantPageScreenshotRequestedDto))]
 [JsonSerializable(typeof(NhAssistantTurnCompletedDto))]
 [JsonSerializable(typeof(NhAssistantMessageDto))]
 [JsonSerializable(typeof(NhAssistantMarkReadRequest))]

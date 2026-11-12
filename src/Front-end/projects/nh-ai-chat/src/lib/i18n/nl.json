@@ -1,5 +1,23 @@
 {
   "nh-assistant": {
+    "screenshot": {
+      "requested": "De assistent wil deze pagina graag bekijken",
+      "open": "Pagina delen",
+      "title": "Deze pagina delen met de assistent",
+      "consent": "Mogen we een afbeelding van de zichtbare pagina maken? We uploaden niets voordat je de afbeelding hebt bekeken en bevestigd.",
+      "scope": "De chat en gemarkeerde privévelden worden uitgesloten. Andere zichtbare informatie kan in de afbeelding staan. Ingesloten inhoud en sommige visuele effecten kunnen ontbreken.",
+      "capture": "Screenshot maken",
+      "cancel": "Annuleren",
+      "preparing": "Screenshot voorbereiden…",
+      "capturing": "Afbeelding maken…",
+      "review": "Controleer de afbeelding voordat je deelt. Annuleer als er informatie in staat die je niet wilt delen.",
+      "preview": "Voorbeeld van de huidige applicatiepagina",
+      "retention": "Delen uploadt deze afbeelding als bijlage bij dit gesprek. Deze gaat met je volgende bericht naar de AI en volgt het bewaarbeleid voor gespreksbijlagen. Andere gespreksdeelnemers kunnen de bijlage zien.",
+      "share": "Delen met AI",
+      "retry": "Opnieuw proberen",
+      "failed": "De pagina kon niet worden vastgelegd. Probeer het opnieuw of voeg zelf een screenshot toe.",
+      "too-large": "Deze afbeelding overschrijdt de bestandslimiet van de assistent. Annuleer en voeg een kleinere screenshot toe."
+    },
     "launcher": {
       "open": "Assistent openen",
       "close": "Assistent sluiten",
