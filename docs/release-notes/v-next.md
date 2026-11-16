@@ -2,6 +2,7 @@
 
 ## @newheap/platform-common: modal accessibility
 
-| Breaking change | Required action |
-| --- | --- |
-| The dialog role, ARIA name and fallback focus target moved from `.nh-modal-holder` to `.nh-modal`. | Update selectors and tests to target `[role="dialog"]` or `.nh-modal`; pass a meaningful translated `title`. |
+Fixed dialog semantics and accessible naming on the visible `.nh-modal` panel,
+including a translated fallback for empty titles. The public API remains compatible.
+Tests that inspect internal markup should target `[role="dialog"]` or `.nh-modal`
+instead of expecting the dialog role on `.nh-modal-holder`.
