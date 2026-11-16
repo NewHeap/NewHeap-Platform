@@ -26,8 +26,8 @@ npm install @newheap/platform-ai-chat @angular/cdk @angular/router marked dompur
 
 View available versions on [npmjs.org](https://www.npmjs.com/package/@newheap/platform-ai-chat). For NuGet, npm and AI-plugin installation, see [Consume public packages](../../../../docs/how-to/consume-public-packages.md).
 
-Peer dependencies: Angular `^20.3.28` (`@angular/core`, `@angular/common`),
-`@angular/cdk` `^20.2.14`, `@angular/router` `^20.3.28`, `@ngx-translate/core` `^17.0.0`, `marked` `^18.0.0`,
+Peer dependencies: Angular `^20.3.28 || ^21.0.0 || ^22.0.0` (`@angular/core`, `@angular/common`, `@angular/router`),
+`@angular/cdk` `^20.2.14 || ^21.0.0 || ^22.0.0`, `@ngx-translate/core` `^17.0.0 || ^18.0.0`, `marked` `^18.0.0`,
 `dompurify` `^3.4.0`, `html2canvas` `^1.4.1` and `rxjs` `~7.8.0`.
 
 Set `screenshots: true` in the assistant config to offer **Share page** for agents accepting
