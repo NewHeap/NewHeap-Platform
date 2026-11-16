@@ -57376,8 +57376,8 @@
     ]
   },
   "frontEnd": {
-    "hash": "77778f545e941510db0a3576475ad446d18b678fbeba1f56e61d21776e7ed359",
-    "declarationCount": 950,
+    "hash": "11a34dbe0d4a174ca18db10fd28e5f5b5a434a0f7b92347ea03e16fb8bd6c52c",
+    "declarationCount": 951,
     "declarations": [
       {
         "path": "src/Front-end/projects/nh-common/sanitize/src/lib/nh-html-sanitizer-options.ts",
@@ -57834,6 +57834,10 @@
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-modal/component.ts",
         "declaration": "public componentRef: ComponentRef<C> | undefined;"
+      },
+      {
+        "path": "src/Front-end/projects/nh-common/src/lib/components/nh-modal/component.ts",
+        "declaration": "protected dialogLabel(): string | null {"
       },
       {
         "path": "src/Front-end/projects/nh-common/src/lib/components/nh-modal/nh-modal-stack.ts",

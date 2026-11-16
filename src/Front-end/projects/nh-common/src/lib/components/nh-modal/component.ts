@@ -187,6 +187,11 @@ export class NhModalComponent<C> implements OnInit, OnDestroy, AfterViewInit {
     return nhCommonText(this.translate, 'nh-common.modal.close');
   }
 
+  /** A translated fallback for dialogs opened without a meaningful title. */
+  protected dialogLabel(): string | null {
+    return this.title.trim() ? null : nhCommonText(this.translate, 'nh-common.modal.label');
+  }
+
   ngOnInit() {
     this.document.body.classList.add('nh-modal-open');
     this.stack.push(this);
@@ -322,7 +327,7 @@ export class NhModalComponent<C> implements OnInit, OnDestroy, AfterViewInit {
 
     const body = this.bodyElement();
     const contentTarget = body ? this.contentFocusTarget(body) : undefined;
-    const target = contentTarget ?? this.tabbablesIn(holder)[0] ?? holder;
+    const target = contentTarget ?? this.tabbablesIn(holder)[0] ?? this.modal().nativeElement;
     target.focus({preventScroll: true});
     return !!contentTarget;
   }
@@ -395,7 +400,7 @@ export class NhModalComponent<C> implements OnInit, OnDestroy, AfterViewInit {
     const tabbables = this.tabbablesIn(holder);
     if (tabbables.length === 0) {
       event.preventDefault();
-      holder.focus({preventScroll: true});
+      this.modal().nativeElement.focus({preventScroll: true});
       return;
     }
 

@@ -192,7 +192,7 @@ export class AppComponent implements OnInit {
     const modal = this.modalService.open(
       ProjectEditModalComponent,
       new NhModalOptions({
-        title: project ? 'Edit project' : 'Create project',
+        title: this.translateService.instant(project ? 'project.edit-project' : 'project.create-project'),
         modalClasses: 'large'
       }),
       {

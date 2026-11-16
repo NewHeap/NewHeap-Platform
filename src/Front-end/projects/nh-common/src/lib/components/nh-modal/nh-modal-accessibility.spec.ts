@@ -144,6 +144,10 @@ describe('NhModalComponent accessibility', () => {
     return (modal.componentRef.location.nativeElement as HTMLElement).querySelector('.nh-modal-holder') as HTMLElement;
   }
 
+  function dialogOf(modal: NhModalComponentRef<unknown>): HTMLElement {
+    return holderOf(modal).querySelector('.nh-modal') as HTMLElement;
+  }
+
   it('is a modal dialog named by its title, with a labelled close button', fakeAsync(() => {
     const fixture = page();
     const modal = open(fixture, TextContentComponent);
@@ -151,14 +155,21 @@ describe('NhModalComponent accessibility', () => {
     const title = holder.querySelector('h3') as HTMLElement;
     const close = holder.querySelector('.close-nh-modal') as HTMLButtonElement;
 
-    expect(holder.getAttribute('role')).toBe('dialog');
-    expect(holder.getAttribute('aria-modal')).toBe('true');
+    const dialog = dialogOf(modal);
+    expect(holder.hasAttribute('role')).toBeFalse();
+    expect(holder.hasAttribute('tabindex')).toBeFalse();
+    expect(holder.querySelector('.nh-modal-backdrop')?.getAttribute('aria-hidden')).toBe('true');
+    expect(dialog.querySelector('.nh-modal-backdrop')).toBeNull();
+    expect(dialog.getAttribute('role')).toBe('dialog');
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(title.id).toMatch(/^nh-modal-title-\d+$/);
-    expect(holder.getAttribute('aria-labelledby')).toBe(title.id);
+    expect(dialog.getAttribute('aria-labelledby')).toBe(title.id);
+    expect(dialog.hasAttribute('aria-label')).toBeFalse();
     expect(title.textContent?.trim()).toBe('Edit project');
     expect(close.type).toBe('button');
     expect(close.getAttribute('aria-label')).toBe('Close');
     expect(close.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+    expect(close.querySelector('svg')?.getAttribute('focusable')).toBe('false');
     tick(100);
   }));
 
@@ -178,11 +189,29 @@ describe('NhModalComponent accessibility', () => {
     tick(100);
   }));
 
-  it('names no title when the modal has none', fakeAsync(() => {
+  it('names an untitled or whitespace-only dialog with a translated fallback', fakeAsync(() => {
+    const translate = TestBed.inject(TranslateService);
     const fixture = page();
     const modal = open(fixture, TextContentComponent, {title: ''});
+    const dialog = dialogOf(modal);
 
-    expect(holderOf(modal).hasAttribute('aria-labelledby')).toBeFalse();
+    expect(dialog.hasAttribute('aria-labelledby')).toBeFalse();
+    expect(dialog.getAttribute('aria-label')).toBe('Dialog');
+
+    modal.modalComponent.title = ' \n ';
+    translate.use('nl-NL');
+    fixture.detectChanges();
+    expect(dialog.hasAttribute('aria-labelledby')).toBeFalse();
+    expect(dialog.getAttribute('aria-label')).toBe('Dialoogvenster');
+
+    translate.setTranslation('nl-NL', {'nh-common': {modal: {label: 'Projectvenster'}}});
+    fixture.detectChanges();
+    expect(dialog.getAttribute('aria-label')).toBe('Projectvenster');
+
+    modal.modalComponent.title = 'Project details';
+    fixture.detectChanges();
+    expect(dialog.hasAttribute('aria-label')).toBeFalse();
+    expect(dialog.getAttribute('aria-labelledby')).toBe(modal.modalComponent.titleId);
     tick(100);
   }));
 
@@ -222,13 +251,13 @@ describe('NhModalComponent accessibility', () => {
   it('leaves focus where the user moved it while the content loads', async () => {
     const fixture = page();
     const modal = open(fixture, LoadingFormContentComponent);
-    holderOf(modal).focus();
+    dialogOf(modal).focus();
 
     modal.contentComponent!.loaded.set(true);
     fixture.detectChanges();
     await observersRun();
 
-    expect(document.activeElement).toBe(holderOf(modal));
+    expect(document.activeElement).toBe(dialogOf(modal));
   });
 
   it('keeps Tab and Shift+Tab inside the modal and skips disabled and hidden controls', fakeAsync(() => {
@@ -258,12 +287,12 @@ describe('NhModalComponent accessibility', () => {
   it('keeps focus on the dialog when it has no control at all', fakeAsync(() => {
     const fixture = page();
     const modal = open(fixture, TextContentComponent, {closeable: false});
-    const holder = holderOf(modal);
+    const dialog = dialogOf(modal);
 
-    expect(document.activeElement).toBe(holder);
+    expect(document.activeElement).toBe(dialog);
     expect(keydown('Tab').defaultPrevented).toBeTrue();
     expect(keydown('Tab', true).defaultPrevented).toBeTrue();
-    expect(document.activeElement).toBe(holder);
+    expect(document.activeElement).toBe(dialog);
     tick(100);
   }));
 
@@ -308,6 +337,11 @@ describe('NhModalComponent accessibility', () => {
     (holderOf(lower).querySelector('#open-next') as HTMLElement).focus();
     const upper = open(fixture, AutofocusContentComponent, {title: 'Pick a member'});
     expect(active()).toBe('chosen');
+    expect(lower.modalComponent.titleId).not.toBe(upper.modalComponent.titleId);
+    for (const modal of [lower, upper]) {
+      const titleId = dialogOf(modal).getAttribute('aria-labelledby')!;
+      expect(document.getElementById(titleId)?.textContent?.trim()).toBe(modal.modalComponent.title);
+    }
 
     // Tab wraps inside the upper modal only.
     (holderOf(upper).querySelector('#chosen') as HTMLElement).focus();
@@ -334,6 +368,8 @@ describe('NhModalComponent accessibility', () => {
     }));
     fixture.detectChanges();
     const closeDialog = spyOn(modal.contentComponent!, 'closeDialog').and.callThrough();
+    expect(dialogOf(modal).getAttribute('role')).toBe('dialog');
+    expect(dialogOf(modal).getAttribute('aria-label')).toBe('Dialog');
 
     // The confirmation's first control, "no", has focus.
     expect(document.activeElement?.textContent?.trim()).toBe('general.no');

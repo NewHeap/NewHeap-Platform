@@ -127,6 +127,8 @@ for (const [name, host] of [['management', managementHost], ['workspace', worksp
 
 // SPM-115: modals live in the root's view container, so browser back navigation closes them with
 // their closed event instead of destroying them with the page that opened them.
+assert.match(management, /title:\s*this\.translateService\.instant\(project \? 'project\.edit-project' : 'project\.create-project'\)/,
+  'The edit modal must pass its translated title to the shell, which uses it as the dialog name.');
 assert.match(managementHost, /this\.modalService\.setViewContainerRef\(this\.viewContainerRef\)/,
   'The management application root must host the modals in its view container.');
 assert.doesNotMatch(management, /setViewContainerRef/,

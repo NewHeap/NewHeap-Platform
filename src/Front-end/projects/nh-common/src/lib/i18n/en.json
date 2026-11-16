@@ -1,7 +1,8 @@
 {
   "nh-common": {
     "modal": {
-      "close": "Close"
+      "close": "Close",
+      "label": "Dialog"
     },
     "pager": {
       "label": "Pagination",

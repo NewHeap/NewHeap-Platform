@@ -1,7 +1,8 @@
 {
   "nh-common": {
     "modal": {
-      "close": "Sluiten"
+      "close": "Sluiten",
+      "label": "Dialoogvenster"
     },
     "pager": {
       "label": "Paginering",

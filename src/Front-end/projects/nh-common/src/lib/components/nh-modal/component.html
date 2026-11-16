@@ -1,9 +1,10 @@
 <div #modalHolder (touchmove)="modalTouchMove($event)" (touchcancel)="modalTouchEnd($event)"
   (touchend)="modalTouchEnd($event)" (mousemove)="modalMouseMove($event)" (mouseup)="modalMouseUp($event)"
-  role="dialog" aria-modal="true" [attr.aria-labelledby]="title ? titleId : null" tabindex="-1"
   class="nh-modal-holder" [ngClass]="modalHolderClasses">
-  <div #modalBackdrop class="nh-modal-backdrop"></div>
-  <div #modal class="nh-modal" [ngClass]="modalClasses" style="transform: translateY(100vh);">
+  <div #modalBackdrop class="nh-modal-backdrop" aria-hidden="true"></div>
+  <div #modal class="nh-modal" [ngClass]="modalClasses" style="transform: translateY(100vh);"
+    role="dialog" aria-modal="true" [attr.aria-labelledby]="title.trim() ? titleId : null"
+    [attr.aria-label]="dialogLabel()" tabindex="-1">
     <div class="nh-modal-header" [ngClass]="modalHeaderClasses">
       <h3 [id]="titleId">{{ title }}</h3>
       @if (closeable) {

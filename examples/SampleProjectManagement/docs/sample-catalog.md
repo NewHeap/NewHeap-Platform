@@ -1607,9 +1607,11 @@ The large editor with the project's agent work is taller than the page: it
 scrolls vertically within the modal's holder, and the shell keeps the modal next
 to the holder's scrollbar, so nothing scrolls sideways (SPM-116).
 
-The editor works with the keyboard alone, without code of its own (SPM-115). The shell is a dialog
-named by its title, with a translated close label. It focuses the close button while the form data
-loads and the key field once the form is there, keeps Tab and Shift+Tab inside the dialog, skips the
+The editor works with the keyboard alone, without code of its own (SPM-115). The visible panel is a dialog
+named by its translated title, with a translated close label. The backdrop is hidden from assistive
+technology; an empty or whitespace-only title uses the translated `nh-common.modal.label` fallback.
+It focuses the close button while the form data loads and the key field once the form is there,
+keeps Tab and Shift+Tab inside the dialog, skips the
 disabled save button, and gives focus back to the "Edit" button when it closes. Escape closes the
 topmost modal that can close: for the editor it calls `closeDialog` through `onModalEscape`, as
 "Cancel" does, and the processing modal of the platform playground, opened with `closeable: false`,
