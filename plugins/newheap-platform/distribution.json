@@ -2,7 +2,7 @@
   "schemaVersion": 3,
   "pluginVersion": "1.13.130",
   "guidanceVersion": "1.13.130",
-  "skillContentHash": "bbda060df6749bea70ae4cbedf4c34186836c6a7135dc98002d330770382f33e",
+  "skillContentHash": "d6de5019d28cae6ea6284cb728bb6ce977ba1a4c28ba666f4f7abf47e435af23",
   "skills": [
     "newheap-platform-development"
   ],
@@ -73,13 +73,13 @@
       "rxjs": "~7.8.0"
     },
     "@newheap/platform-ai-chat": {
-      "@angular/cdk": "^20.2.14",
-      "@angular/common": "^20.3.28",
-      "@angular/core": "^20.3.28",
-      "@angular/router": "^20.3.28",
+      "@angular/cdk": "^20.2.14 || ^21.0.0 || ^22.0.0",
+      "@angular/common": "^20.3.28 || ^21.0.0 || ^22.0.0",
+      "@angular/core": "^20.3.28 || ^21.0.0 || ^22.0.0",
+      "@angular/router": "^20.3.28 || ^21.0.0 || ^22.0.0",
       "@microsoft/signalr": "^10.0.11 || ^11.0.0",
       "@newheap/platform-common": "^6.1.0 || ^7.0.0",
-      "@ngx-translate/core": "^17.0.0",
+      "@ngx-translate/core": "^17.0.0 || ^18.0.0",
       "dompurify": "^3.4.0",
       "html2canvas": "^1.4.1",
       "marked": "^18.0.0",

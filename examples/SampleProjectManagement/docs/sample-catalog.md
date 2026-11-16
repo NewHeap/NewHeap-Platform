@@ -26,6 +26,17 @@ is inside it.
 
 ## Available workbenches
 
+### Assistant package compatibility (SPM-248, SPM-253)
+
+Run `npm --prefix src/Front-end run nh-ai-chat:test:compatibility` from the repository
+root to install the packed assistant, common and toast packages without peer
+overrides. The consumer compiles on Angular 20, 21 and 22 (TypeScript 6.0 on 22)
+and runs `src/Front-end/compatibility/assistant.ts` in headless Chrome. It checks
+the launcher, opened panel, administration, access policy, fetch override and
+live service registration. The release contract runs this matrix for all three
+Angular release units. This smoke check uses the mock API; it does not test a real
+SignalR server.
+
 | Workbench | Examples | Main NewHeap mechanisms |
 |---|---|---|
 | Project register | CRUD, composite, short projection, partial and bulk operations, and outbox events | thin base controller, concrete service, transaction scope, `NhProjection`, `BulkAsync` |

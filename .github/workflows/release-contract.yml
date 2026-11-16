@@ -148,11 +148,11 @@ jobs:
               -p:SampleTargetFramework="$framework" \
               -p:RestoreConfigFile="$GITHUB_WORKSPACE/release/nuget.public.config"
           done
-      - name: Verify platform-common on Angular 20, 21 and 22
-        if: inputs.component == '' || inputs.component == 'all' || inputs.component == 'npm-platform-common' || inputs.component == 'npm-nh-toastr'
+      - name: Verify Angular packages on Angular 20, 21 and 22
+        if: inputs.component == '' || inputs.component == 'all' || inputs.component == 'npm-platform-common' || inputs.component == 'npm-nh-toastr' || inputs.component == 'npm-ai-chat'
         run: |
           npm --prefix src/Front-end ci
-          npm --prefix src/Front-end run nh-common:test:compatibility
+          npm --prefix src/Front-end run nh-ai-chat:test:compatibility
       - name: Test field selection on SQL Server and PostgreSQL
         if: inputs.component == '' || inputs.component == 'all' || inputs.component == 'nuget-common'
         timeout-minutes: 15

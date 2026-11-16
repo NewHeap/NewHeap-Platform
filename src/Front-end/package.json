@@ -17,7 +17,8 @@
     "nh-ai-chat:build:production": "npm run nh-common:build:production && ng build nh-ai-chat --configuration=production",
     "nh-ai-chat:test": "ng test nh-ai-chat --watch=false",
     "nh-toastr:test:compatibility": "node ../../tools/release/verify-nh-toastr-angular-compatibility.mjs",
-    "nh-common:test:compatibility": "node ../../tools/release/verify-nh-common-angular-compatibility.mjs"
+    "nh-common:test:compatibility": "node ../../tools/release/verify-nh-common-angular-compatibility.mjs",
+    "nh-ai-chat:test:compatibility": "node ../../tools/release/verify-nh-common-angular-compatibility.mjs --ai-chat"
   },
   "private": true,
   "dependencies": {

@@ -14,6 +14,11 @@ Register the assistant once with the host's token and access policy, place the l
 
 ## Preferred approach
 
+The assistant package supports Angular and CDK 20, 21 and 22, with
+`@ngx-translate/core` 17 or 18. Keep Angular packages on the same major and use
+TypeScript 6.0 for Angular 22. The packed-package compatibility sample covers the
+launcher, panel, `/admin` entry point, access policy, fetch override and live service.
+
 Install `@newheap/platform-ai-chat` with its peers (`@angular/cdk`,
 `@angular/router`, `@ngx-translate/core`, `marked`, `dompurify`, `html2canvas`) and load
 `@angular/cdk/overlay-prebuilt.css` once in the application styles. Call
@@ -1262,6 +1267,11 @@ needs no proposal. The tool call shows `awaiting-client` (`Running in the app`) 
   registration name and link them, and override only routes that differ with `subjectLinks`.
 
 ## Verification
+
+Run `npm --prefix src/Front-end run nh-ai-chat:test:compatibility` from the repository
+root. It installs the local common, toast and assistant tarballs without peer
+overrides, compiles a strict consumer on Angular 20/21/22 and runs its assistant
+smoke check in headless Chrome. Set `CHROME_BIN` if Chrome is not auto-detected.
 
 Run the library tests headless (`npm run nh-ai-chat:test -- --browsers=ChromeHeadless`):
 the SSE parser handles fragmented chunks, keep-alive comments and terminal events;
