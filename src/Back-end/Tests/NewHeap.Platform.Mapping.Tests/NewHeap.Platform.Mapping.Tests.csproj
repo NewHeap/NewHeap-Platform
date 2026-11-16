@@ -26,7 +26,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- AutoMapper 14 is the intentional parity baseline. These recursion advisories are accepted
+         only for this non-packable test project with fixed, repository-owned inputs and PrivateAssets=all.
+         It never handles untrusted application input or becomes a consumer dependency. -->
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-rvv3-g6hj-g44x" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-6vhm-j9h7-f9gh" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-gpwp-5797-mjff" />
   </ItemGroup>
 
   <ItemGroup>
