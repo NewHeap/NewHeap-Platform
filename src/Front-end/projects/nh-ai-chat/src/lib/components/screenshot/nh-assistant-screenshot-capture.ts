@@ -34,6 +34,10 @@ export class NhAssistantScreenshotCapture {
         ignoreElements: element => element.matches('nh-assistant-panel, nh-assistant-launcher, .nh-assistant-overlay-pane, nh-assistant-screenshot'),
         onclone: document => {
           cloneFrame = document.defaultView?.frameElement ?? null;
+          const probe = document.querySelector<HTMLElement>('[data-screenshot-test]');
+          if (probe) {
+            console.log('CLONE', probe.getBoundingClientRect().toJSON(), document.defaultView!.getComputedStyle(probe).cssText, document.defaultView!.getComputedStyle(probe).backgroundColor, document.defaultView!.getComputedStyle(probe).visibility, document.defaultView!.getComputedStyle(probe).display);
+          }
           signal.throwIfAborted();
           // Hide in the clone only, keeping page layout and the live form unchanged.
           for (const element of Array.from(document.querySelectorAll<HTMLElement>(

@@ -289,6 +289,52 @@ describe('Consent-first page screenshots', () => {
 });
 
 describe('Page screenshot renderer', () => {
+  for (const overlay of [
+    '<nh-assistant-panel></nh-assistant-panel>',
+    '<div class="nh-assistant-overlay-pane"><div>Portal chat</div></div>',
+    '<nh-assistant-launcher></nh-assistant-launcher>',
+    '<nh-assistant-screenshot><dialog>Capture confirmation</dialog></nh-assistant-screenshot>',
+    '<div data-nh-assistant-screenshot-exclude>Custom chat wrapper</div>'
+  ]) {
+    it('reveals the page behind ' + overlay + ' in the PNG without closing the live chat', async () => {
+      const surface = document.createElement('div');
+      surface.style.cssText = 'position:fixed;left:0;top:0;width:100vw;height:100vh;background:rgb(0,0,255);z-index:99999';
+      surface.dataset['screenshotTest'] = 'true';
+      surface.innerHTML = overlay;
+      const chat = surface.firstElementChild as HTMLElement;
+      chat.style.cssText = 'position:fixed;left:0;top:0;width:100vw;height:100vh;display:block;background:rgb(255,0,0)';
+      document.body.append(surface);
+      const dialog = chat.querySelector('dialog');
+      dialog?.showModal();
+      try {
+        expect(chat.contains(document.elementFromPoint(innerWidth / 2, innerHeight / 2))).toBeTrue();
+        console.log('LIVE', (TestBed.inject(NhAssistantScreenshotCapture) as any).document === document, surface.getBoundingClientRect().toJSON(), scrollX, scrollY);
+        const file = await TestBed.inject(NhAssistantScreenshotCapture).capture(() => undefined, new AbortController().signal);
+        const bitmap = await createImageBitmap(file);
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+          const context = canvas.getContext('2d')!;
+          context.drawImage(bitmap, 0, 0);
+          expect([...context.getImageData(Math.floor(bitmap.width / 2), Math.floor(bitmap.height / 2), 1, 1).data])
+            .toEqual([0, 0, 255, 255]);
+          expect(chat.isConnected).toBeTrue();
+          expect(getComputedStyle(chat).visibility).toBe('visible');
+          if (dialog) {
+            expect(dialog.open).toBeTrue();
+          }
+        } finally {
+          bitmap.close();
+        }
+      } finally {
+        dialog?.close();
+        surface.remove();
+      }
+    }, 20_000);
+  }
+
+
   it('captures the viewport as PNG and excludes private content without changing the live page', async () => {
     const surface = document.createElement('div');
     surface.style.cssText = 'position:fixed;inset:0;background:linear-gradient(color(srgb 1 1 1), oklch(100% 0 0));color:color-mix(in srgb, black 80%, white);z-index:99999';
