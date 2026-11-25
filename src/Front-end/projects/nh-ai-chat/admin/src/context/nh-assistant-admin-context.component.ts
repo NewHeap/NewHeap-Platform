@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
-import { Subscription, forkJoin } from 'rxjs';
+import { Subscription, catchError, forkJoin, of, throwError } from 'rxjs';
 import {
   ApplicationContext,
   ApplicationContextVersion,
@@ -53,7 +53,8 @@ export class NhAssistantAdminContextComponent {
 
   readonly tooLong = computed(() => this.text().length > this.max);
   readonly dirty = computed(() => this.text() !== (this.context()?.text ?? ''));
-  readonly canSave = computed(() => !this.saving() && !this.tooLong() && this.dirty() && this.context() !== null);
+  readonly canSave = computed(() => !this.loading() && !this.loadFailed() && !this.saving() &&
+    !this.tooLong() && this.text().trim().length > 0 && this.dirty());
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.error()));
   readonly history = computed(() => this.versions().filter(version => version.version !== this.context()?.version));
   /** The names of the people who changed the context, once known, and why they are not. */
@@ -71,12 +72,16 @@ export class NhAssistantAdminContextComponent {
     this.loading.set(!keepDraft);
     this.loadFailed.set(false);
     this.subscription?.unsubscribe();
-    this.subscription = forkJoin([this.admin.getContext(), this.admin.getContextVersions()]).subscribe({
+    this.subscription = forkJoin([
+      this.admin.getContext().pipe(catchError(error =>
+        toNhAssistantError(error).code === 'assistant-context-not-found' ? of(null) : throwError(() => error))),
+      this.admin.getContextVersions()
+    ]).subscribe({
       next: ([context, versions]) => {
         const draft = this.text();
         this.context.set(context);
         this.versions.set(versions);
-        this.text.set(keepDraft ? draft : context.text);
+        this.text.set(keepDraft ? draft : context?.text ?? '');
         this.accountNames.load(versions.map(version => version.updatedBy));
         this.conflict.set(false);
         this.error.set(null);
@@ -106,7 +111,7 @@ export class NhAssistantAdminContextComponent {
 
   save(): void {
     const context = this.context();
-    if (!context || !this.canSave()) {
+    if (!this.canSave()) {
       return;
     }
 
@@ -114,7 +119,7 @@ export class NhAssistantAdminContextComponent {
     this.saved.set(false);
     this.error.set(null);
     this.subscription?.unsubscribe();
-    this.subscription = this.admin.updateContext({ text: this.text(), expectedVersion: context.version }).subscribe({
+    this.subscription = this.admin.updateContext({ text: this.text(), expectedVersion: context?.version ?? 0 }).subscribe({
       next: updated => {
         this.context.set(updated);
         this.versions.update(versions => [

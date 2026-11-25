@@ -537,13 +537,8 @@ export const ASSISTANT_PLAYGROUND_SCENARIO: NhAssistantMockScenario = {
         }
       }
     },
-    context: [
-      'Sample Project Management tracks projects for divisions.',
-      '',
-      '- A project has a key such as PRJ-ALPHA, a name, a status and an optional deadline.',
-      '- Statuses: Draft, Active, On hold, Completed and Archived.',
-      '- Users see projects through application, division and project permissions.'
-    ].join('\n'),
+    // SPM-253: start without application context so administrators can create version one
+    // in the Context tab, then edit it with optimistic concurrency. The live API seeds its own.
     policies: ['app.project.view', 'app.project.manage'],
     forwardUserTokenHosts: ['planning.sample.localhost'],
     // SPM-295 to SPM-297: the building blocks the API registers, which skills, triggers and run
