@@ -44,6 +44,7 @@
         "hash": "Hash",
         "history": "Version history",
         "history-empty": "No earlier versions.",
+        "not-configured": "No application context has been saved yet. Describe the application below and save the first version.",
         "conflict": "Someone saved a newer version. Your text is kept; load the latest version, compare and save again.",
         "reload": "Load latest version"
       },

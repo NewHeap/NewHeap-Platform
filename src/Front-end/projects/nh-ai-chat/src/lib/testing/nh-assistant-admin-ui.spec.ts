@@ -2,7 +2,8 @@ import { Type } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { NhAssistantMockBackend, NhAssistantMockScenario, provideNhAssistantMockApi } from '@newheap/platform-ai-chat/testing';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, throwError } from 'rxjs';
+import { NhAssistantApiError } from '../services/nh-assistant-transport';
 import { provideNhAssistant } from '../provide-nh-assistant';
 import { NhAssistantAdminApiService } from '../services/nh-assistant-admin-api.service';
 import { NhAssistantStore } from '../services/nh-assistant.store';
@@ -262,6 +263,63 @@ describe('NhAssistantAdminComponent', () => {
 });
 
 describe('NhAssistantAdminContextComponent', () => {
+
+  it('creates the first context after a semantic not-found response, without invented version metadata', async () => {
+    const script = scenario();
+    delete script.admin!.context;
+    await configure(script);
+    const { fixture, element } = await render(NhAssistantAdminContextComponent);
+    expect(element.querySelector('[role="alert"]')).toBeNull();
+    expect(element.textContent).toContain('No application context has been saved yet.');
+    expect(element.querySelector('.meta')).toBeNull();
+    expect(button(element, 'Save').disabled).toBeTrue();
+    type(element, 'textarea', '   ');
+    fixture.detectChanges();
+    expect(button(element, 'Save').disabled).toBeTrue();
+    type(element, 'textarea', 'The first application context.');
+    fixture.detectChanges();
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(requestBodies('PUT', 'admin/context')).toEqual([{text: 'The first application context.', expectedVersion: 0}]);
+    expect(element.textContent).toContain('Version 1');
+    expect(element.textContent).not.toContain('No application context has been saved yet.');
+    fixture.componentInstance.load(false);
+    await settle(fixture);
+    expect((element.querySelector('textarea') as HTMLTextAreaElement).value).toBe('The first application context.');
+  });
+
+  for (const [status, code] of [[404, 'assistant-not-found'], [403, 'assistant-forbidden'], [500, 'assistant-server-error']] as const) {
+    it(`keeps a ${status} ${code} failure distinct from an unconfigured context`, async () => {
+      await configure();
+      spyOn(TestBed.inject(NhAssistantAdminApiService), 'getContext')
+        .and.returnValue(throwError(() => new NhAssistantApiError(status, code, 'nh-assistant.errors.' + code)));
+      const { element } = await render(NhAssistantAdminContextComponent);
+      expect(element.querySelector('[role="alert"]')).not.toBeNull();
+      expect(element.querySelector('textarea')).toBeNull();
+      expect(requestBodies('PUT', 'admin/context')).toEqual([]);
+    });
+  }
+
+  it('keeps the first draft when someone else creates version one before saving', async () => {
+    const script = scenario();
+    delete script.admin!.context;
+    await configure(script);
+    const { fixture, element } = await render(NhAssistantAdminContextComponent);
+    await firstValueFrom(TestBed.inject(NhAssistantAdminApiService).updateContext({text: 'Other administrator.', expectedVersion: 0}));
+    type(element, 'textarea', 'My first draft.');
+    fixture.detectChanges();
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(element.querySelector('[role="alert"]')?.textContent).toContain('Someone saved a newer version.');
+    button(element, 'Load latest version').click();
+    await settle(fixture);
+    expect((element.querySelector('textarea') as HTMLTextAreaElement).value).toBe('My first draft.');
+    expect(element.textContent).toContain('Version 1');
+    button(element, 'Save').click();
+    await settle(fixture);
+    expect(element.textContent).toContain('Version 2');
+  });
+
   it('saves a new version with the expected version and lists the history', async () => {
     await configure();
     const { fixture, element } = await render(NhAssistantAdminContextComponent);

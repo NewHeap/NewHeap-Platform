@@ -42,6 +42,13 @@ SQL Server and PostgreSQL tests verify that existing personal-chat participants
 lose access when sharing is disabled. The default remains enabled for existing
 consumers; agent-thread access keeps its existing authorization rules.
 
+The disabled status still includes `collaboration` and the live hub path. The panel
+must remove the invitation-link and participant buttons, not merely disable them,
+while preserving the page-context control. The browser regression in
+`collaboration-components.spec.ts` exercises drawer and page modes and a status
+refresh that closes an already open sharing view; servers without the capability
+field keep the existing controls.
+
 ### Assistant package compatibility (SPM-248, SPM-253)
 
 Run `npm --prefix src/Front-end run nh-ai-chat:test:compatibility` from the repository
@@ -2037,3 +2044,11 @@ The panel shows rule names, paths, mismatch reasons and explicit skips; native
 routing checks rewrite conditions and identifies matching alternatives that lose
 on priority or specificity. SPM-238/239 exercise the embedded panel and SQLite.
 SQL Server and PostgreSQL proxy stores remain explicit provider gaps.
+
+### Creating the first application context (SPM-253)
+
+The management assistant playground starts without `admin.context`. Open the Context tab,
+write a description and save version one; edit and save again to see its history.
+`nh-assistant-admin-ui.spec.ts` exercises the missing-context HTTP contract, first save,
+blank-text rejection, concurrent first creation and unrelated 404/403/500 failures.
+The live sample API still seeds its application context once and preserves later edits.

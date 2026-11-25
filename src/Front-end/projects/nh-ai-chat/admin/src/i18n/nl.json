@@ -44,6 +44,7 @@
         "hash": "Hash",
         "history": "Versiegeschiedenis",
         "history-empty": "Geen eerdere versies.",
+        "not-configured": "Er is nog geen applicatiecontext opgeslagen. Beschrijf hieronder de applicatie en sla de eerste versie op.",
         "conflict": "Iemand heeft een nieuwere versie opgeslagen. Je tekst blijft staan; laad de nieuwste versie, vergelijk en sla opnieuw op.",
         "reload": "Nieuwste versie laden"
       },
