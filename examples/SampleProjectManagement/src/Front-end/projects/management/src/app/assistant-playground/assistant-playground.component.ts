@@ -92,7 +92,7 @@ export class AssistantPlaygroundComponent {
 
   /** Simulates opening a project page: the next message sends this project as page context. */
   openProjectPage(page: ClientContext): void {
-    this.pageContext.set(page);
+    this.pageContext.set({...page, tab: 'overview'});
     void this.store.refreshPageContext();
   }
 

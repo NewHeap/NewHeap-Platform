@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.132",
   "backEnd": {
-    "hash": "913ab3e883ae1d40b8dbae5cedafb52356f1787145f4a967bc4bf8da6a73b9c7",
-    "declarationCount": 14342,
+    "hash": "5f5fb66469807d5eaea99e03ae04cf66883169ffbcd26373542677c57e0ef526",
+    "declarationCount": 14344,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -9440,6 +9440,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
         "declaration": "public sealed record NhAssistantCollaborationDto( bool Directory, string? HubPath, bool Push, int MaxParticipants) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
+        "declaration": "public bool SharingEnabled { get; init; } = true;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantContracts.cs",
@@ -26976,6 +26980,10 @@
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
         "declaration": "public bool Enabled { get; set; }"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
+        "declaration": "public bool SharingEnabled { get; set; } = true;"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat/NhAssistantOptions.cs",
@@ -62961,6 +62969,7 @@
       "unassignMcpServer",
       "provideNhAssistant",
       "NhAssistantConfig",
+      "NhAssistantDictationRequest",
       "NhAssistantToolCallGroupComponent",
       "NhAssistantAccessPolicy",
       "NhAssistantApiService",

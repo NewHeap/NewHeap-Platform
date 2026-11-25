@@ -1,5 +1,14 @@
 {
   "nh-assistant": {
+    "dictation": {
+      "start": "Dicteren",
+      "stop": "Opname gebruiken",
+      "cancel": "Dicteren annuleren",
+      "opening": "Microfoon openen…",
+      "recording": "Opname loopt (maximaal 2 minuten)…",
+      "transcribing": "Tekst uitwerken… Controleer de tekst voor het versturen.",
+      "failed": "Dicteren is mislukt. Controleer de microfoontoegang en probeer opnieuw."
+    },
     "screenshot": {
       "share-requested": "Naar assistent sturen",
       "review-requested": "Controleer de afbeelding. Na bevestiging wordt deze geüpload en direct naar de assistent gestuurd, zodat die verder kan.",

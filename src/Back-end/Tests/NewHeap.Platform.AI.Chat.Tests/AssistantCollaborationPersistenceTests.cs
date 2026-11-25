@@ -16,6 +16,24 @@ public sealed class AssistantCollaborationPersistenceTests(AssistantDatabaseFixt
     [Theory]
     [InlineData(AssistantTestProvider.SqlServer)]
     [InlineData(AssistantTestProvider.PostgreSql)]
+    public async Task Disabling_sharing_removes_existing_participants_from_access_history_and_audience(AssistantTestProvider provider)
+    {
+        await using var services = await database.CreateStorageAsync(provider, configure: collection =>
+            collection.Configure<NhAssistantOptions>(options => options.SharingEnabled = false));
+        var store = services.GetRequiredService<INhAssistantStore>();
+        var conversation = await AddConversationAsync(store, "owner", "tenant", DateTimeOffset.UtcNow);
+        await store.TryAddParticipantAsync(Participant(conversation.Id, "member", 0), 5, CancellationToken.None);
+
+        Assert.NotNull(await store.FindAccessAsync(conversation.Id, "owner", "tenant", CancellationToken.None));
+        Assert.Null(await store.FindAccessAsync(conversation.Id, "member", "tenant", CancellationToken.None));
+        Assert.Empty((await store.ListConversationsAsync("member", "tenant", 1, 20, CancellationToken.None)).Items);
+        Assert.Equal(["owner"], await store.GetAudienceAsync(conversation.Id, CancellationToken.None));
+        Assert.Empty(await store.GetParticipantsAsync(conversation.Id, CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData(AssistantTestProvider.SqlServer)]
+    [InlineData(AssistantTestProvider.PostgreSql)]
     public async Task Participants_reach_only_conversations_of_their_tenant_with_their_own_read_state(
         AssistantTestProvider provider)
     {

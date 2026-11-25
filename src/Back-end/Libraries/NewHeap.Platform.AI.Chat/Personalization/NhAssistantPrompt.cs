@@ -243,6 +243,10 @@ internal static class NhAssistantPromptComposer
             {
                 builder.Append(dutch ? "- Titel: " : "- Title: ").Append(page.Title).Append('\n');
             }
+            if (page.Tab is not null)
+            {
+                builder.Append(dutch ? "- Actieve tab: " : "- Active tab: ").Append(page.Tab).Append('\n');
+            }
             foreach (var entity in page.Entities)
             {
                 builder.Append(dutch ? "- Entiteit: " : "- Entity: ")

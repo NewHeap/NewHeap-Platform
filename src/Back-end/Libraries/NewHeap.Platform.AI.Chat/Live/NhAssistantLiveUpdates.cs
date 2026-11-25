@@ -288,7 +288,8 @@ internal sealed class NhAssistantLivePublisher(
     NhAssistantConversationAudience audience,
     INhAssistantStore store,
     NhAssistantConversationReaders readers,
-    ILogger<NhAssistantLivePublisher> logger)
+    ILogger<NhAssistantLivePublisher> logger,
+    Microsoft.Extensions.Options.IOptionsMonitor<NhAssistantOptions>? options = null)
 {
     public async ValueTask PublishAsync(NhAssistantLiveEvent evt, CancellationToken cancellationToken = default)
     {
@@ -403,6 +404,11 @@ internal sealed class NhAssistantLivePublisher(
         var recipients = new List<NhAssistantLiveRecipient>(actorIds.Count);
         foreach (var actorId in actorIds.Distinct(StringComparer.Ordinal))
         {
+            if (options?.CurrentValue.SharingEnabled == false && conversation.Kind == NhAssistantConversationKinds.Chat
+                && !string.Equals(actorId, conversation.OwnerActorId, StringComparison.Ordinal))
+            {
+                continue;
+            }
             if (rule.Thread is null
                 && rule.ChatSubject is null
                 && string.Equals(actorId, rule.OwnerActorId, StringComparison.Ordinal))

@@ -23,6 +23,11 @@ export const ASSISTANT_PLAYGROUND_ROUTES: Routes = [
       provideSampleAssistant({
         accessPolicy: AssistantPlaygroundAccessPolicy,
         defaultAgentId: PROJECT_ASSISTANT_ID,
+        // Executable host seam: the lab uses fixture text, uploads no recording and calls no provider.
+        dictation: {transcribe: async request => {
+          request.signal.throwIfAborted();
+          return 'Sample dictation: review this draft before sending.';
+        }},
         getStateScope: () => {
           const userId = inject(SampleAuthService).getAuthorization()?.user?.id;
           return userId ? `sample-playground:${userId}` : null;

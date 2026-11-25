@@ -29,6 +29,8 @@ export interface AssistantStatus {
 }
 
 export interface AssistantCollaboration {
+  /** False when the host disables chat sharing. Older servers allow sharing. */
+  sharingEnabled?: boolean;
   /** Owners can invite colleagues directly through the application's directory. */
   directory: boolean;
   /** Path of the SignalR hub for live updates, for example `/hub/assistant`; `null` when off. */
@@ -716,6 +718,8 @@ export interface ClientContextEntity {
  * entity ids are search hints only and never grant access.
  */
 export interface ClientContext {
+  /** Active tab of the open record, at most 120 characters. Context only, never authorization. */
+  tab?: string | null;
   /** For example `/order-group/123`; at most 200 characters. */
   route: string;
   /** Page title; at most 120 characters. */

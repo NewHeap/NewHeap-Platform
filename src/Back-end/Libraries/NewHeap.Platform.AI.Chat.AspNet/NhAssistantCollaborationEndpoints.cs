@@ -21,6 +21,19 @@ internal static class NhAssistantCollaborationEndpoints
 
     public static void Map(RouteGroupBuilder enabled)
     {
+        enabled.AddEndpointFilter(async (invocation, next) =>
+        {
+            var endpoint = invocation.HttpContext.GetEndpoint()?.Metadata.GetMetadata<Microsoft.AspNetCore.Routing.IEndpointNameMetadata>()?.EndpointName;
+            if (endpoint is "NhAssistantCreateShareLink" or "NhAssistantRevokeShareLink" or "NhAssistantJoinConversation"
+                or "NhAssistantSearchParticipantCandidates" or "NhAssistantInviteParticipant" or "NhAssistantRemoveParticipant")
+            {
+                if (!invocation.HttpContext.RequestServices.GetRequiredService<IOptionsMonitor<NhAssistantOptions>>().CurrentValue.SharingEnabled)
+                {
+                    return Results.NotFound();
+                }
+            }
+            return await next(invocation);
+        });
         enabled.MapPost("conversations/{id:guid}/read", MarkReadAsync)
             .WithName("NhAssistantMarkRead")
             .WithSummary("Mark a conversation as read")

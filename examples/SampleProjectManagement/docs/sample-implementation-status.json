@@ -2143,7 +2143,8 @@
       "../../src/Front-end/projects/nh-ai-chat/src/lib/internal/nh-assistant-tokens.ts",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/styles/nh-assistant-tokens.scss",
       "../../src/Front-end/projects/nh-ai-chat/src/lib/testing/nh-assistant-tokens.spec.ts",
-      "src/Front-end/compatibility/assistant.ts"
+      "src/Front-end/compatibility/assistant.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/dictation/nh-assistant-dictation.component.spec.ts"
     ],
     "SPM-249": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantEndToEndSamplesTests.cs",

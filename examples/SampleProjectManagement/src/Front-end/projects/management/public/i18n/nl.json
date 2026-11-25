@@ -523,7 +523,8 @@
     "select-reset": "Herstellen",
     "select-toggle-disabled": "Uitschakelen aan/uit",
     "select-keyboard": "Toetsenbord: de pijltjestoetsen, Home en End verplaatsen, Enter kiest, Escape sluit de lijst en Tab verlaat het veld.",
-    "select-state": "Formulierstatus"
+    "select-state": "Formulierstatus",
+    "assistant-dictation-note": "Dicteren in dit lab geeft voorbeeldtekst terug. De opname wordt niet geüpload."
   },
   "nh-background-operations": {
     "operation": "Achtergrondtaak",

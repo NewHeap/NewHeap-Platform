@@ -40,7 +40,8 @@ internal sealed record NhAssistantClientEntity(string Type, string Id, string? L
 internal sealed partial record NhAssistantClientContext(
     string Route,
     string? Title,
-    IReadOnlyList<NhAssistantClientEntity> Entities)
+    IReadOnlyList<NhAssistantClientEntity> Entities,
+    string? Tab = null)
 {
     public const int MaxRouteLength = 200;
     public const int MaxTitleLength = 120;
@@ -119,7 +120,9 @@ internal sealed partial record NhAssistantClientContext(
         }
 
         // The user message could not store it: ignored as a context that cannot be read.
-        var context = new NhAssistantClientContext(route, title, entities);
+        var tab = element.TryGetProperty("tab", out var tabElement) && tabElement.ValueKind == JsonValueKind.String
+            ? NhAssistantContextText.Clean(tabElement.GetString(), MaxTitleLength) : null;
+        var context = new NhAssistantClientContext(route, title, entities, tab);
         if (context.ToStorage().Length > MaxStorageLength)
         {
             return null;
@@ -155,6 +158,7 @@ internal sealed partial record NhAssistantClientContext(
             {
                 route = Route,
                 title = Title,
+                tab = Tab,
                 entities = Entities.Select(entity => new { type = entity.Type, id = entity.Id, label = entity.Label })
             },
             StorageOptions);
