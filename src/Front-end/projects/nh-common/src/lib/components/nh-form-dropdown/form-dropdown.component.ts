@@ -19,7 +19,7 @@ import {DOCUMENT, isPlatformBrowser} from '@angular/common';
 import {TranslateService} from '@ngx-translate/core';
 import {Observable, Subject, Subscription} from 'rxjs';
 import {HttpErrorResponse} from '@angular/common/http';
-import {debounceTime, distinctUntilChanged, takeUntil} from 'rxjs/operators';
+import {debounceTime, distinctUntilChanged, finalize, takeUntil} from 'rxjs/operators';
 import {
   IMultiSelectOption,
   IMultiSelectSettings,
@@ -115,7 +115,22 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
   @ViewChild('lazyLoadComponent') lazyLoadComponent?: NgxDropdownMultiselectComponent;
   @ViewChild('noLazyLoadComponent') noLazyLoadComponent?: NgxDropdownMultiselectComponent;
   defaultTexts = new DefaultMultiSelectTexts();
-  isLoading = false;
+  private _isLoading = false;
+  loadingTexts: IMultiSelectTexts = {};
+
+  get isLoading(): boolean {
+    return this._isLoading;
+  }
+
+  set isLoading(value: boolean) {
+    this._isLoading = value;
+    if (value) {
+      const loading = this.translate.instant('form.form-dropdown.loading');
+      this.loadingTexts = {...this.settings.multiSelectTexts, searchEmptyResult: loading, searchNoRenderText: loading};
+    }
+    this.cdr.markForCheck();
+  }
+
   hasMoreLazyLoadItems = true;
   lastLazyLoadEvent: any;
   hasFocus = false;
@@ -380,11 +395,14 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
       this.settings.multiSelectSettings.isLazyLoad = false;
       if(this.settings.loadLambda) {
         this.activeLoadRequestSubscription?.unsubscribe();
+        this.isLoading = true;
         this.activeLoadRequestSubscription = this.settings.loadLambda().pipe(
-          takeUntil(this.destroy$)
+          takeUntil(this.destroy$),
+          finalize(() => this.isLoading = false)
         ).subscribe((options) => {
           this.options = options.map(x => this.createOption(x));
           this.rawOptions = options;
+          this.isLoading = false;
           this.activeLoadRequestSubscription = null;
           this.cdr.markForCheck();
         }, () => {
@@ -661,13 +679,13 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
         this.hasMoreLazyLoadItems = true;
         this.settings.requestOptions.search = (!filter) ? '' : filter;
         this.settings.requestOptions.page = page;
-        this.options = [];
-        this.rawOptions = [];
 
         if(this.settings.lazyLoadLambda) {
           this.activeLazyLoadDataRequestSubscription = this.settings.lazyLoadLambda(this.settings.requestOptions).subscribe(
             response => {
               this.activeLazyLoadDataRequestSubscription = null;
+              this.options = [];
+              this.rawOptions = [];
               this.handleLazyLoadResponse(response, selectedItems);
               this.isLoading = false;
               this.settings.onSuccess();
@@ -707,6 +725,9 @@ export class NhFormDropDownComponent extends AbstractValueAccessor implements On
       } else {
         this.isLoading = false;
       }
+    }, (err: HttpErrorResponse) => {
+      this.isLoading = false;
+      this.onLazyLoadError.emit(err);
     });
   }
 

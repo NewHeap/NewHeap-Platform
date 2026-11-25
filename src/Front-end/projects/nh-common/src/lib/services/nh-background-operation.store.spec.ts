@@ -23,7 +23,7 @@ describe('NhBackgroundOperationStore', () => {
     const live = {
       changed$: changed.asObservable(),
       resync$: resync.asObservable(),
-      connectionState$: of('connected'),
+      connectionState$: of('disconnected'),
       start: jasmine.createSpy('start'),
       stop: jasmine.createSpy('stop')
     } as unknown as NhBackgroundOperationLiveUpdateService;

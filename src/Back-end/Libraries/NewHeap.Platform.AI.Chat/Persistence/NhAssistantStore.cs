@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NewHeap.Platform.AI.Chat.Entities;
 
 namespace NewHeap.Platform.AI.Chat.Persistence;
@@ -11,8 +12,10 @@ namespace NewHeap.Platform.AI.Chat.Persistence;
 internal sealed class NhAssistantStore(
     NhAssistantDbContextFactory contextFactory,
     ILogger<NhAssistantStore> logger,
-    NhAssistantRegistrationState? registration = null) : INhAssistantStore
+    NhAssistantRegistrationState? registration = null,
+    IOptionsMonitor<NhAssistantOptions>? options = null) : INhAssistantStore
 {
+    private bool SharingEnabled => options?.CurrentValue.SharingEnabled ?? true;
     /// <summary>
     /// How long a join waits for the other joins of its conversation: the default
     /// <c>TransactionLockTimeoutMilliseconds</c> of the platform's background operations. A join holds
@@ -75,6 +78,11 @@ internal sealed class NhAssistantStore(
         if (string.Equals(conversation.OwnerActorId, actorId, StringComparison.Ordinal))
         {
             return new NhAssistantConversationAccess(conversation, actorId, null);
+        }
+
+        if (!SharingEnabled && conversation.Kind == NhAssistantConversationKinds.Chat)
+        {
+            return null;
         }
 
         // A participant never reaches a conversation of another tenant, even with a stale row. The
@@ -149,7 +157,7 @@ internal sealed class NhAssistantStore(
             .Where(conversation => conversation.Status != NhAssistantConversationStatuses.Archived
                 && conversation.Kind == NhAssistantConversationKinds.Chat
                 && (conversation.OwnerActorId == actorId
-                    || (conversation.TenantId == tenantId
+                    || (SharingEnabled && conversation.TenantId == tenantId
                         && conversation.Participants.Any(participant => participant.ActorId == actorId))));
         var total = await query.CountAsync(cancellationToken);
         var rows = await query
@@ -920,6 +928,10 @@ internal sealed class NhAssistantStore(
         CancellationToken cancellationToken)
     {
         await using var context = contextFactory.CreateDbContext();
+        if (!SharingEnabled && await context.Conversations.AnyAsync(x => x.Id == conversationId && x.Kind == NhAssistantConversationKinds.Chat, cancellationToken))
+        {
+            return [];
+        }
         return await context.Participants
             .AsNoTracking()
             .Where(participant => participant.ConversationId == conversationId)
@@ -1078,6 +1090,10 @@ internal sealed class NhAssistantStore(
         if (owner is null)
         {
             return [];
+        }
+        if (!SharingEnabled && await context.Conversations.AnyAsync(x => x.Id == conversationId && x.Kind == NhAssistantConversationKinds.Chat, cancellationToken))
+        {
+            return [owner];
         }
         var participants = await context.Participants
             .AsNoTracking()

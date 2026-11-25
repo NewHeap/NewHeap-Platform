@@ -523,7 +523,8 @@
     "select-reset": "Reset",
     "select-toggle-disabled": "Toggle disabled",
     "select-keyboard": "Keyboard: the arrow keys, Home and End move, Enter chooses, Escape closes the list and Tab leaves the field.",
-    "select-state": "Form state"
+    "select-state": "Form state",
+    "assistant-dictation-note": "Dictation in this lab returns sample text. The recording is not uploaded."
   },
   "nh-background-operations": {
     "operation": "Background operation",

@@ -26,6 +26,22 @@ is inside it.
 
 ## Available workbenches
 
+### Assistant host capabilities (SPM-248, SPM-254, SPM-263, SPM-265)
+
+The assistant lab supplies a host-owned dictation callback. Record, stop and review
+the explicitly labelled fixture text in the existing draft; the sample uploads no
+audio and invokes no transcription provider. Production hosts supply their own
+authenticated callback and may check availability before requesting microphone
+permission. Cancellation and scope/conversation changes prevent late text from
+being inserted into another draft. Page context includes the active tab and is
+captured when used, rather than reading a later navigation state.
+
+Backend sample tests also configure `SharingEnabled=false`: status advertises the
+capability, invitations are unavailable and personal owners keep access. Library
+SQL Server and PostgreSQL tests verify that existing personal-chat participants
+lose access when sharing is disabled. The default remains enabled for existing
+consumers; agent-thread access keeps its existing authorization rules.
+
 ### Assistant package compatibility (SPM-248, SPM-253)
 
 Run `npm --prefix src/Front-end run nh-ai-chat:test:compatibility` from the repository

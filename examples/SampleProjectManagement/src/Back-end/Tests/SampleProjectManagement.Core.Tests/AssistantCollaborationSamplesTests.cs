@@ -31,6 +31,27 @@ public sealed class AssistantCollaborationSamplesTests(AssistantCollaborationSam
     : IClassFixture<AssistantCollaborationSampleHost>
 {
     [Fact]
+    public async Task SPM_263_hosts_can_disable_personal_chat_sharing_without_disabling_the_owners_chat()
+    {
+        var options = host.Services.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<NhAssistantOptions>>().CurrentValue;
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        var id = await host.CreateConversationAsync(owner);
+        options.SharingEnabled = false;
+        try
+        {
+            var status = await host.GetJsonAsync(owner, "/api/assistant/status");
+            Assert.False(status.GetProperty("collaboration").GetProperty("sharingEnabled").GetBoolean());
+            Assert.False(status.GetProperty("collaboration").GetProperty("directory").GetBoolean());
+            Assert.Equal(HttpStatusCode.NotFound, (await owner.PostAsync($"/api/assistant/conversations/{id}/share-link", null)).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync($"/api/assistant/conversations/{id}")).StatusCode);
+        }
+        finally
+        {
+            options.SharingEnabled = true;
+        }
+    }
+
+    [Fact]
     public async Task SPM_263_an_owner_shares_a_conversation_and_a_colleague_continues_it()
     {
         host.Model.Use(new NhAiScriptedChatClient(loop: true).RespondWithText("Here is the project overview."));

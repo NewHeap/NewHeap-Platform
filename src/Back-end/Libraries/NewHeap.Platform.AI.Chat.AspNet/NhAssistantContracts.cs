@@ -36,6 +36,8 @@ public sealed record NhAssistantCollaborationDto(
     bool Push,
     int MaxParticipants)
 {
+    /// <summary>Whether invitation links and participant management are available. Defaults to true for older clients.</summary>
+    public bool SharingEnabled { get; init; } = true;
     /// <summary>
     /// Whether a connection to <see cref="HubPath"/> may refresh its authentication at
     /// <c>{HubPath}/refresh</c> instead of reconnecting (<see cref="NhAssistantOptions.HubAuthenticationRefresh"/>

@@ -57,6 +57,7 @@ export class DirtyRouteSampleComponent extends NhPageBaseComponent implements IC
   override async appAfterViewInit(): Promise<void> {
     await Promise.resolve();
     this.record('appAfterViewInit');
+    this.record(`route maps: ${this.activeRouteParamMap?.keys.join(',') ?? '-'}; query maps: ${this.activeQueryParamMap?.keys.join(',') ?? '-'}`);
   }
 
   override async appOnDestroy(): Promise<void> {

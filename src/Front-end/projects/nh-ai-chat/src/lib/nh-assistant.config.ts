@@ -8,6 +8,12 @@ export interface NhAssistantAccessPolicy {
 }
 
 export interface NhAssistantConfig {
+  /** Optional host-owned transcription transport. Recording never sends a chat message automatically. */
+  dictation?: {
+    /** Optional access/capability check before the browser requests microphone permission. */
+    isAvailable?: (signal: AbortSignal) => Promise<boolean>;
+    transcribe: (request: NhAssistantDictationRequest) => Promise<string>;
+  };
   /** Base URL of the assistant endpoints, for example `environment.api.baseUrl + '/assistant'`. */
   apiBaseUrl: string;
   /**
@@ -126,6 +132,15 @@ export interface NhAssistantConfig {
   mcpConnectMode?: 'popup' | 'redirect';
   /** The page a redirect-mode authorization returns to. Default: the current address without its fragment. */
   mcpConnectReturnUrl?: () => string;
+}
+
+/** A recording with the conversation and page context captured before microphone access. */
+export interface NhAssistantDictationRequest {
+  audio: Blob;
+  requestId: string;
+  conversationId: string | null;
+  pageContext: ClientContext | null;
+  signal: AbortSignal;
 }
 
 /** A subject an agent works on, by its type and id. */

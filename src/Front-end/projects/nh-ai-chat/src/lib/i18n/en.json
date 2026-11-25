@@ -1,5 +1,14 @@
 {
   "nh-assistant": {
+    "dictation": {
+      "start": "Dictate",
+      "stop": "Use recording",
+      "cancel": "Cancel dictation",
+      "opening": "Opening microphone…",
+      "recording": "Recording (up to 2 minutes)…",
+      "transcribing": "Transcribing… Review the text before sending.",
+      "failed": "Dictation failed. Check microphone access and try again."
+    },
     "screenshot": {
       "share-requested": "Send to assistant",
       "review-requested": "Review the image. Confirming uploads it and sends it directly to the assistant so it can continue.",

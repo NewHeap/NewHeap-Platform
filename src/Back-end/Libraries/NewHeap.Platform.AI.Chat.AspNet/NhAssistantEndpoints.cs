@@ -228,11 +228,12 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             ?.IsService(typeof(INhAssistantParticipantDirectory)) == true;
         var hubPath = string.IsNullOrWhiteSpace(current.HubPath) ? null : current.HubPath;
         var collaboration = new NhAssistantCollaborationDto(
-            directory,
+            current.SharingEnabled && directory,
             hubPath,
             current.Push.IsConfigured,
             state.Limits.MaxParticipantsPerConversation)
         {
+            SharingEnabled = current.SharingEnabled,
             HubAuthenticationRefresh = hubPath is not null
                 && NhHubAuthenticationRefresh.IsMapped(current.HubAuthenticationRefresh)
         };

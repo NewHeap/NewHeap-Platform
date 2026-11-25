@@ -20,7 +20,7 @@ import {
   TaskResultItem
 } from '@newheap/platform-common';
 import { TranslateModule } from '@ngx-translate/core';
-import { Observable, catchError, of } from 'rxjs';
+import { Observable, catchError, delay, of } from 'rxjs';
 import {
   PROJECT_DEMO_DATA,
   ProjectApiService,
@@ -98,6 +98,8 @@ export class InteractionPlaygroundComponent
     this.record(`onLoad #${++this.loadSequence}: page=${request.page}, search=${request.search || '-'}`);
 
     return this.projectApi.list(request).pipe(
+      // Keep the pending state visible so repeated loads and navigation can be exercised.
+      delay(400),
       catchError((error: unknown) => {
         // Only a browser network failure (status 0) switches to the local demo data. Any HTTP
         // status proves the API answered, so the list shows its error state with a retry.

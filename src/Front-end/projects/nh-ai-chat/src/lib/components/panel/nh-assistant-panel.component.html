@@ -319,6 +319,7 @@
           (removeAttachment)="store.removeAttachment($event)"
           (cancel)="cancel()">
           <nh-assistant-screenshot nhAssistantComposerControls [disabled]="closed() || holding()" />
+          <nh-assistant-dictation nhAssistantComposerControls [disabled]="closed() || holding()" />
           @if (pickerAgents().length > 1) {
             <nh-assistant-agent-picker
               nhAssistantComposerControls

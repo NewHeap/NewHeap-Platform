@@ -31,6 +31,7 @@ public sealed partial class AssistantSamplesTests
         {
             route = "/projects/PRJ-1",
             title = "Roadmap",
+            tab = "materials",
             entities = new[] { new { type = "project", id = "PRJ-1", label = "Roadmap" } }
         });
         var withoutPage = await Host.SendAsync(client, conversationId, "And now?", new { route = 12 });
@@ -44,7 +45,8 @@ public sealed partial class AssistantSamplesTests
         Assert.Contains("(Europe/Amsterdam)", first);
         Assert.Contains("- User: Sam Planner", first);
         Assert.Contains("- Roles: ProjectManager, Viewer", first);
-        Assert.Contains("<page-data>\n- Route: /projects/PRJ-1\n- Title: Roadmap\n- Entity: project PRJ-1 (Roadmap)\n</page-data>", first);
+        Assert.Contains("- Active tab: materials", first);
+        Assert.Contains("- Entity: project PRJ-1 (Roadmap)", first);
         Assert.True(first.IndexOf("# User preferences", StringComparison.Ordinal) < first.IndexOf("# Situation", StringComparison.Ordinal));
         // An invalid page context is ignored, not rejected.
         Assert.DoesNotContain("<page-data>", model.Requests[2].Options!.Instructions);

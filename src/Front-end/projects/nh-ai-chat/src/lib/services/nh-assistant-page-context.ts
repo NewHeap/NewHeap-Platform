@@ -29,6 +29,10 @@ export function normalizeNhAssistantClientContext(value: unknown): ClientContext
   }
 
   const result: ClientContext = { route: truncate(route, NH_ASSISTANT_PAGE_CONTEXT_LIMITS.route) };
+  const tab = typeof value['tab'] === 'string' ? value['tab'].trim() : '';
+  if (tab) {
+    result.tab = truncate(tab, NH_ASSISTANT_PAGE_CONTEXT_LIMITS.title);
+  }
 
   const title = typeof value['title'] === 'string' ? value['title'].trim() : '';
   if (title.length > 0) {
@@ -51,11 +55,12 @@ export function normalizeNhAssistantClientContext(value: unknown): ClientContext
 /** Short text for the page-context chip: the first entity's label, the title or the route. */
 export function describeNhAssistantClientContext(context: ClientContext): string {
   const entity = context.entities?.[0];
+  const tab = context.tab ? ` · ${context.tab}` : '';
   if (entity) {
-    return entity.label ?? `${entity.type} ${entity.id}`;
+    return (entity.label ?? `${entity.type} ${entity.id}`) + tab;
   }
 
-  return context.title ?? context.route;
+  return (context.title ?? context.route) + tab;
 }
 
 function normalizeEntity(value: unknown): ClientContextEntity | null {

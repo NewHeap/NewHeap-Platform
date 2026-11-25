@@ -15,6 +15,15 @@ namespace NewHeap.Platform.AI.Chat.Tests;
 /// </summary>
 public sealed class AssistantTurnContextTests(AssistantDatabaseFixture database) : IClassFixture<AssistantDatabaseFixture>
 {
+    [Fact]
+    public void Tab_is_bounded_and_round_trips_in_message_history()
+    {
+        var context = NhAssistantClientContext.From(JsonSerializer.SerializeToElement(new { route = "/record", tab = new string('a', 200) }));
+        Assert.Equal(120, context!.Tab!.Length);
+        Assert.Equal(context.Tab, NhAssistantClientContext.FromStorage(context.ToStorage())!.Tab);
+        Assert.Null(NhAssistantClientContext.From(JsonSerializer.SerializeToElement(new { route = "/record", tab = new { invalid = true } }))!.Tab);
+    }
+
     private const string ChangeStatusFunction = "projects_change_status_v1";
     private const string SearchFunction = "projects_search_v1";
 
