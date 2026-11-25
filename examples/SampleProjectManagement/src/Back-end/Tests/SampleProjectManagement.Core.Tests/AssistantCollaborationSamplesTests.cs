@@ -42,6 +42,8 @@ public sealed class AssistantCollaborationSamplesTests(AssistantCollaborationSam
             var status = await host.GetJsonAsync(owner, "/api/assistant/status");
             Assert.False(status.GetProperty("collaboration").GetProperty("sharingEnabled").GetBoolean());
             Assert.False(status.GetProperty("collaboration").GetProperty("directory").GetBoolean());
+            // Collaboration remains present for live updates; its presence does not enable sharing UI.
+            Assert.Equal("/hub/assistant", status.GetProperty("collaboration").GetProperty("hubPath").GetString());
             Assert.Equal(HttpStatusCode.NotFound, (await owner.PostAsync($"/api/assistant/conversations/{id}/share-link", null)).StatusCode);
             Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync($"/api/assistant/conversations/{id}")).StatusCode);
         }
@@ -49,6 +51,9 @@ public sealed class AssistantCollaborationSamplesTests(AssistantCollaborationSam
         {
             options.SharingEnabled = true;
         }
+
+        var restoredStatus = await host.GetJsonAsync(owner, "/api/assistant/status");
+        Assert.True(restoredStatus.GetProperty("collaboration").GetProperty("sharingEnabled").GetBoolean());
     }
 
     [Fact]

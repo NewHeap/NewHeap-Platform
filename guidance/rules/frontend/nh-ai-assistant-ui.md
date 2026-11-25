@@ -29,7 +29,11 @@ The assistant lab uses explicit fixture text, with no audio upload or provider c
 `ClientContext.tab` identifies the current model tab, bounded to 120 characters. It is
 shown in the context chip and stored with the message as untrusted data. Clear host
 context on navigation and account changes; never derive authorization from it.
-When status reports `collaboration.sharingEnabled: false`, the panel hides sharing.
+When status reports `collaboration.sharingEnabled: false`, the panel removes both the
+invitation-link and participant buttons and closes an open sharing view in drawer and
+page modes. Do not infer sharing availability from the presence of `collaboration`:
+the API still supplies it for live updates. Page-context controls remain available;
+older servers that omit `sharingEnabled` retain their sharing controls.
 
 
 The assistant package supports Angular and CDK 20, 21 and 22, with

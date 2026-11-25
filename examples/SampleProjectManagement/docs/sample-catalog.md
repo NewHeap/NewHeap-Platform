@@ -42,6 +42,13 @@ SQL Server and PostgreSQL tests verify that existing personal-chat participants
 lose access when sharing is disabled. The default remains enabled for existing
 consumers; agent-thread access keeps its existing authorization rules.
 
+The disabled status still includes `collaboration` and the live hub path. The panel
+must remove the invitation-link and participant buttons, not merely disable them,
+while preserving the page-context control. The browser regression in
+`collaboration-components.spec.ts` exercises drawer and page modes and a status
+refresh that closes an already open sharing view; servers without the capability
+field keep the existing controls.
+
 ### Assistant package compatibility (SPM-248, SPM-253)
 
 Run `npm --prefix src/Front-end run nh-ai-chat:test:compatibility` from the repository

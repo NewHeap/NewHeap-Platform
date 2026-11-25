@@ -12,6 +12,8 @@ import { NhAssistantLauncherComponent } from './launcher/nh-assistant-launcher.c
 import { NhAssistantShareComponent } from './share/nh-assistant-share.component';
 import { NhAssistantPanelComponent } from './panel/nh-assistant-panel.component';
 import { NhAssistantPanelService } from '../services/nh-assistant-panel.service';
+import { NhAssistantApiService } from '../services/nh-assistant-api.service';
+import { firstValueFrom, of } from 'rxjs';
 
 const scenario: NhAssistantMockScenario = {
   agents: [{ id: 'projects', version: 1, displayNameKey: 'agents.projects', descriptionKey: 'agents.projects-description', canMutate: true }],
@@ -136,6 +138,60 @@ describe('collaboration components', () => {
       await store.send('Hello');
       await until(() => store.activeConversation()?.status === 'idle');
     });
+
+    for (const mode of ['drawer', 'page'] as const) {
+      it(`removes sharing controls in ${mode} mode when the host disables sharing`, async () => {
+        const api = TestBed.inject(NhAssistantApiService);
+        const status = await firstValueFrom(api.status());
+        const statusRequest = spyOn(api, 'status').and.returnValue(of({
+          ...status, collaboration: { ...status.collaboration!, sharingEnabled: false }
+        }));
+        await store.reloadStatus();
+        const fixture = TestBed.createComponent(NhAssistantPanelComponent);
+        fixture.componentRef.setInput('mode', mode);
+        fixture.detectChanges();
+        if (mode === 'drawer') {
+          TestBed.inject(NhAssistantPanelService).open();
+        }
+        const root: HTMLElement = mode === 'drawer'
+          ? TestBed.inject(OverlayContainer).getContainerElement() : fixture.nativeElement;
+        await until(() => !!root.querySelector('textarea'));
+        fixture.detectChanges();
+
+        expect(root.querySelector('[aria-label="nh-assistant.panel.share"]')).toBeNull();
+        expect(root.querySelector('[aria-label="nh-assistant.panel.add-members"]')).toBeNull();
+        expect(root.querySelector('.conversation-actions')).toBeNull();
+        fixture.componentInstance.toggleShare('link');
+        fixture.detectChanges();
+        expect(root.querySelector('nh-assistant-share')).toBeNull();
+
+        store.setPageContextOverride({ route: '/projects/alpha', title: 'Alpha' });
+        await store.refreshPageContext();
+        fixture.detectChanges();
+        expect(root.querySelector('.page-context-button')).not.toBeNull();
+        expect(root.querySelector('[aria-label="nh-assistant.panel.share"]')).toBeNull();
+
+        // Older servers omit the capability; preserve their existing sharing controls.
+        statusRequest.and.returnValue(of(status));
+        await store.reloadStatus();
+        fixture.detectChanges();
+        const share = root.querySelector<HTMLButtonElement>('[aria-label="nh-assistant.panel.share"]')!;
+        expect(share.disabled).toBeFalse();
+        share.click();
+        fixture.detectChanges();
+        expect(root.querySelector('nh-assistant-share')).not.toBeNull();
+
+        // A refreshed capability also closes an already open sharing view.
+        statusRequest.and.returnValue(of({
+          ...status, collaboration: { ...status.collaboration!, sharingEnabled: false }
+        }));
+        await store.reloadStatus();
+        fixture.detectChanges();
+        expect(root.querySelector('nh-assistant-share')).toBeNull();
+        expect(root.querySelector('textarea')).not.toBeNull();
+        expect(root.querySelector('[aria-label="nh-assistant.panel.add-members"]')).toBeNull();
+      });
+    }
 
     it('opens separate invitation-link and participant views from composer actions', async () => {
       const fixture = TestBed.createComponent(PanelHostComponent);

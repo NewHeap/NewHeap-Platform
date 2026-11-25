@@ -285,6 +285,12 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   });
 
   constructor() {
+    effect(() => {
+      if (!this.canShare()) {
+        this.showShare.set(false);
+      }
+    });
+
     // Opening, creating or leaving a conversation returns from the list to the thread. The first
     // conversation the panel shows changes nothing, so a host's `conversationsOpen` stays as bound.
     effect(() => {
@@ -378,6 +384,10 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   }
 
   toggleShare(section: 'all' | 'link' | 'members' = 'all'): void {
+    if (!this.canShare()) {
+      return;
+    }
+
     this.conversationsOpen.set(false);
     this.showPreferences.set(false);
     const close = this.showShare() && this.shareSection() === section;
