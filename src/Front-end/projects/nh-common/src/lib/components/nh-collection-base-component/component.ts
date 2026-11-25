@@ -21,7 +21,6 @@ import {NhRouterService} from "../../services/nh-router.service";
 import {isPlatformServer} from "@angular/common";
 import {NhAppService} from "../../services/nh-app.service";
 import {NhApiUtil} from "../../util/nh-api-util";
-import {NhAsyncLock} from "../../util/nh-mutex.util";
 
 @Component({
     selector: 'nh-shared-collection-base-component',
@@ -37,7 +36,9 @@ export abstract class NhCollectionTypeBaseComponent<TCollectionResponseItem, TAu
     AfterViewInit,
     OnDestroy
 {
-  private readonly loadLock = new NhAsyncLock();
+  private collectionDestroyed = false;
+  private collectionLoadVersion = 0;
+  private cancelCollectionLoad?: () => void;
   protected readonly appService = inject(NhAppService);
   protected readonly ColumnMode = ColumnMode;
   protected document: Document = inject(DOCUMENT)
@@ -109,8 +110,11 @@ export abstract class NhCollectionTypeBaseComponent<TCollectionResponseItem, TAu
   }
 
   ngOnDestroy(): void {
+    this.collectionDestroyed = true;
     this.appOnDestroy().then();
+    this.cancelCollectionLoad?.();
     this.activeRequestSubscription?.unsubscribe();
+    this.isLoading = false;
   }
 
   appOnChanges(): Promise<void> {
@@ -214,31 +218,75 @@ export abstract class NhCollectionTypeBaseComponent<TCollectionResponseItem, TAu
   }
 
   load(): Promise<CollectionHttpResponse<TCollectionResponseItem>> {
-    return new Promise<CollectionHttpResponse<TCollectionResponseItem>>(async (resolve, reject) => {
-      this.isLoading = true;
-      await this.beforeLoad();
-      this.updateRequestOptions();
+    if (this.collectionDestroyed) {
+      return Promise.resolve(this.collectionResponse);
+    }
 
-      // Pass a copy instead of the source to allow modifications without it modifying the URL;
-      // If u need them both modified, modify via this.requestOptions. in the load.
-      const requestOptions = NhApiUtil.ParseCollectionRequestOptions(JSON.stringify(this.requestOptions));
+    this.cancelCollectionLoad?.();
+    this.activeRequestSubscription?.unsubscribe();
+    const version = this.collectionLoadVersion = (this.collectionLoadVersion ?? 0) + 1;
+    const isCurrent = () => !this.collectionDestroyed && version === this.collectionLoadVersion;
+    this.isLoading = true;
 
-      this.activeRequestSubscription?.unsubscribe();
-      await this.loadLock.runExclusive(async () => {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const settle = (error?: unknown, failed = false) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        if (isCurrent()) {
+          this.isLoading = false;
+          this.cancelCollectionLoad = undefined;
+          this.activeRequestSubscription?.unsubscribe();
+          this.activeRequestSubscription = undefined;
+        }
+
+        if (failed) {
+          reject(error);
+        } else {
+          resolve(this.collectionResponse);
+        }
+      };
+
+      this.cancelCollectionLoad = () => settle();
+      const run = async () => {
+        await this.beforeLoad();
+        if (!isCurrent()) {
+          return;
+        }
+
+        this.updateRequestOptions();
+        const requestOptions = NhApiUtil.ParseCollectionRequestOptions(JSON.stringify(this.requestOptions));
         const loadObservable = await this.onLoad(requestOptions);
-        this.activeRequestSubscription = loadObservable.subscribe({
-          next: (response) => {
-            this.isLoading = false;
+        if (!isCurrent()) {
+          return;
+        }
+
+        const subscription = loadObservable.subscribe({
+          next: response => {
+            if (!isCurrent() || settled) {
+              return;
+            }
+
             this.collectionResponse = response;
-            resolve(response);
+            settle();
             this.afterLoad().then();
           },
-          error: (error) => {
-            this.isLoading = false;
-            reject(error);
-          }
+          error: error => settle(error, true),
+          complete: () => settle()
         });
-      });
+
+        // Synchronous sources can settle before subscribe returns.
+        if (settled || !isCurrent()) {
+          subscription.unsubscribe();
+        } else {
+          this.activeRequestSubscription = subscription;
+        }
+      };
+
+      run().catch(error => settle(error, true));
     });
   }
 

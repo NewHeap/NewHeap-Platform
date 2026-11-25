@@ -38,5 +38,10 @@
       "announce-other": "{{count}} achtergrondtaken actief",
       "announce-none": "Geen achtergrondtaken actief"
     }
+  },
+  "form": {
+    "form-dropdown": {
+      "loading": "Laden…"
+    }
   }
 }

@@ -999,7 +999,8 @@
       "../../src/Front-end/projects/nh-common/src/lib/services/nh-background-operation-live-update.service.ts",
       "../../src/Front-end/projects/nh-common/src/lib/services/nh-background-operation-live-update.service.spec.ts",
       "../../src/Back-end/Libraries/NewHeap.Platform.AspNet.Common/Authentication/NhHubSessions.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationHubSessionTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AspNet.Common.Tests/NhBackgroundOperationHubSessionTests.cs",
+      "../../src/Front-end/projects/nh-common/src/lib/services/nh-background-operation-polling.spec.ts"
     ],
     "SPM-084": [
       "src/Back-end/Applications/SampleProjectManagement.Api/Events/ProjectEvents.cs",
@@ -1255,7 +1256,8 @@
       "../../src/Front-end/projects/nh-common/src/lib/components/nh-skeleton/component.ts",
       "../../src/Front-end/projects/nh-common/src/lib/components/nh-skeleton/component.spec.ts",
       "../../src/Front-end/projects/nh-common/src/lib/components/nh-empty-state/component.ts",
-      "../../src/Front-end/projects/nh-common/src/lib/components/nh-empty-state/component.spec.ts"
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-empty-state/component.spec.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/collection-load-lifecycle.spec.ts"
     ],
     "SPM-127": [
       "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
@@ -1273,7 +1275,8 @@
     "SPM-129": [
       "src/Front-end/projects/management/src/app/dirty-route-sample/dirty-route-sample.component.ts",
       "src/Front-end/scripts/verify-frontend-integrity.mjs",
-      "src/Front-end/projects/management/src/app/sample.routes.ts"
+      "src/Front-end/projects/management/src/app/sample.routes.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/lifecycle-extension-points.spec.ts"
     ],
     "SPM-130": [
       "src/Front-end/projects/management/src/app/collection-playground/collection-playground.component.ts",
@@ -1745,7 +1748,8 @@
       "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.ts",
       "src/Front-end/projects/management/src/app/utility-playground/utility-playground.component.html",
       "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.component.spec.ts",
-      "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.rendered.spec.ts"
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.rendered.spec.ts",
+      "../../src/Front-end/projects/nh-common/src/lib/components/nh-form-dropdown/form-dropdown.loading.spec.ts"
     ],
     "SPM-216": [
       "src/Back-end/Tests/SampleProjectManagement.Core.Tests/RepositoryFoundationSamplesTests.cs",

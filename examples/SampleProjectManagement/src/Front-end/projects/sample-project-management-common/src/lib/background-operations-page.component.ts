@@ -53,7 +53,7 @@ export class BackgroundOperationsPageComponent {
   readonly store = inject(NhBackgroundOperationStore);
 
   readonly operations$ = this.store.watchAll();
-  readonly connectionState$ = this.store.connectionState$;
+  readonly connectionState$ = this.store.connectionState$.pipe(distinctUntilChanged());
   readonly selectedOperation$: Observable<NhBackgroundOperation | undefined> = this.route.paramMap.pipe(
     map(parameters => parameters.get('id')),
     distinctUntilChanged(),

@@ -38,7 +38,7 @@ import {
 } from '@newheap/platform-common';
 import { NhHtmlSanitizer, NhSanitizeHtmlPipe } from '@newheap/platform-common/sanitize';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { of } from 'rxjs';
+import { delay, of } from 'rxjs';
 import {
   ProjectStatus,
   getProjectStatusOptions,
@@ -326,7 +326,7 @@ export class UtilityPlaygroundComponent {
           resultCount: items.length,
           totalCount: items.length,
           items
-        }));
+        })).pipe(delay(400));
       },
       selectedLazyLoadLambda: (_request, value) => {
         this.deferredSelectedRequests.update(count => count + 1);

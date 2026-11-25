@@ -134,6 +134,6 @@ describe('NewHeap component lifecycle extension points', () => {
     await NhPageTypeBaseComponent.prototype.ngOnDestroy.call(destroyComponent as never);
     await flushLifecycle();
 
-    expect(unsubscribe).toHaveBeenCalledTimes(7);
+    expect(unsubscribe).toHaveBeenCalledTimes(8);
   });
 });
