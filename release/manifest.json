@@ -14,7 +14,7 @@
     "nuget-common": {
       "displayName": "NewHeap common NuGet packages",
       "kind": "nuget",
-      "version": "39.1.0",
+      "version": "39.2.0",
       "tagPrefix": "nuget-common-v",
       "includeSymbols": true,
       "replaces": "src/Back-end/publish-common.ps1",
@@ -181,7 +181,7 @@
     "npm-platform-common": {
       "displayName": "@newheap/platform-common",
       "kind": "npm",
-      "version": "7.2.1",
+      "version": "7.2.2",
       "tagPrefix": "npm-platform-common-v",
       "packageName": "@newheap/platform-common",
       "packageJson": "src/Front-end/projects/nh-common/package.json",
@@ -203,7 +203,7 @@
     "npm-ai-chat": {
       "displayName": "@newheap/platform-ai-chat",
       "kind": "npm",
-      "version": "0.37.3",
+      "version": "0.38.1",
       "tagPrefix": "npm-ai-chat-v",
       "packageName": "@newheap/platform-ai-chat",
       "packageJson": "src/Front-end/projects/nh-ai-chat/package.json",
@@ -214,7 +214,7 @@
     "newheap-platform-plugin": {
       "displayName": "NewHeap Platform AI plugin",
       "kind": "plugin",
-      "version": "1.13.131",
+      "version": "1.13.134",
       "tagPrefix": "newheap-platform-plugin-v",
       "directory": "plugins/newheap-platform",
       "packageName": "newheap-platform"

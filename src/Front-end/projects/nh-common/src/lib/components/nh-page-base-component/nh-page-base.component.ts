@@ -183,7 +183,7 @@ export abstract class NhPageTypeBaseComponent<TAuthorization extends INhAuthoriz
     });
 
     this.$activeQueryParamMap?.unsubscribe();
-    this.$activeRouteParamMap = this.activatedRoute.queryParamMap.subscribe(p => {
+    this.$activeQueryParamMap = this.activatedRoute.queryParamMap.subscribe(p => {
       this.activeQueryParamMap = p;
     });
 
@@ -202,6 +202,7 @@ export abstract class NhPageTypeBaseComponent<TAuthorization extends INhAuthoriz
       this.$activeRouteParamMap?.unsubscribe();
       this.$activeQueryParams?.unsubscribe();
       this.$activeQueryParamMap?.unsubscribe();
+      this.$activeUrlFragment?.unsubscribe();
       this.$config?.unsubscribe();
       this.$auth?.unsubscribe();
     });

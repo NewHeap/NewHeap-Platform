@@ -42,6 +42,8 @@ Set `apiBaseUrl` and `authApiBaseUrl` explicitly to where the API is, such as `/
 - Typing a single-select dropdown control as an array, or treating `0` and `false` as no selection.
 - Leaving the API bases empty when the API runs on another origin, or adding the access token to other origins in an interceptor of your own.
 
+The legacy dropdown retains selected labels while a lazy request is pending or fails. It exposes aria-busy and translated form.form-dropdown.loading feedback for lazy and non-lazy loads. Selected-value lookup errors also end loading. Keep theme-specific loading styles in the consumer.
+
 ## Verification
 
 Test with the opt-ins enabled in the consumer and test the library defaults separately as `false`. Check that a page that imports plain `NhCommonModule` and injects `HttpClient` gets the root `HttpClient` and runs the application's own interceptors. Verify request deduplication with different authorization, division, and language headers, and test a deferred dropdown with a preselected value. Set a dropdown value from code while the selected-value lookup answers synchronously and check that it stays selected, emits one `valueChanges` and leaves the control pristine; choose an option with the id `0` in single-select mode; check that `closed` follows the chosen value with `closeOnSelect` and that Escape closes the list. Verify that a regional language without its own translation file shows the texts of its base language. Verify that an API request carries the access token and active division, and that another origin, a longer host name that starts with the API's host and a path beside the base receive neither.

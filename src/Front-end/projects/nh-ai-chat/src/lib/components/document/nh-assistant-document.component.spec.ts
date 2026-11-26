@@ -52,6 +52,15 @@ async function settle(fixture: ComponentFixture<unknown>, rounds = 4): Promise<H
   // The Markdown renderer loads on the first document; the fixture is stable once it has arrived.
   await fixture.whenStable();
   fixture.detectChanges();
+  // Lazy Markdown loading can create diagrams on that last change-detection pass.
+  const diagramDeadline = Date.now() + 5_000;
+  while (fixture.nativeElement.querySelector('[data-diagram-state="drawing"]')) {
+    if (Date.now() > diagramDeadline) {
+      throw new Error('The diagram renderer did not settle.');
+    }
+    await flush();
+    fixture.detectChanges();
+  }
   return fixture.nativeElement as HTMLElement;
 }
 

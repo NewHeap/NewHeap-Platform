@@ -4,6 +4,8 @@ import {
   BehaviorSubject,
   catchError,
   defer,
+  distinctUntilChanged,
+  switchMap,
   EMPTY,
   exhaustMap,
   finalize,
@@ -105,12 +107,14 @@ export class NhBackgroundOperationStore implements OnDestroy {
     }
 
     this.live.start();
-    this.pollingSubscription = timer(
-      0,
-      Math.max(1000, this.config.backgroundOperations.pollingInterval)
-    )
-      .pipe(exhaustMap(() => this.loadSnapshot()))
-      .subscribe();
+    this.pollingSubscription = this.connectionState$.pipe(
+      map(state => state === 'connected'),
+      distinctUntilChanged(),
+      switchMap(connected => connected ? EMPTY : timer(
+        0,
+        Math.max(1000, this.config.backgroundOperations.pollingInterval)
+      ).pipe(exhaustMap(() => this.loadSnapshot())))
+    ).subscribe();
   }
 
   stop(): void {

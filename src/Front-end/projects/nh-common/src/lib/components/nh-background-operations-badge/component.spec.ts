@@ -253,7 +253,7 @@ describe('NhBackgroundOperationsBadgeComponent with the real store', () => {
     const live = {
       changed$: new Subject<NhBackgroundOperationChanged>().asObservable(),
       resync$: new Subject<void>().asObservable(),
-      connectionState$: of('connected'),
+      connectionState$: of('disconnected'),
       start: jasmine.createSpy('start'),
       stop: jasmine.createSpy('stop')
     } as unknown as NhBackgroundOperationLiveUpdateService;

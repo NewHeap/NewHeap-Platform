@@ -38,5 +38,10 @@
       "announce-other": "{{count}} background operations running",
       "announce-none": "No background operations running"
     }
+  },
+  "form": {
+    "form-dropdown": {
+      "loading": "Loading…"
+    }
   }
 }

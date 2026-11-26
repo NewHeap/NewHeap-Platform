@@ -15,6 +15,11 @@ import { describeNhAssistantClientContext, normalizeNhAssistantClientContext } f
 const PAGE = new InjectionToken<ClientContext | null>('PAGE');
 
 describe('normalizeNhAssistantClientContext', () => {
+  it('bounds the active tab and includes it in the visible context chip', () => {
+    const page = normalizeNhAssistantClientContext({route: '/record', title: 'Record', tab: 'a'.repeat(200)})!;
+    expect(page.tab?.length).toBe(120);
+    expect(describeNhAssistantClientContext(page)).toBe('Record · ' + 'a'.repeat(120));
+  });
   it('keeps a valid context unchanged', () => {
     const context: ClientContext = {
       route: '/projects/AA09027',

@@ -37,6 +37,7 @@ import { NhAssistantConversationListComponent } from '../conversation-list/nh-as
 import { NhAssistantPreferencesComponent } from '../preferences/nh-assistant-preferences.component';
 import { NhAssistantShareComponent } from '../share/nh-assistant-share.component';
 import { NhAssistantScreenshotComponent } from '../screenshot/nh-assistant-screenshot.component';
+import { NhAssistantDictationComponent } from '../dictation/nh-assistant-dictation.component';
 import {
   NH_ASSISTANT_CONVERSATION_FRAGMENT,
   NH_ASSISTANT_JOIN_FRAGMENT,
@@ -127,6 +128,7 @@ export type NhAssistantBeforeSubmit = (message: NhAssistantOutgoingMessage) => P
     NhAssistantPreferencesComponent,
     NhAssistantShareComponent,
     NhAssistantScreenshotComponent,
+    NhAssistantDictationComponent,
     NhAssistantThreadComponent,
     NhAssistantTokensDirective
   ],
@@ -263,7 +265,8 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   /** The owner and the person who started the turn may stop it. */
   readonly canStop = computed(() => this.store.isOwner() || this.store.activeMember() === null);
   readonly shared = computed(() => this.store.members().some(member => member.role === 'participant'));
-  readonly canShare = computed(() => this.conversation() !== null && !!this.store.collaboration());
+  readonly canShare = computed(() => this.conversation() !== null && !!this.store.collaboration()
+    && this.store.collaboration()?.sharingEnabled !== false);
   readonly errorKeys = computed(() => nhAssistantErrorKeys(this.notificationError() ?? this.store.error()));
   readonly noticeKeys = computed(() => nhAssistantErrorKeys(this.store.notice()));
   /**
@@ -282,6 +285,12 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   });
 
   constructor() {
+    effect(() => {
+      if (!this.canShare()) {
+        this.showShare.set(false);
+      }
+    });
+
     // Opening, creating or leaving a conversation returns from the list to the thread. The first
     // conversation the panel shows changes nothing, so a host's `conversationsOpen` stays as bound.
     effect(() => {
@@ -375,6 +384,10 @@ export class NhAssistantPanelComponent implements AfterViewInit, OnDestroy {
   }
 
   toggleShare(section: 'all' | 'link' | 'members' = 'all'): void {
+    if (!this.canShare()) {
+      return;
+    }
+
     this.conversationsOpen.set(false);
     this.showPreferences.set(false);
     const close = this.showShare() && this.shareSection() === section;

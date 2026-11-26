@@ -14,6 +14,36 @@ Register the assistant once with the host's token and access policy, place the l
 
 ## Preferred approach
 
+The context editor treats only `assistant-context-not-found` as an unconfigured application.
+It offers an empty editor, saves the first nonblank text with `expectedVersion: 0`, and
+shows version metadata only after saving. Other load failures remain errors. Reloading
+a conflict preserves the draft, including when another administrator created version one.
+The mock API follows the same contract when the scenario omits `admin.context`.
+
+### Host-owned dictation and page tabs
+
+Set `NhAssistantConfig.dictation.transcribe` only when the host offers authenticated
+transcription. Use optional `dictation.isAvailable(signal)` to check current access before
+requesting microphone permission. The transcription callback receives `NhAssistantDictationRequest`: an audio Blob,
+a stable request ID, the conversation ID, the page-context snapshot and an abort
+signal. Keep application/provider credentials on the server, pin user/tenant/resource
+attribution when creating the operation and make retries idempotent. Honor cancellation
+and recheck access before returning text. The optional microphone control records at
+most two minutes and 4 MiB, releases its tracks and appends the returned text to the
+current draft for review; it never sends a chat message. A changed account, conversation
+or agent must not receive a late result. With no callback, no microphone control appears.
+The assistant lab uses explicit fixture text, with no audio upload or provider call.
+
+`ClientContext.tab` identifies the current model tab, bounded to 120 characters. It is
+shown in the context chip and stored with the message as untrusted data. Clear host
+context on navigation and account changes; never derive authorization from it.
+When status reports `collaboration.sharingEnabled: false`, the panel removes both the
+invitation-link and participant buttons and closes an open sharing view in drawer and
+page modes. Do not infer sharing availability from the presence of `collaboration`:
+the API still supplies it for live updates. Page-context controls remain available;
+older servers that omit `sharingEnabled` retain their sharing controls.
+
+
 The assistant package supports Angular and CDK 20, 21 and 22, with
 `@ngx-translate/core` 17 or 18. Keep Angular packages on the same major and use
 TypeScript 6.0 for Angular 22. The packed-package compatibility sample covers the

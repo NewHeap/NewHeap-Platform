@@ -87,7 +87,9 @@ export class NhAssistantMockAdmin {
     this.preferences = { ...defaultPreferences, ...scenario.preferences };
     this.agentRights = new NhAssistantMockAgentRights(admin.runCatalog?.mayChangeAgentRights ?? true);
 
-    this.contextVersions.push({ version: 1, hash: hashText(admin.context ?? ''), updatedAt: now(), updatedBy: null, text: admin.context ?? '' });
+    if (admin.context !== undefined) {
+      this.contextVersions.push({ version: 1, hash: hashText(admin.context), updatedAt: now(), updatedBy: null, text: admin.context });
+    }
     this.instructionAssets = new NhAssistantMockInstructionAssets(admin.instructionAssets);
     this.alertKinds = new NhAssistantMockAlertKinds(admin.alertKinds, now);
 
@@ -438,24 +440,24 @@ export class NhAssistantMockAdmin {
       return failure('assistant-not-found');
     }
     if (method === 'GET') {
-      return { status: 200, body: toContext(current) };
+      return current ? { status: 200, body: toContext(current) } : failure('assistant-context-not-found');
     }
     if (method !== 'PUT') {
       return { status: 405 };
     }
 
     const input = body as { text?: unknown; expectedVersion?: unknown } | undefined;
-    if (typeof input?.text !== 'string' || typeof input.expectedVersion !== 'number') {
+    if (typeof input?.text !== 'string' || typeof input.expectedVersion !== 'number' || !input.text.trim()) {
       return validationFailure();
     }
     if (input.text.length > maxInstructions) {
       return failure('assistant-instructions-too-long');
     }
-    if (input.expectedVersion !== current.version) {
+    if (input.expectedVersion !== (current?.version ?? 0)) {
       return failure('assistant-version-conflict');
     }
 
-    const next = { version: current.version + 1, hash: hashText(input.text), updatedAt: this.now(), updatedBy: 'current-user', text: input.text };
+    const next = { version: (current?.version ?? 0) + 1, hash: hashText(input.text), updatedAt: this.now(), updatedBy: 'current-user', text: input.text };
     this.contextVersions.push(next);
     return { status: 200, body: toContext(next) };
   }

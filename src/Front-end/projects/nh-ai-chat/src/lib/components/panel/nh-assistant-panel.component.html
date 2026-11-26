@@ -208,9 +208,9 @@
         @if (chatSubjectLabel(); as subject) {
           <p class="notice chat-subject">{{ 'nh-assistant.panel.chat-subject' | translate: { subject } }}</p>
         }
-        @if (store.collaboration() || store.pageContext()) {
+        @if ((store.collaboration() && store.collaboration()?.sharingEnabled !== false) || store.pageContext()) {
           <div class="conversation-actions">
-            @if (store.collaboration()) {
+            @if (store.collaboration() && store.collaboration()?.sharingEnabled !== false) {
               @if (!conversation() || store.isOwner()) {
                 <button class="icon-button" type="button" [disabled]="!canShare()"
                   [attr.aria-label]="'nh-assistant.panel.share' | translate"
@@ -320,6 +320,7 @@
           (removeAttachment)="store.removeAttachment($event)"
           (cancel)="cancel()">
           <nh-assistant-screenshot nhAssistantComposerControls [disabled]="closed() || holding()" />
+          <nh-assistant-dictation nhAssistantComposerControls [disabled]="closed() || holding()" />
           @if (pickerAgents().length > 1) {
             <nh-assistant-agent-picker
               nhAssistantComposerControls

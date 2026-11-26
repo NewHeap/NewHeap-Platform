@@ -34,6 +34,19 @@ agent thread, using the deterministic sample model.
 
 ## Preferred approach
 
+### Personal chats without sharing
+
+`NewHeap:AI:Assistant:SharingEnabled` defaults to true. Set it to false for personal-only
+chat: sharing/invitation endpoints return 404, existing participant rows no longer grant
+chat access or history, and live updates and notifications reach the owner only. The
+owner retains the conversation. Status reports `collaboration.sharingEnabled` and disables
+the participant directory. Subject-owned agent threads keep their own authorization.
+Disabling the switch does not delete memberships; re-enabling it restores them.
+
+The optional `clientContext.tab` is limited to 120 characters and is untrusted page data,
+like route/title/entities. Persist its bounded value with the message; it grants no access.
+
+
 Add `NewHeap.Platform.AI.Chat.AspNet` and exactly one storage package,
 `NewHeap.Platform.AI.Chat.SqlServer` or `NewHeap.Platform.AI.Chat.PostgreSql`.
 Register the application's own AI services first (chat profiles, generated tool

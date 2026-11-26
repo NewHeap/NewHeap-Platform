@@ -15,6 +15,13 @@ public sealed class NhAssistantOptions
     public bool Enabled { get; set; }
 
     /// <summary>
+    /// Allows people to share chats. When false, invitation endpoints are unavailable and existing
+    /// participants cannot read personal chats or receive their updates. Owners retain their history.
+    /// Agent thread permissions are unchanged. Defaults to true for existing hosts.
+    /// </summary>
+    public bool SharingEnabled { get; set; } = true;
+
+    /// <summary>
     /// Whether agents work on this host (<c>NewHeap:AI:Assistant:AgentWork</c>), true by default; it
     /// counts only while <see cref="Enabled"/> is on. Read for every piece of work, so a reloaded
     /// configuration applies from the next one. When false, the endpoints and the administration keep

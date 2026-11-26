@@ -13,20 +13,24 @@
       <p>{{ 'nh-assistant.admin.load-failed' | translate }}</p>
       <button class="secondary" type="button" (click)="load(false)">{{ 'nh-assistant.admin.retry' | translate }}</button>
     </div>
-  } @else if (context(); as current) {
+  } @else {
     <nh-assistant-account-names-error [names]="accountNames" />
     <form class="stack" (submit)="$event.preventDefault(); save()">
-      <div class="meta">
-        <span class="badge">{{ 'nh-assistant.admin.context.version' | translate: { version: current.version } }}</span>
-        <span [attr.title]="accountTitle(current.updatedBy)">
-          @if (current.updatedBy) {
-            {{ 'nh-assistant.admin.context.updated' | translate: { date: (current.updatedAt | date: 'medium'), user: nameOf(current.updatedBy) } }}
+      @if (context(); as current) {
+        <div class="meta">
+          <span class="badge">{{ 'nh-assistant.admin.context.version' | translate: { version: current.version } }}</span>
+          <span [attr.title]="accountTitle(current.updatedBy)">
+            @if (current.updatedBy) {
+              {{ 'nh-assistant.admin.context.updated' | translate: { date: (current.updatedAt | date: 'medium'), user: nameOf(current.updatedBy) } }}
           } @else {
             {{ 'nh-assistant.admin.context.updated-unknown' | translate: { date: (current.updatedAt | date: 'medium') } }}
           }
         </span>
         <span class="mono" [attr.title]="current.hash">{{ 'nh-assistant.admin.context.hash' | translate }} {{ current.hash.slice(0, 18) }}</span>
       </div>
+      } @else {
+        <p class="muted">{{ 'nh-assistant.admin.context.not-configured' | translate }}</p>
+      }
 
       <div class="field">
         <label [for]="id + '-text'">{{ 'nh-assistant.admin.context.label' | translate }}</label>
