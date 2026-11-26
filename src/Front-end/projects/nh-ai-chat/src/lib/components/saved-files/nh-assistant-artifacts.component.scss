@@ -1,0 +1,32 @@
+@use '../../styles/forms';
+
+:host {
+  display: block;
+  min-width: 0;
+  color: var(--nha-text);
+  font-family: var(--nha-font);
+  font-size: 14px;
+  @include forms.controls;
+}
+
+.cards { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.card, .state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid var(--nha-border);
+  border-radius: var(--nha-radius);
+  padding: 12px 14px;
+  background: var(--nha-surface);
+  overflow-wrap: anywhere;
+}
+.state { border-style: dashed; color: var(--nha-text-muted); }
+.card-header, .meta, .card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
+.meta, .badge { color: var(--nha-text-muted); font-size: 12px; }
+.badge { border: 1px solid var(--nha-border); border-radius: var(--nha-radius-control); padding: 2px 6px; }
+.message { display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
+.error, .warning { color: var(--nha-danger); }
+
+.mono { font-family: var(--nha-mono); }

@@ -320,6 +320,8 @@ public sealed class AssistantAgentBoardTests(AssistantDatabaseFixture database) 
             $"/api/assistant/conversations/{thread.ConversationId}",
             $"/api/assistant/threads/{thread.ConversationId}/proposals",
             $"/api/assistant/threads/{thread.ConversationId}/runs",
+            $"/api/assistant/conversations/{thread.ConversationId}/artifacts",
+            $"/api/assistant/conversations/{thread.ConversationId}/artifacts/{artifactId}/content",
             $"/api/assistant/threads/{thread.ConversationId}/artifacts",
             $"/api/assistant/threads/{thread.ConversationId}/artifacts/{artifactId}/content",
             $"/api/assistant/approvals/{approvalId}",

@@ -1135,6 +1135,28 @@ bundle) prefilled through `inputs`, refuses what `accepts` does not, and reports
 otherwise. The person saves through the application's normal API with their own rights, so the hand-off
 needs no proposal. The tool call shows `awaiting-client` (`Running in the app`) while it waits.
 
+### Files returned by tools (SPM-276)
+
+The panel supplies its conversation id to `nh-assistant-thread`, which shows the files
+tools saved with `INhAiArtifacts.SaveAsync`. The list reloads when the turn finishes and
+on reopening the chat; it stays empty until there are files. Each card shows the original
+filename, version, content type and size, with a download action, error and retry states.
+Downloads use the same host credentials/headers as the assistant API, create a temporary
+browser blob and release it afterwards. The filename keeps its extension.
+
+For a custom file view, import `NhAssistantArtifactsComponent` from
+`@newheap/platform-ai-chat` and use
+`<nh-assistant-artifacts [conversationId]="id" [busy]="turnRunning" />`.
+`compact` hides the standalone loading/empty state for inline use. A custom thread opts
+in through `NhAssistantThreadComponent.conversationId`.
+`NhAssistantApiService.getArtifacts` lists versions; `downloadArtifact` returns a
+`Promise<Blob>`. Install the backend version that maps the conversation artifact routes
+before upgrading the frontend. No host download page or public file URL is required.
+
+The existing `NhAssistantAgentArtifactsComponent` export from `/agent-runs` and
+`nh-assistant-agent-artifacts` selector remain aliases of this shared implementation.
+It also supports agent threads, retaining their restricted-result protection.
+
 ## Avoid
 - Building a generic JSON form for agent metadata, or editing it inside the agent editor's form; render
   the application's own editor in the entry's slot.

@@ -45,6 +45,22 @@ describe('NhAssistantApiService', () => {
     fetchSpy = jasmine.createSpy<NhAssistantFetch>('fetch');
   });
 
+  it('lists and downloads conversation files with credentials and encoded ids', async () => {
+    const service = setup();
+    fetchSpy.and.returnValue(Promise.resolve(jsonResponse([])));
+    expect(await firstValueFrom(service.getArtifacts('chat /1'))).toEqual([]);
+    expect(fetchSpy.calls.mostRecent().args[0]).toBe('/api/assistant/conversations/chat%20%2F1/artifacts');
+    fetchSpy.and.returnValue(Promise.resolve(new Response('report', { headers: { 'content-type': 'application/pdf' } })));
+    const file = await service.downloadArtifact('chat /1', 'file /2');
+    expect(await file.text()).toBe('report');
+    expect(file.type).toBe('application/pdf');
+    const [url, init] = fetchSpy.calls.mostRecent().args;
+    expect(url).toBe('/api/assistant/conversations/chat%20%2F1/artifacts/file%20%2F2/content');
+    expect((init.headers as Record<string, string>)['Authorization']).toBe('Bearer token-1');
+    fetchSpy.and.returnValue(Promise.resolve(jsonResponse({ code: 'assistant-conversation-not-found' }, 404)));
+    await expectAsync(service.downloadArtifact('gone', 'file')).toBeRejectedWith(jasmine.objectContaining({ code: 'assistant-conversation-not-found' }));
+  });
+
   it('streams messages with the bearer token and the event-stream Accept header', async () => {
     fetchSpy.and.returnValue(Promise.resolve(sseResponse([
       'event: turn.started\ndata: {"turnId":"t1","userMessageId":"u1","assistantMessageId":"a1"}\n\n',

@@ -425,23 +425,8 @@ internal static class NhAssistantAgentRunEndpoints
             return access.Error;
         }
 
-        var shield = NhAssistantRestrictedResults.For(httpContext, access.Access!);
-        var rows = await artifacts.ListAsync(id, 200, httpContext.RequestAborted);
-        var items = new List<NhAssistantArtifactDto>(rows.Count);
-        foreach (var row in rows)
-        {
-            items.Add(new NhAssistantArtifactDto(
-                row.Id,
-                row.Name,
-                row.Version,
-                row.ContentType,
-                row.SizeBytes,
-                row.CreatedAt,
-                row.RunId,
-                !await MayReadArtifactAsync(shield, store, row.ToolInvocationId, httpContext.RequestAborted)));
-        }
-
-        return TypedResults.Json(items.ToArray(), NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantArtifactDtoArray);
+        return await NhAssistantArtifactEndpoints.ListContentAsync(
+            id, httpContext, artifacts, store, NhAssistantRestrictedResults.For(httpContext, access.Access!));
     }
 
     private static async Task<IResult> GetArtifactContentAsync(
@@ -458,25 +443,8 @@ internal static class NhAssistantAgentRunEndpoints
             return access.Error;
         }
 
-        var artifact = await artifacts.FindAsync(id, artifactId, httpContext.RequestAborted);
-        if (artifact is null)
-        {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.ArtifactNotFound);
-        }
-        if (!await MayReadArtifactAsync(
-                NhAssistantRestrictedResults.For(httpContext, access.Access!),
-                store,
-                artifact.ToolInvocationId,
-                httpContext.RequestAborted))
-        {
-            return NhAssistantEndpointRouteBuilderExtensions.Error(NhAssistantErrorCodes.SubjectAccessDenied);
-        }
-
-        httpContext.Response.Headers["X-Content-Type-Options"] = "nosniff";
-        return TypedResults.File(
-            artifact.Content,
-            artifact.ContentType,
-            artifact.Name + "-v" + artifact.Version.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        return await NhAssistantArtifactEndpoints.DownloadContentAsync(
+            id, artifactId, httpContext, artifacts, store, NhAssistantRestrictedResults.For(httpContext, access.Access!));
     }
 
     internal static async Task<bool> MayReadArtifactAsync(

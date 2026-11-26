@@ -65,8 +65,9 @@ let api: jasmine.SpyObj<NhAssistantApiService>;
 async function configure(getStateScope?: () => string | null): Promise<void> {
   api = jasmine.createSpyObj<NhAssistantApiService>('NhAssistantApiService', [
     'status', 'listConversations', 'createConversation', 'getConversation', 'deleteConversation',
-    'sendMessage', 'decideApproval', 'cancel'
+    'sendMessage', 'decideApproval', 'cancel', 'getArtifacts', 'downloadArtifact'
   ]);
+  api.getArtifacts.and.returnValue(of([]));
   api.status.and.returnValue(of(status));
   api.listConversations.and.returnValue(of({ items: [], total: 0 }));
 

@@ -9,7 +9,7 @@ import {
   McpConnection,
   UpdateMcpConnectionRequest
 } from '../models/assistant-admin.models';
-import { AgentTriggerOutcome, AgentTriggerReceipt } from '../models/assistant-agent-run.models';
+import { AgentArtifact, AgentTriggerOutcome, AgentTriggerReceipt } from '../models/assistant-agent-run.models';
 import { Alert, AlertDismissOptions, AlertList, AlertListFilter, AlertSummary, AlertSummaryFilter } from '../models/assistant-alert.models';
 import {
   AgentSummary,
@@ -95,6 +95,16 @@ export class NhAssistantApiService {
   listConversations(page = 1, itemsPerPage = 20): Observable<ConversationPage> {
     const query = `page=${encodeURIComponent(page)}&itemsPerPage=${encodeURIComponent(itemsPerPage)}`;
     return this.transport.json<ConversationPage>('GET', `conversations?${query}`);
+  }
+
+  /** Every saved file version of a chat or agent thread, newest first (up to 200). */
+  getArtifacts(conversationId: string): Observable<AgentArtifact[]> {
+    return this.transport.json<AgentArtifact[]>('GET', `conversations/${encodeURIComponent(conversationId)}/artifacts`);
+  }
+
+  /** Downloads a saved file with the host's credentials and current conversation access. */
+  downloadArtifact(conversationId: string, artifactId: string): Promise<Blob> {
+    return this.transport.download(`conversations/${encodeURIComponent(conversationId)}/artifacts/${encodeURIComponent(artifactId)}/content`, '*/*');
   }
 
   createConversation(request: CreateConversationRequest): Observable<Conversation> {

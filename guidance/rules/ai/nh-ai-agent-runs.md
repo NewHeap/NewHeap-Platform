@@ -10,6 +10,15 @@ skills: ["newheap-backend-development", "newheap-background-processing"]
 providers: ["sql-server", "postgresql"]
 risk: high
 ---
+## Chat and thread file downloads
+
+Files saved through `INhAiArtifacts` also appear in ordinary chats (SPM-276).
+Both the thread routes and the conversation artifact routes retain the original download
+filename, including its extension; the version stays in the metadata and card. The shared
+`NhAssistantArtifactsComponent` in the root Angular entry point serves both contexts;
+the existing `NhAssistantAgentArtifactsComponent` export and selector remain supported.
+See `nh-ai-assistant` and `nh-ai-assistant-ui` for the conversation routes and usage.
+
 ## Preferred approach
 
 Register the agent with `AddAgent` as for chat, then describe how it runs on its

@@ -795,6 +795,12 @@ public sealed partial class SampleAssistantChatClient : IChatClient
             });
         }
 
+        // SPM-276: the same file-producing tool works in an ordinary chat and an agent thread.
+        if (projectId is not null && text.Contains("draft an intake note", StringComparison.OrdinalIgnoreCase))
+        {
+            return Call("projects_draft_intake_note_v1", new { input = new { projectId = Guid.Parse(projectId) } });
+        }
+
         var task = TaskPattern().Match(text);
         if (task.Success)
         {

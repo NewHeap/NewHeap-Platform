@@ -31,6 +31,7 @@ import { NhAssistantQuestionCardComponent } from '../question-card/nh-assistant-
 import { NhAssistantToolCallGroupComponent } from '../tool-call-group/nh-assistant-tool-call-group.component';
 import { NhAssistantToolResultComponent } from '../tool-result/nh-assistant-tool-result.component';
 import type { NhAssistantApprovalRight } from '../../services/nh-assistant.store';
+import { NhAssistantArtifactsComponent } from '../saved-files/nh-assistant-artifacts.component';
 import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
 /** A decision about one approval of the thread. */
@@ -80,6 +81,7 @@ const stickToBottomDistance = 120;
   hostDirectives: [NhAssistantTokensDirective],
   imports: [
     NgTemplateOutlet,
+    NhAssistantArtifactsComponent,
     ScrollingModule,
     TranslatePipe,
     NhAssistantIconComponent,
@@ -111,6 +113,8 @@ export class NhAssistantThreadComponent {
   }
 
   readonly messages = input.required<readonly Message[]>();
+  /** Enables the saved-file list; the panel supplies the open conversation automatically. */
+  readonly conversationId = input<string | null>(null);
   readonly streaming = input(false);
   readonly deciding = input(false);
   readonly markdown = input(true);

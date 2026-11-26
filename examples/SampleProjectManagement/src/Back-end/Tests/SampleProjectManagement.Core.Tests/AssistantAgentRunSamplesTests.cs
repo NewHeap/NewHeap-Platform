@@ -5153,6 +5153,24 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
     }
 
     [Fact]
+    public async Task A_chat_returns_the_intake_note_as_a_downloadable_file()
+    {
+        // SPM-276: executable with the deterministic sample model, without an API key.
+        var project = await host.CreateProjectAsync("CHATFILE", ownerId: host.OwnerId);
+        using var owner = host.CreateClient(host.OwnerId.ToString());
+        var chat = await host.CreateConversationAsync(owner);
+        await host.SendAsync(owner, chat, $"Draft an intake note for project {project:D}.");
+        var files = (await owner.GetFromJsonAsync<NhAssistantArtifactDto[]>($"/api/assistant/conversations/{chat}/artifacts", Json))!;
+        var file = Assert.Single(files);
+        Assert.EndsWith(".md", file.Name);
+        Assert.Null(file.RunId);
+        using var download = await owner.GetAsync($"/api/assistant/conversations/{chat}/artifacts/{file.Id}/content");
+        Assert.Equal(HttpStatusCode.OK, download.StatusCode);
+        // The host replaces project reads with its deterministic approval-evidence service.
+        Assert.StartsWith("# Intake PRJ-APPROVAL", await download.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task The_intake_reviewer_remembers_its_checks_saves_a_note_and_forgets_a_deleted_project()
     {
         // SPM-276

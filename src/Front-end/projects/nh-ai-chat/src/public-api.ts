@@ -38,6 +38,7 @@ export * from './lib/components/launcher/nh-assistant-launcher.component';
 export * from './lib/components/panel/nh-assistant-panel.component';
 export * from './lib/components/conversation-list/nh-assistant-conversation-list.component';
 export * from './lib/components/thread/nh-assistant-thread.component';
+export * from './lib/components/saved-files/nh-assistant-artifacts.component';
 export * from './lib/components/composer/nh-assistant-composer.component';
 export * from './lib/components/tool-call-card/nh-assistant-tool-call-card.component';
 export * from './lib/components/tool-call-group/nh-assistant-tool-call-group.component';

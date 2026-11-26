@@ -102,6 +102,8 @@ public sealed class AssistantEndpointTests(AssistantDatabaseFixture database) : 
 
         var status = await ReadJsonAsync(await client.GetAsync("/api/assistant/status"));
         Assert.False(status.GetProperty("enabled").GetBoolean());
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/assistant/conversations/{Guid.NewGuid()}/artifacts")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/assistant/conversations/{Guid.NewGuid()}/artifacts/{Guid.NewGuid()}/content")).StatusCode);
         Assert.Empty(status.GetProperty("agents").EnumerateArray());
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/assistant/agents")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/assistant/conversations")).StatusCode);

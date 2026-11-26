@@ -159,6 +159,7 @@ public static class NhAssistantEndpointRouteBuilderExtensions
             .Produces(StatusCodes.Status202Accepted)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status403Forbidden)
             .Produces<NhAssistantErrorDto>(StatusCodes.Status404NotFound);
+        NhAssistantArtifactEndpoints.Map(enabled);
         NhAssistantCollaborationEndpoints.Map(enabled);
         AgentRuns.NhAssistantAgentRunEndpoints.Map(enabled);
         AgentRuns.NhAssistantProposalFeedbackEndpoints.Map(enabled);

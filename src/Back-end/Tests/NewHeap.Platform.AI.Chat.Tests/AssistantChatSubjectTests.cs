@@ -222,6 +222,8 @@ public sealed class AssistantChatSubjectTests(AssistantDatabaseFixture database)
 
         // The participant's role ends: reading, turns and live delivery stop for them at once.
         subject.Roles.TryRemove("user-2", out _);
+        await AssertGetRefusedAsync(participant, $"/api/assistant/conversations/{chat}/artifacts", HttpStatusCode.Forbidden, NhAssistantErrorCodes.SubjectAccessDenied);
+        await AssertGetRefusedAsync(participant, $"/api/assistant/conversations/{chat}/artifacts/{Guid.NewGuid()}/content", HttpStatusCode.Forbidden, NhAssistantErrorCodes.SubjectAccessDenied);
         await AssertGetRefusedAsync(participant, $"/api/assistant/conversations/{chat}", HttpStatusCode.Forbidden, NhAssistantErrorCodes.SubjectAccessDenied);
         Assert.False(await MayReadAsync(app, chat, "user-2"));
         Assert.Equal(NhAssistantErrorCodes.SubjectAccessDenied, CodeOf(await GetAsync(app, Person("user-2"), chat)));

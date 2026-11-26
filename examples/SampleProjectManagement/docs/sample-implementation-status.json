@@ -2573,7 +2573,12 @@
       "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantSubjectRetention.cs",
       "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantAgentContinuityTests.cs",
       "src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectSubjectAccessResolver.cs",
-      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTenantBindingTests.cs"
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantTenantBindingTests.cs",
+      "src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs",
+      "../../src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/NhAssistantArtifactEndpoints.cs",
+      "../../src/Back-end/Tests/NewHeap.Platform.AI.Chat.Tests/AssistantArtifactEndpointTests.cs",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/saved-files/nh-assistant-artifacts.component.ts",
+      "../../src/Front-end/projects/nh-ai-chat/src/lib/components/saved-files/nh-assistant-artifacts.component.spec.ts"
     ],
     "SPM-277": [
       "src/Front-end/projects/management/src/app/intake-reviews/intake-reviews-page.component.ts",

@@ -12,6 +12,15 @@ Use only the rules that apply to the current consumer task.
 
 Start agents from committed application events or from people, run them headless as background operations, keep one thread per agent and subject whose access follows the application's own roles, let people decide the agent's proposals later under a named approval policy, also through the application's own channels, let other assistants consult an agent with the asking person's rights, learn from why people reject its proposals, close proposals that people overtook by hand, run agents by fixed rules without a model, never pile up the same proposal, pause, stop, switch off and resume agents from code and the administration, deploy agents and skills that start off, brief agents about their subject within a token ceiling per run, let one agent act as a role with skills, let agents hand work to each other, evaluate shadow variants against the live agent, put an agent or a skill in shadow and change its technical account at runtime, add skills and triggers to an agent as data without a deploy, let agents created in the administration run with the rights of the account they answer to, say what every agent works on, run agents for the whole application, app-wide or per division, place a run's proposals at the objects they concern, keep every run's result with a history that follows the access of what it is about, group agents on boards that show their latest results and what is new, keep the application's own typed data about agents as metadata, let the application execute approved proposals of its own tools and report how they went, take the instructions of data skills and agents created in the administration from the application's own text assets, let administrators connect agents with hand-offs and try shadow variants as data within ceilings in code and promote a variant onto its live agent, change agent definitions from code and read agents as they are in effect, move agents between hosts as versioned agent packages whose locked parts every save keeps, and group the approval inbox by the parent of each proposal's subject with what is new since the last visit, counted and filtered per kind of action, and decide a whole filter of it at once after an overview.
 
+## Chat and thread file downloads
+
+Files saved through `INhAiArtifacts` also appear in ordinary chats (SPM-276).
+Both the thread routes and the conversation artifact routes retain the original download
+filename, including its extension; the version stays in the metadata and card. The shared
+`NhAssistantArtifactsComponent` in the root Angular entry point serves both contexts;
+the existing `NhAssistantAgentArtifactsComponent` export and selector remain supported.
+See `nh-ai-assistant` and `nh-ai-assistant-ui` for the conversation routes and usage.
+
 ## Preferred approach
 
 Register the agent with `AddAgent` as for chat, then describe how it runs on its

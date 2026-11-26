@@ -75,7 +75,7 @@ public sealed class ProjectAiReviewTools(
 
     /// <summary>
     /// SPM-276: reads the project and saves an intake note as a versioned artifact of the agent
-    /// thread. The note is read-only output of the agent; the next run sees its name and version.
+    /// thread or chat. The chat shows its download automatically; the next run sees its name and version.
     /// </summary>
     [NhAiTool(
         "draft-intake-note",
@@ -85,7 +85,7 @@ public sealed class ProjectAiReviewTools(
         AllowAgentGrant = true,
         RequiredCapabilities = new[] { ProjectAiTools.ReadCapability })]
     [Authorize(Policy = ProjectAiTools.ViewPolicy)]
-    [Description("Draft an intake note for one project in the authorized active division and save it as a file of the agent thread.")]
+    [Description("Draft an intake note for one project in the authorized active division and save it as a downloadable file of the conversation.")]
     public async Task<TaskResult<ProjectAiIntakeNote>> DraftIntakeNoteAsync(
         ProjectAiIntakeNoteInput input,
         NhAiInvocationContext context,
@@ -107,7 +107,7 @@ public sealed class ProjectAiReviewTools(
 
         var note = $"# Intake {project.Key}\n\n- Name: {project.Name}\n- Status: {project.Status}\n";
         var saved = await artifacts.SaveAsync(
-            "intake-note-" + project.Key.ToLowerInvariant(),
+            "intake-note-" + project.Key.ToLowerInvariant() + ".md",
             "text/markdown",
             System.Text.Encoding.UTF8.GetBytes(note),
             cancellationToken);

@@ -75,6 +75,8 @@ public sealed class AssistantTenantBindingTests(AssistantDatabaseFixture databas
             $"/api/assistant/threads/{id}/consultations",
             $"/api/assistant/threads/{id}/proposals",
             $"/api/assistant/threads/{id}/memory",
+            $"/api/assistant/conversations/{id}/artifacts",
+            $"/api/assistant/conversations/{id}/artifacts/{Guid.NewGuid()}/content",
             $"/api/assistant/threads/{id}/artifacts",
             $"/api/assistant/threads/{id}/artifacts/{Guid.NewGuid()}/content",
             $"/api/assistant/conversations/{id}"

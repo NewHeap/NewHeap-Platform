@@ -543,6 +543,11 @@ export class NhAssistantMockBackend {
       return this.empty(404);
     }
 
+    if (method === 'GET' && segments[2] === 'artifacts') {
+      // Mock turns save no artifacts. The real endpoints list saved versions and download by id.
+      return segments.length === 3 ? this.json(200, []) : this.error('assistant-artifact-not-found');
+    }
+
     if (segments.length === 2) {
       if (method === 'GET') {
         return this.json(200, this.view(conversation));

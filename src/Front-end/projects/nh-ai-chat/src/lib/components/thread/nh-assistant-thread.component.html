@@ -11,6 +11,7 @@
         <ng-container [ngTemplateOutlet]="workingTemplate" />
       }
     </cdk-virtual-scroll-viewport>
+    <div class="saved-files"><ng-container [ngTemplateOutlet]="artifactsTemplate" /></div>
   } @else {
     <div class="scroller" #scroller tabindex="0">
       @for (message of messages(); track message.id) {
@@ -25,9 +26,16 @@
       @if (working() && workingAfterId() === null) {
         <ng-container [ngTemplateOutlet]="workingTemplate" />
       }
+      <ng-container [ngTemplateOutlet]="artifactsTemplate" />
     </div>
   }
 </div>
+
+<ng-template #artifactsTemplate>
+  @if (conversationId(); as id) {
+    <nh-assistant-artifacts [conversationId]="id" [busy]="streaming()" [compact]="true" />
+  }
+</ng-template>
 
 <ng-template #messageTemplate let-message>
   <article

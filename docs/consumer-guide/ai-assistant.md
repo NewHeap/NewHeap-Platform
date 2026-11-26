@@ -242,6 +242,28 @@ alert kind (FB93).
 
 Register agents over existing governed tools with AddNewHeapAssistant, persist conversations in the library-owned nhai schema, stream turns as server-sent events, let the user approve exact NewHeap proposals in the chat, share conversations with colleagues who continue them with their own permissions, follow them live and notify people who are away, and let administrators manage agents, MCP servers and the application context while users set style preferences.
 
+## Files returned by chat tools (SPM-276)
+
+Inject `INhAiArtifacts` into a tool and call `SaveAsync(name, contentType, bytes, cancellationToken)`
+during its assistant turn. Include the extension in the name, for example `report.pdf` or
+`intake-note.md`, and return the successful artifact metadata from the tool. Check the
+`TaskResult`: the existing `MaxArtifactBytes` limit also applies in ordinary chats. The host
+owns generation (for example its existing HTML-to-PDF converter); the chat package stores
+and delivers bytes of any supported tool output without a PDF dependency.
+
+`MapNewHeapAssistant` maps `GET conversations/{id}/artifacts` (the newest 200 file
+versions as `NhAssistantArtifactDto[]`) and
+`GET conversations/{id}/artifacts/{artifactId}/content`. These use the same live access
+checks as reading the conversation, including subject access, and restrict agent-thread
+results exactly as the existing thread routes do. Metadata contains no file content or
+public URL. Downloads are attachments with their original name, `no-store` and `nosniff`.
+Archiving, leaving or revoking membership/subject access prevents later downloads.
+
+The Angular panel displays files saved by tools after the turn and on reopening the chat;
+the model does not need to invent a URL or encode the file in its answer. Ask it to describe
+the saved file. SPM-276 demonstrates this with the same intake-note tool in a chat and an
+agent thread, using the deterministic sample model.
+
 ## Preferred approach
 
 Add `NewHeap.Platform.AI.Chat.AspNet` and exactly one storage package,
@@ -2632,3 +2654,8 @@ opt-in no imported tool is listed (SPM-399).
   - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleAssistantComposition.cs)
   - [src/Back-end/Applications/SampleProjectManagement.Api/Program.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Program.cs)
   - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiToolDiscoveryPolicy.cs)
+- SPM-276 — Working memory, run summaries, downloadable chat files and thread redaction
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiReviewTools.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectAiReviewTools.cs)
+  - [src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs](../../examples/SampleProjectManagement/src/Back-end/Libraries/SampleProjectManagement.Core/Services/ProjectService.cs)
+  - [src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs](../../examples/SampleProjectManagement/src/Back-end/Applications/SampleProjectManagement.Api/Composition/SampleIntakeReviewerComposition.cs)
+  - [src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs](../../examples/SampleProjectManagement/src/Back-end/Tests/SampleProjectManagement.Core.Tests/AssistantAgentRunSamplesTests.cs)

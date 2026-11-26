@@ -150,6 +150,7 @@
             class="thread"
             [attr.inert]="showPreferences() || showShare() || listOpen() ? '' : null"
             [messages]="messages()"
+            [conversationId]="conversation()?.id ?? null"
             [streaming]="busy()"
             [deciding]="store.deciding()"
             [markdown]="markdown"

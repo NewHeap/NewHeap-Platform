@@ -238,3 +238,11 @@ cdk-virtual-scroll-viewport.scroller {
   color: var(--nha-text);
   background: transparent;
 }
+
+// Keep saved files reachable independently of the virtual message window.
+.saved-files {
+  max-height: 40%;
+  overflow-y: auto;
+  padding-inline: 16px;
+  flex-shrink: 0;
+}
