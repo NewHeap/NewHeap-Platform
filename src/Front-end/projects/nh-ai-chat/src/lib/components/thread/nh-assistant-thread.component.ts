@@ -4,6 +4,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  DestroyRef,
   Injector,
   afterNextRender,
   computed,
@@ -31,6 +32,10 @@ import { NhAssistantQuestionCardComponent } from '../question-card/nh-assistant-
 import { NhAssistantToolCallGroupComponent } from '../tool-call-group/nh-assistant-tool-call-group.component';
 import { NhAssistantToolResultComponent } from '../tool-result/nh-assistant-tool-result.component';
 import type { NhAssistantApprovalRight } from '../../services/nh-assistant.store';
+import { Subscription } from 'rxjs';
+import { AgentArtifact } from '../../models/assistant-agent-run.models';
+import { NhAssistantApiService } from '../../services/nh-assistant-api.service';
+import { nhAssistantReloadOnAgentWork } from '../../internal/nh-assistant-agent-work';
 import { NhAssistantArtifactsComponent } from '../saved-files/nh-assistant-artifacts.component';
 import { NhAssistantTokensDirective } from '../../internal/nh-assistant-tokens';
 
@@ -113,8 +118,25 @@ export class NhAssistantThreadComponent {
   }
 
   readonly messages = input.required<readonly Message[]>();
-  /** Enables the saved-file list; the panel supplies the open conversation automatically. */
+  /** Enables files on the messages that produced them; the panel supplies the conversation. */
   readonly conversationId = input<string | null>(null);
+  private readonly files = signal<readonly AgentArtifact[]>([]);
+  private fileSubscription?: Subscription;
+  private filesConversationId: string | null = null;
+  readonly filesFailed = signal(false);
+  readonly filesByMessage = computed(() => {
+    const grouped = new Map<string, AgentArtifact[]>();
+    for (const file of this.files()) {
+      if (file.messageId) {
+        const group = grouped.get(file.messageId) ?? [];
+        group.push(file);
+        grouped.set(file.messageId, group);
+      }
+    }
+    return grouped;
+  });
+  /** Older servers and files without a tool call cannot identify a message. */
+  readonly unassociatedFiles = computed(() => this.files().filter(file => !file.messageId));
   readonly streaming = input(false);
   readonly deciding = input(false);
   readonly markdown = input(true);
@@ -242,6 +264,26 @@ export class NhAssistantThreadComponent {
   private readonly viewport = viewChild(CdkVirtualScrollViewport);
 
   constructor() {
+    inject(DestroyRef).onDestroy(() => this.fileSubscription?.unsubscribe());
+    effect(() => {
+      const id = this.conversationId();
+      const busy = this.streaming();
+      untracked(() => {
+        if (id !== this.filesConversationId) {
+          this.fileSubscription?.unsubscribe();
+          this.files.set([]);
+          this.filesFailed.set(false);
+          this.filesConversationId = id;
+          this.loadFiles();
+        } else if (!busy) {
+          this.loadFiles();
+        }
+      });
+    });
+    nhAssistantReloadOnAgentWork(
+      change => change.conversationId === this.conversationId() && change.reason !== 'feedback',
+      () => this.loadFiles()
+    );
     // Plans, requests for input and result cards load on first use; once the thread shows, their views
     // arrive while the browser is idle, so such a card shows at once instead of its placeholder.
     const view = inject(DOCUMENT).defaultView;
@@ -266,12 +308,27 @@ export class NhAssistantThreadComponent {
 
     effect(() => {
       this.messages();
+      this.files();
       this.working();
       const element = this.scrollElement();
       const pinned = !element || element.scrollHeight - element.scrollTop - element.clientHeight <= stickToBottomDistance;
       if (pinned) {
         afterNextRender(() => this.scrollToEnd(), { injector: this.injector });
       }
+    });
+  }
+
+  /** Reload the conversation's files once, shared by all its message cards. */
+  loadFiles(): void {
+    const id = this.conversationId();
+    if (!id) {
+      return;
+    }
+    this.fileSubscription?.unsubscribe();
+    this.filesFailed.set(false);
+    this.fileSubscription = this.injector.get(NhAssistantApiService).getArtifacts(id).subscribe({
+      next: files => this.files.set(files),
+      error: () => this.filesFailed.set(true)
     });
   }
 

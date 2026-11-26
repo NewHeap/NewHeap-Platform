@@ -33,6 +33,8 @@ export class NhAssistantArtifactsComponent {
   readonly conversationId = input.required<string>();
   /** Inline chats hide the empty state; standalone file lists show it. */
   readonly compact = input(false);
+  /** Files already loaded by the thread, so each message needs no separate listing request. */
+  readonly items = input<readonly AgentArtifact[] | null>(null);
   /** Reloads when the turn finishes; avoids requests during streaming. */
   readonly busy = input(false);
   private loadedConversationId: string | null = null;
@@ -57,6 +59,7 @@ export class NhAssistantArtifactsComponent {
     effect(() => {
       const id = this.conversationId();
       const busy = this.busy();
+      const items = this.items();
       untracked(() => {
         if (id !== this.loadedConversationId) {
           this.subscription?.unsubscribe();
@@ -65,14 +68,25 @@ export class NhAssistantArtifactsComponent {
           this.loadFailed.set(false);
           this.loadedConversationId = id;
         }
+        if (items !== null) {
+          this.subscription?.unsubscribe();
+          this.artifacts.set([...items]);
+          this.loading.set(false);
+          this.loadFailed.set(false);
+          return;
+        }
         if (!busy) {
           this.load();
         }
       });
     });
     nhAssistantReloadOnAgentWork(
-      change => change.conversationId === this.conversationId() && change.reason !== 'feedback',
-      () => this.fetch(!this.loading() && !this.loadFailed())
+      change => this.items() === null && change.conversationId === this.conversationId() && change.reason !== 'feedback',
+      () => {
+        if (this.items() === null) {
+          this.fetch(!this.loading() && !this.loadFailed());
+        }
+      }
     );
   }
 

@@ -5164,6 +5164,10 @@ public sealed class AssistantAgentRunSamplesTests(AssistantAgentRunSampleHost ho
         var file = Assert.Single(files);
         Assert.EndsWith(".md", file.Name);
         Assert.Null(file.RunId);
+        var conversation = await owner.GetFromJsonAsync<JsonElement>($"/api/assistant/conversations/{chat}", Json);
+        Assert.Contains(conversation.GetProperty("messages").EnumerateArray(), message =>
+            message.GetProperty("role").GetString() == "assistant"
+            && message.GetProperty("id").GetGuid() == file.MessageId);
         using var download = await owner.GetAsync($"/api/assistant/conversations/{chat}/artifacts/{file.Id}/content");
         Assert.Equal(HttpStatusCode.OK, download.StatusCode);
         // The host replaces project reads with its deterministic approval-evidence service.

@@ -64,7 +64,11 @@ public sealed record NhAssistantArtifactDto(
     long SizeBytes,
     DateTimeOffset CreatedAt,
     Guid? RunId,
-    bool Restricted);
+    bool Restricted)
+{
+    /// <summary>The message whose tool saved this file; null for files without a recorded tool call.</summary>
+    public Guid? MessageId { get; init; }
+}
 
 public sealed record NhAssistantStartAgentRequest(
     string? AgentId,

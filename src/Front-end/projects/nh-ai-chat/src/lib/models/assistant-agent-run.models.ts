@@ -968,6 +968,8 @@ export interface AgentThreadMemory {
 
 export interface AgentArtifact {
   id: string;
+  /** The message whose tool saved the file; absent on older servers or without a recorded tool call. */
+  messageId?: string | null;
   name: string;
   version: number;
   contentType: string;

@@ -63,7 +63,11 @@ internal sealed partial class NhAssistantArtifactStore(NhAssistantDbContextFacto
                 item.SizeBytes,
                 item.CreatedAt,
                 item.RunId,
-                item.ToolInvocationId))
+                item.ToolInvocationId,
+                context.ToolInvocations
+                    .Where(call => call.Id == item.ToolInvocationId && call.ConversationId == item.ConversationId)
+                    .Select(call => (Guid?)call.MessageId)
+                    .FirstOrDefault()))
             .ToListAsync(cancellationToken);
     }
 
@@ -91,7 +95,11 @@ internal sealed partial class NhAssistantArtifactStore(NhAssistantDbContextFacto
                 item.SizeBytes,
                 item.CreatedAt,
                 item.RunId,
-                item.ToolInvocationId))
+                item.ToolInvocationId,
+                context.ToolInvocations
+                    .Where(call => call.Id == item.ToolInvocationId && call.ConversationId == item.ConversationId)
+                    .Select(call => (Guid?)call.MessageId)
+                    .FirstOrDefault()))
             .ToListAsync(cancellationToken);
     }
 
@@ -130,7 +138,8 @@ internal sealed record NhAssistantArtifactRow(
     long SizeBytes,
     DateTimeOffset CreatedAt,
     Guid? RunId,
-    Guid? ToolInvocationId);
+    Guid? ToolInvocationId,
+    Guid? MessageId);
 
 /// <summary>
 /// <see cref="INhAiArtifacts"/> for tools that run inside an assistant turn: artifacts belong to

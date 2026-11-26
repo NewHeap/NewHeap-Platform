@@ -256,10 +256,14 @@ versions as `NhAssistantArtifactDto[]`) and
 `GET conversations/{id}/artifacts/{artifactId}/content`. These use the same live access
 checks as reading the conversation, including subject access, and restrict agent-thread
 results exactly as the existing thread routes do. Metadata contains no file content or
-public URL. Downloads are attachments with their original name, `no-store` and `nosniff`.
+public URL. `NhAssistantArtifactDto.MessageId` identifies the message of the tool invocation
+that saved the file, including previously saved files; it is null when no tool call was
+recorded. This association uses existing storage and requires no migration.
+Downloads are attachments with their original name, `no-store` and `nosniff`.
 Archiving, leaving or revoking membership/subject access prevents later downloads.
 
-The Angular panel displays files saved by tools after the turn and on reopening the chat;
+The Angular panel displays files inside the assistant message that saved them, after the
+turn and on reopening the chat;
 the model does not need to invent a URL or encode the file in its answer. Ask it to describe
 the saved file. SPM-276 demonstrates this with the same intake-note tool in a chat and an
 agent thread, using the deterministic sample model.

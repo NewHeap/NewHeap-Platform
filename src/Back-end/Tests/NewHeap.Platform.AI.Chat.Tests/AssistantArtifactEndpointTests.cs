@@ -19,7 +19,9 @@ public sealed class AssistantArtifactEndpointTests(AssistantDatabaseFixture data
         var model = new NhAiScriptedChatClient()
             .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "roadmap" } })
             .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "roadmap" } })
-            .RespondWithText("The notes are ready.");
+            .RespondWithText("The notes are ready.")
+            .RespondWithFunctionCall("projects_search_v1", new { input = new { query = "updated roadmap" } })
+            .RespondWithText("The updated note is ready.");
         await using var app = await AssistantWebApplication.StartAsync(database, model, provider: provider);
         app.Tools.SaveSearchArtifact = true;
         using var owner = app.CreateClient();
@@ -35,6 +37,19 @@ public sealed class AssistantArtifactEndpointTests(AssistantDatabaseFixture data
         var artifacts = (await owner.GetFromJsonAsync<NhAssistantArtifactDto[]>(files))!;
         Assert.Equal([2, 1], artifacts.Select(file => file.Version));
         Assert.All(artifacts, file => { Assert.Null(file.RunId); Assert.False(file.Restricted); });
+        var conversation = await owner.GetFromJsonAsync<JsonElement>($"/api/assistant/conversations/{id}");
+        var answer = Assert.Single(conversation.GetProperty("messages").EnumerateArray(),
+            message => message.GetProperty("role").GetString() == "assistant");
+        Assert.All(artifacts, file => Assert.Equal(answer.GetProperty("id").GetGuid(), file.MessageId));
+        using var followUp = await owner.PostAsJsonAsync($"/api/assistant/conversations/{id}/messages",
+            new { text = "Save an updated note.", clientMessageId = "updated-notes" });
+        followUp.EnsureSuccessStatusCode();
+        await ReadAllAsync(followUp);
+        var reopened = (await owner.GetFromJsonAsync<NhAssistantArtifactDto[]>(files))!;
+        Assert.Equal([3, 2, 1], reopened.Select(file => file.Version));
+        Assert.NotNull(reopened[0].MessageId);
+        Assert.NotEqual(artifacts[0].MessageId, reopened[0].MessageId);
+        Assert.Equal(artifacts.Select(file => file.MessageId), reopened.Skip(1).Select(file => file.MessageId));
         var content = files + $"/{artifacts[0].Id}/content";
         using var download = await owner.GetAsync(content);
         Assert.Equal(HttpStatusCode.OK, download.StatusCode);

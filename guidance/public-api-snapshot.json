@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "guidanceVersion": "1.13.135",
   "backEnd": {
-    "hash": "5f5fb66469807d5eaea99e03ae04cf66883169ffbcd26373542677c57e0ef526",
-    "declarationCount": 14344,
+    "hash": "f3a7e77150d1bcbec433a221eac01592e9770754266151bb3aa401c87c464670",
+    "declarationCount": 14345,
     "declarations": [
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.AgentFramework/NhAiAgentFrameworkAdapter.cs",
@@ -5615,7 +5615,11 @@
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
-        "declaration": "public sealed record NhAssistantArtifactDto( Guid Id, string Name, int Version, string ContentType, long SizeBytes, DateTimeOffset CreatedAt, Guid? RunId, bool Restricted);"
+        "declaration": "public sealed record NhAssistantArtifactDto( Guid Id, string Name, int Version, string ContentType, long SizeBytes, DateTimeOffset CreatedAt, Guid? RunId, bool Restricted) {"
+      },
+      {
+        "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",
+        "declaration": "public Guid? MessageId { get; init; }"
       },
       {
         "path": "src/Back-end/Libraries/NewHeap.Platform.AI.Chat.AspNet/AgentRuns/NhAssistantAgentRunContracts.cs",

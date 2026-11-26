@@ -223,7 +223,10 @@ internal sealed class NhAssistantRunHistory(
                     shield,
                     store,
                     artifact.ToolInvocationId,
-                    cancellationToken)));
+                    cancellationToken))
+            {
+                MessageId = artifact.MessageId
+            });
         }
 
         // A result the run's rules wrote per culture reads in the reader's culture.

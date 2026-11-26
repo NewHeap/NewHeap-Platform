@@ -68,7 +68,10 @@ internal static class NhAssistantArtifactEndpoints
             items.Add(new NhAssistantArtifactDto(
                 row.Id, row.Name, row.Version, row.ContentType, row.SizeBytes, row.CreatedAt, row.RunId,
                 shield is not null && !await NhAssistantAgentRunEndpoints.MayReadArtifactAsync(
-                    shield, store, row.ToolInvocationId, httpContext.RequestAborted)));
+                    shield, store, row.ToolInvocationId, httpContext.RequestAborted))
+            {
+                MessageId = row.MessageId
+            });
         }
         httpContext.Response.Headers.CacheControl = "no-store";
         return TypedResults.Json(items.ToArray(), NhAssistantAgentRunJsonSerializerContext.Default.NhAssistantArtifactDtoArray);

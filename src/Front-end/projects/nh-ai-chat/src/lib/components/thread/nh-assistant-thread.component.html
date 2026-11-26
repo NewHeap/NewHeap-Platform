@@ -33,13 +33,22 @@
 
 <ng-template #artifactsTemplate>
   @if (conversationId(); as id) {
-    <nh-assistant-artifacts [conversationId]="id" [busy]="streaming()" [compact]="true" />
+    @if (filesFailed()) {
+      <div class="part" role="alert">
+        <p>{{ 'nh-assistant.agent-runs.load-failed' | translate }}</p>
+        <button type="button" (click)="loadFiles()">{{ 'nh-assistant.agent-runs.retry' | translate }}</button>
+      </div>
+    }
+    @if (unassociatedFiles().length > 0) {
+      <nh-assistant-artifacts [conversationId]="id" [items]="unassociatedFiles()" [compact]="true" />
+    }
   }
 </ng-template>
 
 <ng-template #messageTemplate let-message>
   <article
     class="message"
+    [attr.data-message-id]="message.id"
     [attr.data-role]="message.role"
     [attr.data-others]="isOthers(message) ? 'true' : null"
     [attr.data-author]="isTrigger(message) ? 'trigger' : isRule(message) ? 'rule' : isApplication(message) ? 'application' : null"
@@ -142,6 +151,11 @@
             [answering]="answeringElicitationId() === group.part.elicitationId"
             (answer)="answerElicitation(group.part, $event)" />
         }
+      }
+    }
+    @if (message.role === 'assistant' && conversationId(); as id) {
+      @if (filesByMessage().get(message.id); as files) {
+        <nh-assistant-artifacts class="part" [conversationId]="id" [items]="files" [compact]="true" />
       }
     }
     @if (isApplication(message) && message.application?.link; as link) {

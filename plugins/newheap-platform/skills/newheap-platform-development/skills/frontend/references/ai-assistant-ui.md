@@ -1168,8 +1168,12 @@ needs no proposal. The tool call shows `awaiting-client` (`Running in the app`) 
 ### Files returned by tools (SPM-276)
 
 The panel supplies its conversation id to `nh-assistant-thread`, which shows the files
-tools saved with `INhAiArtifacts.SaveAsync`. The list reloads when the turn finishes and
-on reopening the chat; it stays empty until there are files. Each card shows the original
+tools saved with `INhAiArtifacts.SaveAsync` inside the assistant message that produced
+them, using `AgentArtifact.messageId`. One listing request supplies all message cards.
+Files stay with their original answer during later turns, reopening and virtual scrolling;
+never infer their owner from the newest message, filename or timestamp. The list reloads
+when the turn finishes and on reopening. Files without a recorded message (including
+older servers) remain in the separate file list for compatibility. Each card shows the original
 filename, version, content type and size, with a download action, error and retry states.
 Downloads use the same host credentials/headers as the assistant API, create a temporary
 browser blob and release it afterwards. The filename keeps its extension.
@@ -1177,6 +1181,7 @@ browser blob and release it afterwards. The filename keeps its extension.
 For a custom file view, import `NhAssistantArtifactsComponent` from
 `@newheap/platform-ai-chat` and use
 `<nh-assistant-artifacts [conversationId]="id" [busy]="turnRunning" />`.
+`items` supplies already-loaded files without another listing request; omit it for a standalone list.
 `compact` hides the standalone loading/empty state for inline use. A custom thread opts
 in through `NhAssistantThreadComponent.conversationId`.
 `NhAssistantApiService.getArtifacts` lists versions; `downloadArtifact` returns a
