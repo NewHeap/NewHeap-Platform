@@ -242,7 +242,7 @@ describe('Run now in the administration', () => {
     // An agent of objects only is not offered the whole application.
     let opened = await openFromCard('projects');
     expect(Array.from(opened.dialog.querySelectorAll<HTMLElement>('[data-target]')).map(item => item.textContent?.trim())).toEqual(['Projects']);
-    const closed = new Promise<void>(resolve => opened.dialog.querySelector('dialog')!.addEventListener('close', () => resolve(), { once: true }));
+    const closed = new Promise<void>(resolve => opened.dialog.addEventListener('close', () => resolve(), { once: true }));
     button(opened.dialog, 'Cancel').click();
     await closed;
     await settle(opened.fixture);
